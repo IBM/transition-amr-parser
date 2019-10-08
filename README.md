@@ -2,7 +2,7 @@
 
 Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR), based on stack-lstms. 
 
-Current code implements the orignal stack-lstm parser for AMR from
+Current code implements the original stack-lstm parser for AMR from
 
 - Ballesteros, Miguel, and Yaser Al-Onaizan. **AMR Parsing using Stack-LSTMs**. In Proceedings of the 2017 Conference on Empirical Methods in Natural Language Processing. Association for Computational Linguistics. (EMNLP 2017)
 
@@ -33,7 +33,7 @@ python versions and work without the need for root
 General training AMR data is available from LDC2017T10. You will need to
 reformat the alignments to match the JAMR styles (see sample data file in
 `data/wiki25.jkln`). Files in `data/` are provided with CC-SA 4.0 license. We
-also provide a sample of the coresponding BERT embeddings in `data/`
+also provide a sample of the corresponding BERT embeddings in `data/`
 
 ### Pre-processing Instructions
 After downloading the LDC 2017 data, you can preprocess it as follows. The
