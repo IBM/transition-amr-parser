@@ -1,0 +1,14 @@
+name: stack_lstm_amr
+channels:
+  - https://public.dhe.ibm.com/ibmdl/export/pub/software/server/ibm-ai/conda
+  - powerai
+  - defaults
+dependencies:
+  - cudatoolkit=10.1.168=533.g8d035fd
+  - pip=19.2.3=py36_0
+  - python=3.6.9=h2bede3c_0
+  - pytorch=1.1.0=py36_18202.gc0fb6ff
+  - requests
+  - h5py
+  - spacy
+  - tqdm
