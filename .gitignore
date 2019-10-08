@@ -1,0 +1,17 @@
+# These should not be commited
+scripts/local_variables.sh
+
+# external tools
+smatch/
+amr-evaluation/
+
+# virtual environments
+.python-version
+venv/
+
+# other
+__pycache__/
+# assumed used to store models
+models/
+# assumed where data stored
+data/
