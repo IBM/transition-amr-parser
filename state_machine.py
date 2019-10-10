@@ -74,9 +74,27 @@ class Transitions:
             print(self.printStackBuffer())
 
     def __str__(self):
-        s = '\t'.join(self.amr.tokens)+'\n'
-        s += '\t'.join([a for a in self.actions])+'\n'
-        return s+'\n'
+
+        # Tokens
+        # tokens_str = ' '.join(self.amr.tokens)
+
+        # Actions
+        action_str = ' '.join([a for a in self.actions])
+
+        # Buffer
+        buffer_str = " ".join([
+            self.amr.tokens[i - 1] if i != -1 else self.amr.tokens[-1] 
+            for i in reversed(self.buffer)
+        ])
+
+        # Stack
+        stack_str = " ".join([self.amr.tokens[i - 1] for i in self.stack])
+
+        # AMR comment nottation
+        amr_str = self.amr.toJAMRString(allow_incomplete=True)
+
+        return f'{action_str}\n\n{buffer_str}\n{stack_str}\n\n{amr_str}'
+
 
     @classmethod
     def readAction(cls, action):
@@ -144,6 +162,7 @@ class Transitions:
     def SHIFT(self):
         """SHIFT : move buffer[-1] to stack[-1]"""
 
+        # FIXME: No nested actions. This can be handled at try time
         if not self.buffer:
             self.CLOSE()
         tok = self.buffer.pop()
