@@ -16,12 +16,12 @@ import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 import torch.multiprocessing as mp
 
-from amr import JAMR_CorpusReader
-from state_machine import Transitions
-import stack_lstm as sl
-import utils
-from utils import print_log, smatch_wrapper
-from data_oracle import AMR_Oracle
+from transition_amr_parser.amr import JAMR_CorpusReader
+from transition_amr_parser.state_machine import Transitions
+import transition_amr_parser.stack_lstm as sl
+import transition_amr_parser.utils as utils
+from transition_amr_parser.utils import print_log, smatch_wrapper
+from transition_amr_parser.data_oracle import AMR_Oracle
 
 from tqdm import tqdm
 import h5py
@@ -139,7 +139,11 @@ def main():
     if args.read_gold_actions:
         oracle.transitions = oracle.read_actions(args.read_gold_actions)
     else:
-        oracle.runOracle(cr.amrs, add_unaligned=add_unaligned, action_file=args.write_gold_actions)
+        oracle.runOracle(
+            cr.amrs,
+            add_unaligned=add_unaligned,
+            out_actions=args.write_gold_actions
+        )
 
     train_amrs = oracle.gold_amrs
     dev_sentences = [

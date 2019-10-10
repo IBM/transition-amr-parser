@@ -7,16 +7,16 @@ set -o errexit
 
 [ ! -d data/ ] && mkdir data/
 
-# # create oracle data
-# python data_oracle.py \
-#     --in-amr $dev_file \
-#     --out-amr data/dev.oracle.amr \
-#     --out-sentences data/dev.tokens \
-#     --out-actions data/dev.actions \
+# create oracle data
+amr-oracle \
+    --in-amr $dev_file \
+    --out-amr data/dev.oracle.amr \
+    --out-sentences data/dev.tokens \
+    --out-actions data/dev.actions \
 
 # parse a sentence step by step
-python parse.py \
+amr-parse \
     --in-sentences data/dev.tokens \
     --in-actions data/dev.actions \
-    --offset 7 \
+    --offset 0 \
     --step-by-step

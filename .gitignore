@@ -11,6 +11,7 @@ venv/
 
 # other
 __pycache__/
+transition_amr_parser.egg-info/
 # assumed used to store models
 models/
 # assumed where data stored
