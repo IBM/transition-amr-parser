@@ -3,7 +3,7 @@ import os
 import signal
 import argparse
 import re
-from transition_amr_parser.state_machine import Transitions
+from transition_amr_parser.state_machine import AMRStateMachine
 
 
 def argument_parser():
@@ -83,7 +83,7 @@ def main():
             continue
 
         # Initialize state machine
-        amr_state_machine = Transitions(sent_tokens)
+        amr_state_machine = AMRStateMachine(sent_tokens)
     
         # process each
         for raw_action in sent_actions:

@@ -5,7 +5,7 @@ from collections import Counter
 import transition_amr_parser.state_machine
 from transition_amr_parser.utils import print_log
 from transition_amr_parser.amr import JAMR_CorpusReader
-from transition_amr_parser.state_machine import Transitions
+from transition_amr_parser.state_machine import AMRStateMachine
 
 """
     This algorithm contains heuristics for solving
@@ -140,7 +140,7 @@ class AMR_Oracle:
                 raise IOError(f'Action file formatted incorrectly: {sent}')
             tokens = s[0].split('\t')
             actions = s[1].split('\t')
-            transitions.append(Transitions(tokens))
+            transitions.append(AMRStateMachine(tokens))
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
@@ -173,7 +173,7 @@ class AMR_Oracle:
             if self.verbose:
                 print("New Sentence " + str(sent_idx) + "\n\n\n")
 
-            tr = Transitions(gold_amr.tokens, verbose=self.verbose, add_unaligned=add_unaligned)
+            tr = AMRStateMachine(gold_amr.tokens, verbose=self.verbose, add_unaligned=add_unaligned)
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
 

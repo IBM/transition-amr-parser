@@ -6,7 +6,7 @@ from collections import Counter
 from transition_amr_parser.amr import AMR
 
 """
-    Transitions applies operations in a transition-based AMR parser
+    AMRStateMachine applies operations in a transition-based AMR parser
 
     Actions are
         SHIFT : move buffer[-1] to stack[-1]
@@ -33,7 +33,7 @@ entities_path = f'{repo_root}/data/entity_rules.json'
 default_rel = ':rel'
 
 
-class Transitions:
+class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0):
         tokens = tokens.copy()

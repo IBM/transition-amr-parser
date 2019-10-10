@@ -17,7 +17,7 @@ from torch.utils.data.distributed import DistributedSampler
 import torch.multiprocessing as mp
 
 from transition_amr_parser.amr import JAMR_CorpusReader
-from transition_amr_parser.state_machine import Transitions
+from transition_amr_parser.state_machine import AMRStateMachine
 import transition_amr_parser.stack_lstm as sl
 import transition_amr_parser.utils as utils
 from transition_amr_parser.utils import print_log, smatch_wrapper
@@ -429,7 +429,7 @@ def eval_parser(exp_name, model, args, dev_sentences, h5py_test, epoch_idx, smat
             with open(actions_file, 'a') as f:
                 f.write('\t'.join(tokens) + '\n')
                 f.write('\t'.join(apply_actions) + '\n\n')
-        tr = Transitions(tokens, verbose=False)
+        tr = AMRStateMachine(tokens, verbose=False)
         tr.applyActions(apply_actions)
         with open(predicted_amr_file, 'a') as f:
             f.write(tr.amr.toJAMRString())
@@ -558,7 +558,7 @@ def build_amr(tokens, actions, labels, labelsA, predicates):
         else:
             apply_actions.append(act)
     toks = [tok for tok in tokens if tok != "<eof>"]
-    tr = Transitions(toks, verbose=False)
+    tr = AMRStateMachine(toks, verbose=False)
     tr.applyActions(apply_actions)
     return tr.amr
 
@@ -641,7 +641,7 @@ class AMRModel(torch.nn.Module):
         self.action2idx = {'<pad>': 0}
         for tr in oracle_transitions:
             for a in tr.actions:
-                a = Transitions.readAction(a)[0]
+                a = AMRStateMachine.readAction(a)[0]
                 self.action2idx.setdefault(a, len(self.action2idx))
             for p in tr.predicates:
                 self.pred2idx.setdefault(p, len(self.pred2idx))
