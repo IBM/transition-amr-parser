@@ -76,7 +76,7 @@ class AMR:
                    edges=sg_edges,
                    nodes={n: self.nodes[n] for n in node_ids})
 
-    def toJAMRString(self):
+    def toJAMRString(self, allow_incomplete=False):
         output = str(self)
 
         # amr string
@@ -120,16 +120,21 @@ class AMR:
                 nodes.remove(n)
                 nodes.update(targets)
             depth += 1
-        if len(completed) < len(self.nodes):
-            print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) + ' nodes printed:\n ' + amr_string, file=sys.stderr)
-        if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
-            amr_string = '(x/'+amr_string+')'
-        if not amr_string.startswith('('):
-            amr_string = '('+amr_string+')'
-        if len(self.nodes) == 0:
-            amr_string = '(a/amr-empty)'
 
-        output += amr_string + '\n\n'
+        if allow_incomplete:
+            pass
+
+        else:
+            if len(completed) < len(self.nodes):
+                print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) + ' nodes printed:\n ' + amr_string)
+            if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
+                amr_string = '(x/'+amr_string+')'
+            if not amr_string.startswith('('):
+                amr_string = '('+amr_string+')'
+            if len(self.nodes) == 0:
+                amr_string = '(a/amr-empty)'
+
+            output += amr_string + '\n\n'
 
         return output
 
