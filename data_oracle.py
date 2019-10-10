@@ -1,4 +1,5 @@
 import sys
+import argparse
 from collections import Counter
 
 import state_machine
@@ -27,6 +28,72 @@ from state_machine import Transitions
 use_addnode_rules = True
 
 
+def argument_parser():
+
+    parser = argparse.ArgumentParser(description='AMR parser oracle')
+    # Single input parameters
+    parser.add_argument(
+        "--in-amr", 
+        help="AMR notation in LDC format",
+        type=str,
+        required=True
+    )
+    parser.add_argument(
+        "--out-oracle",
+        help="tokens, AMR notation and actions given by oracle",
+        default='oracle_actions.txt',
+        type=str
+    )
+    parser.add_argument(
+        "--out-sentences",
+        help="tokenized sentences from --in-amr",
+        type=str
+    )
+    parser.add_argument(
+        "--out-actions",
+        help="actions given by oracle",
+        type=str
+    )
+    # Multiple input parameters
+    parser.add_argument(
+        "--out-amr", 
+        default='oracle_amrs.txt',
+        help="corresponding AMR",
+        type=str
+    )
+
+    args = parser.parse_args()
+
+    return args
+
+
+def writer(file_path):
+    """
+    Returns a writer that writes to file_path if it is not None, does nothing
+    otherwise
+
+    calling the writed without arguments will close the file
+    """
+    if file_path:
+        # Erase file
+        fid = open(file_path, 'w+')        
+        fid.close()
+        # open for appending
+        fid = open(file_path, 'a+', encoding='utf8')
+    else:
+        fid = None
+
+    def append_data(content=None):
+        """writes to open file"""
+        if fid: 
+            if content is None:
+                fid.close()
+            else:    
+                fid.write(content)
+
+    return append_data
+
+
 class AMR_Oracle:
 
     def __init__(self, verbose=False):
@@ -48,9 +115,17 @@ class AMR_Oracle:
 
         self.possibleEntityTypes = Counter()
 
-        self.stats = {'CONFIRM': Counter(), 'REDUCE': Counter(), 'SWAP': Counter(), 'LA': Counter(),
-                      'RA': Counter(), 'ENTITY': Counter(), 'MERGE': Counter(), 'DEPENDENT': Counter(),
-                      'INTRODUCE': Counter()}
+        self.stats = {
+            'CONFIRM': Counter(),
+            'REDUCE': Counter(),
+            'SWAP': Counter(),
+            'LA': Counter(),
+            'RA': Counter(),
+            'ENTITY': Counter(), 
+            'MERGE': Counter(),
+            'DEPENDENT': Counter(),
+            'INTRODUCE': Counter()
+        }
 
     def read_actions(self, actions_file):
         transitions = []
@@ -70,20 +145,27 @@ class AMR_Oracle:
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
-    def runOracle(self, gold_amrs, action_file=None, graph_file=None, add_unaligned=0):
+    def runOracle(self, gold_amrs, out_oracle=None, out_amr=None,
+                  out_sentences=None, out_actions=None, add_unaligned=0):
 
         print_log("oracle", "Parsing data")
+        # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
+        # where we will store the outputs
         start = 0
-        if action_file:
-            with open(action_file, 'w+') as f:
-                f.write('')
-        if graph_file:
-            with open(graph_file, 'w+') as f:
-                f.write('')
 
-        included_unaligned = ['-', 'and', 'multi-sentence', 'person', 'cause-01', 'you', 'more', 'imperative', '1', 'thing', ]
+        # open all files (if paths provided) and get writers to them
+        oracle_write = writer(out_oracle) 
+        amr_write = writer(out_amr) 
+        sentence_write = writer(out_sentences) 
+        actions_write = writer(out_actions) 
+
+        # unaligned tokens
+        included_unaligned = [
+            '-', 'and', 'multi-sentence', 'person', 'cause-01', 'you', 'more',
+            'imperative', '1', 'thing', 
+        ]
 
         for sent_idx, gold_amr in enumerate(self.gold_amrs):
 
@@ -124,6 +206,7 @@ class AMR_Oracle:
 
             while tr.buffer or tr.stack:
 
+                # top and second to top of the stack
                 stack0 = tr.stack[-1] if tr.stack else 'NA'
                 stack1 = tr.stack[-2] if len(tr.stack) > 1 else 'NA'
 
@@ -187,33 +270,42 @@ class AMR_Oracle:
                     tr.buffer = []
                     break
             tr.CLOSE(training=True, gold_amr=gold_amr, use_addnonde_rules=use_addnode_rules)
-            if graph_file:
-                with open(graph_file, 'a+', encoding='utf8') as f:
-                    f.write(tr.amr.toJAMRString())
-            if action_file:
-                with open(action_file, 'a+', encoding='utf8') as f:
-                    f.write(str(tr))
+
+            # update files
+            oracle_write(str(tr)) 
+            amr_write(tr.amr.toJAMRString()) 
+            sentence_write(str(tr).split('\n')[5].split('# ::tok ')[1] + '\n') 
+            actions_write(str(tr).split('\n')[0] + '\n') 
+
             del gold_amr.nodes[-1]
         print_log("oracle", "Done")
 
-    """
-    Check if the next action is CONFIRM
+        # close files if open
+        oracle_write() 
+        amr_write() 
+        sentence_write() 
+        actions_write() 
 
-    If the gold node label is different from the assigned label,
-    return the gold label.
-    """
 
     def tryConfirm(self, transitions, amr, gold_amr):
+        """
+        Check if the next action is CONFIRM
+    
+        If the gold node label is different from the assigned label,
+        return the gold label.
+        """
 
         if not transitions.stack:
             return False
 
         stack0 = transitions.stack[-1]
-
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
+
+        # TODO: What is the logic here?
         if 'DEPENDENT' not in transitions.actions[-1] and len(tok_alignment) != 1:
             return False
 
+        # TODO: What is the logic here?
         if stack0 in transitions.entities:
             return False
 
@@ -224,6 +316,7 @@ class AMR_Oracle:
         isPred = stack0 not in transitions.is_confirmed
 
         if isPred:
+            # FIXME: state altering code should be outside of tryACTION
             new_node = gold_amr.nodes[gold_id]
             old_node = amr.nodes[stack0]
 
@@ -235,14 +328,13 @@ class AMR_Oracle:
             self.new_node = new_node
         return isPred
 
-    """
-    Check if the next action is LA (left arc)
-
-    If there is an unpredicted edge from stack[-1] to stack[-2]
-    return the edge label.
-    """
-
     def tryLA(self, transitions, amr, gold_amr):
+        """
+        Check if the next action is LA (left arc)
+    
+        If there is an unpredicted edge from stack[-1] to stack[-2]
+        return the edge label.
+        """
 
         if len(transitions.stack) < 2:
             return False
@@ -258,18 +350,18 @@ class AMR_Oracle:
         dependent = transitions.stack[-2]
         isLeftHead, labelL = self.isHead(amr, gold_amr, head, dependent)
 
+        # FIXME: state altering code should be outside of tryACTION
         if isLeftHead:
             self.new_edge = labelL
         return isLeftHead
 
-    """
-    Check if the next action is RA (right arc)
-
-    If there is an unpredicted edge from stack[-2] to stack[-1]
-    return the edge label.
-    """
-
     def tryRA(self, transitions, amr, gold_amr):
+        """
+        Check if the next action is RA (right arc)
+    
+        If there is an unpredicted edge from stack[-2] to stack[-1]
+        return the edge label.
+        """
 
         if len(transitions.stack) < 2:
             return False
@@ -285,33 +377,34 @@ class AMR_Oracle:
         dependent = transitions.stack[-1]
         isRightHead, labelR = self.isHead(amr, gold_amr, head, dependent)
 
+        # FIXME: state altering code should be outside of tryACTION
         if isRightHead:
             self.new_edge = labelR
         return isRightHead
 
-    """
-    Check if the next action is REDUCE
-
-    If
-    1) there is nothing aligned to a token, or
-    2) all gold edges are already predicted for thet token,
-    then return True.
-    """
-
     def tryReduce(self, transitions, amr, gold_amr, node_id=None):
+        """
+        Check if the next action is REDUCE
+    
+        If
+        1) there is nothing aligned to a token, or
+        2) all gold edges are already predicted for thet token,
+        then return True.
+        """
 
         if not transitions.stack and not node_id:
             return False
 
         stack0 = transitions.stack[-1]
-
+        # FIXME: where is id defined? 
         node_id = stack0 if not node_id else id
 
         tok_alignment = gold_amr.alignmentsToken2Node(node_id)
         if len(tok_alignment) == 0:
             return True
 
-        # check if we should merge instead (i.e. the alignment is the same as the next token)
+        # check if we should merge instead (i.e. the alignment is the same as
+        # the next token)
         if transitions.buffer:
             buffer0 = transitions.buffer[-1]
             buffer0_alignment = gold_amr.alignmentsToken2Node(buffer0)
@@ -351,49 +444,49 @@ class AMR_Oracle:
             return True
         return False
 
-    """
-    Check if the next action is MERGE
-
-    Merge if two tokens have the same alignment.
-    """
-
     def tryMerge(self, transitions, amr, gold_amr, first=None, second=None):
+        """
+        Check if the next action is MERGE
+    
+        Merge if two tokens have the same alignment.
+        """
+        # TODO: pass alignments instead of whole gold_amr
+
+        # confitions
         if not first or not second:
             if len(transitions.stack) < 2:
                 return False
-
             first = transitions.stack[-1]
             second = transitions.stack[-2]
-
         if first == second:
             return False
-
         first_alignment = gold_amr.alignmentsToken2Node(first)
         second_alignment = gold_amr.alignmentsToken2Node(second)
         if not first_alignment or not second_alignment:
             return False
+
+        # If both tokens aremapped to same node or overlap
         if first_alignment == second_alignment:
             return True
         if set(first_alignment).intersection(set(second_alignment)):
             return True
         return False
 
-    """
-    Check if the next action is SWAP
-
-    SWAP if there is an unpredicted gold edge between stack[-1]
-    and some other node in the stack (blocked by stack[-2])
-    or if stack1 can be reduced.
-    """
-
     def trySWAP(self, transitions, amr, gold_amr):
-
+        """
+        Check if the next action is SWAP
+    
+        SWAP if there is an unpredicted gold edge between stack[-1]
+        and some other node in the stack (blocked by stack[-2])
+        or if stack1 can be reduced.
+        """
         if len(transitions.stack) < 2:
             return False
 
         stack0 = transitions.stack[-1]
         stack1 = transitions.stack[-2]
 
+        # Forbid if both words have been swapped already 
         if stack0 in transitions.swapped_words and stack1 in transitions.swapped_words.get(stack0):
             return False
         if stack1 in transitions.swapped_words and stack0 in transitions.swapped_words.get(stack1):
@@ -405,8 +498,9 @@ class AMR_Oracle:
             if self.tryMerge(transitions, amr, gold_amr, first=stack0, second=buffer0):
                 return False
 
+        # Look for tokens other than stack-top-two that can be head or child 
+        # of stack-top
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
-
         for tok in transitions.stack:
             if tok == stack1 or tok == stack0:
                 continue
@@ -424,16 +518,15 @@ class AMR_Oracle:
         #     return True
         return False
 
-    """
-    Check if the next action is DEPENDENT
-
-
-    Only for :polarity and :mode, if an edge and node is aligned
-    to this token in the gold amr but does not exist in the predicted amr,
-    the oracle adds it using the DEPENDENT action.
-    """
-
     def tryDependent(self, transitions, amr, gold_amr):
+        """
+        Check if the next action is DEPENDENT
+    
+    
+        Only for :polarity and :mode, if an edge and node is aligned
+        to this token in the gold amr but does not exist in the predicted amr,
+        the oracle adds it using the DEPENDENT action.
+        """
 
         if not transitions.stack:
             return False
@@ -451,6 +544,8 @@ class AMR_Oracle:
 
         for s, r, t in gold_amr.edges:
             if s == source and r in [":polarity", ":mode"]:
+                # FIXME: state altering code should be outside of tryACTION
+                # in this case we need to recompute ...
                 if (stack0, r) in [(e[0], e[1]) for e in amr.edges]:
                     continue
                 if t not in tok_alignment and (t in gold_amr.alignments and gold_amr.alignments[t]):
@@ -460,11 +555,10 @@ class AMR_Oracle:
                 return True
         return False
 
-    """
-    Check if the next action is ENTITY
-    """
-
     def tryEntity(self, transitions, amr, gold_amr):
+        """
+        Check if the next action is ENTITY
+        """
 
         if not transitions.stack:
             return False
@@ -499,9 +593,9 @@ class AMR_Oracle:
             if len(edges) == 1 and edges[0][1] in [':mode', ':polarity']:
                 return False
 
+        # FIXME: state altering code should be outside of tryACTION
         final_nodes = [n for n in tok_alignment if not any(s == n for s, r, t in edges)]
         new_nodes = [gold_amr.nodes[n] for n in tok_alignment if n not in final_nodes]
-
         self.entity_type = ','.join(new_nodes)
         self.possibleEntityTypes[self.entity_type] += 1
 
@@ -540,6 +634,9 @@ class AMR_Oracle:
         return False, ''
 
     def tryIntroduce(self, transitions, amr, gold_amr):
+        """
+        TODO:
+        """
         if not transitions.stack or not transitions.latent:
             return False
         stack0 = transitions.stack[-1]
@@ -574,28 +671,35 @@ class AMR_Oracle:
 
 if __name__ == '__main__':
 
-    input_file = sys.argv[1]
-    gfile = sys.argv[2] if len(sys.argv) > 2 else 'oracle_amrs.txt'
-    afile = sys.argv[3] if len(sys.argv) > 3 else 'oracle_actions.txt'
+    # Argument handling
+    args = argument_parser()
 
-    cr = JAMR_CorpusReader()
-    cr.load_amrs(input_file)
+    corpus = JAMR_CorpusReader()
+    corpus.load_amrs(args.in_amr)
 
-    oracle = AMR_Oracle(verbose=True)
     print_log("amr", "Processing oracle")
-    oracle.runOracle(cr.amrs, action_file=afile, graph_file=gfile, add_unaligned=0)
+    oracle = AMR_Oracle(verbose=True)
+    oracle.runOracle(
+        corpus.amrs,
+        out_oracle=args.out_oracle,
+        out_amr=args.out_amr,
+        out_sentences=args.out_sentences, 
+        out_actions=args.out_actions,
+        add_unaligned=0
+    )
+    # inform user
     for stat in oracle.stats:
         print_log("amr", stat)
         print_log("amr", oracle.stats[stat].most_common(100))
         print_log("amr", "")
 
     if use_addnode_rules:
-        for x in transitions.entity_rule_totals:
-            perc = transitions.entity_rule_stats[x]/transitions.entity_rule_totals[x]
-            print(x,  transitions.entity_rule_stats[x], '/', transitions.entity_rule_totals[x], '=', f'{perc:.2f}')
-        perc = sum(transitions.entity_rule_stats.values())/sum(transitions.entity_rule_totals.values())
+        for x in state_machine.entity_rule_totals:
+            perc = state_machine.entity_rule_stats[x]/state_machine.entity_rule_totals[x]
+            print(x,  state_machine.entity_rule_stats[x], '/', state_machine.entity_rule_totals[x], '=', f'{perc:.2f}')
+        perc = sum(state_machine.entity_rule_stats.values())/sum(state_machine.entity_rule_totals.values())
         print('Totals:', f'{perc:.2f}')
 
         print()
         print('Failed Entity Predictions:')
-        print(transitions.entity_rule_fails.most_common(1000))
+        print(state_machine.entity_rule_fails.most_common(1000))
