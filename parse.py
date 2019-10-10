@@ -1,5 +1,6 @@
 # AMR parsing given a sentence and a model 
 import os
+import signal
 import argparse
 import re
 from state_machine import Transitions
@@ -48,6 +49,11 @@ def argument_parser():
     return args
 
 
+def ordered_exit(signum, frame):
+    print("\nStopped by user\n")
+    exit(0)
+
+
 def token_reader(file_path):
     with open(file_path) as fid:
         for line in fid:
@@ -62,9 +68,16 @@ if __name__ == '__main__':
     sentences = token_reader(args.in_sentences)
     actions = token_reader(args.in_actions)
 
-    sent_idx = 0
+    # set orderd exit
+    if args.step_by_step:
+        signal.signal(signal.SIGINT, ordered_exit)
+        signal.signal(signal.SIGTERM, ordered_exit)
+
+    sent_idx = -1
     for sent_tokens, sent_actions in zip(sentences, actions):
 
+
+        sent_idx += 1
         if args.offset and sent_idx < args.offset:
             continue
 
@@ -78,30 +91,9 @@ if __name__ == '__main__':
             if args.step_by_step:
                 os.system('clear')
             print(amr_state_machine)
-    
-            # Rename PRED
-            if raw_action.startswith('PRED'):
-                raw_action = raw_action.replace('PRED', 'CONFIRM')
-            elif raw_action == 'UNSHIFT':
-                raw_action = 'SWAP'
-    
-            # FIXME: This action is wrong
-            if raw_action == 'SHIFT' and amr_state_machine.buffer == []:
-                raw_action = 'CLOSE'
-    
-            # Update state
-            if raw_action in ['SHIFT', 'REDUCE', 'MERGE', 'SWAP', 'INTRODUCE', 
-                              'CLOSE', 'UNSHIFT']:
-                # argument-less action
-                getattr(amr_state_machine, raw_action)()
-            else:
-                # action with arguments 
-                fetch = re.match('([A-Z]+)\((.*)\)', raw_action)
-                action, arguments = fetch.groups()
-                arguments = arguments.split(',')
-                getattr(amr_state_machine, action)(*arguments)
 
-            sent_idx += 1
-    
+            # Update machine
+            amr_state_machine.applyAction(raw_action)
+
             if args.step_by_step:
                 input('Press any key to continue')
