@@ -3,7 +3,7 @@ import os
 import signal
 import argparse
 import re
-from state_machine import Transitions
+from transition_amr_parser.state_machine import Transitions
 
 
 def argument_parser():
@@ -60,8 +60,9 @@ def token_reader(file_path):
             yield line.rstrip().split()
 
 
-if __name__ == '__main__':
+def main():
 
+    # Argument handling
     args = argument_parser()
 
     # Get data generators

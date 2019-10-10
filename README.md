@@ -12,12 +12,13 @@ Code developed mainly by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 ## Install
 
-the code has been tested on Python 3.6
+the code has been tested on Python 3.6. to install do
 
-    cd stack-lstm-amr-parser
-    pip install -r requirements.txt
+    cd transition-amr-parser
+    pip install .
 
-you also need to download the spacy English model for lemmatization
+use the `--editable` flag if you plan to alter the code. You also need to
+download the spacy English model for lemmatization
 
     python -m spacy download en
 
@@ -53,7 +54,7 @@ New files will be placed in the `data` folder. The process will take ~1 hour to 
 this will use the sample data (train is same as dev)
 
 ```
-python learn.py -A data/wiki25.jkaln -a data/wiki25.jkaln -B data/wiki25.bert_max_cased.hdf5 -b data/wiki25.bert_max_cased.hdf5 --name my-model
+amr-learn -A data/wiki25.jkaln -a data/wiki25.jkaln -B data/wiki25.bert_max_cased.hdf5 -b data/wiki25.bert_max_cased.hdf5 --name my-model
 ```
 
 # More information

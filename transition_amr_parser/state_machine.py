@@ -1,8 +1,9 @@
 import json
+import os
 import re
 from collections import Counter
 
-from amr import AMR
+from transition_amr_parser.amr import AMR
 
 """
     Transitions applies operations in a transition-based AMR parser
@@ -24,6 +25,10 @@ NUM_RE = re.compile(r'^([0-9]|,)+(st|nd|rd|th)?$')
 entity_rule_stats = Counter()
 entity_rule_totals = Counter()
 entity_rule_fails = Counter()
+
+# get path of provided entity_rules
+repo_root = os.path.realpath(f'{os.path.dirname(__file__)}/../')
+entities_path = f'{repo_root}/data/entity_rules.json'
 
 default_rel = ':rel'
 
@@ -121,7 +126,7 @@ class Transitions:
                 self.CLOSE()
                 return True
         elif action_label in ['REDUCE', 'REDUCE1']:
-            self.REDUCE()
+            ()
         elif action_label in ['LA', 'LA1']:
             self.LA(action[1] if action[1].startswith(':') else ':'+action[1])
         elif action_label in ['RA', 'RA1']:
@@ -507,7 +512,7 @@ class Transitions:
         global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
 
         if not entity_rules_json:
-            with open('entity_rules.json', 'r', encoding='utf8') as f:
+            with open(entities_path, 'r', encoding='utf8') as f:
                 entity_rules_json = json.load(f)
 
         for entity_id in self.entities:

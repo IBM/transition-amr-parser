@@ -1,4 +1,5 @@
 set -o errexit
+set -o nounset
 set -o pipefail 
 
 # sanity checks
@@ -12,7 +13,7 @@ config=$1
 . $config 
 
 # train model
-python learn.py \
+amr-learn \
     -A $train_file \
     -a $dev_file \
     -B $train_bert  \
@@ -21,6 +22,7 @@ python learn.py \
     --desc "$name" \
     --name model \
     --no_chars \
+    --no_bert \
     --cores $num_cores \
     --batch $batch_size \
     --lr $lr \

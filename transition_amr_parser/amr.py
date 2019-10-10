@@ -1,5 +1,5 @@
 import sys
-from utils import print_log
+from transition_amr_parser.utils import print_log
 
 
 class AMR:

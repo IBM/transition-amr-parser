@@ -2,11 +2,10 @@ import sys
 import argparse
 from collections import Counter
 
-import state_machine
-from utils import print_log
-from amr import JAMR_CorpusReader
-# from scripts.data_augment import SpecialTokens
-from state_machine import Transitions
+import transition_amr_parser.state_machine
+from transition_amr_parser.utils import print_log
+from transition_amr_parser.amr import JAMR_CorpusReader
+from transition_amr_parser.state_machine import Transitions
 
 """
     This algorithm contains heuristics for solving
@@ -669,7 +668,7 @@ class AMR_Oracle:
         return False
 
 
-if __name__ == '__main__':
+def main():
 
     # Argument handling
     args = argument_parser()
@@ -687,6 +686,7 @@ if __name__ == '__main__':
         out_actions=args.out_actions,
         add_unaligned=0
     )
+
     # inform user
     for stat in oracle.stats:
         print_log("amr", stat)
@@ -695,11 +695,13 @@ if __name__ == '__main__':
 
     if use_addnode_rules:
         for x in state_machine.entity_rule_totals:
-            perc = state_machine.entity_rule_stats[x]/state_machine.entity_rule_totals[x]
-            print(x,  state_machine.entity_rule_stats[x], '/', state_machine.entity_rule_totals[x], '=', f'{perc:.2f}')
-        perc = sum(state_machine.entity_rule_stats.values())/sum(state_machine.entity_rule_totals.values())
+            perc = state_machine.entity_rule_stats[x] / \
+                state_machine.entity_rule_totals[x]
+            print(x,  state_machine.entity_rule_stats[x], '/', 
+                  state_machine.entity_rule_totals[x], '=', f'{perc:.2f}')
+        perc = sum(state_machine.entity_rule_stats.values()) / \
+            sum(state_machine.entity_rule_totals.values())
         print('Totals:', f'{perc:.2f}')
-
         print()
         print('Failed Entity Predictions:')
         print(state_machine.entity_rule_fails.most_common(1000))
