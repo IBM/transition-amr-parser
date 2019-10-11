@@ -1,11 +1,18 @@
 import sys
+import re
 import argparse
 from collections import Counter
 
-import transition_amr_parser.state_machine
+from tqdm import tqdm
+
 from transition_amr_parser.utils import print_log
 from transition_amr_parser.amr import JAMR_CorpusReader
-from transition_amr_parser.state_machine import AMRStateMachine
+from transition_amr_parser.state_machine import (
+    AMRStateMachine, 
+    entity_rule_stats,
+    entity_rule_totals,
+    entity_rule_fails
+)
 
 """
     This algorithm contains heuristics for solving
@@ -60,13 +67,23 @@ def argument_parser():
         help="corresponding AMR",
         type=str
     )
-
+    # 
+    parser.add_argument(
+        "--verbose", 
+        action='store_true',
+        help="verbose processing"
+    )
+    parser.add_argument(
+        "--no-whitespace-in-actions", 
+        action='store_true',
+        help="avoid tab separation in actions and sentences by removing whitespaces"
+    )
     args = parser.parse_args()
 
     return args
 
 
-def writer(file_path):
+def writer(file_path, add_return=False):
     """
     Returns a writer that writes to file_path if it is not None, does nothing
     otherwise
@@ -88,7 +105,10 @@ def writer(file_path):
             if content is None:
                 fid.close()
             else:    
-                fid.write(content)
+                if add_return:
+                    fid.write(content + '\n')
+                else:     
+                    fid.write(content)
 
     return append_data
 
@@ -145,7 +165,8 @@ class AMR_Oracle:
         self.transitions = transitions
 
     def runOracle(self, gold_amrs, out_oracle=None, out_amr=None,
-                  out_sentences=None, out_actions=None, add_unaligned=0):
+                  out_sentences=None, out_actions=None, add_unaligned=0, 
+                  no_whitespace_in_actions=False):
 
         print_log("oracle", "Parsing data")
         # deep copy of gold AMRs
@@ -157,8 +178,8 @@ class AMR_Oracle:
         # open all files (if paths provided) and get writers to them
         oracle_write = writer(out_oracle) 
         amr_write = writer(out_amr) 
-        sentence_write = writer(out_sentences) 
-        actions_write = writer(out_actions) 
+        sentence_write = writer(out_sentences, add_return=True) 
+        actions_write = writer(out_actions, add_return=True) 
 
         # unaligned tokens
         included_unaligned = [
@@ -166,7 +187,11 @@ class AMR_Oracle:
             'imperative', '1', 'thing', 
         ]
 
-        for sent_idx, gold_amr in enumerate(self.gold_amrs):
+        for sent_idx, gold_amr in tqdm(
+            enumerate(self.gold_amrs),
+            desc=f'computing oracle',
+            total=len(self.gold_amrs)
+        ):
 
             if sent_idx < start:
                 continue
@@ -273,8 +298,23 @@ class AMR_Oracle:
             # update files
             oracle_write(str(tr)) 
             amr_write(tr.amr.toJAMRString()) 
-            sentence_write(str(tr).split('\n')[5].split('# ::tok ')[1] + '\n') 
-            actions_write(str(tr).split('\n')[0] + '\n') 
+            tokens = str(tr).split('\n')[5].split('# ::tok ')[1]
+            sentence_write(tokens) 
+            actions = str(tr).split('\n')[0]
+            # TODO: Make sure this normalizing strategy is denornalized
+            # elsewhere
+            if no_whitespace_in_actions:
+                confirmed = re.findall('PRED\(([^\)]*)\)', actions)
+                whitepace_confirmed = [x for x in confirmed if ' ' in x]
+                # ensure we do not have the normalization sign
+                for concept in whitepace_confirmed:
+                    assert not '_' in concept
+                    normalized_concept = concept.replace(' ', '_')
+                    actions = actions.replace(
+                        f'PRED({concept})',
+                        f'PRED({normalized_concept})'
+                    )
+            actions_write(actions) 
 
             del gold_amr.nodes[-1]
         print_log("oracle", "Done")
@@ -677,31 +717,32 @@ def main():
     corpus.load_amrs(args.in_amr)
 
     print_log("amr", "Processing oracle")
-    oracle = AMR_Oracle(verbose=True)
+    oracle = AMR_Oracle(verbose=args.verbose)
     oracle.runOracle(
         corpus.amrs,
         out_oracle=args.out_oracle,
         out_amr=args.out_amr,
         out_sentences=args.out_sentences, 
         out_actions=args.out_actions,
-        add_unaligned=0
+        add_unaligned=0,
+        no_whitespace_in_actions=args.no_whitespace_in_actions
     )
 
     # inform user
     for stat in oracle.stats:
-        print_log("amr", stat)
-        print_log("amr", oracle.stats[stat].most_common(100))
-        print_log("amr", "")
+        if args.verbose:
+            print_log("amr", stat)
+            print_log("amr", oracle.stats[stat].most_common(100))
+            print_log("amr", "")
 
     if use_addnode_rules:
-        for x in state_machine.entity_rule_totals:
-            perc = state_machine.entity_rule_stats[x] / \
-                state_machine.entity_rule_totals[x]
-            print(x,  state_machine.entity_rule_stats[x], '/', 
-                  state_machine.entity_rule_totals[x], '=', f'{perc:.2f}')
-        perc = sum(state_machine.entity_rule_stats.values()) / \
-            sum(state_machine.entity_rule_totals.values())
-        print('Totals:', f'{perc:.2f}')
-        print()
-        print('Failed Entity Predictions:')
-        print(state_machine.entity_rule_fails.most_common(1000))
+        for x in entity_rule_totals:
+            perc = entity_rule_stats[x] / entity_rule_totals[x]
+            if args.verbose:
+                print_log(x, entity_rule_stats[x], '/', 
+                          entity_rule_totals[x], '=', f'{perc:.2f}')
+        perc = sum(entity_rule_stats.values()) / \
+            sum(entity_rule_totals.values())
+        print_log('Totals:', f'{perc:.2f}')
+        print_log('Totals:', 'Failed Entity Predictions:')
+        print_log('Totals:', entity_rule_fails.most_common(1000))
