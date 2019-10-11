@@ -126,7 +126,8 @@ class AMRStateMachine:
                 self.CLOSE()
                 return True
         elif action_label in ['REDUCE', 'REDUCE1']:
-            ()
+            self.REDUCE()
+            # ()
         elif action_label in ['LA', 'LA1']:
             self.LA(action[1] if action[1].startswith(':') else ':'+action[1])
         elif action_label in ['RA', 'RA1']:
