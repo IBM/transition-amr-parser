@@ -77,7 +77,7 @@ def main():
     sent_idx = -1
     for sent_tokens, sent_actions in zip(sentences, actions):
 
-
+        # keep count of sentence index
         sent_idx += 1
         if args.offset and sent_idx < args.offset:
             continue
