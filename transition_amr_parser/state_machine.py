@@ -852,7 +852,7 @@ class AMRStateMachine:
         global entity_rules_json
 
         if not entity_rules_json:
-            with open('entity_rules.json', 'r', encoding='utf8') as f:
+            with open(entities_path, 'r', encoding='utf8') as f:
                 entity_rules_json = json.load(f)
 
         lstring = string.lower()
