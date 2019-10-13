@@ -17,7 +17,7 @@ python remove_wiki.py
 
 # JAMR
 echo -e "\nDownloading JAMR\n"
-git clone https://github.com/jflanigan/jamr.git
+[ ! -d jamr ] && git clone https://github.com/jflanigan/jamr.git
 cd jamr
 git checkout Semeval-2016 >> output 2>> error-log.out
 ./setup >> output 2>> error-log.out
@@ -95,7 +95,7 @@ cd ..
 
 echo -e "\nClean\n"
 python clean.py
-rm 1 2 3 4 5 6 7 8
+rm merge_scripts/1 merge_scripts/2 merge_scripts/3 merge_scripts/4 merge_scripts/5 merge_scripts/6 merge_scripts/7 merge_scripts/8
 
 echo -e "\nCopying data to ../data\n"
 cp train.merged.txt ../data/train.txt
