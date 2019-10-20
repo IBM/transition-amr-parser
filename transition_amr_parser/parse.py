@@ -49,8 +49,17 @@ def argument_parser():
         help="start at given sentence number (starts at zero)",
         type=int
     )
+    parser.add_argument(
+        "--random-up-to",
+        help="sample randomly from a max number",
+        type=int
+    )
 
     args = parser.parse_args()
+
+    if args.random_up_to:
+        import numpy as np
+        args.offset = np.random.randint(args.random_up_to)
 
     # Sanity checks
     assert args.in_sentences or args.in_sentence_list
@@ -122,4 +131,5 @@ def main():
                 input('Press any key to continue')
 
     # Output AMR
-    amr_write()
+    if args.out_amr:
+        amr_write()
