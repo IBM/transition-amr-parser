@@ -92,9 +92,6 @@ class AMRStateMachine:
             print('INIT')
             print(self.printStackBuffer())
 
-        # storage for printing
-        self.str_state = ""
-
     def __str__(self):
 
         # Command line styling
@@ -107,6 +104,9 @@ class AMRStateMachine:
         
         def black_font(string):
             return "\033[30m%s\033[0m" % string
+
+        def blue_font(string):
+            return "\033[94m%s\033[0m" % string
         
         def stack_style(string):
             return black_font(white_background(string))
@@ -134,7 +134,18 @@ class AMRStateMachine:
 
         # Stack
         stack_idx = [i - 1 for i in self.stack]
-        stack_str = " ".join([self.amr.tokens[i] for i in stack_idx])
+        stack_str = []
+        for i in stack_idx:
+            if i in self.merged_tokens:
+                # Take into account merged tokens
+                stack_str.append("(" + " ".join([
+                    self.amr.tokens[j - 1] for j in self.merged_tokens[i]
+                ]) + ")")
+            else:
+                stack_str.append(self.amr.tokens[i])
+        stack_str = " ".join(stack_str)
+
+        merged_pos = [y - 1  for x in self.merged_tokens.values() for y in x]
 
         # mask view
         mask_view = []
@@ -147,25 +158,36 @@ class AMRStateMachine:
 
             # color depedning on position
             if position in buffer_idx:
-                token = ' ' + token
+                token = token + ' '
             elif position in stack_idx:
-                token = ' ' + stack_style(token)
+                token = stack_style(token) + ' '
+            elif position in merged_pos:
+                token = stack_style(token + ' ')
             else:
-                token = ' ' + reduced_style(token)
+                token = reduced_style(token) + ' ' 
             # position cursor
             if position in stack_idx and stack_idx.index(position) == len(stack_idx) - 1:
-                pointer_view.append(' ' + '_' * len_token)
+                pointer_view.append('_' * len_token + ' ')
             elif position in stack_idx and stack_idx.index(position) ==  len(stack_idx) - 2:
-                pointer_view.append(' ' + '-' * len_token)
+                pointer_view.append('-' * len_token + ' ')
             else:
-                pointer_view.append(' ' + ' ' * len_token)
+                pointer_view.append(' ' * len_token + ' ')
             mask_view.append(token)
 
         mask_view_str = "".join(mask_view)
         pointer_view_str = "".join(pointer_view)
 
-        return '%s\n\n%s\n%s' % (action_str, mask_view_str, pointer_view_str)
-        #return '%s\n\n%s\n%s\n\n%s' % (action_str, mask_view_str, pointer_view_str, amr_str)
+        # nodes
+        nodes_str = " ".join([x for x in self.predicates if x != '_'])
+
+        # Edges
+        edges_str = []
+        for items in self.amr.edges:
+            i, label, j = items
+            edges_str.append("%s %s %s" % (self.amr.nodes[i], blue_font(label), self.amr.nodes[j]))
+        edges_str = "\n".join(edges_str)
+
+        return '# Actions:\n%s\n\n\n# Buffer/Stack/Reduced:\n%s\n%s\n\n# Predicates:\n%s\n\n# Edges:\n%s\n' % (action_str, pointer_view_str, mask_view_str, nodes_str, edges_str)
 
         #return f'{action_str}\n\n{buffer_str}\n{stack_str}\n\n{amr_str}'
 
