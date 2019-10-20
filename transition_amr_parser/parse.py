@@ -1,9 +1,11 @@
 # AMR parsing given a sentence and a model 
 import os
+from tqdm import tqdm
 import signal
 import argparse
 import re
 from transition_amr_parser.state_machine import AMRStateMachine
+from transition_amr_parser.data_oracle import writer
 
 
 def argument_parser():
@@ -17,7 +19,12 @@ def argument_parser():
     )
     parser.add_argument(
         "--in-actions", 
-        help="file space with carriare return separated sentences",
+        help="file space with carriage return separated sentences",
+        type=str
+    )
+    parser.add_argument(
+        "--out-amr",
+        help="parsing model",
         type=str
     )
     parser.add_argument(
@@ -28,6 +35,12 @@ def argument_parser():
     parser.add_argument(
         "--step-by-step",
         help="pause after each action",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--clear-print",
+        help="clear command line before each print",
         action='store_true',
         default=False
     )
@@ -74,8 +87,12 @@ def main():
         signal.signal(signal.SIGINT, ordered_exit)
         signal.signal(signal.SIGTERM, ordered_exit)
 
+    # Output AMR
+    if args.out_amr:
+        amr_write = writer(args.out_amr) 
+
     sent_idx = -1
-    for sent_tokens, sent_actions in zip(sentences, actions):
+    for sent_tokens, sent_actions in tqdm(zip(sentences, actions)):
 
         # keep count of sentence index
         sent_idx += 1
@@ -84,13 +101,18 @@ def main():
 
         # Initialize state machine
         amr_state_machine = AMRStateMachine(sent_tokens)
+
+        # Output AMR
+        if args.out_amr:
+            amr_write(amr_state_machine.amr.toJAMRString())
     
         # process each
         for raw_action in sent_actions:
     
             # Print state
-            if args.step_by_step:
+            if args.step_by_step or args.clear_print:
                 os.system('clear')
+            print(f'sentence {sent_idx}\n')
             print(amr_state_machine)
 
             # Update machine
@@ -98,3 +120,6 @@ def main():
 
             if args.step_by_step:
                 input('Press any key to continue')
+
+    # Output AMR
+    amr_write()
