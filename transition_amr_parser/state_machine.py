@@ -1,7 +1,8 @@
 import json
+import torch
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 
 from transition_amr_parser.amr import AMR
 
@@ -35,7 +36,13 @@ default_rel = ':rel'
 
 class AMRStateMachine:
 
-    def __init__(self, tokens, verbose=False, add_unaligned=0):
+    def __init__(self, tokens, verbose=False, add_unaligned=0, 
+                 action_list=None, action_list_by_prefix=None):
+        """
+        TODO: action_list containing list of allowed actions should be
+        mandatory
+        """
+
         tokens = tokens.copy()
 
         # add unaligned
@@ -74,31 +81,93 @@ class AMRStateMachine:
         self.is_confirmed.add(-1)
         self.swapped_words = {}
 
+        # FIXME: This should be mandatory and eveloped to be
+        # consisten with oracle by design. Need to think how to do
+        # this
+        if action_list:
+            self.action_list = action_list
+            self.action_list_by_prefix = action_list_by_prefix
+
         if self.verbose:
             print('INIT')
             print(self.printStackBuffer())
 
+        # storage for printing
+        self.str_state = ""
+
     def __str__(self):
+
+        # Command line styling
+
+        def white_background(string):
+            return "\033[107m%s\033[0m" % string
+        
+        def red_background(string):
+            return "\033[101m%s\033[0m" % string
+        
+        def black_font(string):
+            return "\033[30m%s\033[0m" % string
+        
+        def stack_style(string):
+            return black_font(white_background(string))
+
+        def reduced_style(string):
+            return black_font(red_background(string))
 
         # Tokens
         # tokens_str = ' '.join(self.amr.tokens)
+
+        # AMR comment nottation
+        amr_str = self.amr.toJAMRString(allow_incomplete=True)
+
+        self.str_state = ""
 
         # Actions
         action_str = ' '.join([a for a in self.actions])
 
         # Buffer
-        buffer_str = " ".join([
-            self.amr.tokens[i - 1] if i != -1 else self.amr.tokens[-1] 
+        buffer_idx = [
+            i - 1 if i != -1 else len(self.amr.tokens) - 1
             for i in reversed(self.buffer)
-        ])
+        ]
+        buffer_str = " ".join([self.amr.tokens[i] for i in buffer_idx])
 
         # Stack
-        stack_str = " ".join([self.amr.tokens[i - 1] for i in self.stack])
+        stack_idx = [i - 1 for i in self.stack]
+        stack_str = " ".join([self.amr.tokens[i] for i in stack_idx])
 
-        # AMR comment nottation
-        amr_str = self.amr.toJAMRString(allow_incomplete=True)
+        # mask view
+        mask_view = []
+        pointer_view = []
+        for position in range(len(self.amr.tokens)):
+            # token
+            token = str(self.amr.tokens[position])
 
-        return f'{action_str}\n\n{buffer_str}\n{stack_str}\n\n{amr_str}'
+            len_token = len(token)
+
+            # color depedning on position
+            if position in buffer_idx:
+                token = ' ' + token
+            elif position in stack_idx:
+                token = ' ' + stack_style(token)
+            else:
+                token = ' ' + reduced_style(token)
+            # position cursor
+            if position in stack_idx and stack_idx.index(position) == len(stack_idx) - 1:
+                pointer_view.append(' ' + '_' * len_token)
+            elif position in stack_idx and stack_idx.index(position) ==  len(stack_idx) - 2:
+                pointer_view.append(' ' + '-' * len_token)
+            else:
+                pointer_view.append(' ' + ' ' * len_token)
+            mask_view.append(token)
+
+        mask_view_str = "".join(mask_view)
+        pointer_view_str = "".join(pointer_view)
+
+        return '%s\n\n%s\n%s' % (action_str, mask_view_str, pointer_view_str)
+        #return '%s\n\n%s\n%s\n\n%s' % (action_str, mask_view_str, pointer_view_str, amr_str)
+
+        #return f'{action_str}\n\n{buffer_str}\n{stack_str}\n\n{amr_str}'
 
 
     @classmethod
@@ -117,6 +186,12 @@ class AMRStateMachine:
         return s
 
     def applyAction(self, act):
+
+#         # This should be checked first for speed
+#         if self.action_list.index(act) not in self.get_valid_action_indices():
+#             import ipdb; ipdb.set_trace(context=30)
+#             aa = 0
+
         action = self.readAction(act)
         action_label = action[0]
         if action_label in ['SHIFT']:
@@ -138,6 +213,7 @@ class AMRStateMachine:
             self.RA('root')
         elif action_label in ['PRED', 'CONFIRM']:
             self.CONFIRM(action[-1])
+        # TODO: Why multiple keywords for the same action?
         elif action_label in ['SWAP', 'UNSHIFT', 'UNSHIFT1']:
             self.SWAP()
         elif action_label in ['DUPLICATE']:
@@ -155,6 +231,9 @@ class AMRStateMachine:
         elif action_label in ['CLOSE']:
             self.CLOSE()
             return True
+        elif act == '</s>':
+            # Do nothing action. Wait until other machines in the batch finish
+            pass
         else:
             raise Exception(f'Unrecognized action: {act}')
 
@@ -164,6 +243,90 @@ class AMRStateMachine:
             if is_closed:
                 return
         self.CLOSE()
+
+    def get_valid_node(self):
+        stack0 = self.stack[-1]
+        import ipdb; ipdb.set_trace(context=30)
+
+    def get_valid_action_indices(self):
+        """Return valid actions for this state at test time (no oracle info)"""
+        valid_action_indices = []
+
+        # Buffer not empty
+        if len(self.buffer):
+            valid_action_indices.extend(self.action_list_by_prefix['SHIFT'])
+            # FIXME: reduce also accepted here if node_id != None and something
+            # aligned to it (see tryReduce)
+
+        # One or more tokens in stack
+        if len(self.stack) > 0:    
+            valid_action_indices.extend(self.action_list_by_prefix['REDUCE'])
+            valid_action_indices.extend(self.action_list_by_prefix['DEPENDENT'])
+
+            # valid_node = get_valid_node(self):
+            valid_action_indices.extend(self.action_list_by_prefix['PRED'])
+
+            # Forbid entitity if top token already an entity
+            if self.stack[-1] not in self.entities:
+                # FIXME: Any rules involving MERGE here?
+                valid_action_indices.extend(self.action_list_by_prefix['ENTITY'])
+
+            # Forbid introduce if no latent
+            if len(self.latent) > 0:
+                valid_action_indices.extend(self.action_list_by_prefix['INTRODUCE'])
+
+        # two or more tokens in stack
+        if len(self.stack) > 1:    
+
+            valid_action_indices.extend(self.action_list_by_prefix['LA'])
+            valid_action_indices.extend(self.action_list_by_prefix['RA'])
+
+            stack0 = self.stack[-1]
+            stack1 = self.stack[-2]
+
+            # Forbid merging if two words are identical
+            if stack0 != stack1:
+                valid_action_indices.extend(self.action_list_by_prefix['MERGE'])
+
+            # Forbid SWAP if both words have been swapped already 
+            if ( 
+                (
+                    stack0 not in self.swapped_words or
+                    stack1 not in self.swapped_words.get(stack0)
+                ) and
+                (
+                    stack1 not in self.swapped_words or
+                    stack0 not in self.swapped_words.get(stack1)
+                )
+            ):
+                valid_action_indices.extend(self.action_list_by_prefix['SWAP'])
+
+        # If not valid action indices machine is closed, output EOL
+        if valid_action_indices == []:
+            valid_action_indices = [self.action_list.index('</s>')]
+
+        return valid_action_indices
+
+    def update_from_logp(self, action_logp):
+        """
+        Given log probabilities of all actions update state machine with the
+        most probable and return masked probabilities including only valid
+        actions
+        """
+
+        # get indices of valid actions
+        valid_indices = self.get_valid_action_indices()
+
+        # Set all invalid actions to -Inf log probability
+        const_action_logp = torch.ones_like(action_logp) * float('-inf')
+        const_action_logp.to(action_logp.device)
+        const_action_logp[valid_indices] = action_logp[valid_indices]
+
+        best_action_index = const_action_logp.argmax()
+        best_action = self.action_list[best_action_index]
+        self.applyAction(best_action)
+
+        return const_action_logp
 
     def SHIFT(self):
         """SHIFT : move buffer[-1] to stack[-1]"""
