@@ -1,4 +1,5 @@
 import sys
+import json
 import re
 import argparse
 from collections import Counter
@@ -58,6 +59,11 @@ def argument_parser():
     parser.add_argument(
         "--out-actions",
         help="actions given by oracle",
+        type=str
+    )
+    parser.add_argument(
+        "--out-action-stats",
+        help="statistics about actions",
         type=str
     )
     # Multiple input parameters
@@ -337,6 +343,8 @@ class AMR_Oracle:
         if not transitions.stack:
             return False
 
+        # Rules that use oracle info
+
         stack0 = transitions.stack[-1]
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
 
@@ -378,6 +386,8 @@ class AMR_Oracle:
         if len(transitions.stack) < 2:
             return False
 
+        # Rules that use oracle info
+
         # check if we should MERGE instead
         if len(transitions.buffer) > 0:
             buffer0 = transitions.buffer[-1]
@@ -405,6 +415,8 @@ class AMR_Oracle:
         if len(transitions.stack) < 2:
             return False
 
+        # Rules that use oracle info
+
         # check if we should MERGE instead
         if len(transitions.buffer) > 0:
             buffer0 = transitions.buffer[-1]
@@ -427,12 +439,14 @@ class AMR_Oracle:
     
         If
         1) there is nothing aligned to a token, or
-        2) all gold edges are already predicted for thet token,
+        2) all gold edges are already predicted for the token,
         then return True.
         """
 
         if not transitions.stack and not node_id:
             return False
+
+        # Rules that use oracle info
 
         stack0 = transitions.stack[-1]
         # FIXME: where is id defined? 
@@ -442,8 +456,8 @@ class AMR_Oracle:
         if len(tok_alignment) == 0:
             return True
 
-        # check if we should merge instead (i.e. the alignment is the same as
-        # the next token)
+        # if we should merge, i.e. the alignment is the same as the next token,
+        # do not reduce
         if transitions.buffer:
             buffer0 = transitions.buffer[-1]
             buffer0_alignment = gold_amr.alignmentsToken2Node(buffer0)
@@ -489,9 +503,8 @@ class AMR_Oracle:
     
         Merge if two tokens have the same alignment.
         """
-        # TODO: pass alignments instead of whole gold_amr
 
-        # confitions
+        # conditions
         if not first or not second:
             if len(transitions.stack) < 2:
                 return False
@@ -499,6 +512,9 @@ class AMR_Oracle:
             second = transitions.stack[-2]
         if first == second:
             return False
+
+        # Rules that use oracle info
+
         first_alignment = gold_amr.alignmentsToken2Node(first)
         second_alignment = gold_amr.alignmentsToken2Node(second)
         if not first_alignment or not second_alignment:
@@ -530,6 +546,8 @@ class AMR_Oracle:
             return False
         if stack1 in transitions.swapped_words and stack0 in transitions.swapped_words.get(stack1):
             return False
+
+        # Rules that use oracle info
 
         # check if we should MERGE instead
         if len(transitions.buffer) > 0:
@@ -570,6 +588,8 @@ class AMR_Oracle:
         if not transitions.stack:
             return False
 
+        # Rules that use oracle info
+
         stack0 = transitions.stack[-1]
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
 
@@ -608,6 +628,8 @@ class AMR_Oracle:
         if stack0 in transitions.entities:
             return False
 
+        # Rules that use oracle info
+
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
 
         # check if alignment empty (or singleton)
@@ -640,14 +662,13 @@ class AMR_Oracle:
 
         return True
 
-    """
-    Check if the x is the head of y in the gold AMR graph
-
-    If (the root of) x has an edge to (the root of) y in the gold AMR
-    which is not in the predicted AMR, return True.
-    """
-
     def isHead(self, amr, gold_amr, x, y):
+        """
+        Check if the x is the head of y in the gold AMR graph
+    
+        If (the root of) x has an edge to (the root of) y in the gold AMR
+        which is not in the predicted AMR, return True.
+        """
 
         x_alignment = gold_amr.alignmentsToken2Node(x)
         y_alignment = gold_amr.alignmentsToken2Node(y)
@@ -680,15 +701,14 @@ class AMR_Oracle:
             return False
         stack0 = transitions.stack[-1]
 
+        # Rules that use oracle info
+
         # check if we should MERGE instead
         if len(transitions.buffer) > 0:
             buffer0 = transitions.buffer[-1]
             stack0 = transitions.stack[-1]
             if self.tryMerge(transitions, amr, gold_amr, first=stack0, second=buffer0):
                 return False
-
-        if not transitions.stack and transitions.latent:
-            return True
 
         idx = len(transitions.latent)-1
         for latentk in reversed(transitions.latent):
@@ -734,6 +754,11 @@ def main():
             print_log("amr", stat)
             print_log("amr", oracle.stats[stat].most_common(100))
             print_log("amr", "")
+
+    if args.out_action_stats:
+        # Store rule statistics
+        with open(args.out_action_stats, 'w') as fid:
+            fid.write(json.dumps(oracle.stats))
 
     if use_addnode_rules:
         for x in entity_rule_totals:
