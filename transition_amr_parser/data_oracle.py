@@ -304,9 +304,9 @@ class AMR_Oracle:
             # update files
             oracle_write(str(tr)) 
             amr_write(tr.amr.toJAMRString()) 
-            tokens = str(tr).split('\n')[5].split('# ::tok ')[1]
-            sentence_write(tokens) 
-            actions = str(tr).split('\n')[0]
+            sentence_write(" ".join(tr.amr.tokens)) 
+            actions = " ".join([a for a in tr.actions])
+ 
             # TODO: Make sure this normalizing strategy is denornalized
             # elsewhere
             if no_whitespace_in_actions:

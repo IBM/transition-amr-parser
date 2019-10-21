@@ -36,6 +36,12 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
+        "--verbose",
+        help="verbose mode",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
         "--step-by-step",
         help="pause after each action",
         action='store_true',
@@ -65,9 +71,14 @@ def argument_parser():
 
     args = parser.parse_args()
 
+    # Argument pre-processing
     if args.random_up_to:
         import numpy as np
         args.offset = np.random.randint(args.random_up_to)
+
+    # force verbose
+    if not args.verbose:
+        args.verbose = bool(args.step_by_step)
 
     # Sanity checks
     assert args.in_sentences or args.in_sentence_list
@@ -125,21 +136,28 @@ def main():
     
         # process each
         for raw_action in sent_actions:
+
+            # Collect statistics
     
             # Print state
-            if args.step_by_step or args.clear_print:
-                os.system('clear')
-            print(f'sentence {sent_idx}\n')
-            print(amr_state_machine)
+            if args.verbose:
+                if args.clear_print:
+                    # clean screen each time
+                    os.system('clear')
+                print(f'sentence {sent_idx}\n')
+                print(amr_state_machine)
+    
+     
+                # step by step mode
+                if args.step_by_step:
+                    if args.pause_time:
+                        time.sleep(args.pause_time)
+                    else:    
+                        input('Press any key to continue')
 
             # Update machine
             amr_state_machine.applyAction(raw_action)
 
-            if args.step_by_step:
-                if args.pause_time:
-                    time.sleep(args.pause_time)
-                else:    
-                    input('Press any key to continue')
 
     # Output AMR
     if args.out_amr:
