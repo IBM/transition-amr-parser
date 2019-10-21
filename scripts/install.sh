@@ -15,7 +15,7 @@ if [ ! -d $virtualenv_name ];then
     pip install virtualenv --upgrade
     virtualenv  $virtualenv_name
     .  ${virtualenv_name}/bin/activate
-    pip install -r requirements.txt
+    pip install --editable .
 else
     echo "Will use existing $virtualenv_name, removet to force re-install"
 fi
