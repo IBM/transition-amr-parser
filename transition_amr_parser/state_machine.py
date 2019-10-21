@@ -107,6 +107,9 @@ class AMRStateMachine:
 
         def blue_font(string):
             return "\033[94m%s\033[0m" % string
+
+        def green_font(string):
+            return "\033[92m%s\033[0m" % string
         
         def stack_style(string):
             return black_font(white_background(string))
@@ -187,7 +190,22 @@ class AMRStateMachine:
             edges_str.append("%s %s %s" % (self.amr.nodes[i], blue_font(label), self.amr.nodes[j]))
         edges_str = "\n".join(edges_str)
 
-        return '# Actions:\n%s\n\n\n# Buffer/Stack/Reduced:\n%s\n%s\n\n# Predicates:\n%s\n\n# Edges:\n%s\n' % (action_str, pointer_view_str, mask_view_str, nodes_str, edges_str)
+        return """
+%s\n%s\n\n
+%s\n%s\n%s\n\n
+%s\n%s\n\n
+%s\n%s\n
+        """ % (
+            green_font("# Actions:"),
+            action_str,
+            green_font("# Buffer/Stack/Reduced:"),
+            pointer_view_str,
+            mask_view_str,
+            green_font("# Predicates:"),
+            nodes_str,
+            green_font("# Edges:"),
+            edges_str
+        )
 
         #return f'{action_str}\n\n{buffer_str}\n{stack_str}\n\n{amr_str}'
 

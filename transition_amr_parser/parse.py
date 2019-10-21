@@ -1,9 +1,12 @@
 # AMR parsing given a sentence and a model 
+import time
 import os
-from tqdm import tqdm
 import signal
 import argparse
 import re
+
+from tqdm import tqdm
+
 from transition_amr_parser.state_machine import AMRStateMachine
 from transition_amr_parser.data_oracle import writer
 
@@ -37,6 +40,11 @@ def argument_parser():
         help="pause after each action",
         action='store_true',
         default=False
+    )
+    parser.add_argument(
+        "--pause-time",
+        help="time waited after each step, default is manual",
+        type=int
     )
     parser.add_argument(
         "--clear-print",
@@ -128,7 +136,10 @@ def main():
             amr_state_machine.applyAction(raw_action)
 
             if args.step_by_step:
-                input('Press any key to continue')
+                if args.pause_time:
+                    time.sleep(args.pause_time)
+                else:    
+                    input('Press any key to continue')
 
     # Output AMR
     if args.out_amr:
