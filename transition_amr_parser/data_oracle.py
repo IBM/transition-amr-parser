@@ -66,6 +66,11 @@ def argument_parser():
         help="statistics about actions",
         type=str
     )
+    parser.add_argument(
+        "--out-alignment-stats",
+        help="statistics about alignments",
+        type=str
+    )
     # Multiple input parameters
     parser.add_argument(
         "--out-amr", 
@@ -119,6 +124,36 @@ def writer(file_path, add_return=False):
     return append_data
 
 
+def get_node_alignment_counts(gold_amrs_train):
+    from collections import defaultdict
+
+    node_by_token = defaultdict(lambda: Counter())
+    for train_amr in gold_amrs_train:
+
+        # Get alignments
+        alignments = defaultdict(list) 
+        for i in range(len(train_amr.tokens)):
+            for al_node in train_amr.alignmentsToken2Node(i+1):
+                alignments[al_node].append(
+                    train_amr.tokens[i]
+                )
+
+        for node_id, aligned_tokens in alignments.items():
+            # join multiple words into one single expression        
+            if len(aligned_tokens) > 1:
+                token_str = " ".join(aligned_tokens)
+            else:
+                token_str = aligned_tokens[0]
+
+            node = train_amr.nodes[node_id]
+
+            # count number of time a node is aligned to a token, indexed by
+            # token
+            node_by_token[token_str].update([node])
+            
+    return node_by_token
+
+
 class AMR_Oracle:
 
     def __init__(self, verbose=False):
@@ -142,6 +177,9 @@ class AMR_Oracle:
 
         self.stats = {
             'CONFIRM': Counter(),
+            'COPY': Counter(),
+            'COPY_LITERAL': Counter(),
+            'COPY_RULE': Counter(),
             'REDUCE': Counter(),
             'SWAP': Counter(),
             'LA': Counter(),
@@ -171,12 +209,19 @@ class AMR_Oracle:
         self.transitions = transitions
 
     def runOracle(self, gold_amrs, out_oracle=None, out_amr=None,
-                  out_sentences=None, out_actions=None, add_unaligned=0, 
+                  out_sentences=None, out_actions=None, 
+                  out_alignment_stats=None, add_unaligned=0, 
                   no_whitespace_in_actions=False):
 
         print_log("oracle", "Parsing data")
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
+
+        # Compute node to token alignmen statistic based on train data
+        self.nodes_by_token = dict(get_node_alignment_counts(self.gold_amrs))
+        if out_alignment_stats:
+            with open(out_alignment_stats, 'w') as fid:
+                fid.write(json.dumps(self.nodes_by_token))
 
         # where we will store the outputs
         start = 0
@@ -204,7 +249,12 @@ class AMR_Oracle:
             if self.verbose:
                 print("New Sentence " + str(sent_idx) + "\n\n\n")
 
-            tr = AMRStateMachine(gold_amr.tokens, verbose=self.verbose, add_unaligned=add_unaligned)
+            tr = AMRStateMachine(
+                gold_amr.tokens,
+                verbose=self.verbose,
+                add_unaligned=add_unaligned,
+                nodes_by_token=self.nodes_by_token
+            )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
 
@@ -254,8 +304,57 @@ class AMR_Oracle:
                     tr.ENTITY(entity_type=self.entity_type)
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
-                    self.stats['CONFIRM'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
-                    tr.CONFIRM(node_label=self.new_node)
+
+                    # TODO: Multi-word expressions
+
+                    if tr.amr.nodes[stack0].lower() == self.new_node:
+                        # Copy
+                        self.stats['COPY'][tr.amr.nodes[stack0].lower() + ' => ' + self.new_node] += 1
+                        tr.COPY()
+
+                    # Smaller frequency than though
+#                     elif '\"%s\"' % tr.amr.nodes[stack0] == self.new_node:
+#                         # Copy literal
+#                         self.stats['COPY_LITERAL'][tr.amr.nodes[stack0].lower() + ' => ' + self.new_node] += 1
+#                         tr.COPY_LITERAL()
+
+                    elif (
+                        tr.amr.nodes[stack0] in self.nodes_by_token
+                    ):
+
+                        # CONFIRM AND COPY RULES
+
+                        if (
+                            # Only one option
+                            len(self.nodes_by_token[tr.amr.nodes[stack0]]) == 1 and
+                            # and its the right option
+                            self.nodes_by_token[tr.amr.nodes[stack0]].most_common(1)[0][0] == self.new_node
+                        ):
+                            self.stats['COPY_RULE'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
+                            tr.COPY_RULE()
+
+                        elif (
+                            len(self.nodes_by_token[tr.amr.nodes[stack0]]) > 1 and
+                            # its the right option
+                            self.nodes_by_token[tr.amr.nodes[stack0]].most_common(1)[0][0] == self.new_node and
+                            # Most probably is more probably than the rest
+                            self.nodes_by_token[tr.amr.nodes[stack0]].most_common(2)[0][1] > 
+                                self.nodes_by_token[tr.amr.nodes[stack0]].most_common(2)[1][1]
+                            # TODO: Count cutoff / Probability diff cutoff    
+                        ):
+                            self.stats['COPY_RULE'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
+                            tr.COPY_RULE()
+
+                        else:
+
+                            # Confirm
+                            self.stats['CONFIRM'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
+                            tr.CONFIRM(node_label=self.new_node)
+
+                    else:
+                        # Confirm
+                        self.stats['CONFIRM'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
+                        tr.CONFIRM(node_label=self.new_node)
 
                 elif self.tryDependent(tr, tr.amr, gold_amr):
                     tr.DEPENDENT(edge_label=self.new_edge, node_label=self.new_node, node_id=self.dep_id)
@@ -744,6 +843,7 @@ def main():
         out_amr=args.out_amr,
         out_sentences=args.out_sentences, 
         out_actions=args.out_actions,
+        out_alignment_stats=args.out_alignment_stats,
         add_unaligned=0,
         no_whitespace_in_actions=args.no_whitespace_in_actions
     )
