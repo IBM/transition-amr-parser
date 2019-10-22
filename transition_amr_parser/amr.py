@@ -126,6 +126,7 @@ class AMR:
 
         else:
             if len(completed) < len(self.nodes):
+                raise Exception("Tried to print an uncompleted AMR")
                 print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) + ' nodes printed:\n ' + amr_string)
             if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
                 amr_string = '(x/'+amr_string+')'

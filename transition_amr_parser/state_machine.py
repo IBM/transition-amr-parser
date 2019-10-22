@@ -37,7 +37,8 @@ default_rel = ':rel'
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0, 
-                 action_list=None, action_list_by_prefix=None):
+                 action_list=None, action_list_by_prefix=None, 
+                 nodes_by_token=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
@@ -80,6 +81,10 @@ class AMRStateMachine:
         self.is_confirmed = set()
         self.is_confirmed.add(-1)
         self.swapped_words = {}
+
+        # This will store the nodes aligned to a token according to the train
+        # set
+        self.nodes_by_token = nodes_by_token
 
         # FIXME: This should be mandatory and eveloped to be
         # consisten with oracle by design. Need to think how to do
@@ -253,6 +258,12 @@ class AMRStateMachine:
             self.RA('root')
         elif action_label in ['PRED', 'CONFIRM']:
             self.CONFIRM(action[-1])
+        elif action_label in ['COPY']:
+            self.COPY()
+        elif action_label in ['COPY_LITERAL']:
+            self.COPY_LITERAL()
+        elif action_label in ['COPY_RULE']:
+            self.COPY_RULE()
         # TODO: Why multiple keywords for the same action?
         elif action_label in ['SWAP', 'UNSHIFT', 'UNSHIFT1']:
             self.SWAP()
@@ -275,6 +286,7 @@ class AMRStateMachine:
             # Do nothing action. Wait until other machines in the batch finish
             pass
         else:
+            import ipdb; ipdb.set_trace(context=30)
             raise Exception(f'Unrecognized action: {act}')
 
     def applyActions(self, actions):
@@ -403,7 +415,6 @@ class AMRStateMachine:
 
     def CONFIRM(self, node_label):
         """CONFIRM : assign a propbank label"""
-
         stack0 = self.stack[-1]
         # old_label = self.amr.nodes[stack0].split(',')[-1]
         # old_label = old_label.replace(',','-COMMA-').replace(')','-PAREN-')
@@ -415,6 +426,46 @@ class AMRStateMachine:
         self.is_confirmed.add(stack0)
         if self.verbose:
             print(f'PRED({node_label})')
+            print(self.printStackBuffer())
+
+    def COPY(self):
+        """COPY: Same as CONFIRM but use lowercased top-of-stack"""
+        stack0 = self.stack[-1]
+        node_label = self.amr.nodes[stack0].lower()
+        self.actions.append(f'COPY')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        if self.verbose:
+            print(f'COPY')
+            print(self.printStackBuffer())
+
+    def COPY_LITERAL(self):
+        """COPY_LITERAL: Same as CONFIRM but use top-of-stack between quotes"""
+        stack0 = self.stack[-1]
+        node_label = '\"%s\"' % self.amr.nodes[stack0]
+        self.actions.append(f'COPY_LITERAL')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        if self.verbose:
+            print(f'COPY_LITERAL')
+            print(self.printStackBuffer())
+
+    def COPY_RULE(self):
+        """COPY_RULE:"""
+        stack0 = self.stack[-1]
+        # Get most common aligned node name
+        node_label = self.nodes_by_token[self.amr.nodes[stack0]].most_common(1)[0][0]
+        self.actions.append(f'COPY_RULE')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        if self.verbose:
+            print(f'COPY_RULE')
             print(self.printStackBuffer())
 
     def LA(self, edge_label):

@@ -1,9 +1,12 @@
 # AMR parsing given a sentence and a model 
+from types import FunctionType
+import json
 import time
 import os
 import signal
 import argparse
 import re
+from collections import Counter, defaultdict
 
 from tqdm import tqdm
 
@@ -33,6 +36,11 @@ def argument_parser():
     parser.add_argument(
         "--in-model",
         help="parsing model",
+        type=str
+    )
+    parser.add_argument(
+        "--in-alignment-stats",
+        help="alignment statistics needed for the rule component",
         type=str
     )
     parser.add_argument(
@@ -90,6 +98,23 @@ def argument_parser():
     return args
 
 
+def read_propbank(propbank_file):
+
+    # Read frame argument description
+    arguments_by_sense = {}
+    with open(propbank_file) as fid:
+        for line in fid:
+            line = line.rstrip()
+            sense = line.split()[0]
+            arguments  = [
+                re.match('^(ARG.+):$', x).groups()[0]
+                for x in line.split()[1:] if re.match('^(ARG.+):$', x)
+            ]
+            arguments_by_sense[sense] = arguments
+
+    return arguments_by_sense
+
+
 def ordered_exit(signum, frame):
     print("\nStopped by user\n")
     exit(0)
@@ -100,8 +125,22 @@ def token_reader(file_path):
         for line in fid:
             yield line.rstrip().split()
 
+def reduce_counter(counts, reducer):
+    """
+    Returns a new counter from an existing one where keys have been mapped
+    to in  many-to-one fashion and counts added
+    """
+    new_counts = Counter()
+    for key, count in counts.items():
+        new_key = reducer(key)
+        new_counts[new_key] += count
+    return new_counts
+
 
 def main():
+
+    frames_path = '/dccstor/ramast1/_DATA/AMR/abstract_meaning_representation_amr_2.0/data/frames/propbank-frame-arg-descr.txt'
+    arguments_by_sense = read_propbank(frames_path)
 
     # Argument handling
     args = argument_parser()
@@ -115,9 +154,22 @@ def main():
         signal.signal(signal.SIGINT, ordered_exit)
         signal.signal(signal.SIGTERM, ordered_exit)
 
+    # Get copy stats if provided
+    if args.in_alignment_stats:
+        with open(args.in_alignment_stats) as fid:
+            nodes_by_token = json.loads(fid.read())
+            # cats to Counters
+            nodes_by_token = {
+                key: Counter(value) for key, value in nodes_by_token.items()
+            }
+
     # Output AMR
     if args.out_amr:
         amr_write = writer(args.out_amr) 
+
+    # Hard attention stats
+    action_counts = Counter()
+    action_tos_counts = Counter()
 
     sent_idx = -1
     for sent_tokens, sent_actions in tqdm(zip(sentences, actions)):
@@ -128,16 +180,26 @@ def main():
             continue
 
         # Initialize state machine
-        amr_state_machine = AMRStateMachine(sent_tokens)
-
-        # Output AMR
-        if args.out_amr:
-            amr_write(amr_state_machine.amr.toJAMRString())
-    
+        amr_state_machine = AMRStateMachine(
+            sent_tokens,
+            nodes_by_token=nodes_by_token
+        )
+   
         # process each
         for raw_action in sent_actions:
 
             # Collect statistics
+            if amr_state_machine.stack:
+                stack0 = amr_state_machine.stack[-1]
+                if stack0 in amr_state_machine.merged_tokens:
+                    tos_token = " ".join(
+                        amr_state_machine.amr.tokens[i -1] 
+                        for i in amr_state_machine.merged_tokens[stack0]
+                    )
+                else:
+                    tos_token = amr_state_machine.amr.tokens[stack0 - 1]
+                action_tos_counts.update([(raw_action, tos_token)])
+            action_counts.update([raw_action])
     
             # Print state
             if args.verbose:
@@ -146,7 +208,6 @@ def main():
                     os.system('clear')
                 print(f'sentence {sent_idx}\n')
                 print(amr_state_machine)
-    
      
                 # step by step mode
                 if args.step_by_step:
@@ -158,6 +219,23 @@ def main():
             # Update machine
             amr_state_machine.applyAction(raw_action)
 
+        # Output AMR
+        if args.out_amr:
+            amr_write(amr_state_machine.amr.toJAMRString())
+ 
+    cosa = reduce_counter(action_tos_counts, lambda x: x if x[0].startswith('PRED') else None)
+    senses = list(arguments_by_sense.keys())
+    cosa2 = reduce_counter(action_tos_counts, lambda x: (x[1], x[0]) if (x[0].startswith('PRED') and x[0][5:-1] not in senses) else None)
+
+    # Counts by surface token when not in senses
+    surface_counts = defaultdict(lambda: Counter())
+    for key, count in cosa2.items():
+        if key is not None:
+            surface_counts[key[0]][key[1][5:-1]] = count
+
+    cosa3 = reduce_counter(action_tos_counts, lambda x: (x[1], x[0][5:-1]) if (x[0].startswith('PRED') and x[0][5:-1] not in senses) else None)
+    import ipdb; ipdb.set_trace(context=30)
+    print()
 
     # Output AMR
     if args.out_amr:
