@@ -46,6 +46,12 @@ def argument_parser():
         required=True
     )
     parser.add_argument(
+        "--in-propbank-args", 
+        help="Propbank argument data",
+        type=str,
+        required=True
+    )
+    parser.add_argument(
         "--out-oracle",
         help="tokens, AMR notation and actions given by oracle",
         default='oracle_actions.txt',
@@ -67,7 +73,7 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
-        "--out-alignment-stats",
+        "--out-rule-stats",
         help="statistics about alignments",
         type=str
     )
@@ -92,6 +98,23 @@ def argument_parser():
     args = parser.parse_args()
 
     return args
+
+
+def read_propbank(propbank_file):
+
+    # Read frame argument description
+    arguments_by_sense = {}
+    with open(propbank_file) as fid:
+        for line in fid:
+            line = line.rstrip()
+            sense = line.split()[0]
+            arguments  = [
+                re.match('^(ARG.+):$', x).groups()[0]
+                for x in line.split()[1:] if re.match('^(ARG.+):$', x)
+            ]
+            arguments_by_sense[sense] = arguments
+
+    return arguments_by_sense
 
 
 def writer(file_path, add_return=False):
@@ -154,6 +177,24 @@ def get_node_alignment_counts(gold_amrs_train):
     return node_by_token
 
 
+def is_most_common(node_counts, node, rank=0):
+
+    return (
+        (
+            # as many results as the rank and node in that rank matches
+            len(node_counts) == rank + 1 and 
+            node_counts.most_common(rank + 1)[-1][0] == node
+        ) or (
+            # more results than the rank, node in that rank matches, and rank
+            # results is more probable than rank + 1
+            len(node_counts) > rank + 1 and 
+            node_counts.most_common(rank + 1)[-1][0] == node and
+            node_counts.most_common(rank + 1)[-1][1] > 
+                node_counts.most_common(rank + 2)[-1][1]
+        )
+     )
+
+
 class AMR_Oracle:
 
     def __init__(self, verbose=False):
@@ -179,7 +220,10 @@ class AMR_Oracle:
             'CONFIRM': Counter(),
             'COPY': Counter(),
             'COPY_LITERAL': Counter(),
-            'COPY_RULE': Counter(),
+            'COPY_SENSE': Counter(),
+            'COPY_LEMMA': Counter(),
+            'COPY_SENSE2': Counter(),
+            'COPY_LEMMA2': Counter(),
             'REDUCE': Counter(),
             'SWAP': Counter(),
             'LA': Counter(),
@@ -208,9 +252,9 @@ class AMR_Oracle:
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
-    def runOracle(self, gold_amrs, out_oracle=None, out_amr=None,
-                  out_sentences=None, out_actions=None, 
-                  out_alignment_stats=None, add_unaligned=0, 
+    def runOracle(self, gold_amrs, propbank_args, out_oracle=None, 
+                  out_amr=None, out_sentences=None, out_actions=None, 
+                  out_rule_stats=None, add_unaligned=0, 
                   no_whitespace_in_actions=False):
 
         print_log("oracle", "Parsing data")
@@ -218,10 +262,33 @@ class AMR_Oracle:
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
         # Compute node to token alignmen statistic based on train data
-        self.nodes_by_token = dict(get_node_alignment_counts(self.gold_amrs))
-        if out_alignment_stats:
-            with open(out_alignment_stats, 'w') as fid:
-                fid.write(json.dumps(self.nodes_by_token))
+        # separate senses and non-senses aligned to tokens
+        nodes_by_token = dict(get_node_alignment_counts(self.gold_amrs))
+        sense_by_token = {
+            key: Counter({
+                value: count 
+                for value, count in counts.items() 
+                if value in propbank_args
+            }) 
+            for key, counts in nodes_by_token.items()
+        }
+        lemma_by_token= {
+            key: Counter({
+                value: count 
+                for value, count in counts.items() 
+                if value not in propbank_args
+            }) 
+            for key, counts in nodes_by_token.items()
+        }
+        # store it
+        if out_rule_stats:
+            rule_stats = {
+                'sense_by_token': sense_by_token,
+                'lemma_by_token': lemma_by_token,
+                'propbank_args_by_sense': propbank_args
+            }
+            with open(out_rule_stats, 'w') as fid:
+                fid.write(json.dumps(rule_stats))
 
         # where we will store the outputs
         start = 0
@@ -253,7 +320,7 @@ class AMR_Oracle:
                 gold_amr.tokens,
                 verbose=self.verbose,
                 add_unaligned=add_unaligned,
-                nodes_by_token=self.nodes_by_token
+                rule_stats=rule_stats
             )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
@@ -265,7 +332,11 @@ class AMR_Oracle:
                     edges = [(s, r, t) for s, r, t in gold_amr.edges if s in align and t in align]
                     if not edges:
                         remove = 1
-                        if gold_amr.nodes[align[1]].startswith(tok[:2]) or len(gold_amr.alignments[align[0]]) > len(gold_amr.alignments[align[1]]):
+                        if (
+                            gold_amr.nodes[align[1]].startswith(tok[:2]) or 
+                            len(gold_amr.alignments[align[0]]) > 
+                                len(gold_amr.alignments[align[1]])
+                        ):
                             remove = 0
                         gold_amr.alignments[align[remove]].remove(i+1)
                         gold_amr.token2node_memo = {}
@@ -306,47 +377,46 @@ class AMR_Oracle:
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
 
                     # TODO: Multi-word expressions
+#                     if stack0 in tr.merged_tokens:
+#                         top_of_stack_tokens = " ".join([
+#                             tr.amr.tokens[i - 1] for i in tr.merged_tokens[stack0]
+#                         ])
+#                     else:
+                    top_of_stack_tokens = tr.amr.nodes[stack0]
 
-                    if tr.amr.nodes[stack0].lower() == self.new_node:
+                    if top_of_stack_tokens.lower() == self.new_node:
                         # Copy
-                        self.stats['COPY'][tr.amr.nodes[stack0].lower() + ' => ' + self.new_node] += 1
+                        self.stats['COPY'][top_of_stack_tokens.lower() + ' => ' + self.new_node] += 1
                         tr.COPY()
 
                     # Smaller frequency than though
-#                     elif '\"%s\"' % tr.amr.nodes[stack0] == self.new_node:
-#                         # Copy literal
-#                         self.stats['COPY_LITERAL'][tr.amr.nodes[stack0].lower() + ' => ' + self.new_node] += 1
-#                         tr.COPY_LITERAL()
+                    elif '\"%s\"' % top_of_stack_tokens == self.new_node:
+                        # Copy literal
+                        self.stats['COPY_LITERAL'][top_of_stack_tokens.lower() + ' => ' + self.new_node] += 1
+                        tr.COPY_LITERAL()
 
                     elif (
-                        tr.amr.nodes[stack0] in self.nodes_by_token
+                        top_of_stack_tokens in tr.sense_by_token or top_of_stack_tokens in tr.lemma_by_token
                     ):
 
-                        # CONFIRM AND COPY RULES
-
-                        if (
-                            # Only one option
-                            len(self.nodes_by_token[tr.amr.nodes[stack0]]) == 1 and
-                            # and its the right option
-                            self.nodes_by_token[tr.amr.nodes[stack0]].most_common(1)[0][0] == self.new_node
-                        ):
-                            self.stats['COPY_RULE'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
-                            tr.COPY_RULE()
-
-                        elif (
-                            len(self.nodes_by_token[tr.amr.nodes[stack0]]) > 1 and
-                            # its the right option
-                            self.nodes_by_token[tr.amr.nodes[stack0]].most_common(1)[0][0] == self.new_node and
-                            # Most probably is more probably than the rest
-                            self.nodes_by_token[tr.amr.nodes[stack0]].most_common(2)[0][1] > 
-                                self.nodes_by_token[tr.amr.nodes[stack0]].most_common(2)[1][1]
-                            # TODO: Count cutoff / Probability diff cutoff    
-                        ):
-                            self.stats['COPY_RULE'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
-                            tr.COPY_RULE()
-
+                        # COPY RULES
+                        if is_most_common(tr.sense_by_token[top_of_stack_tokens], self.new_node):
+                            # most common propbank sense matches
+                            self.stats['COPY_SENSE'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            tr.COPY_SENSE()
+                        elif is_most_common(tr.lemma_by_token[top_of_stack_tokens], self.new_node):
+                            # most common lemma sense matches
+                            self.stats['COPY_LEMMA'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            tr.COPY_LEMMA()
+                        elif is_most_common(tr.sense_by_token[top_of_stack_tokens], self.new_node, rank=1):
+                            # second most common propbank sense matches
+                            self.stats['COPY_SENSE2'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            tr.COPY_SENSE2()
+                        elif is_most_common(tr.lemma_by_token[top_of_stack_tokens], self.new_node, rank=1):
+                            # second most common lemma sense matches
+                            self.stats['COPY_LEMMA2'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            tr.COPY_LEMMA2()
                         else:
-
                             # Confirm
                             self.stats['CONFIRM'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
                             tr.CONFIRM(node_label=self.new_node)
@@ -832,18 +902,23 @@ def main():
     # Argument handling
     args = argument_parser()
 
+    # Load AMR
     corpus = JAMR_CorpusReader()
     corpus.load_amrs(args.in_amr)
+
+    # Load propbank
+    propbank_args = read_propbank(args.in_propbank_args)
 
     print_log("amr", "Processing oracle")
     oracle = AMR_Oracle(verbose=args.verbose)
     oracle.runOracle(
         corpus.amrs,
+        propbank_args,
         out_oracle=args.out_oracle,
         out_amr=args.out_amr,
         out_sentences=args.out_sentences, 
         out_actions=args.out_actions,
-        out_alignment_stats=args.out_alignment_stats,
+        out_rule_stats=args.out_rule_stats,
         add_unaligned=0,
         no_whitespace_in_actions=args.no_whitespace_in_actions
     )

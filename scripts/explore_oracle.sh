@@ -16,22 +16,18 @@ oracle_folder=data/austin0_copy_literal/
 amr-oracle \
     --in-amr $train_file \
     --out-amr ${oracle_folder}/train.oracle.amr \
+    --in-propbank-args /dccstor/ramast1/_DATA/AMR/abstract_meaning_representation_amr_2.0/data/frames/propbank-frame-arg-descr.txt \
     --out-sentences ${oracle_folder}/train.tokens \
     --out-actions ${oracle_folder}/train.actions \
-    --out-alignment-stats ${oracle_folder}/alignment.stats \
+    --out-rule-stats ${oracle_folder}/rule.stats.json \
     --no-whitespace-in-actions
-
-
-    #--in-propbank-args /dccstor/ramast1/_DATA/AMR/abstract_meaning_representation_amr_2.0/data/frames/propbank-frame-arg-descr.txt \
 
 # parse a sentence step by step
 amr-parse \
     --in-sentences ${oracle_folder}/train.tokens \
     --in-actions ${oracle_folder}/train.actions \
-    --in-alignment-stats ${oracle_folder}/alignment.stats \
+    --in-rule-stats ${oracle_folder}/rule.stats.json \
     --out-amr ${oracle_folder}/train.amr
-
-exit
 
 # evaluate oracle performance
 # austin0: F-score: 0.9379
@@ -52,10 +48,10 @@ amr-oracle \
     --out-actions ${oracle_folder}/dev.actions \
 
 # parse a sentence step by step to explore
-# amr-parse \
-#     --in-sentences ${oracle_folder}/dev.tokens \
-#     --in-actions ${oracle_folder}/dev.actions \
-#     --out-amr ${oracle_folder}/dev.amr  # sanity check: should be the same as ${oracle_folder}/dev.oracle.amr
+amr-parse \
+    --in-sentences ${oracle_folder}/dev.tokens \
+    --in-actions ${oracle_folder}/dev.actions \
+    --out-amr ${oracle_folder}/dev.amr  # sanity check: should be the same as ${oracle_folder}/dev.oracle.amr
 
 # evaluate oracle performance
 echo "Evaluating Oracle"

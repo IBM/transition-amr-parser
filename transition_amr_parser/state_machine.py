@@ -38,7 +38,7 @@ class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0, 
                  action_list=None, action_list_by_prefix=None, 
-                 nodes_by_token=None):
+                 rule_stats=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
@@ -84,7 +84,8 @@ class AMRStateMachine:
 
         # This will store the nodes aligned to a token according to the train
         # set
-        self.nodes_by_token = nodes_by_token
+        self.sense_by_token = rule_stats['sense_by_token']
+        self.lemma_by_token = rule_stats['lemma_by_token']
 
         # FIXME: This should be mandatory and eveloped to be
         # consisten with oracle by design. Need to think how to do
@@ -262,8 +263,14 @@ class AMRStateMachine:
             self.COPY()
         elif action_label in ['COPY_LITERAL']:
             self.COPY_LITERAL()
-        elif action_label in ['COPY_RULE']:
-            self.COPY_RULE()
+        elif action_label in ['COPY_SENSE']:
+            self.COPY_SENSE()
+        elif action_label in ['COPY_SENSE2']:
+            self.COPY_SENSE2()
+        elif action_label in ['COPY_LEMMA']:
+            self.COPY_LEMMA()
+        elif action_label in ['COPY_LEMMA2']:
+            self.COPY_LEMMA2()
         # TODO: Why multiple keywords for the same action?
         elif action_label in ['SWAP', 'UNSHIFT', 'UNSHIFT1']:
             self.SWAP()
@@ -454,18 +461,60 @@ class AMRStateMachine:
             print(f'COPY_LITERAL')
             print(self.printStackBuffer())
 
-    def COPY_RULE(self):
-        """COPY_RULE:"""
+    def COPY_SENSE(self):
+        """COPY_SENSE:"""
         stack0 = self.stack[-1]
         # Get most common aligned node name
-        node_label = self.nodes_by_token[self.amr.nodes[stack0]].most_common(1)[0][0]
-        self.actions.append(f'COPY_RULE')
+        node_label = self.sense_by_token[self.amr.nodes[stack0]].most_common(1)[-1][0]
+        self.actions.append(f'COPY_SENSE')
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append(node_label)
         self.is_confirmed.add(stack0)
         if self.verbose:
-            print(f'COPY_RULE')
+            print(f'COPY_SENSE')
+            print(self.printStackBuffer())
+
+    def COPY_SENSE2(self):
+        """COPY_SENSE:"""
+        stack0 = self.stack[-1]
+        # Get most common aligned node name
+        node_label = self.sense_by_token[self.amr.nodes[stack0]].most_common(2)[-1][0]
+        self.actions.append(f'COPY_SENSE2')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        if self.verbose:
+            print(f'COPY_SENSE2')
+            print(self.printStackBuffer())
+
+    def COPY_LEMMA(self):
+        """COPY_LEMMA:"""
+        stack0 = self.stack[-1]
+        # Get most common aligned node name
+        node_label = self.lemma_by_token[self.amr.nodes[stack0]].most_common(1)[-1][0]
+        self.actions.append(f'COPY_LEMMA')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        if self.verbose:
+            print(f'COPY_LEMMA')
+            print(self.printStackBuffer())
+
+    def COPY_LEMMA2(self):
+        """COPY_LEMMA:"""
+        stack0 = self.stack[-1]
+        # Get most common aligned node name
+        node_label = self.lemma_by_token[self.amr.nodes[stack0]].most_common(2)[-1][0]
+        self.actions.append(f'COPY_LEMMA2')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        if self.verbose:
+            print(f'COPY_LEMMA2')
             print(self.printStackBuffer())
 
     def LA(self, edge_label):

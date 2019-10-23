@@ -14,6 +14,9 @@ from transition_amr_parser.state_machine import AMRStateMachine
 from transition_amr_parser.data_oracle import writer
 
 
+is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
+
+
 def argument_parser():
 
     parser = argparse.ArgumentParser(description='AMR parser')
@@ -39,7 +42,7 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
-        "--in-alignment-stats",
+        "--in-rule-stats",
         help="alignment statistics needed for the rule component",
         type=str
     )
@@ -155,13 +158,15 @@ def main():
         signal.signal(signal.SIGTERM, ordered_exit)
 
     # Get copy stats if provided
-    if args.in_alignment_stats:
-        with open(args.in_alignment_stats) as fid:
-            nodes_by_token = json.loads(fid.read())
-            # cats to Counters
-            nodes_by_token = {
-                key: Counter(value) for key, value in nodes_by_token.items()
-            }
+    if args.in_rule_stats:
+        with open(args.in_rule_stats) as fid:
+            rule_stats = json.loads(fid.read())
+            # Fix counter
+            for rule in ['sense_by_token', 'lemma_by_token']:
+                rule_stats[rule] = {
+                    key: Counter(value)
+                    for key, value in rule_stats[rule].items()
+                }
 
     # Output AMR
     if args.out_amr:
@@ -182,7 +187,7 @@ def main():
         # Initialize state machine
         amr_state_machine = AMRStateMachine(
             sent_tokens,
-            nodes_by_token=nodes_by_token
+            rule_stats=rule_stats
         )
    
         # process each
@@ -223,19 +228,17 @@ def main():
         if args.out_amr:
             amr_write(amr_state_machine.amr.toJAMRString())
  
-    cosa = reduce_counter(action_tos_counts, lambda x: x if x[0].startswith('PRED') else None)
-    senses = list(arguments_by_sense.keys())
-    cosa2 = reduce_counter(action_tos_counts, lambda x: (x[1], x[0]) if (x[0].startswith('PRED') and x[0][5:-1] not in senses) else None)
-
-    # Counts by surface token when not in senses
-    surface_counts = defaultdict(lambda: Counter())
-    for key, count in cosa2.items():
-        if key is not None:
-            surface_counts[key[0]][key[1][5:-1]] = count
-
-    cosa3 = reduce_counter(action_tos_counts, lambda x: (x[1], x[0][5:-1]) if (x[0].startswith('PRED') and x[0][5:-1] not in senses) else None)
-    import ipdb; ipdb.set_trace(context=30)
-    print()
+    # DEBUG
+#     cosa = reduce_counter(action_tos_counts, lambda x: x if x[0].startswith('PRED') else None)
+#     senses = list(arguments_by_sense.keys())
+#     cosa2 = reduce_counter(action_tos_counts, lambda x: (x[1], x[0]) if (x[0].startswith('PRED') and x[0][5:-1] not in senses) else None)
+#     # Counts by surface token when not in senses
+#     surface_counts = defaultdict(lambda: Counter())
+#     for key, count in cosa2.items():
+#         if key is not None:
+#             surface_counts[key[0]][key[1][5:-1]] = count
+#     cosa3 = reduce_counter(action_tos_counts, lambda x: (x[1], x[0][5:-1]) if (x[0].startswith('PRED') and x[0][5:-1] not in senses) else None)
+    # DEBUG
 
     # Output AMR
     if args.out_amr:
