@@ -89,7 +89,7 @@ class AMRStateMachine:
         if rule_stats:
             self.sense_by_token = rule_stats['sense_by_token']
             self.lemma_by_token = rule_stats['lemma_by_token']
-        else:    
+        else:
             self.sense_by_token = {}
             self.lemma_by_token = {}
 
