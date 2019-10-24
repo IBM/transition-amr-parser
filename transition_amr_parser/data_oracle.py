@@ -1,4 +1,3 @@
-import sys
 import json
 import re
 import argparse
@@ -7,6 +6,7 @@ from collections import Counter, defaultdict
 from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
+from transition_amr_parser.io import writer
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
@@ -116,7 +116,7 @@ def read_propbank(propbank_file):
         for line in fid:
             line = line.rstrip()
             sense = line.split()[0]
-            arguments  = [
+            arguments = [
                 re.match('^(ARG.+):$', x).groups()[0]
                 for x in line.split()[1:] if re.match('^(ARG.+):$', x)
             ]
@@ -167,7 +167,7 @@ def is_most_common(node_counts, node, rank=0):
             len(node_counts) > rank + 1 and
             node_counts.most_common(rank + 1)[-1][0] == node and
             node_counts.most_common(rank + 1)[-1][1] >
-                node_counts.most_common(rank + 2)[-1][1]
+            node_counts.most_common(rank + 2)[-1][1]
         )
      )
 
@@ -188,7 +188,7 @@ def compute_rules(gold_amrs, propbank_args):
         for key, counts in nodes_by_token.items()
     }
     # lemma (or whatever ends up aligned)
-    lemma_by_token= {
+    lemma_by_token = {
         key: Counter({
             value: count
             for value, count in counts.items()
@@ -364,11 +364,6 @@ class AMR_Oracle:
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
 
                     # TODO: Multi-word expressions
-#                     if stack0 in tr.merged_tokens:
-#                         top_of_stack_tokens = " ".join([
-#                             tr.amr.tokens[i - 1] for i in tr.merged_tokens[stack0]
-#                         ])
-#                     else:
                     top_of_stack_tokens = tr.amr.tokens[stack0 - 1]
 
                     if top_of_stack_tokens.lower() == self.new_node:
@@ -507,7 +502,7 @@ class AMR_Oracle:
                 whitepace_confirmed = [x for x in confirmed if ' ' in x]
                 # ensure we do not have the normalization sign
                 for concept in whitepace_confirmed:
-                    assert not '_' in concept
+                    assert '_' not in concept
                     normalized_concept = concept.replace(' ', '_')
                     actions = actions.replace(
                         f'PRED({concept})',
@@ -523,7 +518,6 @@ class AMR_Oracle:
         amr_write()
         sentence_write()
         actions_write()
-
 
     def tryConfirm(self, transitions, amr, gold_amr):
         """

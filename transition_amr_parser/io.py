@@ -64,7 +64,15 @@ def writer(file_path, add_return=False):
     return append_data
 
 
-def token_reader(file_path):
+def tokenized_sentences_egenerator(file_path):
     with open(file_path) as fid:
         for line in fid:
             yield line.rstrip().split()
+
+
+def read_tokenized_sentences(file_path):
+    sentences = []
+    with open(file_path) as fid:
+        for line in fid:
+            sentences.append(line.rstrip().split())
+    return sentences

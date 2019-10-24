@@ -6,6 +6,8 @@ from collections import Counter
 import argparse
 import os
 import sys
+import random
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,6 +17,10 @@ import torch.nn.functional as F
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 import torch.multiprocessing as mp
+from tqdm import tqdm
+import h5py
+import spacy
+from spacy.tokens.doc import Doc
 
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import AMRStateMachine
@@ -22,13 +28,6 @@ import transition_amr_parser.stack_lstm as sl
 import transition_amr_parser.utils as utils
 from transition_amr_parser.utils import print_log, smatch_wrapper
 from transition_amr_parser.data_oracle import AMR_Oracle
-
-from tqdm import tqdm
-import h5py
-import spacy
-from spacy.tokens.doc import Doc
-
-import random
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
