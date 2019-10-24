@@ -9,7 +9,7 @@ from tqdm import tqdm
 from transition_amr_parser.utils import print_log
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import (
-    AMRStateMachine, 
+    AMRStateMachine,
     entity_rule_stats,
     entity_rule_totals,
     entity_rule_fails
@@ -48,13 +48,13 @@ def argument_parser():
     parser = argparse.ArgumentParser(description='AMR parser oracle')
     # Single input parameters
     parser.add_argument(
-        "--in-amr", 
+        "--in-amr",
         help="AMR notation in LDC format",
         type=str,
         required=True
     )
     parser.add_argument(
-        "--in-propbank-args", 
+        "--in-propbank-args",
         help="Propbank argument data",
         type=str,
         required=True
@@ -87,19 +87,19 @@ def argument_parser():
     )
     # Multiple input parameters
     parser.add_argument(
-        "--out-amr", 
+        "--out-amr",
         default='oracle_amrs.txt',
         help="corresponding AMR",
         type=str
     )
-    # 
+    #
     parser.add_argument(
-        "--verbose", 
+        "--verbose",
         action='store_true',
         help="verbose processing"
     )
     parser.add_argument(
-        "--no-whitespace-in-actions", 
+        "--no-whitespace-in-actions",
         action='store_true',
         help="avoid tab separation in actions and sentences by removing whitespaces"
     )
@@ -125,43 +125,13 @@ def read_propbank(propbank_file):
     return arguments_by_sense
 
 
-def writer(file_path, add_return=False):
-    """
-    Returns a writer that writes to file_path if it is not None, does nothing
-    otherwise
-
-    calling the writed without arguments will close the file
-    """
-    if file_path:
-        # Erase file
-        fid = open(file_path, 'w+')        
-        fid.close()
-        # open for appending
-        fid = open(file_path, 'a+', encoding='utf8')
-    else:
-        fid = None
-
-    def append_data(content=None):
-        """writes to open file"""
-        if fid: 
-            if content is None:
-                fid.close()
-            else:    
-                if add_return:
-                    fid.write(content + '\n')
-                else:     
-                    fid.write(content)
-
-    return append_data
-
-
 def get_node_alignment_counts(gold_amrs_train):
 
     node_by_token = defaultdict(lambda: Counter())
     for train_amr in gold_amrs_train:
 
         # Get alignments
-        alignments = defaultdict(list) 
+        alignments = defaultdict(list)
         for i in range(len(train_amr.tokens)):
             for al_node in train_amr.alignmentsToken2Node(i+1):
                 alignments[al_node].append(
@@ -169,7 +139,7 @@ def get_node_alignment_counts(gold_amrs_train):
                 )
 
         for node_id, aligned_tokens in alignments.items():
-            # join multiple words into one single expression        
+            # join multiple words into one single expression
             if len(aligned_tokens) > 1:
                 token_str = " ".join(aligned_tokens)
             else:
@@ -180,7 +150,7 @@ def get_node_alignment_counts(gold_amrs_train):
             # count number of time a node is aligned to a token, indexed by
             # token
             node_by_token[token_str].update([node])
-            
+
     return node_by_token
 
 
@@ -189,14 +159,14 @@ def is_most_common(node_counts, node, rank=0):
     return (
         (
             # as many results as the rank and node in that rank matches
-            len(node_counts) == rank + 1 and 
+            len(node_counts) == rank + 1 and
             node_counts.most_common(rank + 1)[-1][0] == node
         ) or (
             # more results than the rank, node in that rank matches, and rank
             # results is more probable than rank + 1
-            len(node_counts) > rank + 1 and 
+            len(node_counts) > rank + 1 and
             node_counts.most_common(rank + 1)[-1][0] == node and
-            node_counts.most_common(rank + 1)[-1][1] > 
+            node_counts.most_common(rank + 1)[-1][1] >
                 node_counts.most_common(rank + 2)[-1][1]
         )
      )
@@ -211,19 +181,19 @@ def compute_rules(gold_amrs, propbank_args):
     # sense counts
     sense_by_token = {
         key: Counter({
-            value: count 
-            for value, count in counts.items() 
+            value: count
+            for value, count in counts.items()
             if value in propbank_args
-        }) 
+        })
         for key, counts in nodes_by_token.items()
     }
     # lemma (or whatever ends up aligned)
     lemma_by_token= {
         key: Counter({
-            value: count 
-            for value, count in counts.items() 
+            value: count
+            for value, count in counts.items()
             if value not in propbank_args
-        }) 
+        })
         for key, counts in nodes_by_token.items()
     }
     return {
@@ -266,7 +236,7 @@ class AMR_Oracle:
             'SWAP': Counter(),
             'LA': Counter(),
             'RA': Counter(),
-            'ENTITY': Counter(), 
+            'ENTITY': Counter(),
             'MERGE': Counter(),
             'DEPENDENT': Counter(),
             'INTRODUCE': Counter()
@@ -290,9 +260,9 @@ class AMR_Oracle:
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
-    def runOracle(self, gold_amrs, propbank_args, out_oracle=None, 
-                  out_amr=None, out_sentences=None, out_actions=None, 
-                  out_rule_stats=None, add_unaligned=0, 
+    def runOracle(self, gold_amrs, propbank_args, out_oracle=None,
+                  out_amr=None, out_sentences=None, out_actions=None,
+                  out_rule_stats=None, add_unaligned=0,
                   no_whitespace_in_actions=False):
 
         print_log("oracle", "Parsing data")
@@ -306,15 +276,15 @@ class AMR_Oracle:
                 fid.write(json.dumps(rule_stats))
 
         # open all files (if paths provided) and get writers to them
-        oracle_write = writer(out_oracle) 
-        amr_write = writer(out_amr) 
-        sentence_write = writer(out_sentences, add_return=True) 
-        actions_write = writer(out_actions, add_return=True) 
+        oracle_write = writer(out_oracle)
+        amr_write = writer(out_amr)
+        sentence_write = writer(out_sentences, add_return=True)
+        actions_write = writer(out_actions, add_return=True)
 
         # unaligned tokens
         included_unaligned = [
             '-', 'and', 'multi-sentence', 'person', 'cause-01', 'you', 'more',
-            'imperative', '1', 'thing', 
+            'imperative', '1', 'thing',
         ]
 
         # Loop over golf AMRs
@@ -346,8 +316,8 @@ class AMR_Oracle:
                     if not edges:
                         remove = 1
                         if (
-                            gold_amr.nodes[align[1]].startswith(tok[:2]) or 
-                            len(gold_amr.alignments[align[0]]) > 
+                            gold_amr.nodes[align[1]].startswith(tok[:2]) or
+                            len(gold_amr.alignments[align[0]]) >
                                 len(gold_amr.alignments[align[1]])
                         ):
                             remove = 0
@@ -387,7 +357,7 @@ class AMR_Oracle:
                         toks = [tr.amr.tokens[x-1] for x in tr.merged_tokens[stack0]]
                     else:
                         toks = [tr.amr.nodes[stack0]]
-                    rule_str = ','.join(toks) + ' (' + self.entity_type + ')'   
+                    rule_str = ','.join(toks) + ' (' + self.entity_type + ')'
                     self.stats['ENTITY'].update([rule_str])
                     tr.ENTITY(entity_type=self.entity_type)
 
@@ -416,7 +386,7 @@ class AMR_Oracle:
                         tr.COPY_LITERAL()
 
                     elif (
-                        top_of_stack_tokens in tr.sense_by_token or 
+                        top_of_stack_tokens in tr.sense_by_token or
                         top_of_stack_tokens in tr.lemma_by_token
                     ):
 
@@ -444,7 +414,7 @@ class AMR_Oracle:
                         ):
                             # second most common propbank sense matches
                             rule_str = f'{top_of_stack_tokens} => {self.new_node}'
-                            self.stats['COPY_SENSE2'].update([rule_str]) 
+                            self.stats['COPY_SENSE2'].update([rule_str])
                             tr.COPY_SENSE2()
                         elif is_most_common(
                             tr.lemma_by_token[top_of_stack_tokens],
@@ -525,11 +495,11 @@ class AMR_Oracle:
             )
 
             # update files
-            oracle_write(str(tr)) 
-            amr_write(tr.amr.toJAMRString()) 
-            sentence_write(" ".join(tr.amr.tokens)) 
+            oracle_write(str(tr))
+            amr_write(tr.amr.toJAMRString())
+            sentence_write(" ".join(tr.amr.tokens))
             actions = " ".join([a for a in tr.actions])
- 
+
             # TODO: Make sure this normalizing strategy is denornalized
             # elsewhere
             if no_whitespace_in_actions:
@@ -543,22 +513,22 @@ class AMR_Oracle:
                         f'PRED({concept})',
                         f'PRED({normalized_concept})'
                     )
-            actions_write(actions) 
+            actions_write(actions)
 
             del gold_amr.nodes[-1]
         print_log("oracle", "Done")
 
         # close files if open
-        oracle_write() 
-        amr_write() 
-        sentence_write() 
-        actions_write() 
+        oracle_write()
+        amr_write()
+        sentence_write()
+        actions_write()
 
 
     def tryConfirm(self, transitions, amr, gold_amr):
         """
         Check if the next action is CONFIRM
-    
+
         If the gold node label is different from the assigned label,
         return the gold label.
         """
@@ -601,7 +571,7 @@ class AMR_Oracle:
     def tryLA(self, transitions, amr, gold_amr):
         """
         Check if the next action is LA (left arc)
-    
+
         If there is an unpredicted edge from stack[-1] to stack[-2]
         return the edge label.
         """
@@ -630,7 +600,7 @@ class AMR_Oracle:
     def tryRA(self, transitions, amr, gold_amr):
         """
         Check if the next action is RA (right arc)
-    
+
         If there is an unpredicted edge from stack[-2] to stack[-1]
         return the edge label.
         """
@@ -659,7 +629,7 @@ class AMR_Oracle:
     def tryReduce(self, transitions, amr, gold_amr, node_id=None):
         """
         Check if the next action is REDUCE
-    
+
         If
         1) there is nothing aligned to a token, or
         2) all gold edges are already predicted for the token,
@@ -672,7 +642,7 @@ class AMR_Oracle:
         # Rules that use oracle info
 
         stack0 = transitions.stack[-1]
-        # FIXME: where is id defined? 
+        # FIXME: where is id defined?
         node_id = stack0 if not node_id else id
 
         tok_alignment = gold_amr.alignmentsToken2Node(node_id)
@@ -723,7 +693,7 @@ class AMR_Oracle:
     def tryMerge(self, transitions, amr, gold_amr, first=None, second=None):
         """
         Check if the next action is MERGE
-    
+
         Merge if two tokens have the same alignment.
         """
 
@@ -753,7 +723,7 @@ class AMR_Oracle:
     def trySWAP(self, transitions, amr, gold_amr):
         """
         Check if the next action is SWAP
-    
+
         SWAP if there is an unpredicted gold edge between stack[-1]
         and some other node in the stack (blocked by stack[-2])
         or if stack1 can be reduced.
@@ -764,7 +734,7 @@ class AMR_Oracle:
         stack0 = transitions.stack[-1]
         stack1 = transitions.stack[-2]
 
-        # Forbid if both words have been swapped already 
+        # Forbid if both words have been swapped already
         if stack0 in transitions.swapped_words and stack1 in transitions.swapped_words.get(stack0):
             return False
         if stack1 in transitions.swapped_words and stack0 in transitions.swapped_words.get(stack1):
@@ -778,7 +748,7 @@ class AMR_Oracle:
             if self.tryMerge(transitions, amr, gold_amr, first=stack0, second=buffer0):
                 return False
 
-        # Look for tokens other than stack-top-two that can be head or child 
+        # Look for tokens other than stack-top-two that can be head or child
         # of stack-top
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
         for tok in transitions.stack:
@@ -801,8 +771,8 @@ class AMR_Oracle:
     def tryDependent(self, transitions, amr, gold_amr):
         """
         Check if the next action is DEPENDENT
-    
-    
+
+
         Only for :polarity and :mode, if an edge and node is aligned
         to this token in the gold amr but does not exist in the predicted amr,
         the oracle adds it using the DEPENDENT action.
@@ -888,7 +858,7 @@ class AMR_Oracle:
     def isHead(self, amr, gold_amr, x, y):
         """
         Check if the x is the head of y in the gold AMR graph
-    
+
         If (the root of) x has an edge to (the root of) y in the gold AMR
         which is not in the predicted AMR, return True.
         """
@@ -960,7 +930,7 @@ def main():
     corpus = JAMR_CorpusReader()
     corpus.load_amrs(args.in_amr)
     # FIXME: normalization shold be more robust. Right now use the tokens of
-    # the amr inside the oracle. This is why we need to normalize them. 
+    # the amr inside the oracle. This is why we need to normalize them.
     for amr in corpus.amrs:
         amr.tokens = [
             replacement_rules.get(token, token) for token in amr.tokens
@@ -976,7 +946,7 @@ def main():
         propbank_args,
         out_oracle=args.out_oracle,
         out_amr=args.out_amr,
-        out_sentences=args.out_sentences, 
+        out_sentences=args.out_sentences,
         out_actions=args.out_actions,
         out_rule_stats=args.out_rule_stats,
         add_unaligned=0,
@@ -999,7 +969,7 @@ def main():
         for x in entity_rule_totals:
             perc = entity_rule_stats[x] / entity_rule_totals[x]
             if args.verbose:
-                print_log(x, entity_rule_stats[x], '/', 
+                print_log(x, entity_rule_stats[x], '/',
                           entity_rule_totals[x], '=', f'{perc:.2f}')
         perc = sum(entity_rule_stats.values()) / \
             sum(entity_rule_totals.values())

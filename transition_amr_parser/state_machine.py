@@ -87,7 +87,7 @@ class AMRStateMachine:
         self.sense_by_token = rule_stats['sense_by_token']
         self.lemma_by_token = rule_stats['lemma_by_token']
 
-        # FIXME: This should be mandatory and eveloped to be
+        # FIXME: This should be mandatory and developed to be
         # consisten with oracle by design. Need to think how to do
         # this
         if action_list:
@@ -99,8 +99,7 @@ class AMRStateMachine:
             print(self.printStackBuffer())
 
     def __str__(self):
-
-        # Command line styling
+        """Command line styling"""
 
         def white_background(string):
             return "\033[107m%s\033[0m" % string
@@ -162,10 +161,8 @@ class AMRStateMachine:
         for position in range(len(self.amr.tokens)):
             # token
             token = str(self.amr.tokens[position])
-
             len_token = len(token)
-
-            # color depedning on position
+            # color depending on position
             if position in buffer_idx:
                 token = token + ' '
             elif position in stack_idx:
@@ -310,27 +307,48 @@ class AMRStateMachine:
         # One or more tokens in stack
         if len(self.stack) > 0:    
             valid_action_indices.extend(self.action_list_by_prefix['REDUCE'])
-            valid_action_indices.extend(self.action_list_by_prefix['DEPENDENT'])
+            valid_action_indices.extend(
+                self.action_list_by_prefix['DEPENDENT']
+            )
 
             # valid_node = get_valid_node(self):
             valid_action_indices.extend(self.action_list_by_prefix['PRED'])
             valid_action_indices.extend(self.action_list_by_prefix['COPY'])
-            # FIXME: Add valid indices rules here
-            valid_action_indices.extend(self.action_list_by_prefix['COPY_SENSE'])
-            valid_action_indices.extend(self.action_list_by_prefix['COPY_LITERAL'])
-            valid_action_indices.extend(self.action_list_by_prefix['COPY_SENSE'])
-            valid_action_indices.extend(self.action_list_by_prefix['COPY_LEMMA'])
-            valid_action_indices.extend(self.action_list_by_prefix['COPY_SENSE2'])
-            valid_action_indices.extend(self.action_list_by_prefix['COPY_LEMMA2'])
+            valid_action_indices.extend(
+                self.action_list_by_prefix['COPY_LITERAL']
+            )
+
+            # rules dependent on top of the stack
+            top_of_stack = self.amr.tokens[self.stack[-1] - 1]
+            if top_of_stack in self.sense_by_token:
+                valid_action_indices.extend(
+                    self.action_list_by_prefix['COPY_SENSE']
+                )
+                if len(self.sense_by_token) > 1:
+                    valid_action_indices.extend(
+                        self.action_list_by_prefix['COPY_SENSE2']
+                    )
+            if top_of_stack in self.lemma_by_token:
+                valid_action_indices.extend(
+                    self.action_list_by_prefix['COPY_LEMMA']
+                )
+                if len(self.lemma_by_token) > 1:
+                    valid_action_indices.extend(
+                        self.action_list_by_prefix['COPY_LEMMA2']
+                    )
 
             # Forbid entitity if top token already an entity
             if self.stack[-1] not in self.entities:
                 # FIXME: Any rules involving MERGE here?
-                valid_action_indices.extend(self.action_list_by_prefix['ENTITY'])
+                valid_action_indices.extend(
+                    self.action_list_by_prefix['ENTITY']
+                )
 
             # Forbid introduce if no latent
             if len(self.latent) > 0:
-                valid_action_indices.extend(self.action_list_by_prefix['INTRODUCE'])
+                valid_action_indices.extend(
+                    self.action_list_by_prefix['INTRODUCE']
+                )
 
         # two or more tokens in stack
         if len(self.stack) > 1:    
