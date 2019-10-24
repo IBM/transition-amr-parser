@@ -439,6 +439,7 @@ class AMRStateMachine:
         """COPY: Same as CONFIRM but use lowercased top-of-stack"""
         stack0 = self.stack[-1]
         node_label = self.amr.nodes[stack0].lower()
+        self.amr.nodes[stack0] = node_label
         self.actions.append(f'COPY')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -452,6 +453,7 @@ class AMRStateMachine:
         """COPY_LITERAL: Same as CONFIRM but use top-of-stack between quotes"""
         stack0 = self.stack[-1]
         node_label = '\"%s\"' % self.amr.nodes[stack0]
+        self.amr.nodes[stack0] = node_label
         self.actions.append(f'COPY_LITERAL')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -466,6 +468,7 @@ class AMRStateMachine:
         stack0 = self.stack[-1]
         # Get most common aligned node name
         node_label = self.sense_by_token[self.amr.nodes[stack0]].most_common(1)[-1][0]
+        self.amr.nodes[stack0] = node_label
         self.actions.append(f'COPY_SENSE')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -480,6 +483,7 @@ class AMRStateMachine:
         stack0 = self.stack[-1]
         # Get most common aligned node name
         node_label = self.sense_by_token[self.amr.nodes[stack0]].most_common(2)[-1][0]
+        self.amr.nodes[stack0] = node_label
         self.actions.append(f'COPY_SENSE2')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -494,6 +498,7 @@ class AMRStateMachine:
         stack0 = self.stack[-1]
         # Get most common aligned node name
         node_label = self.lemma_by_token[self.amr.nodes[stack0]].most_common(1)[-1][0]
+        self.amr.nodes[stack0] = node_label
         self.actions.append(f'COPY_LEMMA')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -508,6 +513,7 @@ class AMRStateMachine:
         stack0 = self.stack[-1]
         # Get most common aligned node name
         node_label = self.lemma_by_token[self.amr.nodes[stack0]].most_common(2)[-1][0]
+        self.amr.nodes[stack0] = node_label
         self.actions.append(f'COPY_LEMMA2')
         self.labels.append('_')
         self.labelsA.append('_')

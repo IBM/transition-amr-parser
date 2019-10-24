@@ -15,18 +15,18 @@ oracle_folder=data/austin0_copy_literal/
 # create oracle data
 amr-oracle \
     --in-amr $train_file \
+    --in-propbank-args $propbank \
     --out-amr ${oracle_folder}/train.oracle.amr \
-    --in-propbank-args /dccstor/ramast1/_DATA/AMR/abstract_meaning_representation_amr_2.0/data/frames/propbank-frame-arg-descr.txt \
     --out-sentences ${oracle_folder}/train.tokens \
     --out-actions ${oracle_folder}/train.actions \
-    --out-rule-stats ${oracle_folder}/rule.stats.json \
+    --out-rule-stats ${oracle_folder}/train.rules.json \
     --no-whitespace-in-actions
 
 # parse a sentence step by step
 amr-parse \
     --in-sentences ${oracle_folder}/train.tokens \
     --in-actions ${oracle_folder}/train.actions \
-    --in-rule-stats ${oracle_folder}/rule.stats.json \
+    --in-rule-stats ${oracle_folder}/train.rules.json \
     --out-amr ${oracle_folder}/train.amr
 
 # evaluate oracle performance
@@ -43,14 +43,17 @@ python smatch/smatch.py \
 echo "Generating Oracle"
 amr-oracle \
     --in-amr $dev_file \
+    --in-propbank-args $propbank \
     --out-amr ${oracle_folder}/dev.oracle.amr \
     --out-sentences ${oracle_folder}/dev.tokens \
     --out-actions ${oracle_folder}/dev.actions \
+    --out-rule-stats ${oracle_folder}/dev.rules.json \
 
 # parse a sentence step by step to explore
 amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
+    --in-rule-stats ${oracle_folder}/dev.rules.json \
     --out-amr ${oracle_folder}/dev.amr  # sanity check: should be the same as ${oracle_folder}/dev.oracle.amr
 
 # evaluate oracle performance
