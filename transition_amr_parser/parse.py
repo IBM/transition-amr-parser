@@ -158,6 +158,8 @@ def main():
     # Get copy stats if provided
     if args.in_rule_stats:
         rule_stats = read_rule_stats(args.in_rule_stats)
+    else:
+        rule_stats = None
 
     # Output AMR
     if args.out_amr:
