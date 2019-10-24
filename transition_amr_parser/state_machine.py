@@ -2,7 +2,7 @@ import json
 import torch
 import os
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 
 from transition_amr_parser.amr import AMR
 
@@ -36,8 +36,8 @@ default_rel = ':rel'
 
 class AMRStateMachine:
 
-    def __init__(self, tokens, verbose=False, add_unaligned=0, 
-                 action_list=None, action_list_by_prefix=None, 
+    def __init__(self, tokens, verbose=False, add_unaligned=0,
+                 action_list=None, action_list_by_prefix=None,
                  rule_stats=None):
         """
         TODO: action_list containing list of allowed actions should be
@@ -103,10 +103,10 @@ class AMRStateMachine:
 
         def white_background(string):
             return "\033[107m%s\033[0m" % string
-        
+
         def red_background(string):
             return "\033[101m%s\033[0m" % string
-        
+
         def black_font(string):
             return "\033[30m%s\033[0m" % string
 
@@ -115,20 +115,12 @@ class AMRStateMachine:
 
         def green_font(string):
             return "\033[92m%s\033[0m" % string
-        
+
         def stack_style(string):
             return black_font(white_background(string))
 
         def reduced_style(string):
             return black_font(red_background(string))
-
-        # Tokens
-        # tokens_str = ' '.join(self.amr.tokens)
-
-        # AMR comment nottation
-        amr_str = self.amr.toJAMRString(allow_incomplete=True)
-
-        self.str_state = ""
 
         # Actions
         action_str = ' '.join([a for a in self.actions])
@@ -138,7 +130,6 @@ class AMRStateMachine:
             i - 1 if i != -1 else len(self.amr.tokens) - 1
             for i in reversed(self.buffer)
         ]
-        buffer_str = " ".join([self.amr.tokens[i] for i in buffer_idx])
 
         # Stack
         stack_idx = [i - 1 for i in self.stack]
@@ -153,7 +144,7 @@ class AMRStateMachine:
                 stack_str.append(self.amr.tokens[i])
         stack_str = " ".join(stack_str)
 
-        merged_pos = [y - 1  for x in self.merged_tokens.values() for y in x]
+        merged_pos = [y - 1 for x in self.merged_tokens.values() for y in x]
 
         # mask view
         mask_view = []
@@ -170,11 +161,11 @@ class AMRStateMachine:
             elif position in merged_pos:
                 token = stack_style(token + ' ')
             else:
-                token = reduced_style(token) + ' ' 
+                token = reduced_style(token) + ' '
             # position cursor
             if position in stack_idx and stack_idx.index(position) == len(stack_idx) - 1:
                 pointer_view.append('_' * len_token + ' ')
-            elif position in stack_idx and stack_idx.index(position) ==  len(stack_idx) - 2:
+            elif position in stack_idx and stack_idx.index(position) == len(stack_idx) - 2:
                 pointer_view.append('-' * len_token + ' ')
             else:
                 pointer_view.append(' ' * len_token + ' ')
@@ -209,9 +200,6 @@ class AMRStateMachine:
             green_font("# Edges:"),
             edges_str
         )
-
-        #return f'{action_str}\n\n{buffer_str}\n{stack_str}\n\n{amr_str}'
-
 
     @classmethod
     def readAction(cls, action):
@@ -284,7 +272,6 @@ class AMRStateMachine:
             # Do nothing action. Wait until other machines in the batch finish
             pass
         else:
-            import ipdb; ipdb.set_trace(context=30)
             raise Exception(f'Unrecognized action: {act}')
 
     def applyActions(self, actions):
@@ -305,7 +292,7 @@ class AMRStateMachine:
             # aligned to it (see tryReduce)
 
         # One or more tokens in stack
-        if len(self.stack) > 0:    
+        if len(self.stack) > 0:
             valid_action_indices.extend(self.action_list_by_prefix['REDUCE'])
             valid_action_indices.extend(
                 self.action_list_by_prefix['DEPENDENT']
@@ -351,7 +338,7 @@ class AMRStateMachine:
                 )
 
         # two or more tokens in stack
-        if len(self.stack) > 1:    
+        if len(self.stack) > 1:
 
             valid_action_indices.extend(self.action_list_by_prefix['LA'])
             valid_action_indices.extend(self.action_list_by_prefix['RA'])
@@ -363,8 +350,8 @@ class AMRStateMachine:
             if stack0 != stack1:
                 valid_action_indices.extend(self.action_list_by_prefix['MERGE'])
 
-            # Forbid SWAP if both words have been swapped already 
-            if ( 
+            # Forbid SWAP if both words have been swapped already
+            if (
                 (
                     stack0 not in self.swapped_words or
                     stack1 not in self.swapped_words.get(stack0)

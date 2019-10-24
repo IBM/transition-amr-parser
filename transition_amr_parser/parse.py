@@ -1,25 +1,21 @@
 # AMR parsing given a sentence and a model
-from types import FunctionType
-import json
 import time
 import os
 import signal
 import argparse
-import re
-from collections import Counter, defaultdict
+from collections import Counter
 
 from tqdm import tqdm
 
 from transition_amr_parser.state_machine import AMRStateMachine
 from transition_amr_parser.io import (
     writer,
-    token_reader,
+    read_tokenized_sentences,
     read_rule_stats,
-    read_propbank
 )
 
 
-is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
+# is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
 
 
 def argument_parser():
@@ -124,13 +120,13 @@ def reduce_counter(counts, reducer):
     return new_counts
 
 
-class Statictis():
+class Statistics():
 
     def __init__(self):
         self.action_counts = Counter()
         self.action_tos_counts = Counter()
 
-    def update(self, state):
+    def update(self, raw_action, state):
         if state.stack:
             stack0 = state.stack[-1]
             if stack0 in state.merged_tokens:
@@ -150,9 +146,9 @@ def main():
     args = argument_parser()
 
     # Get data generators
-    sentences = token_reader(args.in_sentences)
+    sentences = read_tokenized_sentences(args.in_sentences)
     if args.in_actions:
-        actions = token_reader(args.in_actions)
+        actions = read_tokenized_sentences(args.in_actions)
 
     # set orderd exit
     if args.step_by_step:
@@ -169,7 +165,7 @@ def main():
 
     sent_idx = -1
     statistics = Statistics()
-    for sent_tokens, sent_actions in tqdm(zip(sentences, actions)):
+    for sent_idx, sent_tokens in tqdm(enumerate(sentences)):
 
         # keep count of sentence index
         sent_idx += 1
@@ -182,34 +178,54 @@ def main():
             rule_stats=rule_stats
         )
 
-        # process each
-        for raw_action in sent_actions:
+        # execute parsing model
+        time_step = 0
+        while amr_state_machine.stack or amr_state_machine.buffer:
+
+            # Print state (pause if solicited)
+            if args.verbose:
+                pretty_machine_print(
+                    sent_idx,
+                    amr_state_machine,
+                    args.clear_print,
+                    args.step_by_step,
+                    args.pause_time
+                )
+
+            # Get next action
+            if args.in_actions:
+                # externally provided actions
+                raw_action = actions[sent_idx][time_step]
+            else:
+                # TODO: machine learning model / oracle
+                pass
 
             # Collect statistics
-            statistics.update(amr_state_machine)
+            statistics.update(raw_action, amr_state_machine)
 
-            # Print state
-            if args.verbose:
-                if args.clear_print:
-                    # clean screen each time
-                    os.system('clear')
-                print(f'sentence {sent_idx}\n')
-                print(amr_state_machine)
-
-                # step by step mode
-                if args.step_by_step:
-                    if args.pause_time:
-                        time.sleep(args.pause_time)
-                    else:
-                        input('Press any key to continue')
-
-            # Update machine
+            # Update state machine
             amr_state_machine.applyAction(raw_action)
 
         # Output AMR
         if args.out_amr:
             amr_write(amr_state_machine.amr.toJAMRString())
 
-    # Output AMR
+    # close output AMR
     if args.out_amr:
         amr_write()
+
+
+def pretty_machine_print(sent_idx, amr_state_machine, clear_print,
+                         step_by_step, pause_time):
+    if clear_print:
+        # clean screen each time
+        os.system('clear')
+    print(f'sentence {sent_idx}\n')
+    print(amr_state_machine)
+
+    # step by step mode
+    if step_by_step:
+        if pause_time:
+            time.sleep(pause_time)
+        else:
+            input('Press any key to continue')
