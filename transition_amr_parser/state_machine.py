@@ -86,8 +86,12 @@ class AMRStateMachine:
 
         # This will store the nodes aligned to a token according to the train
         # set
-        self.sense_by_token = rule_stats['sense_by_token']
-        self.lemma_by_token = rule_stats['lemma_by_token']
+        if rule_stats:
+            self.sense_by_token = rule_stats['sense_by_token']
+            self.lemma_by_token = rule_stats['lemma_by_token']
+        else:    
+            self.sense_by_token = {}
+            self.lemma_by_token = {}
 
         # FIXME: This should be mandatory and developed to be
         # consisten with oracle by design. Need to think how to do
