@@ -101,6 +101,20 @@ def argument_parser():
     return args
 
 
+def read_rule_stats(rule_stats_json):
+
+    with open(rule_stats_json) as fid:
+        rule_stats = json.loads(fid.read())
+        # Fix counter
+        for rule in ['sense_by_token', 'lemma_by_token']:
+            rule_stats[rule] = {
+                key: Counter(value)
+                for key, value in rule_stats[rule].items()
+            }
+    
+    return rule_stats
+
+
 def read_propbank(propbank_file):
 
     # Read frame argument description
@@ -159,14 +173,7 @@ def main():
 
     # Get copy stats if provided
     if args.in_rule_stats:
-        with open(args.in_rule_stats) as fid:
-            rule_stats = json.loads(fid.read())
-            # Fix counter
-            for rule in ['sense_by_token', 'lemma_by_token']:
-                rule_stats[rule] = {
-                    key: Counter(value)
-                    for key, value in rule_stats[rule].items()
-                }
+        rule_stats = read_rule_stats(args.in_rule_stats)
 
     # Output AMR
     if args.out_amr:
