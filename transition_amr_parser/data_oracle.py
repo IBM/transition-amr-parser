@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
-from transition_amr_parser.io import writer
+from transition_amr_parser.io import writer, read_propbank
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
@@ -106,23 +106,6 @@ def argument_parser():
     args = parser.parse_args()
 
     return args
-
-
-def read_propbank(propbank_file):
-
-    # Read frame argument description
-    arguments_by_sense = {}
-    with open(propbank_file) as fid:
-        for line in fid:
-            line = line.rstrip()
-            sense = line.split()[0]
-            arguments = [
-                re.match('^(ARG.+):$', x).groups()[0]
-                for x in line.split()[1:] if re.match('^(ARG.+):$', x)
-            ]
-            arguments_by_sense[sense] = arguments
-
-    return arguments_by_sense
 
 
 def get_node_alignment_counts(gold_amrs_train):
@@ -260,7 +243,7 @@ class AMR_Oracle:
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
-    def runOracle(self, gold_amrs, propbank_args, out_oracle=None,
+    def runOracle(self, gold_amrs, propbank_args=None, out_oracle=None,
                   out_amr=None, out_sentences=None, out_actions=None,
                   out_rule_stats=None, add_unaligned=0,
                   no_whitespace_in_actions=False):
@@ -269,11 +252,17 @@ class AMR_Oracle:
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
-        # compute alignment statistics from JAMR and other alignments
-        rule_stats = compute_rules(self.gold_amrs, propbank_args)
-        if out_rule_stats:
-            with open(out_rule_stats, 'w') as fid:
-                fid.write(json.dumps(rule_stats))
+        # compute alignment statistics from JAMR and other alignments to be
+        # used for copy and other rules
+        if propbank_args is None:
+            rule_stats = compute_rules(self.gold_amrs, propbank_args)
+            if out_rule_stats:
+                with open(out_rule_stats, 'w') as fid:
+                    fid.write(json.dumps(rule_stats))
+            self.copy_rules = True
+        else:
+            rule_stats = None
+            self.copy_rules = False 
 
         # open all files (if paths provided) and get writers to them
         oracle_write = writer(out_oracle)
@@ -366,7 +355,14 @@ class AMR_Oracle:
                     # TODO: Multi-word expressions
                     top_of_stack_tokens = tr.amr.tokens[stack0 - 1]
 
-                    if top_of_stack_tokens.lower() == self.new_node:
+                    if not self.copy_rules:
+
+                        # Do not allow copy rules
+                        rule_str = f'{top_of_stack_tokens} => {self.new_node}'
+                        self.stats['CONFIRM'].update([rule_str])
+                        tr.CONFIRM(node_label=self.new_node)
+
+                    elif top_of_stack_tokens.lower() == self.new_node:
 
                         # COPY (lowercased)
                         rule_str = top_of_stack_tokens.lower() + ' => ' + self.new_node
