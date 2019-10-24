@@ -2,7 +2,7 @@ import sys
 import json
 import re
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 
 from tqdm import tqdm
 
@@ -148,7 +148,6 @@ def writer(file_path, add_return=False):
 
 
 def get_node_alignment_counts(gold_amrs_train):
-    from collections import defaultdict
 
     node_by_token = defaultdict(lambda: Counter())
     for train_amr in gold_amrs_train:
@@ -193,6 +192,37 @@ def is_most_common(node_counts, node, rank=0):
                 node_counts.most_common(rank + 2)[-1][1]
         )
      )
+
+
+def compute_rules(gold_amrs, propbank_args):
+    """
+    Compute node to token alignmen statistic based on train data
+    separate senses and non-senses aligned to tokens
+    """
+    nodes_by_token = dict(get_node_alignment_counts(gold_amrs))
+    # sense counts
+    sense_by_token = {
+        key: Counter({
+            value: count 
+            for value, count in counts.items() 
+            if value in propbank_args
+        }) 
+        for key, counts in nodes_by_token.items()
+    }
+    # lemma (or whatever ends up aligned)
+    lemma_by_token= {
+        key: Counter({
+            value: count 
+            for value, count in counts.items() 
+            if value not in propbank_args
+        }) 
+        for key, counts in nodes_by_token.items()
+    }
+    return {
+        'sense_by_token': sense_by_token,
+        'lemma_by_token': lemma_by_token,
+        'propbank_args_by_sense': propbank_args
+    }
 
 
 class AMR_Oracle:
@@ -261,32 +291,9 @@ class AMR_Oracle:
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
-        # Compute node to token alignmen statistic based on train data
-        # separate senses and non-senses aligned to tokens
-        nodes_by_token = dict(get_node_alignment_counts(self.gold_amrs))
-        sense_by_token = {
-            key: Counter({
-                value: count 
-                for value, count in counts.items() 
-                if value in propbank_args
-            }) 
-            for key, counts in nodes_by_token.items()
-        }
-        lemma_by_token= {
-            key: Counter({
-                value: count 
-                for value, count in counts.items() 
-                if value not in propbank_args
-            }) 
-            for key, counts in nodes_by_token.items()
-        }
+        rule_stats = compute_rules(self.gold_amrs, propbank_args)
         # store it
         if out_rule_stats:
-            rule_stats = {
-                'sense_by_token': sense_by_token,
-                'lemma_by_token': lemma_by_token,
-                'propbank_args_by_sense': propbank_args
-            }
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(rule_stats))
 
@@ -364,14 +371,15 @@ class AMR_Oracle:
                 if self.tryMerge(tr, tr.amr, gold_amr):
                     tr.MERGE()
                     toks = [tr.amr.tokens[x-1] for x in tr.merged_tokens[stack0]]
-                    self.stats['MERGE'][','.join(toks)] += 1
+                    self.stats['MERGE'].update([','.join(toks)])
 
                 elif self.tryEntity(tr, tr.amr, gold_amr):
                     if stack0 in tr.merged_tokens:
                         toks = [tr.amr.tokens[x-1] for x in tr.merged_tokens[stack0]]
                     else:
                         toks = [tr.amr.nodes[stack0]]
-                    self.stats['ENTITY'][','.join(toks) + ' (' + self.entity_type + ')'] += 1
+                    rule_str = ','.join(toks) + ' (' + self.entity_type + ')'   
+                    self.stats['ENTITY'].update([rule_str])
                     tr.ENTITY(entity_type=self.entity_type)
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
@@ -386,80 +394,111 @@ class AMR_Oracle:
 
                     if top_of_stack_tokens.lower() == self.new_node:
                         # Copy
-                        self.stats['COPY'][top_of_stack_tokens.lower() + ' => ' + self.new_node] += 1
+                        rule_str = top_of_stack_tokens.lower() + ' => ' + self.new_node
+                        self.stats['COPY'].update([rule_str])
                         tr.COPY()
 
                     # Smaller frequency than though
                     elif '\"%s\"' % top_of_stack_tokens == self.new_node:
                         # Copy literal
-                        self.stats['COPY_LITERAL'][top_of_stack_tokens.lower() + ' => ' + self.new_node] += 1
+                        rule_str = '\"%s\"' % top_of_stack_tokens + ' => ' + self.new_node
+                        self.stats['COPY_LITERAL'].update([rule_str])
                         tr.COPY_LITERAL()
 
                     elif (
-                        top_of_stack_tokens in tr.sense_by_token or top_of_stack_tokens in tr.lemma_by_token
+                        top_of_stack_tokens in tr.sense_by_token or 
+                        top_of_stack_tokens in tr.lemma_by_token
                     ):
 
                         # COPY RULES
-                        if is_most_common(tr.sense_by_token[top_of_stack_tokens], self.new_node):
+                        if is_most_common(
+                            tr.sense_by_token[top_of_stack_tokens],
+                            self.new_node
+                        ):
                             # most common propbank sense matches
-                            self.stats['COPY_SENSE'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            rule_str = f'{top_of_stack_tokens}  => {self.new_node}'
+                            self.stats['COPY_SENSE'].update([rule_str])
                             tr.COPY_SENSE()
-                        elif is_most_common(tr.lemma_by_token[top_of_stack_tokens], self.new_node):
+                        elif is_most_common(
+                            tr.lemma_by_token[top_of_stack_tokens],
+                            self.new_node
+                        ):
                             # most common lemma sense matches
-                            self.stats['COPY_LEMMA'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            rule_str = f'{top_of_stack_tokens} => {self.new_node}'
+                            self.stats['COPY_LEMMA'].update([rule_str])
                             tr.COPY_LEMMA()
-                        elif is_most_common(tr.sense_by_token[top_of_stack_tokens], self.new_node, rank=1):
+                        elif is_most_common(
+                            tr.sense_by_token[top_of_stack_tokens],
+                            self.new_node,
+                            rank=1
+                        ):
                             # second most common propbank sense matches
-                            self.stats['COPY_SENSE2'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            rule_str = f'{top_of_stack_tokens} => {self.new_node}'
+                            self.stats['COPY_SENSE2'].update([rule_str]) 
                             tr.COPY_SENSE2()
-                        elif is_most_common(tr.lemma_by_token[top_of_stack_tokens], self.new_node, rank=1):
+                        elif is_most_common(
+                            tr.lemma_by_token[top_of_stack_tokens],
+                            self.new_node,
+                            rank=1
+                        ):
                             # second most common lemma sense matches
-                            self.stats['COPY_LEMMA2'][top_of_stack_tokens + ' => ' + self.new_node] += 1
+                            rule_str = f'{top_of_stack_tokens} => {self.new_node}'
+                            self.stats['COPY_LEMMA2'].update([rule_str])
                             tr.COPY_LEMMA2()
                         else:
                             # Confirm
-                            self.stats['CONFIRM'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
+                            rule_str = f'{tr.amr.nodes[stack0]} => {self.new_node}'
+                            self.stats['CONFIRM'].update([rule_str])
                             tr.CONFIRM(node_label=self.new_node)
 
                     else:
                         # Confirm
-                        self.stats['CONFIRM'][tr.amr.nodes[stack0] + ' => ' + self.new_node] += 1
+                        rule_str = f'{tr.amr.nodes[stack0]} => {self.new_node}'
+                        self.stats['CONFIRM'].update([rule_str])
                         tr.CONFIRM(node_label=self.new_node)
 
                 elif self.tryDependent(tr, tr.amr, gold_amr):
-                    tr.DEPENDENT(edge_label=self.new_edge, node_label=self.new_node, node_id=self.dep_id)
+                    tr.DEPENDENT(
+                        edge_label=self.new_edge,
+                        node_label=self.new_node,
+                        node_id=self.dep_id
+                    )
                     self.dep_id = None
                     tok = tr.amr.nodes[stack0]
-                    self.stats['DEPENDENT'][self.new_edge + ' ' + self.new_node] += 1
+                    rule_str = f'{self.new_edge} {self.new_node}'
+                    self.stats['DEPENDENT'].update([rule_str])
 
                 elif self.tryIntroduce(tr, tr.amr, gold_amr):
                     tok1 = tr.amr.nodes[tr.latent[-1]]
                     tok2 = tr.amr.nodes[stack0]
-                    self.stats['INTRODUCE'][tok1 + ' ' + tok2] += 1
+                    self.stats['INTRODUCE'].update([tok1 + ' ' + tok2])
                     tr.INTRODUCE()
 
                 elif self.tryLA(tr, tr.amr, gold_amr):
                     tr.LA(edge_label=self.new_edge)
                     tok1 = tr.amr.nodes[stack0]
                     tok2 = tr.amr.nodes[stack1]
-                    self.stats['LA'][tok1 + ' ' + self.new_edge + ' ' + tok2] += 1
+                    rule_str = tok1 + ' ' + self.new_edge + ' ' + tok2
+                    self.stats['LA'].update([rule_str])
 
                 elif self.tryRA(tr, tr.amr, gold_amr):
                     tr.RA(edge_label=self.new_edge)
                     tok1 = tr.amr.nodes[stack1]
                     tok2 = tr.amr.nodes[stack0]
-                    self.stats['RA'][tok1 + ' ' + self.new_edge + ' ' + tok2] += 1
+                    rule_str = tok1 + ' ' + self.new_edge + ' ' + tok2
+                    self.stats['RA'].update([rule_str])
 
                 elif self.tryReduce(tr, tr.amr, gold_amr):
                     tok = tr.amr.nodes[stack0]
-                    self.stats['REDUCE'][tok] += 1
+                    self.stats['REDUCE'].update([tok])
                     tr.REDUCE()
 
                 elif self.trySWAP(tr, tr.amr, gold_amr):
                     tr.SWAP()
                     tok1 = tr.amr.nodes[stack1]
                     tok2 = tr.amr.nodes[stack0]
-                    self.stats['SWAP']['swapped: '+tok1 + ' stack0: ' + tok2] += 1
+                    rule_str = f'swapped: {tok1} stack0: {tok2}'
+                    self.stats['SWAP'].update([rule_str])
 
                 elif tr.buffer:
                     tr.SHIFT()
@@ -468,7 +507,12 @@ class AMR_Oracle:
                     tr.stack = []
                     tr.buffer = []
                     break
-            tr.CLOSE(training=True, gold_amr=gold_amr, use_addnonde_rules=use_addnode_rules)
+
+            tr.CLOSE(
+                training=True,
+                gold_amr=gold_amr,
+                use_addnonde_rules=use_addnode_rules
+            )
 
             # update files
             oracle_write(str(tr)) 
