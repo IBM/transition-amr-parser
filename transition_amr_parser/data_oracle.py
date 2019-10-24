@@ -254,7 +254,7 @@ class AMR_Oracle:
 
         # compute alignment statistics from JAMR and other alignments to be
         # used for copy and other rules
-        if propbank_args is None:
+        if propbank_args is not None:
             rule_stats = compute_rules(self.gold_amrs, propbank_args)
             if out_rule_stats:
                 with open(out_rule_stats, 'w') as fid:
