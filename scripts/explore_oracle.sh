@@ -15,16 +15,16 @@ amr-oracle \
     --out-amr ${oracle_folder}/train.oracle.amr \
     --out-sentences ${oracle_folder}/train.tokens \
     --out-actions ${oracle_folder}/train.actions \
-#    --out-rule-stats ${oracle_folder}/train.rules.json \
-#    --in-propbank-args $propbank \
-#    --no-whitespace-in-actions
+    --out-rule-stats ${oracle_folder}/train.rules.json \
+    --in-propbank-args $propbank \
+    --no-whitespace-in-actions
 
 # parse a sentence step by step
 amr-parse \
     --in-sentences ${oracle_folder}/train.tokens \
     --in-actions ${oracle_folder}/train.actions \
     --out-amr ${oracle_folder}/train.amr
-#    --in-rule-stats ${oracle_folder}/train.rules.json \
+    --in-rule-stats ${oracle_folder}/train.rules.json \
 
 # evaluate oracle performance
 # austin0: F-score: 0.9379
@@ -43,15 +43,15 @@ amr-oracle \
     --out-amr ${oracle_folder}/dev.oracle.amr \
     --out-sentences ${oracle_folder}/dev.tokens \
     --out-actions ${oracle_folder}/dev.actions \
-#    --in-propbank-args $propbank \
-#    --out-rule-stats ${oracle_folder}/dev.rules.json \
+    --in-propbank-args $propbank \
+    --out-rule-stats ${oracle_folder}/dev.rules.json \
 
 # parse a sentence step by step to explore
 amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr  # sanity check: should be the same as ${oracle_folder}/dev.oracle.amr
-#    --in-rule-stats ${oracle_folder}/dev.rules.json \
+    --in-rule-stats ${oracle_folder}/dev.rules.json \
 
 # evaluate oracle performance
 echo "Evaluating Oracle"
