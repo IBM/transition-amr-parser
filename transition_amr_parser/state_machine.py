@@ -233,11 +233,6 @@ class AMRStateMachine:
 
     def applyAction(self, act):
 
-#         # This should be checked first for speed
-#         if self.action_list.index(act) not in self.get_valid_action_indices():
-#             import ipdb; ipdb.set_trace(context=30)
-#             aa = 0
-
         action = self.readAction(act)
         action_label = action[0]
         if action_label in ['SHIFT']:
@@ -248,7 +243,6 @@ class AMRStateMachine:
                 return True
         elif action_label in ['REDUCE', 'REDUCE1']:
             self.REDUCE()
-            # ()
         elif action_label in ['LA', 'LA1']:
             self.LA(action[1] if action[1].startswith(':') else ':'+action[1])
         elif action_label in ['RA', 'RA1']:
@@ -303,10 +297,6 @@ class AMRStateMachine:
                 return
         self.CLOSE()
 
-    def get_valid_node(self):
-        stack0 = self.stack[-1]
-        import ipdb; ipdb.set_trace(context=30)
-
     def get_valid_action_indices(self):
         """Return valid actions for this state at test time (no oracle info)"""
         valid_action_indices = []
@@ -324,6 +314,14 @@ class AMRStateMachine:
 
             # valid_node = get_valid_node(self):
             valid_action_indices.extend(self.action_list_by_prefix['PRED'])
+            valid_action_indices.extend(self.action_list_by_prefix['COPY'])
+            # FIXME: Add valid indices rules here
+            valid_action_indices.extend(self.action_list_by_prefix['COPY_SENSE'])
+            valid_action_indices.extend(self.action_list_by_prefix['COPY_LITERAL'])
+            valid_action_indices.extend(self.action_list_by_prefix['COPY_SENSE'])
+            valid_action_indices.extend(self.action_list_by_prefix['COPY_LEMMA'])
+            valid_action_indices.extend(self.action_list_by_prefix['COPY_SENSE2'])
+            valid_action_indices.extend(self.action_list_by_prefix['COPY_LEMMA2'])
 
             # Forbid entitity if top token already an entity
             if self.stack[-1] not in self.entities:
@@ -437,9 +435,12 @@ class AMRStateMachine:
 
     def COPY(self):
         """COPY: Same as CONFIRM but use lowercased top-of-stack"""
+        # get top of stack
         stack0 = self.stack[-1]
-        node_label = self.amr.nodes[stack0].lower()
+        node_label = self.amr.tokens[stack0 - 1].lower()
+        # update AMR graph
         self.amr.nodes[stack0] = node_label
+        # update statistics
         self.actions.append(f'COPY')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -451,9 +452,12 @@ class AMRStateMachine:
 
     def COPY_LITERAL(self):
         """COPY_LITERAL: Same as CONFIRM but use top-of-stack between quotes"""
+        # get top of stack
         stack0 = self.stack[-1]
-        node_label = '\"%s\"' % self.amr.nodes[stack0]
+        node_label = '\"%s\"' % self.amr.tokens[stack0 - 1]
+        # update AMR graph
         self.amr.nodes[stack0] = node_label
+        # update statistics
         self.actions.append(f'COPY_LITERAL')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -465,10 +469,14 @@ class AMRStateMachine:
 
     def COPY_SENSE(self):
         """COPY_SENSE:"""
+        # get top of stack
         stack0 = self.stack[-1]
+        token = self.amr.tokens[stack0 - 1]
         # Get most common aligned node name
-        node_label = self.sense_by_token[self.amr.nodes[stack0]].most_common(1)[-1][0]
+        node_label = self.sense_by_token[token].most_common(1)[-1][0]
+        # update amr graph
         self.amr.nodes[stack0] = node_label
+        # update statistics
         self.actions.append(f'COPY_SENSE')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -480,10 +488,14 @@ class AMRStateMachine:
 
     def COPY_SENSE2(self):
         """COPY_SENSE:"""
+        # get top of stack
         stack0 = self.stack[-1]
+        token = self.amr.tokens[stack0 - 1]
         # Get most common aligned node name
-        node_label = self.sense_by_token[self.amr.nodes[stack0]].most_common(2)[-1][0]
+        node_label = self.sense_by_token[token].most_common(2)[-1][0]
+        # update amr graph
         self.amr.nodes[stack0] = node_label
+        # update statistics
         self.actions.append(f'COPY_SENSE2')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -495,10 +507,14 @@ class AMRStateMachine:
 
     def COPY_LEMMA(self):
         """COPY_LEMMA:"""
+        # get top of stack
         stack0 = self.stack[-1]
+        token = self.amr.tokens[stack0 - 1]
         # Get most common aligned node name
-        node_label = self.lemma_by_token[self.amr.nodes[stack0]].most_common(1)[-1][0]
+        node_label = self.lemma_by_token[token].most_common(1)[-1][0]
+        # update amr graph
         self.amr.nodes[stack0] = node_label
+        # update statistics
         self.actions.append(f'COPY_LEMMA')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -510,10 +526,14 @@ class AMRStateMachine:
 
     def COPY_LEMMA2(self):
         """COPY_LEMMA:"""
+        # get top of stack
         stack0 = self.stack[-1]
+        token = self.amr.tokens[stack0 - 1]
         # Get most common aligned node name
-        node_label = self.lemma_by_token[self.amr.nodes[stack0]].most_common(2)[-1][0]
+        node_label = self.lemma_by_token[token].most_common(2)[-1][0]
+        # update amr graph
         self.amr.nodes[stack0] = node_label
+        # update statistics
         self.actions.append(f'COPY_LEMMA2')
         self.labels.append('_')
         self.labelsA.append('_')

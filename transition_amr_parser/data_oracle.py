@@ -35,6 +35,14 @@ from transition_amr_parser.state_machine import (
 use_addnode_rules = True
 
 
+# Replacement rules for unicode chartacters
+replacement_rules = {
+    'ˈtʃærɪti': 'charity',
+    '\x96': '_',
+    '⊙': 'O'
+}
+
+
 def argument_parser():
 
     parser = argparse.ArgumentParser(description='AMR parser oracle')
@@ -291,14 +299,11 @@ class AMR_Oracle:
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
+        # compute alignment statistics from JAMR and other alignments
         rule_stats = compute_rules(self.gold_amrs, propbank_args)
-        # store it
         if out_rule_stats:
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(rule_stats))
-
-        # where we will store the outputs
-        start = 0
 
         # open all files (if paths provided) and get writers to them
         oracle_write = writer(out_oracle) 
@@ -312,17 +317,17 @@ class AMR_Oracle:
             'imperative', '1', 'thing', 
         ]
 
+        # Loop over golf AMRs
         for sent_idx, gold_amr in tqdm(
             enumerate(self.gold_amrs),
             desc=f'computing oracle',
             total=len(self.gold_amrs)
         ):
 
-            if sent_idx < start:
-                continue
             if self.verbose:
                 print("New Sentence " + str(sent_idx) + "\n\n\n")
 
+            # Initialize state machine
             tr = AMRStateMachine(
                 gold_amr.tokens,
                 verbose=self.verbose,
@@ -333,6 +338,7 @@ class AMR_Oracle:
             self.amrs.append(tr.amr)
 
             # clean alignments
+            # TODO: describe this
             for i, tok in enumerate(gold_amr.tokens):
                 align = gold_amr.alignmentsToken2Node(i+1)
                 if len(align) == 2:
@@ -348,6 +354,7 @@ class AMR_Oracle:
                         gold_amr.alignments[align[remove]].remove(i+1)
                         gold_amr.token2node_memo = {}
 
+            # TODO: describe this
             if add_unaligned:
                 for i in range(add_unaligned):
                     gold_amr.tokens.append("<unaligned>")
@@ -356,7 +363,8 @@ class AMR_Oracle:
                             if gold_amr.nodes[n] in included_unaligned:
                                 gold_amr.alignments[n] = [len(gold_amr.tokens)]
                                 break
-            # add root
+
+            # add root node
             gold_amr.tokens.append("<ROOT>")
             gold_amr.nodes[-1] = "<ROOT>"
             gold_amr.edges.append((-1, "root", gold_amr.root))
@@ -374,6 +382,7 @@ class AMR_Oracle:
                     self.stats['MERGE'].update([','.join(toks)])
 
                 elif self.tryEntity(tr, tr.amr, gold_amr):
+                    # get top of the stack including merged symbols
                     if stack0 in tr.merged_tokens:
                         toks = [tr.amr.tokens[x-1] for x in tr.merged_tokens[stack0]]
                     else:
@@ -390,16 +399,17 @@ class AMR_Oracle:
 #                             tr.amr.tokens[i - 1] for i in tr.merged_tokens[stack0]
 #                         ])
 #                     else:
-                    top_of_stack_tokens = tr.amr.nodes[stack0]
+                    top_of_stack_tokens = tr.amr.tokens[stack0 - 1]
 
                     if top_of_stack_tokens.lower() == self.new_node:
-                        # Copy
+
+                        # COPY (lowercased)
                         rule_str = top_of_stack_tokens.lower() + ' => ' + self.new_node
                         self.stats['COPY'].update([rule_str])
                         tr.COPY()
 
-                    # Smaller frequency than though
                     elif '\"%s\"' % top_of_stack_tokens == self.new_node:
+
                         # Copy literal
                         rule_str = '\"%s\"' % top_of_stack_tokens + ' => ' + self.new_node
                         self.stats['COPY_LITERAL'].update([rule_str])
@@ -949,6 +959,12 @@ def main():
     # Load AMR
     corpus = JAMR_CorpusReader()
     corpus.load_amrs(args.in_amr)
+    # FIXME: normalization shold be more robust. Right now use the tokens of
+    # the amr inside the oracle. This is why we need to normalize them. 
+    for amr in corpus.amrs:
+        amr.tokens = [
+            replacement_rules.get(token, token) for token in amr.tokens
+        ]
 
     # Load propbank
     propbank_args = read_propbank(args.in_propbank_args)
