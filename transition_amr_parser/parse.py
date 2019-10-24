@@ -163,12 +163,11 @@ def main():
     if args.out_amr:
         amr_write = writer(args.out_amr)
 
-    sent_idx = -1
+    # Loop over sentences
     statistics = Statistics()
     for sent_idx, sent_tokens in tqdm(enumerate(sentences)):
 
-        # keep count of sentence index
-        sent_idx += 1
+        # fast-forward until desired sentence number 
         if args.offset and sent_idx < args.offset:
             continue
 
@@ -180,21 +179,17 @@ def main():
 
         # execute parsing model
         time_step = 0
-        while amr_state_machine.stack or amr_state_machine.buffer:
+        while not amr_state_machine.is_closed:
 
             # Print state (pause if solicited)
             if args.verbose:
-                pretty_machine_print(
-                    sent_idx,
-                    amr_state_machine,
-                    args.clear_print,
-                    args.step_by_step,
-                    args.pause_time
-                )
+                pretty_machine_print(sent_idx, amr_state_machine, args)
 
             # Get next action
             if args.in_actions:
                 # externally provided actions
+                if len(actions[sent_idx]) == time_step:
+                    break
                 raw_action = actions[sent_idx][time_step]
             else:
                 # TODO: machine learning model / oracle
@@ -205,6 +200,7 @@ def main():
 
             # Update state machine
             amr_state_machine.applyAction(raw_action)
+            time_step += 1
 
         # Output AMR
         if args.out_amr:
@@ -215,17 +211,16 @@ def main():
         amr_write()
 
 
-def pretty_machine_print(sent_idx, amr_state_machine, clear_print,
-                         step_by_step, pause_time):
-    if clear_print:
+def pretty_machine_print(sent_idx, amr_state_machine, args):
+    if args.clear_print:
         # clean screen each time
         os.system('clear')
     print(f'sentence {sent_idx}\n')
     print(amr_state_machine)
 
     # step by step mode
-    if step_by_step:
-        if pause_time:
-            time.sleep(pause_time)
+    if args.step_by_step:
+        if args.pause_time:
+            time.sleep(args.pause_time)
         else:
             input('Press any key to continue')
