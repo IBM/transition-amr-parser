@@ -53,6 +53,8 @@ class AMRStateMachine:
         # add root
         if '<ROOT>' not in tokens:
             tokens.append("<ROOT>")
+        # machine is active
+        self.is_closed = False
         # init stack, buffer
         self.stack = []
         self.buffer = list(reversed([i+1 for i, tok in enumerate(tokens) if tok != '<unaligned>']))
@@ -757,6 +759,9 @@ class AMRStateMachine:
             print('CLOSE')
             print(self.printStackBuffer())
             print(self.amr.toJAMRString())
+
+        # Close the machine
+        self.is_closed = True
 
     def printStackBuffer(self):
         s = 'STACK [' + ' '.join(self.amr.nodes[x] if x in self.amr.nodes else 'None' for x in self.stack) + '] '
