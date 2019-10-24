@@ -5,15 +5,6 @@ set -o errexit
 [ ! -d scripts/ ] && echo "Call as scripts/$(basename $0)" && exit 1
 . scripts/local_variables.sh
 
-# 'Yosuke shimazono wrote' appears mapped to write
-# - 23315: why we need to PRED(i) unlike multi-wrod expressions
-# - 35675: AddNode replaces the word on the stack with the added-node for future refs?
-# - example of alias for multi-word epressions 10
-# - 13310 imperative is given by !! at the end of the sentence, a lot of unshifts to get to the verb
-# - 13311 
-#   - "Unfortunately", its polarity comes from a weird place
-#   - "hope_and_change" hardcoded from hope
-
 # TRAIN
 oracle_folder=data/austin0_copy_literal/
 [ ! -d ${oracle_folder}/ ] && mkdir ${oracle_folder}/
