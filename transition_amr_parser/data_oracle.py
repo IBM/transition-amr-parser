@@ -57,7 +57,6 @@ def argument_parser():
         "--in-propbank-args",
         help="Propbank argument data",
         type=str,
-        required=True
     )
     parser.add_argument(
         "--out-oracle",
@@ -927,7 +926,10 @@ def main():
         ]
 
     # Load propbank
-    propbank_args = read_propbank(args.in_propbank_args)
+    if args.in_propbank_args:
+        propbank_args = read_propbank(args.in_propbank_args)
+    else:    
+        propbank_args = None
 
     print_log("amr", "Processing oracle")
     oracle = AMR_Oracle(verbose=args.verbose)
