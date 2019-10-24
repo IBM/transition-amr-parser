@@ -159,6 +159,8 @@ def main():
     if args.in_rule_stats:
         rule_stats = read_rule_stats(args.in_rule_stats)
     else:
+        assert args.restrict_predictions and args.in_actions, \
+            "--restrict-predictions reuqiures --in-rule-stats and --in-actions"
         rule_stats = None
 
     # Output AMR
@@ -169,7 +171,7 @@ def main():
     statistics = Statistics()
     for sent_idx, sent_tokens in tqdm(enumerate(sentences)):
 
-        # fast-forward until desired sentence number 
+        # fast-forward until desired sentence number
         if args.offset and sent_idx < args.offset:
             continue
 
@@ -193,6 +195,12 @@ def main():
                 if len(actions[sent_idx]) == time_step:
                     break
                 raw_action = actions[sent_idx][time_step]
+                if args.restrict_predictions:
+                    raw_action = restrict_action(
+                        raw_action,
+                        amr_state_machine,
+                        rule_stats
+                    )
             else:
                 # TODO: machine learning model / oracle
                 pass
@@ -226,3 +234,19 @@ def pretty_machine_print(sent_idx, amr_state_machine, args):
             time.sleep(args.pause_time)
         else:
             input('Press any key to continue')
+
+
+def restrict_action(action, state, valid_predictions_by_token):
+    if action.startswith('PRED') and len(state.stack) > 0:
+        token = state.amr.tokens[state.stack[-1] - 1]
+        valid_nodes = valid_predictions_by_token[token]
+        if len(valid_nodes):
+            pred_node = action[5:-1]
+            if pred_node not in valid_nodes:
+                action = f'PRED({valid_nodes.most_common(1)[0][0]})'
+        else:
+            # If no data justb predict token
+            action = f'PRED({token})'
+        return action
+    else:
+        return action
