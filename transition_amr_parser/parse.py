@@ -292,7 +292,6 @@ def main():
             logger=logger
         )
     else:
-
         # TODO: Real parsing model
         raise NotImplementedError()
         parsing_model = AMRParser(model_path=None, logger=logger)

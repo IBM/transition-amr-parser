@@ -317,19 +317,19 @@ class AMRStateMachine:
 
             # rules dependent on top of the stack
             top_of_stack = self.amr.tokens[self.stack[-1] - 1]
-            if top_of_stack in self.sense_by_token:
+            if len(self.sense_by_token.get(top_of_stack, Counter())) > 0:
                 valid_action_indices.extend(
                     self.action_list_by_prefix['COPY_SENSE']
                 )
-                if len(self.sense_by_token) > 1:
+                if len(self.sense_by_token.get(top_of_stack, Counter())) > 1:
                     valid_action_indices.extend(
                         self.action_list_by_prefix['COPY_SENSE2']
                     )
-            if top_of_stack in self.lemma_by_token:
+            if len(self.lemma_by_token.get(top_of_stack, Counter())) > 0:
                 valid_action_indices.extend(
                     self.action_list_by_prefix['COPY_LEMMA']
                 )
-                if len(self.lemma_by_token) > 1:
+                if len(self.lemma_by_token.get(top_of_stack, Counter())) > 1:
                     valid_action_indices.extend(
                         self.action_list_by_prefix['COPY_LEMMA2']
                     )
