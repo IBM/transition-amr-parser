@@ -247,6 +247,11 @@ class AMR_Oracle:
                   out_rule_stats=None, add_unaligned=0,
                   no_whitespace_in_actions=False):
 
+#         for idx, amr in enumerate(gold_amrs):
+#             if any(any(x in token for x in replacement_rules.keys()) for token in amr.tokens):
+#                 import ipdb; ipdb.set_trace(context=30)
+#                 pass
+ 
         print_log("oracle", "Parsing data")
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
@@ -918,12 +923,17 @@ def main():
     # Load AMR
     corpus = JAMR_CorpusReader()
     corpus.load_amrs(args.in_amr)
+
     # FIXME: normalization shold be more robust. Right now use the tokens of
     # the amr inside the oracle. This is why we need to normalize them.
-    for amr in corpus.amrs:
-        amr.tokens = [
-            replacement_rules.get(token, token) for token in amr.tokens
-        ]
+    for idx, amr in enumerate(corpus.amrs):
+        new_tokens = []
+        for token in amr.tokens:
+            forbidden = [x for x in replacement_rules.keys() if x in token]
+            if forbidden:
+                token = token.replace(forbidden[0], replacement_rules[forbidden[0]])
+            new_tokens.append(token)    
+        amr.tokens = new_tokens
 
     # Load propbank
     if args.in_propbank_args:
