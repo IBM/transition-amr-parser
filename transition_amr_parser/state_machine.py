@@ -54,6 +54,7 @@ class AMRStateMachine:
         if '<ROOT>' not in tokens:
             tokens.append("<ROOT>")
         # machine is active
+        self.time_step = 0
         self.is_closed = False
         # init stack, buffer
         self.stack = []
@@ -89,7 +90,7 @@ class AMRStateMachine:
         if rule_stats:
             self.sense_by_token = rule_stats['sense_by_token']
             self.lemma_by_token = rule_stats['lemma_by_token']
-        else:    
+        else:
             self.sense_by_token = {}
             self.lemma_by_token = {}
 
@@ -279,6 +280,9 @@ class AMRStateMachine:
             pass
         else:
             raise Exception(f'Unrecognized action: {act}')
+
+        # Increase time step
+        self.time_step += 1
 
     def applyActions(self, actions):
         for action in actions:
