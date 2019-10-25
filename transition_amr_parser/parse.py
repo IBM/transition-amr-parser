@@ -184,7 +184,10 @@ class FakeAMRParser():
         self.actions_by_sentence = {
             sent: actions for sent, actions in from_sent_act_pairs
         }
-        self.rule_stats = read_rule_stats(model_path)
+        if model_path:
+            self.rule_stats = read_rule_stats(model_path)
+        else:
+            self.rule_stats = None
         self.logger = logger
         self.sent_idx = 0
 
@@ -289,7 +292,6 @@ def main():
             logger=logger
         )
     else:
-
         # TODO: Real parsing model
         raise NotImplementedError()
         parsing_model = AMRParser(model_path=None, logger=logger)
