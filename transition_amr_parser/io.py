@@ -76,3 +76,11 @@ def read_tokenized_sentences(file_path):
         for line in fid:
             sentences.append(line.rstrip().split())
     return sentences
+
+
+def read_sentences(file_path):
+    sentences = []
+    with open(file_path) as fid:
+        for line in fid:
+            sentences.append(line.rstrip())
+    return sentences

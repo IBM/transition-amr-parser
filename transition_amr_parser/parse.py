@@ -10,7 +10,7 @@ from tqdm import tqdm
 from transition_amr_parser.state_machine import AMRStateMachine
 from transition_amr_parser.io import (
     writer,
-    read_tokenized_sentences,
+    read_sentences,
     read_rule_stats,
 )
 
@@ -102,12 +102,6 @@ def argument_parser():
     return args
 
 
-def ordered_exit(signum, frame):
-    """Mesage user when killing by signal"""
-    print("\nStopped by user\n")
-    exit(0)
-
-
 def reduce_counter(counts, reducer):
     """
     Returns a new counter from an existing one where keys have been mapped
@@ -140,89 +134,184 @@ class Statistics():
         self.action_counts.update([raw_action])
 
 
+class AMRParser():
+
+    def __init__(self, model_path=None, verbose=False, logger=None):
+
+        # TODO: Real parsing model
+        raise NotImplementedError()
+
+        self.rule_stats = read_rule_stats(f'{model_path}/train.rules.json')
+        self.model = None
+        self.logger = logger
+        self.sent_idx = 0
+
+    def parse_sentence(self, sentence_str):
+
+        # TODO: Tokenizer
+        tokens = sentence_str.split()
+
+        # Initialize state machine
+        state_machine = AMRStateMachine(tokens, rule_stats=self.rule_stats)
+
+        # execute parsing model
+        while not state_machine.is_closed:
+
+            # TODO: get action from model
+            raw_action = None
+
+            # Inform user
+            self.logger.pretty_print(self.sent_idx, state_machine)
+
+            # Update state machine
+            state_machine.applyAction(raw_action)
+
+        self.sent_idx += 1
+
+        return state_machine.amr
+
+
+class FakeAMRParser():
+    """
+    Fake parser that uses precomputed sequences of sentences and corresponding
+    actions
+    """
+
+    def __init__(self, model_path=None, from_sent_act_pairs=None, logger=None):
+
+        # Dummy mode: simulate parser from pre-computed pairs of sentences
+        # and actions
+        self.actions_by_sentence = {
+            sent: actions for sent, actions in from_sent_act_pairs
+        }
+        self.rule_stats = read_rule_stats(model_path)
+        self.logger = logger
+        self.sent_idx = 0
+
+    def parse_sentence(self, sentence_str):
+
+        # simulated actions given by a parsing model
+        assert sentence_str in self.actions_by_sentence, \
+            "Fake parser has no actions for sentence: %s" % sentence_str
+        actions = self.actions_by_sentence[sentence_str].split()
+
+        # Fake tokenization
+        tokens = sentence_str.split()
+
+        # Initialize state machine
+        state_machine = AMRStateMachine(tokens, rule_stats=self.rule_stats)
+
+        # execute parsing model
+        while not state_machine.is_closed:
+
+            # get action from model
+            raw_action = actions[state_machine.time_step]
+
+            # Print state (pause if solicited)
+            self.logger.update(self.sent_idx, raw_action, state_machine)
+
+            # Update state machine
+            state_machine.applyAction(raw_action)
+
+        # count one sentence more
+        self.sent_idx += 1
+
+        return state_machine.amr
+
+
+class Logger():
+
+    def __init__(self, step_by_step=None, clear_print=None, pause_time=None,
+                 verbose=False):
+
+        self.step_by_step = step_by_step
+        self.clear_print = clear_print
+        self.pause_time = pause_time
+        self.verbose = verbose or self.step_by_step
+        self.statistics = Statistics()
+
+        if step_by_step:
+
+            # Set traps for system signals to die graceful when Ctrl-C used
+
+            def ordered_exit(signum, frame):
+                """Mesage user when killing by signal"""
+                print("\nStopped by user\n")
+                exit(0)
+
+            signal.signal(signal.SIGINT, ordered_exit)
+            signal.signal(signal.SIGTERM, ordered_exit)
+
+    def update(self, sent_idx, action, state_machine):
+
+        # Collect statistics
+        self.statistics.update(action, state_machine)
+
+        if self.verbose:
+            if self.clear_print:
+                # clean screen each time
+                os.system('clear')
+            print(f'sentence {sent_idx}\n')
+            print(state_machine)
+            # step by step mode
+            if self.step_by_step:
+                if self.pause_time:
+                    time.sleep(self.pause_time)
+                else:
+                    input('Press any key to continue')
+
+
 def main():
 
     # Argument handling
     args = argument_parser()
 
-    # Get data generators
-    sentences = read_tokenized_sentences(args.in_sentences)
+    # Get data
+    sentences = read_sentences(args.in_sentences)
+
+    # Initialize logger/printer
+    logger = Logger(
+        step_by_step=args.step_by_step,
+        clear_print=args.clear_print,
+        pause_time=args.pause_time,
+        verbose=args.verbose
+    )
+
+    # Load real or dummy Parsing model
     if args.in_actions:
-        actions = read_tokenized_sentences(args.in_actions)
 
-    # set orderd exit
-    if args.step_by_step:
-        signal.signal(signal.SIGINT, ordered_exit)
-        signal.signal(signal.SIGTERM, ordered_exit)
-
-    # Get copy stats if provided
-    if args.in_rule_stats:
-        rule_stats = read_rule_stats(args.in_rule_stats)
+        # Fake parser built from actions
+        actions = read_sentences(args.in_actions)
+        assert len(sentences) == len(actions)
+        parsing_model = FakeAMRParser(
+            model_path=args.in_rule_stats,
+            from_sent_act_pairs=zip(sentences, actions),
+            logger=logger
+        )
     else:
-        rule_stats = None
 
-    # Output AMR
+        # TODO: Real parsing model
+        raise NotImplementedError()
+        parsing_model = AMRParser(model_path=None, logger=logger)
+
+    # Get output AMR writer
     if args.out_amr:
         amr_write = writer(args.out_amr)
 
     # Loop over sentences
-    statistics = Statistics()
-    for sent_idx, sent_tokens in tqdm(enumerate(sentences)):
+    for sent_idx, sentence in tqdm(enumerate(sentences)):
 
-        # fast-forward until desired sentence number 
+        # fast-forward until desired sentence number
         if args.offset and sent_idx < args.offset:
             continue
 
-        # Initialize state machine
-        amr_state_machine = AMRStateMachine(
-            sent_tokens,
-            rule_stats=rule_stats
-        )
+        # parse
+        amr = parsing_model.parse_sentence(sentence)
 
-        # execute parsing model
-        time_step = 0
-        while not amr_state_machine.is_closed:
-
-            # Print state (pause if solicited)
-            if args.verbose:
-                pretty_machine_print(sent_idx, amr_state_machine, args)
-
-            # Get next action
-            if args.in_actions:
-                # externally provided actions
-                if len(actions[sent_idx]) == time_step:
-                    break
-                raw_action = actions[sent_idx][time_step]
-            else:
-                # TODO: machine learning model / oracle
-                pass
-
-            # Collect statistics
-            statistics.update(raw_action, amr_state_machine)
-
-            # Update state machine
-            amr_state_machine.applyAction(raw_action)
-            time_step += 1
-
-        # Output AMR
+        # store output AMR
         if args.out_amr:
-            amr_write(amr_state_machine.amr.toJAMRString())
+            amr_write(amr.toJAMRString())
 
-    # close output AMR
+    # close output AMR writer
     if args.out_amr:
         amr_write()
-
-
-def pretty_machine_print(sent_idx, amr_state_machine, args):
-    if args.clear_print:
-        # clean screen each time
-        os.system('clear')
-    print(f'sentence {sent_idx}\n')
-    print(amr_state_machine)
-
-    # step by step mode
-    if args.step_by_step:
-        if args.pause_time:
-            time.sleep(args.pause_time)
-        else:
-            input('Press any key to continue')
