@@ -3,7 +3,7 @@ import time
 import os
 import signal
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 
 from tqdm import tqdm
 
@@ -32,6 +32,13 @@ def argument_parser():
         help="file space with carriage return separated sentences",
         type=str
     )
+    parser.add_argument(
+        "--restrict-predictions",
+        help="use rule_stats torestrict --in-actions possible",
+        action='store_true',
+        default=False
+    )
+
     parser.add_argument(
         "--out-amr",
         help="parsing model",
@@ -158,17 +165,24 @@ def main():
     # Get copy stats if provided
     if args.in_rule_stats:
         rule_stats = read_rule_stats(args.in_rule_stats)
-    else:
-        assert args.restrict_predictions and args.in_actions, \
-            "--restrict-predictions reuqiures --in-rule-stats and --in-actions"
-        rule_stats = None
 
+    if args.restrict_predictions:
+        assert args.in_rule_stats
+        assert args.in_actions
+        nodes_by_token = defaultdict(lambda: Counter())
+        for token in list(
+            set(rule_stats['sense_by_token']) | 
+            set(rule_stats['lemma_by_token'])
+        ):
+            nodes_by_token[token].update(rule_stats['sense_by_token'][token])
+            nodes_by_token[token].update(rule_stats['lemma_by_token'][token])            
     # Output AMR
     if args.out_amr:
         amr_write = writer(args.out_amr)
 
     # Loop over sentences
     statistics = Statistics()
+    counts = Counter()
     for sent_idx, sent_tokens in tqdm(enumerate(sentences)):
 
         # fast-forward until desired sentence number
@@ -192,14 +206,13 @@ def main():
             # Get next action
             if args.in_actions:
                 # externally provided actions
-                if len(actions[sent_idx]) == time_step:
-                    break
                 raw_action = actions[sent_idx][time_step]
                 if args.restrict_predictions:
                     raw_action = restrict_action(
                         raw_action,
                         amr_state_machine,
-                        rule_stats
+                        nodes_by_token,
+                        counts
                     )
             else:
                 # TODO: machine learning model / oracle
@@ -220,6 +233,8 @@ def main():
     if args.out_amr:
         amr_write()
 
+    print(counts)
+
 
 def pretty_machine_print(sent_idx, amr_state_machine, args):
     if args.clear_print:
@@ -236,7 +251,7 @@ def pretty_machine_print(sent_idx, amr_state_machine, args):
             input('Press any key to continue')
 
 
-def restrict_action(action, state, valid_predictions_by_token):
+def restrict_action(action, state, valid_predictions_by_token, counts):
     if action.startswith('PRED') and len(state.stack) > 0:
         token = state.amr.tokens[state.stack[-1] - 1]
         valid_nodes = valid_predictions_by_token[token]
@@ -244,9 +259,13 @@ def restrict_action(action, state, valid_predictions_by_token):
             pred_node = action[5:-1]
             if pred_node not in valid_nodes:
                 action = f'PRED({valid_nodes.most_common(1)[0][0]})'
+                counts.update(['missing'])
+            else:    
+                counts.update(['not_missing'])
         else:
             # If no data justb predict token
             action = f'PRED({token})'
+            counts.update(['not_missing'])
         return action
     else:
         return action
