@@ -107,7 +107,115 @@ def argument_parser():
     return args
 
 
+
+def is_most_common(node_counts, node, rank=0):
+
+    return (
+        (
+            # as many results as the rank and node in that rank matches
+            len(node_counts) == rank + 1 and
+            node_counts.most_common(rank + 1)[-1][0] == node
+        ) or (
+            # more results than the rank, node in that rank matches, and rank
+            # results is more probable than rank + 1
+            len(node_counts) > rank + 1 and
+            node_counts.most_common(rank + 1)[-1][0] == node and
+            node_counts.most_common(rank + 1)[-1][1] >
+            node_counts.most_common(rank + 2)[-1][1]
+        )
+     )
+
+
+# def compute_rules(gold_amrs, propbank_args):
+#     """
+#     Compute node to token alignmen statistic based on train data
+#     separate senses and non-senses aligned to tokens
+#     """
+#     nodes_by_token = dict(get_node_alignment_counts(gold_amrs))
+#     # sense counts
+#     sense_by_token = {
+#         key: Counter({
+#             value: count
+#             for value, count in counts.items()
+#             if value in propbank_args
+#         })
+#         for key, counts in nodes_by_token.items()
+#     }
+#     # lemma (or whatever ends up aligned)
+#     lemma_by_token = {
+#         key: Counter({
+#             value: count
+#             for value, count in counts.items()
+#             if value not in propbank_args
+#         })
+#         for key, counts in nodes_by_token.items()
+#     }
+#     return {
+#         'sense_by_token': sense_by_token,
+#         'lemma_by_token': lemma_by_token,
+#         'propbank_args_by_sense': propbank_args
+#     }
+# 
+# 
+#         # compute alignment statistics from JAMR and other alignments to be
+#         # used for copy and other rules
+#         if propbank_args is not None:
+#             alignment_stats = compute_rules(self.gold_amrs, propbank_args)
+# #             if out_rule_stats:
+# #                 with open(out_rule_stats, 'w') as fid:
+# #                     fid.write(json.dumps(rule_stats))
+#             self.copy_rules = True
+#         else:
+#             rule_stats = None
+#             self.copy_rules = False 
+# 
+#         # FIXME: hard wired for experiment
+#         self.copy_rules = False 
+
+
+def preprocess_amr(gold_amr, add_unaligned):
+
+    # clean alignments
+    for i, tok in enumerate(gold_amr.tokens):
+        align = gold_amr.alignmentsToken2Node(i+1)
+        if len(align) == 2:
+            edges = [
+                (s, r, t) 
+                for s, r, t in gold_amr.edges 
+                if s in align and t in align
+            ]
+            if not edges:
+                remove = 1
+                if (
+                    gold_amr.nodes[align[1]].startswith(tok[:2]) or
+                    len(gold_amr.alignments[align[0]]) >
+                        len(gold_amr.alignments[align[1]])
+                ):
+                    remove = 0
+                gold_amr.alignments[align[remove]].remove(i+1)
+                gold_amr.token2node_memo = {}
+
+    # TODO: describe this
+    if add_unaligned:
+        for i in range(add_unaligned):
+            gold_amr.tokens.append("<unaligned>")
+            for n in gold_amr.nodes:
+                if n not in gold_amr.alignments or not gold_amr.alignments[n]:
+                    if gold_amr.nodes[n] in included_unaligned:
+                        gold_amr.alignments[n] = [len(gold_amr.tokens)]
+                        break
+
+    # add root node
+    gold_amr.tokens.append("<ROOT>")
+    gold_amr.nodes[-1] = "<ROOT>"
+    gold_amr.edges.append((-1, "root", gold_amr.root))
+    gold_amr.alignments[-1] = [-1]
+
+    return gold_amr
+
+
 def get_node_alignment_counts(gold_amrs_train):
+    """Get statistics of alignments between nodes and surface words"""
 
     node_by_token = defaultdict(lambda: Counter())
     for train_amr in gold_amrs_train:
@@ -136,55 +244,6 @@ def get_node_alignment_counts(gold_amrs_train):
     return node_by_token
 
 
-def is_most_common(node_counts, node, rank=0):
-
-    return (
-        (
-            # as many results as the rank and node in that rank matches
-            len(node_counts) == rank + 1 and
-            node_counts.most_common(rank + 1)[-1][0] == node
-        ) or (
-            # more results than the rank, node in that rank matches, and rank
-            # results is more probable than rank + 1
-            len(node_counts) > rank + 1 and
-            node_counts.most_common(rank + 1)[-1][0] == node and
-            node_counts.most_common(rank + 1)[-1][1] >
-            node_counts.most_common(rank + 2)[-1][1]
-        )
-     )
-
-
-def compute_rules(gold_amrs, propbank_args):
-    """
-    Compute node to token alignmen statistic based on train data
-    separate senses and non-senses aligned to tokens
-    """
-    nodes_by_token = dict(get_node_alignment_counts(gold_amrs))
-    # sense counts
-    sense_by_token = {
-        key: Counter({
-            value: count
-            for value, count in counts.items()
-            if value in propbank_args
-        })
-        for key, counts in nodes_by_token.items()
-    }
-    # lemma (or whatever ends up aligned)
-    lemma_by_token = {
-        key: Counter({
-            value: count
-            for value, count in counts.items()
-            if value not in propbank_args
-        })
-        for key, counts in nodes_by_token.items()
-    }
-    return {
-        'sense_by_token': sense_by_token,
-        'lemma_by_token': lemma_by_token,
-        'propbank_args_by_sense': propbank_args
-    }
-
-
 class AMR_Oracle:
 
     def __init__(self, verbose=False):
@@ -205,6 +264,9 @@ class AMR_Oracle:
         self.swapped_words = {}
 
         self.possibleEntityTypes = Counter()
+
+        # DEBUG
+        self.copy_rules = False
 
         self.stats = {
             'CONFIRM': Counter(),
@@ -251,18 +313,6 @@ class AMR_Oracle:
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
-        # compute alignment statistics from JAMR and other alignments to be
-        # used for copy and other rules
-        if propbank_args is not None:
-            rule_stats = compute_rules(self.gold_amrs, propbank_args)
-            if out_rule_stats:
-                with open(out_rule_stats, 'w') as fid:
-                    fid.write(json.dumps(rule_stats))
-            self.copy_rules = True
-        else:
-            rule_stats = None
-            self.copy_rules = False 
-
         # open all files (if paths provided) and get writers to them
         oracle_write = writer(out_oracle)
         amr_write = writer(out_amr)
@@ -285,49 +335,23 @@ class AMR_Oracle:
             if self.verbose:
                 print("New Sentence " + str(sent_idx) + "\n\n\n")
 
+            # TODO: Describe what is this pre-processing
+            gold_amr = preprocess_amr(gold_amr, add_unaligned)
+
+            # compute alignment statistics
+            # TODO: I now this *after* preprocessing. Effect unclear
+            # alignment_statistics = get_node_alignment_counts(gold_amr):
+
             # Initialize state machine
             tr = AMRStateMachine(
                 gold_amr.tokens,
                 verbose=self.verbose,
-                add_unaligned=add_unaligned,
-                rule_stats=rule_stats
+                add_unaligned=add_unaligned
             )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
 
-            # clean alignments
-            # TODO: describe this
-            for i, tok in enumerate(gold_amr.tokens):
-                align = gold_amr.alignmentsToken2Node(i+1)
-                if len(align) == 2:
-                    edges = [(s, r, t) for s, r, t in gold_amr.edges if s in align and t in align]
-                    if not edges:
-                        remove = 1
-                        if (
-                            gold_amr.nodes[align[1]].startswith(tok[:2]) or
-                            len(gold_amr.alignments[align[0]]) >
-                                len(gold_amr.alignments[align[1]])
-                        ):
-                            remove = 0
-                        gold_amr.alignments[align[remove]].remove(i+1)
-                        gold_amr.token2node_memo = {}
-
-            # TODO: describe this
-            if add_unaligned:
-                for i in range(add_unaligned):
-                    gold_amr.tokens.append("<unaligned>")
-                    for n in gold_amr.nodes:
-                        if n not in gold_amr.alignments or not gold_amr.alignments[n]:
-                            if gold_amr.nodes[n] in included_unaligned:
-                                gold_amr.alignments[n] = [len(gold_amr.tokens)]
-                                break
-
-            # add root node
-            gold_amr.tokens.append("<ROOT>")
-            gold_amr.nodes[-1] = "<ROOT>"
-            gold_amr.edges.append((-1, "root", gold_amr.root))
-            gold_amr.alignments[-1] = [-1]
-
+            # Loop over potential actions
             while tr.buffer or tr.stack:
 
                 # top and second to top of the stack
