@@ -165,8 +165,11 @@ def main():
     # Get copy stats if provided
     if args.in_rule_stats:
         rule_stats = read_rule_stats(args.in_rule_stats)
+    else:
+        rule_stats = None 
 
     if args.restrict_predictions:
+        # FIXME: REDO
         assert args.in_rule_stats
         assert args.in_actions
         nodes_by_token = defaultdict(lambda: Counter())
@@ -176,6 +179,7 @@ def main():
         ):
             nodes_by_token[token].update(rule_stats['sense_by_token'][token])
             nodes_by_token[token].update(rule_stats['lemma_by_token'][token])            
+
     # Output AMR
     if args.out_amr:
         amr_write = writer(args.out_amr)
@@ -190,10 +194,7 @@ def main():
             continue
 
         # Initialize state machine
-        amr_state_machine = AMRStateMachine(
-            sent_tokens,
-            rule_stats=rule_stats
-        )
+        amr_state_machine = AMRStateMachine(sent_tokens)
 
         # execute parsing model
         time_step = 0

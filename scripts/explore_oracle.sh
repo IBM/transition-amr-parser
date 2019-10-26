@@ -10,41 +10,41 @@ oracle_folder=data/austin0_copy_literal/
 [ ! -d ${oracle_folder}/ ] && mkdir ${oracle_folder}/
 
 # create oracle data
-# amr-oracle \
-#     --in-amr $train_file \
-#     --out-amr ${oracle_folder}/train.oracle.amr \
-#     --out-sentences ${oracle_folder}/train.tokens \
-#     --out-actions ${oracle_folder}/train.actions \
-#     --out-rule-stats ${oracle_folder}/train.rules.json \
-#     --in-propbank-args $propbank \
-#     --no-whitespace-in-actions
+amr-oracle \
+    --in-amr $train_file \
+    --out-amr ${oracle_folder}/train.oracle.amr \
+    --out-sentences ${oracle_folder}/train.tokens \
+    --out-actions ${oracle_folder}/train.actions \
+    --out-rule-stats ${oracle_folder}/train.rules.jsons \
+    --in-propbank-args $propbank \
+    --no-whitespace-in-actions
 
 # parse a sentence step by step
-# amr-parse \
-#     --in-sentences ${oracle_folder}/train.tokens \
-#     --in-actions ${oracle_folder}/train.actions \
-#     --out-amr ${oracle_folder}/train.amr \
-#     --in-rule-stats ${oracle_folder}/train.rules.json \
+amr-parse \
+    --in-sentences ${oracle_folder}/train.tokens \
+    --in-actions ${oracle_folder}/train.actions \
+    --out-amr ${oracle_folder}/train.amr \
+    --in-rule-stats ${oracle_folder}/train.rules.jsons \
 
 # evaluate oracle performance
 # austin0: F-score: 0.9379
-# python smatch/smatch.py \
-#      --significant 4  \
-#      -f $train_file \
-#      ${oracle_folder}/train.oracle.amr \
-#      -r 10 
+python smatch/smatch.py \
+     --significant 4  \
+     -f $train_file \
+     ${oracle_folder}/train.oracle.amr \
+     -r 10 
 
 # DEV
 
 # create oracle data
 echo "Generating Oracle"
-# amr-oracle \
-#     --in-amr $dev_file \
-#     --out-amr ${oracle_folder}/dev.oracle.amr \
-#     --out-sentences ${oracle_folder}/dev.tokens \
-#     --out-actions ${oracle_folder}/dev.actions \
-#     --in-propbank-args $propbank \
-#     --out-rule-stats ${oracle_folder}/dev.rules.json \
+amr-oracle \
+    --in-amr $dev_file \
+    --out-amr ${oracle_folder}/dev.oracle.amr \
+    --out-sentences ${oracle_folder}/dev.tokens \
+    --out-actions ${oracle_folder}/dev.actions \
+    --in-propbank-args $propbank \
+    --out-rule-stats ${oracle_folder}/dev.rules.json \
 
 # parse a sentence step by step to explore
 amr-parse \
@@ -52,7 +52,6 @@ amr-parse \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \
     --in-rule-stats ${oracle_folder}/train.rules.json \
-    --restrict-predictions
 
 # evaluate oracle performance
 echo "Evaluating Oracle"
