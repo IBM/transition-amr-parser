@@ -37,9 +37,7 @@ default_rel = ':rel'
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
-                 restrict_to_pred_on_train=False,
-                 # action_list=None, action_list_by_prefix=None,
-                 model_path=None):
+                 restrict_actions_by_stack=False):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
@@ -88,21 +86,6 @@ class AMRStateMachine:
         self.is_confirmed = set()
         self.is_confirmed.add(-1)
         self.swapped_words = {}
-
-        # This stores train time statistics to be used later
-        if model_path:
-            with open(model_path) as fid:
-                self.stats = json.loads(fid.write())
-        else:   
-            assert not restrict_to_pred_on_train
-            self.stats = {'action_counts': Counter()}
-
-#         # FIXME: This should be mandatory and developed to be
-#         # consisten with oracle by design. Need to think how to do
-#         # this
-#         if action_list:
-#             self.action_list = action_list
-#             self.action_list_by_prefix = action_list_by_prefix
 
         if self.verbose:
             print('INIT')
@@ -214,7 +197,10 @@ class AMRStateMachine:
     @classmethod
     def readAction(cls, action):
         s = [action]
-        if action.startswith('DEPENDENT') or action in ['LA(root)', 'RA(root)', 'LA1(root)', 'RA1(root)']:
+        if (
+            action.startswith('DEPENDENT') or 
+            action in ['LA(root)', 'RA(root)', 'LA1(root)', 'RA1(root)']
+        ):
             return s
         if '(' in action:
             paren_idx = action.index('(')
@@ -226,18 +212,23 @@ class AMRStateMachine:
                 s.append(properties)
         return s
 
-    def applyAction(self, act):
+    def get_top_of_stack(self):
 
-        # store state of the machine before action is applied
-        stack0 = self.stack[-1]
-        token = str(self.amr.tokens[stack0 - 1])
-        # store merged tokens by separate
-        if stack0 in self.merged_tokens:
-            merged_tokens = tuple(
-                str(self.amr.tokens[i - 1]) for i in self.merged_tokens[stack0]
-            )
-        else:
-            merged_tokens = None
+        token = None
+        merged_tokens = None
+        if len(self.stack):
+            stack0 = self.stack[-1]
+            token = str(self.amr.tokens[stack0 - 1])
+            # store merged tokens by separate
+            if stack0 in self.merged_tokens:
+                merged_tokens = " ".join( 
+                    str(self.amr.tokens[i - 1])
+                    for i in self.merged_tokens[stack0]
+                )
+
+        return token, merged_tokens
+
+    def applyAction(self, act):
 
         action = self.readAction(act)
         action_label = action[0]
@@ -250,15 +241,20 @@ class AMRStateMachine:
         elif action_label in ['REDUCE', 'REDUCE1']:
             self.REDUCE()
         elif action_label in ['LA', 'LA1']:
-            self.LA(action[1] if action[1].startswith(':') else ':'+action[1])
+            # preprocessing
+            tag = action[1] if action[1].startswith(':') else ':'+action[1]
+            self.LA(tag)
         elif action_label in ['RA', 'RA1']:
-            self.RA(action[1] if action[1].startswith(':') else ':'+action[1])
+            # preprocessing
+            tag = action[1] if action[1].startswith(':') else ':'+action[1]
+            self.RA(tag)
         elif action_label in ['LA(root)', 'LA1(root)']:
             self.LA('root')
         elif action_label in ['RA(root)', 'RA1(root)']:
             self.RA('root')
         elif action_label in ['PRED', 'CONFIRM']:
-            self.CONFIRM(action[-1])
+            tag = action[-1]
+            self.CONFIRM(tag)
         elif action_label in ['COPY']:
             self.COPY()
         elif action_label in ['COPY_LITERAL']:
@@ -279,11 +275,16 @@ class AMRStateMachine:
         elif action_label in ['INTRODUCE']:
             self.INTRODUCE()
         elif action_label.startswith('DEPENDENT'):
+            # preprocessing
             paren_idx = action_label.index('(')
             properties = action_label[paren_idx + 1:-1].split(',')
-            self.DEPENDENT(properties[1], properties[0])
+            tag = (properties[0], properties[1])
+            # FIXME: This parsing of action arguments is dangerous
+            self.DEPENDENT(*tag)
         elif action_label in ['ADDNODE', 'ENTITY']:
-            self.ENTITY(','.join(action[1:]))
+            # preprocessing
+            tag = ','.join(action[1:])
+            self.ENTITY(tag)
         elif action_label in ['MERGE']:
             self.MERGE()
         elif action_label in ['CLOSE']:
@@ -294,12 +295,6 @@ class AMRStateMachine:
             pass
         else:
             raise Exception(f'Unrecognized action: {act}')
-
-        # update counts
-        import ipdb; ipdb.set_trace(context=30)
-        self.stats['action_counts'].update((token, action_label, tag))
-        if merged_tokens:
-            self.stats['action_counts'].update((merged_tokens, action_label, tag))
 
     def applyActions(self, actions):
         for action in actions:
