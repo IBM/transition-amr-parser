@@ -24,7 +24,7 @@ amr-parse \
     --in-sentences ${oracle_folder}/train.tokens \
     --in-actions ${oracle_folder}/train.actions \
     --out-amr ${oracle_folder}/train.amr \
-   --in-rule-stats ${oracle_folder}/train.rules.json \
+    --in-rule-stats ${oracle_folder}/train.rules.json 
 
 # evaluate oracle performance
 # austin0: F-score: 0.9379
@@ -51,11 +51,11 @@ amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \
-    --action-rules-from-stats ${oracle_folder}/train.rules.json \
+    --in-rule-stats ${oracle_folder}/dev.rules.json 
 
 # evaluate oracle performance
 echo "Evaluating Oracle"
-# austin0: F-score: 0.9380
+# austin0: F-score: 0.9381
 python smatch/smatch.py \
      --significant 4  \
      -f $dev_file \
