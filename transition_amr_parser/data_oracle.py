@@ -243,11 +243,6 @@ class AMR_Oracle:
                   out_rule_stats=None, add_unaligned=0,
                   no_whitespace_in_actions=False):
 
-#         for idx, amr in enumerate(gold_amrs):
-#             if any(any(x in token for x in replacement_rules.keys()) for token in amr.tokens):
-#                 import ipdb; ipdb.set_trace(context=30)
-#                 pass
- 
         print_log("oracle", "Parsing data")
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]

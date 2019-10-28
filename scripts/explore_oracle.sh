@@ -51,7 +51,7 @@ amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \
-    --in-rule-stats ${oracle_folder}/dev.rules.json 
+    --action-rules-from-stats ${oracle_folder}/train.rules.json \
 
 # evaluate oracle performance
 echo "Evaluating Oracle"
