@@ -256,6 +256,136 @@ class Logger():
                     input('Press any key to continue')
 
 
+class AMRParser():
+
+    def __init__(self, model_path=None, verbose=False, logger=None):
+
+        # TODO: Real parsing model
+        raise NotImplementedError()
+
+        self.rule_stats = read_rule_stats(f'{model_path}/train.rules.json')
+        self.model = None
+        self.logger = logger
+        self.sent_idx = 0
+
+    def parse_sentence(self, sentence_str):
+
+        # TODO: Tokenizer
+        tokens = sentence_str.split()
+
+        # Initialize state machine
+        state_machine = AMRStateMachine(tokens, rule_stats=self.rule_stats)
+
+        # execute parsing model
+        while not state_machine.is_closed:
+
+            # TODO: get action from model
+            raw_action = None
+
+            # Inform user
+            self.logger.pretty_print(self.sent_idx, state_machine)
+
+            # Update state machine
+            state_machine.applyAction(raw_action)
+
+        self.sent_idx += 1
+
+        return state_machine.amr
+
+
+class FakeAMRParser():
+    """
+    Fake parser that uses precomputed sequences of sentences and corresponding
+    actions
+    """
+
+    def __init__(self, model_path=None, from_sent_act_pairs=None, logger=None):
+
+        # Dummy mode: simulate parser from pre-computed pairs of sentences
+        # and actions
+        self.actions_by_sentence = {
+            sent: actions for sent, actions in from_sent_act_pairs
+        }
+        if model_path:
+            self.rule_stats = read_rule_stats(model_path)
+        else:
+            self.rule_stats = None
+        self.logger = logger
+        self.sent_idx = 0
+
+    def parse_sentence(self, sentence_str):
+
+        # simulated actions given by a parsing model
+        assert sentence_str in self.actions_by_sentence, \
+            "Fake parser has no actions for sentence: %s" % sentence_str
+        actions = self.actions_by_sentence[sentence_str].split()
+
+        # Fake tokenization
+        tokens = sentence_str.split()
+
+        # Initialize state machine
+        state_machine = AMRStateMachine(tokens, rule_stats=self.rule_stats)
+
+        # execute parsing model
+        while not state_machine.is_closed:
+
+            # get action from model
+            raw_action = actions[state_machine.time_step]
+
+            # Print state (pause if solicited)
+            self.logger.update(self.sent_idx, raw_action, state_machine)
+
+            # Update state machine
+            state_machine.applyAction(raw_action)
+
+        # count one sentence more
+        self.sent_idx += 1
+
+        return state_machine.amr
+
+
+class Logger():
+
+    def __init__(self, step_by_step=None, clear_print=None, pause_time=None,
+                 verbose=False):
+
+        self.step_by_step = step_by_step
+        self.clear_print = clear_print
+        self.pause_time = pause_time
+        self.verbose = verbose or self.step_by_step
+        self.statistics = Statistics()
+
+        if step_by_step:
+
+            # Set traps for system signals to die graceful when Ctrl-C used
+
+            def ordered_exit(signum, frame):
+                """Mesage user when killing by signal"""
+                print("\nStopped by user\n")
+                exit(0)
+
+            signal.signal(signal.SIGINT, ordered_exit)
+            signal.signal(signal.SIGTERM, ordered_exit)
+
+    def update(self, sent_idx, action, state_machine):
+
+        # Collect statistics
+        self.statistics.update(action, state_machine)
+
+        if self.verbose:
+            if self.clear_print:
+                # clean screen each time
+                os.system('clear')
+            print(f'sentence {sent_idx}\n')
+            print(state_machine)
+            # step by step mode
+            if self.step_by_step:
+                if self.pause_time:
+                    time.sleep(self.pause_time)
+                else:
+                    input('Press any key to continue')
+
+
 def main():
 
     # Argument handling
@@ -272,17 +402,6 @@ def main():
         verbose=args.verbose
     )
 
-    # generate rules to restrict action space by stack content
-    if args.action_rules_from_stats:
-        rule_stats = read_rule_stats(args.action_rules_from_stats)
-        actions_by_stack_rules = defaultdict(lambda: Counter())
-        for item_str, count in rule_stats['tos_action_counts'].items():
-            items = item_str.split('\t')
-            if items[1] == 'PRED':
-                actions_by_stack_rules[items[0]].update([items[2]])
-    else:    
-        actions_by_stack_rules = None
-
     # Load real or dummy Parsing model
     if args.in_actions:
 
@@ -290,15 +409,14 @@ def main():
         actions = read_sentences(args.in_actions)
         assert len(sentences) == len(actions)
         parsing_model = FakeAMRParser(
+            model_path=args.in_rule_stats,
             from_sent_act_pairs=zip(sentences, actions),
-            logger=logger,
-            actions_by_stack_rules=actions_by_stack_rules
+            logger=logger
         )
-
     else:
         # TODO: Real parsing model
         raise NotImplementedError()
-        parsing_model = AMRParser(logger=logger)
+        parsing_model = AMRParser(model_path=None, logger=logger)
 
     # Get output AMR writer
     if args.out_amr:
@@ -317,8 +435,6 @@ def main():
         # store output AMR
         if args.out_amr:
             amr_write(amr.toJAMRString())
-
-    print(parsing_model.pred_counts)
 
     # close output AMR writer
     if args.out_amr:
