@@ -2,16 +2,13 @@ import re
 import ast
 import json
 from collections import Counter
-from tqdm import tqdm
 
 
 def read_rule_stats(rule_stats_json):
     with open(rule_stats_json) as fid:
         rule_stats = json.loads(fid.read())
     # convert to counters
-    rule_stats = {'action_counts': Counter()}
-    for key, value in rule_stats['action_counts'].items():
-        rule_stats['action_counts'][ast.literal_eval(key)] += value
+    rule_stats['tos_action_counts'] = Counter(rule_stats['tos_action_counts'])
     return rule_stats
 
 
@@ -73,4 +70,12 @@ def read_tokenized_sentences(file_path):
     with open(file_path) as fid:
         for line in fid:
             sentences.append(line.rstrip().split())
+    return sentences
+
+
+def read_sentences(file_path):
+    sentences = []
+    with open(file_path) as fid:
+        for line in fid:
+            sentences.append(line.rstrip())
     return sentences

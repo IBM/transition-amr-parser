@@ -254,7 +254,7 @@ class AMR_Oracle:
         actions_write = writer(out_actions, add_return=True)
 
         # This will store overall stats
-        self.stats = {'action_counts': Counter()}
+        self.stats = {'tos_action_counts': Counter()}
 
         # unaligned tokens
         included_unaligned = [
@@ -298,7 +298,7 @@ class AMR_Oracle:
                     action = f'ENTITY({self.entity_type})'
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
-                    action = f'CONFIRM({self.new_node})'
+                    action = f'PRED({self.new_node})'
 
 #                     # TODO: Multi-word expressions
 #                     top_of_stack_tokens = tr.amr.tokens[stack0 - 1]
@@ -422,13 +422,21 @@ class AMR_Oracle:
                 else:    
                     tag = None
  
-                # update counts
-                self.stats['action_counts'].update([(token, action_label, tag)])
-                if merged_tokens:
-                    # Add the same for multi-word expressions
-                    self.stats['action_counts'].update(
-                        [(" ".join(merged_tokens), action_label, tag)]
+                # update counts conditioned on the type of action
+                if token and any(
+                    action.startswith(x) for x in ['PRED', 'ADDNODE']
+                ):
+                    # keep top of stack
+                    assert '\t' not in token
+                    self.stats['tos_action_counts'].update(
+                        ["\t".join([token, action_label, tag])]
                     )
+                    if merged_tokens:
+                        assert '\t' not in merged_tokens
+                        # Add the same for multi-word expressions
+                        self.stats['tos_action_counts'].update(
+                            ["\t".join([merged_tokens, action_label, tag])]
+                        )
 
                 # APPLY ACTION
                 tr.applyAction(action)
@@ -470,11 +478,6 @@ class AMR_Oracle:
         actions_write()
 
         # State machine stats for this senetnce
-        # json pre-formatting
-        self.stats['action_counts'] = {
-            str(key): value 
-            for key, value in self.stats['action_counts'].items()
-        }
         with open(out_rule_stats, 'w') as fid:
             fid.write(json.dumps(self.stats))
 

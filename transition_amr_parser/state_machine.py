@@ -37,7 +37,7 @@ default_rel = ':rel'
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
-                 restrict_actions_by_stack=False):
+                 actions_by_stack_rules=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
@@ -53,6 +53,7 @@ class AMRStateMachine:
         if '<ROOT>' not in tokens:
             tokens.append("<ROOT>")
         # machine is active
+        self.time_step = 0
         self.is_closed = False
         # init stack, buffer
         self.stack = []
@@ -295,6 +296,9 @@ class AMRStateMachine:
             pass
         else:
             raise Exception(f'Unrecognized action: {act}')
+
+        # Increase time step
+        self.time_step += 1
 
     def applyActions(self, actions):
         for action in actions:
