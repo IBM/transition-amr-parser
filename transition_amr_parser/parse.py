@@ -5,12 +5,13 @@ import signal
 import argparse
 from collections import Counter, defaultdict
 
+import numpy as np
 from tqdm import tqdm
 
 from transition_amr_parser.state_machine import AMRStateMachine
 from transition_amr_parser.io import (
     writer,
-    read_tokenized_sentences,
+    read_sentences,
     read_rule_stats,
 )
 
@@ -33,13 +34,6 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
-        "--restrict-predictions",
-        help="use rule_stats torestrict --in-actions possible",
-        action='store_true',
-        default=False
-    )
-
-    parser.add_argument(
         "--out-amr",
         help="parsing model",
         type=str
@@ -49,11 +43,13 @@ def argument_parser():
         help="parsing model",
         type=str
     )
+    # state machine rules
     parser.add_argument(
-        "--in-rule-stats",
-        help="alignment statistics needed for the rule component",
+        "--action-rules-from-stats",
+        help="Use oracle statistics to restrict possible actions",
         type=str
     )
+    # Visualization arguments
     parser.add_argument(
         "--verbose",
         help="verbose mode",
@@ -92,7 +88,6 @@ def argument_parser():
 
     # Argument pre-processing
     if args.random_up_to:
-        import numpy as np
         args.offset = np.random.randint(args.random_up_to)
 
     # force verbose
@@ -109,12 +104,6 @@ def argument_parser():
     return args
 
 
-def ordered_exit(signum, frame):
-    """Mesage user when killing by signal"""
-    print("\nStopped by user\n")
-    exit(0)
-
-
 def reduce_counter(counts, reducer):
     """
     Returns a new counter from an existing one where keys have been mapped
@@ -127,24 +116,144 @@ def reduce_counter(counts, reducer):
     return new_counts
 
 
-class Statistics():
+class AMRParser():
 
-    def __init__(self):
-        self.action_counts = Counter()
-        self.action_tos_counts = Counter()
+    def __init__(self, model_path=None, verbose=False, logger=None):
 
-    def update(self, raw_action, state):
-        if state.stack:
-            stack0 = state.stack[-1]
-            if stack0 in state.merged_tokens:
-                tos_token = " ".join(
-                    state.amr.tokens[i - 1]
-                    for i in state.merged_tokens[stack0]
-                )
-            else:
-                tos_token = state.amr.tokens[stack0 - 1]
-            self.action_tos_counts.update([(raw_action, tos_token)])
-        self.action_counts.update([raw_action])
+        # TODO: Real parsing model
+        raise NotImplementedError()
+
+        self.rule_stats = read_rule_stats(f'{model_path}/train.rules.json')
+        self.model = None
+        self.logger = logger
+        self.sent_idx = 0
+
+    def parse_sentence(self, sentence_str):
+
+        # TODO: Tokenizer
+        tokens = sentence_str.split()
+
+        # Initialize state machine
+        state_machine = AMRStateMachine(tokens)
+
+        # execute parsing model
+        while not state_machine.is_closed:
+
+            # TODO: get action from model
+            raw_action = None
+
+            # Inform user
+            self.logger.pretty_print(self.sent_idx, state_machine)
+
+            # Update state machine
+            state_machine.applyAction(raw_action)
+
+        self.sent_idx += 1
+
+        return state_machine.amr
+
+
+class FakeAMRParser():
+    """
+    Fake parser that uses precomputed sequences of sentences and corresponding
+    actions
+    """
+
+    def __init__(self, from_sent_act_pairs=None, logger=None,
+                 actions_by_stack_rules=None):
+
+        # Dummy mode: simulate parser from pre-computed pairs of sentences
+        # and actions
+        self.actions_by_sentence = {
+            sent: actions for sent, actions in from_sent_act_pairs
+        }
+        self.logger = logger
+        self.sent_idx = 0
+        self.actions_by_stack_rules = actions_by_stack_rules
+
+        self.pred_counts = Counter()
+
+    def parse_sentence(self, sentence_str):
+
+        # simulated actions given by a parsing model
+        assert sentence_str in self.actions_by_sentence, \
+            "Fake parser has no actions for sentence: %s" % sentence_str
+        actions = self.actions_by_sentence[sentence_str].split()
+
+        # Fake tokenization
+        tokens = sentence_str.split()
+
+        # Initialize state machine
+        state_machine = AMRStateMachine(tokens)
+
+        # execute parsing model
+        while not state_machine.is_closed:
+
+            # get action from model
+            raw_action = actions[state_machine.time_step]
+
+            # constrain action space if solicited
+            if raw_action.startswith('PRED') and self.actions_by_stack_rules:
+                node = raw_action[5:-1]
+                token, _ = state_machine.get_top_of_stack()
+                if token not in self.actions_by_stack_rules:
+                    raw_action = 'PRED({token})'
+                    self.pred_counts.update(['token OOV'])
+                elif node not in self.actions_by_stack_rules[token].keys():    
+                    new_node = self.actions_by_stack_rules[token].most_common(1)[0][0]
+                    raw_action = 'PRED({new_node})'
+                    self.pred_counts.update(['alignment OOV'])
+                else:
+                    self.pred_counts.update(['matches'])
+
+            # Print state (pause if solicited)
+            self.logger.update(self.sent_idx)
+
+            # Update state machine
+            state_machine.applyAction(raw_action)
+
+        # count one sentence more
+        self.sent_idx += 1
+
+        return state_machine.amr
+
+
+class Logger():
+
+    def __init__(self, step_by_step=None, clear_print=None, pause_time=None,
+                 verbose=False):
+
+        self.step_by_step = step_by_step
+        self.clear_print = clear_print
+        self.pause_time = pause_time
+        self.verbose = verbose or self.step_by_step
+
+        if step_by_step:
+
+            # Set traps for system signals to die graceful when Ctrl-C used
+
+            def ordered_exit(signum, frame):
+                """Mesage user when killing by signal"""
+                print("\nStopped by user\n")
+                exit(0)
+
+            signal.signal(signal.SIGINT, ordered_exit)
+            signal.signal(signal.SIGTERM, ordered_exit)
+
+    def update(self, sent_idx):
+
+        if self.verbose:
+            if self.clear_print:
+                # clean screen each time
+                os.system('clear')
+            print(f'sentence {sent_idx}\n')
+            print(state_machine)
+            # step by step mode
+            if self.step_by_step:
+                if self.pause_time:
+                    time.sleep(self.pause_time)
+                else:
+                    input('Press any key to continue')
 
 
 def main():
@@ -152,121 +261,65 @@ def main():
     # Argument handling
     args = argument_parser()
 
-    # Get data generators
-    sentences = read_tokenized_sentences(args.in_sentences)
+    # Get data
+    sentences = read_sentences(args.in_sentences)
+
+    # Initialize logger/printer
+    logger = Logger(
+        step_by_step=args.step_by_step,
+        clear_print=args.clear_print,
+        pause_time=args.pause_time,
+        verbose=args.verbose
+    )
+
+    # generate rules to restrict action space by stack content
+    if args.action_rules_from_stats:
+        rule_stats = read_rule_stats(args.action_rules_from_stats)
+        actions_by_stack_rules = defaultdict(lambda: Counter())
+        for item_str, count in rule_stats['tos_action_counts'].items():
+            items = item_str.split('\t')
+            if items[1] == 'PRED':
+                actions_by_stack_rules[items[0]].update([items[2]])
+    else:    
+        actions_by_stack_rules = None
+
+    # Load real or dummy Parsing model
     if args.in_actions:
-        actions = read_tokenized_sentences(args.in_actions)
 
-    # set orderd exit
-    if args.step_by_step:
-        signal.signal(signal.SIGINT, ordered_exit)
-        signal.signal(signal.SIGTERM, ordered_exit)
+        # Fake parser built from actions
+        actions = read_sentences(args.in_actions)
+        assert len(sentences) == len(actions)
+        parsing_model = FakeAMRParser(
+            from_sent_act_pairs=zip(sentences, actions),
+            logger=logger,
+            actions_by_stack_rules=actions_by_stack_rules
+        )
 
-    # Get copy stats if provided
-    if args.in_rule_stats:
-        rule_stats = read_rule_stats(args.in_rule_stats)
     else:
-        rule_stats = None 
+        # TODO: Real parsing model
+        raise NotImplementedError()
+        parsing_model = AMRParser(logger=logger)
 
-    if args.restrict_predictions:
-        # FIXME: REDO
-        assert args.in_rule_stats
-        assert args.in_actions
-        nodes_by_token = defaultdict(lambda: Counter())
-        for token in list(
-            set(rule_stats['sense_by_token']) | 
-            set(rule_stats['lemma_by_token'])
-        ):
-            nodes_by_token[token].update(rule_stats['sense_by_token'][token])
-            nodes_by_token[token].update(rule_stats['lemma_by_token'][token])            
-
-    # Output AMR
+    # Get output AMR writer
     if args.out_amr:
         amr_write = writer(args.out_amr)
 
     # Loop over sentences
-    statistics = Statistics()
-    counts = Counter()
-    for sent_idx, sent_tokens in tqdm(enumerate(sentences)):
+    for sent_idx, sentence in tqdm(enumerate(sentences)):
 
         # fast-forward until desired sentence number
         if args.offset and sent_idx < args.offset:
             continue
 
-        # Initialize state machine
-        amr_state_machine = AMRStateMachine(sent_tokens)
+        # parse
+        amr = parsing_model.parse_sentence(sentence)
 
-        # execute parsing model
-        time_step = 0
-        while not amr_state_machine.is_closed:
-
-            # Print state (pause if solicited)
-            if args.verbose:
-                pretty_machine_print(sent_idx, amr_state_machine, args)
-
-            # Get next action
-            if args.in_actions:
-                # externally provided actions
-                raw_action = actions[sent_idx][time_step]
-                if args.restrict_predictions:
-                    raw_action = restrict_action(
-                        raw_action,
-                        amr_state_machine,
-                        nodes_by_token,
-                        counts
-                    )
-            else:
-                # TODO: machine learning model / oracle
-                pass
-
-            # Collect statistics
-            statistics.update(raw_action, amr_state_machine)
-
-            # Update state machine
-            amr_state_machine.applyAction(raw_action)
-            time_step += 1
-
-        # Output AMR
+        # store output AMR
         if args.out_amr:
-            amr_write(amr_state_machine.amr.toJAMRString())
+            amr_write(amr.toJAMRString())
 
-    # close output AMR
+    print(parsing_model.pred_counts)
+
+    # close output AMR writer
     if args.out_amr:
         amr_write()
-
-    print(counts)
-
-
-def pretty_machine_print(sent_idx, amr_state_machine, args):
-    if args.clear_print:
-        # clean screen each time
-        os.system('clear')
-    print(f'sentence {sent_idx}\n')
-    print(amr_state_machine)
-
-    # step by step mode
-    if args.step_by_step:
-        if args.pause_time:
-            time.sleep(args.pause_time)
-        else:
-            input('Press any key to continue')
-
-
-def restrict_action(action, state, valid_predictions_by_token, counts):
-    if action.startswith('PRED') and len(state.stack) > 0:
-        token = state.amr.tokens[state.stack[-1] - 1]
-        valid_nodes = valid_predictions_by_token[token]
-        if len(valid_nodes):
-            pred_node = action[5:-1]
-            if pred_node not in valid_nodes:
-                action = f'PRED({valid_nodes.most_common(1)[0][0]})'
-                counts.update(['missing'])
-            else:    
-                counts.update(['not_missing'])
-        else:
-            # If no data justb predict token
-            action = f'PRED({token})'
-            counts.update(['not_missing'])
-        return action
-    else:
-        return action

@@ -15,7 +15,7 @@ amr-oracle \
     --out-amr ${oracle_folder}/train.oracle.amr \
     --out-sentences ${oracle_folder}/train.tokens \
     --out-actions ${oracle_folder}/train.actions \
-    --out-rule-stats ${oracle_folder}/train.rules.jsons \
+    --out-rule-stats ${oracle_folder}/train.rules.json \
     --in-propbank-args $propbank \
     --no-whitespace-in-actions
 
@@ -24,7 +24,7 @@ amr-parse \
     --in-sentences ${oracle_folder}/train.tokens \
     --in-actions ${oracle_folder}/train.actions \
     --out-amr ${oracle_folder}/train.amr \
-    --in-rule-stats ${oracle_folder}/train.rules.jsons \
+   --in-rule-stats ${oracle_folder}/train.rules.json \
 
 # evaluate oracle performance
 # austin0: F-score: 0.9379
@@ -51,7 +51,7 @@ amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \
-    --in-rule-stats ${oracle_folder}/train.rules.json \
+    --action-rules-from-stats ${oracle_folder}/train.rules.json \
 
 # evaluate oracle performance
 echo "Evaluating Oracle"
