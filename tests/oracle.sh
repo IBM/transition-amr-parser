@@ -12,11 +12,11 @@ oracle_folder=data/austin0_copy_literal/
 # create oracle data
 amr-oracle \
     --in-amr $train_file \
-    --out-amr ${oracle_folder}/train.oracle.amr \
     --out-sentences ${oracle_folder}/train.tokens \
     --out-actions ${oracle_folder}/train.actions \
     --out-rule-stats ${oracle_folder}/train.rules.json \
     --no-whitespace-in-actions \
+    # --out-amr ${oracle_folder}/train.oracle.amr \
 
 # parse a sentence step by step
 amr-parse \
@@ -27,11 +27,13 @@ amr-parse \
 # evaluate oracle performance
 # wrt train.oracle.amr F-score: 0.9379
 # wrt train.amr F-score: 0.9371
-test_result=$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)
-if [ $test_result != "F-score: 0.9371" ];then
+test_result="$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)"
+if [ "$test_result" != "F-score: 0.9371" ];then
     echo $test_result
     echo "Oracle test failed! train F-score not 0.9371"
     exit 1
+else:    
+    echo "Train oracle test passed"
 fi
 
 # DEV
@@ -40,10 +42,10 @@ fi
 echo "Generating Oracle"
 amr-oracle \
     --in-amr $dev_file \
-    --out-amr ${oracle_folder}/dev.oracle.amr \
     --out-sentences ${oracle_folder}/dev.tokens \
     --out-actions ${oracle_folder}/dev.actions \
     --no-whitespace-in-actions 
+    # --out-amr ${oracle_folder}/dev.oracle.amr \
 
 # parse a sentence step by step to explore
 amr-parse \
@@ -55,10 +57,12 @@ amr-parse \
 # evaluate oracle performance
 echo "Evaluating Oracle"
 # wrt dev.oracle.amr F-score: 0.9381
-# wrt dev.amr F-score: 0.9378
-test_result=$(python smatch/smatch.py --significant 4 -f $dev_file ${oracle_folder}/dev.amr -r 10)
-if [ $test_result != "F-score: 0.9378" ];then
+# wrt dev.amr F-score: 0.9379
+test_result="$(python smatch/smatch.py --significant 4 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
+if [ "$test_result" != "F-score: 0.9379" ];then
     echo $test_result
     echo "Oracle test failed! train F-score not 0.9378"
     exit 1
+else:    
+    echo "Dev oracle test passed"
 fi
