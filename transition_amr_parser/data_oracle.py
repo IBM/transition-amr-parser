@@ -498,22 +498,6 @@ class AMR_Oracle:
                 else:    
                     tag = None
  
-                # update counts conditioned on the type of action
-                if token and any(
-                    action.startswith(x) for x in ['PRED', 'ADDNODE']
-                ):
-                    # keep top of stack
-                    assert '\t' not in token
-                    self.stats['tos_action_counts'].update(
-                        ["\t".join([token, action_label, tag])]
-                    )
-                    if merged_tokens:
-                        assert '\t' not in merged_tokens
-                        # Add the same for multi-word expressions
-                        self.stats['tos_action_counts'].update(
-                            ["\t".join([merged_tokens, action_label, tag])]
-                        )
-
                 # APPLY ACTION
                 tr.applyAction(action)
 
@@ -552,7 +536,6 @@ class AMR_Oracle:
         amr_write()
         sentence_write()
         actions_write()
-
 
         # State machine stats for this senetnce
         if out_rule_stats:
