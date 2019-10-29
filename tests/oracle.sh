@@ -52,7 +52,6 @@ amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \
-    # --action-rules-from-stats ${oracle_folder}/train.rules.json \
 
 # evaluate oracle performance
 echo "Evaluating Oracle"
@@ -64,5 +63,25 @@ if [ "$test_result" != "F-score: 0.9379" ];then
     echo "Oracle test failed! train F-score not 0.9378"
     exit 1
 else:    
-    echo "Dev oracle test passed"
+    echo "Oracle test passed"
+fi
+
+# parse a sentence step by step to explore
+amr-parse \
+    --in-sentences ${oracle_folder}/dev.tokens \
+    --in-actions ${oracle_folder}/dev.actions \
+    --out-amr ${oracle_folder}/dev.amr \
+    --action-rules-from-stats ${oracle_folder}/train.rules.json \
+
+# evaluate oracle performance
+echo "Evaluating Oracle"
+# wrt dev.oracle.amr F-score: 0.9381
+# wrt dev.amr F-score: 0.9379
+test_result="$(python smatch/smatch.py --significant 4 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
+if [ "$test_result" != "F-score 0.9145" ];then
+    echo $test_result
+    echo "Oracle test with action rules failed! train F-score not 0.9145"
+    exit 1
+else:    
+    echo "Oracle test with action rules passed"
 fi
