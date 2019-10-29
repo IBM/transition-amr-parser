@@ -197,21 +197,16 @@ class AMRStateMachine:
 
     @classmethod
     def readAction(cls, action):
-        s = [action]
-        if (
-            action.startswith('DEPENDENT') or 
-            action in ['LA(root)', 'RA(root)', 'LA1(root)', 'RA1(root)']
-        ):
-            return s
-        if '(' in action:
-            paren_idx = action.index('(')
-            s[0] = action[:paren_idx]
-            properties = action[paren_idx+1:-1]
-            if ',' in properties:
-                s.extend(properties.split(','))
-            else:
-                s.append(properties)
-        return s
+        """Read action format"""
+        if '(' not in action:
+            return action, None
+        else:    
+            items = action.split('(')
+            action_label = items[0]
+            arg_string = items[1][:-1]
+            # split by comma respecting quotes
+            props = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', arg_string)
+            return action_label, props 
 
     def get_top_of_stack(self):
 
@@ -231,8 +226,7 @@ class AMRStateMachine:
 
     def applyAction(self, act):
 
-        action = self.readAction(act)
-        action_label = action[0]
+        action_label, properties = self.readAction(act)
         if action_label in ['SHIFT']:
             if self.buffer:
                 self.SHIFT()
@@ -242,32 +236,28 @@ class AMRStateMachine:
         elif action_label in ['REDUCE', 'REDUCE1']:
             self.REDUCE()
         elif action_label in ['LA', 'LA1']:
-            # preprocessing
-            tag = action[1] if action[1].startswith(':') else ':'+action[1]
-            self.LA(tag)
+            assert ':' not in properties, "edge format has no :"
+            assert len(properties) == 1
+            self.LA(properties[0])
         elif action_label in ['RA', 'RA1']:
-            # preprocessing
-            tag = action[1] if action[1].startswith(':') else ':'+action[1]
-            self.RA(tag)
-        elif action_label in ['LA(root)', 'LA1(root)']:
-            self.LA('root')
-        elif action_label in ['RA(root)', 'RA1(root)']:
-            self.RA('root')
+            assert ':' not in properties, "edge format has no :"
+            assert len(properties) == 1
+            self.RA(properties[0])
         elif action_label in ['PRED', 'CONFIRM']:
-            tag = action[-1]
-            self.CONFIRM(tag)
-        elif action_label in ['COPY']:
-            self.COPY()
-        elif action_label in ['COPY_LITERAL']:
-            self.COPY_LITERAL()
-        elif action_label in ['COPY_SENSE']:
-            self.COPY_SENSE()
-        elif action_label in ['COPY_SENSE2']:
-            self.COPY_SENSE2()
-        elif action_label in ['COPY_LEMMA']:
-            self.COPY_LEMMA()
-        elif action_label in ['COPY_LEMMA2']:
-            self.COPY_LEMMA2()
+            assert len(properties) == 1
+            self.CONFIRM(properties[0])
+#         elif action_label in ['COPY']:
+#             self.COPY()
+#         elif action_label in ['COPY_LITERAL']:
+#             self.COPY_LITERAL()
+#         elif action_label in ['COPY_SENSE']:
+#             self.COPY_SENSE()
+#         elif action_label in ['COPY_SENSE2']:
+#             self.COPY_SENSE2()
+#         elif action_label in ['COPY_LEMMA']:
+#             self.COPY_LEMMA()
+#         elif action_label in ['COPY_LEMMA2']:
+#             self.COPY_LEMMA2()
         # TODO: Why multiple keywords for the same action?
         elif action_label in ['SWAP', 'UNSHIFT', 'UNSHIFT1']:
             self.SWAP()
@@ -276,16 +266,10 @@ class AMRStateMachine:
         elif action_label in ['INTRODUCE']:
             self.INTRODUCE()
         elif action_label.startswith('DEPENDENT'):
-            # preprocessing
-            paren_idx = action_label.index('(')
-            properties = action_label[paren_idx + 1:-1].split(',')
-            tag = (properties[0], properties[1])
-            # FIXME: This parsing of action arguments is dangerous
-            self.DEPENDENT(*tag)
+            self.DEPENDENT(*properties)
         elif action_label in ['ADDNODE', 'ENTITY']:
             # preprocessing
-            tag = ','.join(action[1:])
-            self.ENTITY(tag)
+            self.ENTITY(",".join(properties))
         elif action_label in ['MERGE']:
             self.MERGE()
         elif action_label in ['CLOSE']:
@@ -577,10 +561,14 @@ class AMRStateMachine:
     def LA(self, edge_label):
         """LA : add an edge from stack[-1] to stack[-2]"""
 
-        head = self.stack[-1]
-        dependent = self.stack[-2]
-        self.amr.edges.append((head, edge_label, dependent))
-        self.actions.append(f'LA({edge_label.replace(":","")})')
+        # Add edge to graph
+        self.amr.edges.append((
+            self.stack[-1],
+            f':{edge_label}' if edge_label != 'root' else 'root',
+            self.stack[-2],
+        ))
+        # keep track of other vars
+        self.actions.append(f'LA({edge_label})')
         if edge_label != 'root':
             self.labels.append(edge_label)
         else:
@@ -593,11 +581,14 @@ class AMRStateMachine:
 
     def RA(self, edge_label):
         """RA : add an edge from stack[-2] to stack[-1]"""
-
-        head = self.stack[-2]
-        dependent = self.stack[-1]
-        self.amr.edges.append((head, edge_label, dependent))
-        self.actions.append(f'RA({edge_label.replace(":","")})')
+        # Add edge to graph
+        self.amr.edges.append((
+            self.stack[-2],
+            f':{edge_label}' if edge_label != 'root' else 'root',
+            self.stack[-1]
+        ))
+        # keep track of other vars
+        self.actions.append(f'RA({edge_label})')
         if edge_label != 'root':
             self.labels.append(edge_label)
         else:
@@ -677,7 +668,7 @@ class AMRStateMachine:
             print(f'ADDNODE({entity_type})')
             print(self.printStackBuffer())
 
-    def DEPENDENT(self, edge_label, node_label, node_id=None):
+    def DEPENDENT(self, node_label, edge_label, node_id=None):
         """DEPENDENT : add a single edge and node"""
 
         head = self.stack[-1]
