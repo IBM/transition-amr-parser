@@ -553,8 +553,13 @@ class AMR_Oracle:
         sentence_write()
         actions_write()
 
+
         # State machine stats for this senetnce
         if out_rule_stats:
+
+            # Add possible predicates to state machine rules
+            self.stats['possible_predicates'] = self.possiblePredicates
+
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(self.stats))
 
