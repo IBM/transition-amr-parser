@@ -30,10 +30,10 @@ amr-parse \
 test_result="$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)"
 if [ "$test_result" != "F-score: 0.9371" ];then
     echo $test_result
-    echo "Oracle test failed! train F-score not 0.9371"
+    echo "Oracle train failed! train F-score not 0.9371"
     exit 1
 else:    
-    echo "Train oracle test passed"
+    echo "Oracle train test passed"
 fi
 
 # DEV
@@ -52,16 +52,33 @@ amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \
-    # --action-rules-from-stats ${oracle_folder}/train.rules.json \
 
 # evaluate oracle performance
 echo "Evaluating Oracle"
 # wrt dev.oracle.amr F-score: 0.9381
 # wrt dev.amr F-score: 0.9379
-test_result="$(python smatch/smatch.py --significant 4 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
-if [ "$test_result" != "F-score: 0.9379" ];then
+test_result="$(python smatch/smatch.py --significant 3 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
+if [ "$test_result" != "F-score: 0.938" ];then
     echo $test_result
-    echo "Oracle test failed! train F-score not 0.9378"
+    echo "Oracle test failed! train F-score not 0.938"
+    exit 1
+else:    
+    echo "Oracle dev test passed"
+fi
+
+# parse a sentence step by step to explore
+amr-parse \
+    --in-sentences ${oracle_folder}/dev.tokens \
+    --in-actions ${oracle_folder}/dev.actions \
+    --out-amr ${oracle_folder}/dev.amr \
+    # --action-rules-from-stats ${oracle_folder}/train.rules.json \
+
+# evaluate oracle performance
+echo "Evaluating Oracle"
+test_result="$(python smatch/smatch.py --significant 3 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
+if [ "$test_result" != "F-score: 0.9115" ];then
+    echo $test_result
+    echo "Oracle test failed! train F-score not 0.9115"
     exit 1
 else:    
     echo "Dev oracle test passed"
