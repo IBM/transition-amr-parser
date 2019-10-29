@@ -1,19 +1,14 @@
 import re
+import ast
 import json
 from collections import Counter
 
 
 def read_rule_stats(rule_stats_json):
-
     with open(rule_stats_json) as fid:
         rule_stats = json.loads(fid.read())
-        # Fix counter
-        for rule in ['sense_by_token', 'lemma_by_token']:
-            rule_stats[rule] = {
-                key: Counter(value)
-                for key, value in rule_stats[rule].items()
-            }
-
+    # convert to counters
+    rule_stats['tos_action_counts'] = Counter(rule_stats['tos_action_counts'])
     return rule_stats
 
 

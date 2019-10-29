@@ -3,8 +3,9 @@ import time
 import os
 import signal
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 
+import numpy as np
 from tqdm import tqdm
 
 from transition_amr_parser.state_machine import AMRStateMachine
@@ -42,11 +43,13 @@ def argument_parser():
         help="parsing model",
         type=str
     )
+    # state machine rules
     parser.add_argument(
-        "--in-rule-stats",
-        help="alignment statistics needed for the rule component",
+        "--action-rules-from-stats",
+        help="Use oracle statistics to restrict possible actions",
         type=str
     )
+    # Visualization arguments
     parser.add_argument(
         "--verbose",
         help="verbose mode",
@@ -85,7 +88,6 @@ def argument_parser():
 
     # Argument pre-processing
     if args.random_up_to:
-        import numpy as np
         args.offset = np.random.randint(args.random_up_to)
 
     # force verbose
@@ -114,26 +116,6 @@ def reduce_counter(counts, reducer):
     return new_counts
 
 
-class Statistics():
-
-    def __init__(self):
-        self.action_counts = Counter()
-        self.action_tos_counts = Counter()
-
-    def update(self, raw_action, state):
-        if state.stack:
-            stack0 = state.stack[-1]
-            if stack0 in state.merged_tokens:
-                tos_token = " ".join(
-                    state.amr.tokens[i - 1]
-                    for i in state.merged_tokens[stack0]
-                )
-            else:
-                tos_token = state.amr.tokens[stack0 - 1]
-            self.action_tos_counts.update([(raw_action, tos_token)])
-        self.action_counts.update([raw_action])
-
-
 class AMRParser():
 
     def __init__(self, model_path=None, verbose=False, logger=None):
@@ -152,7 +134,7 @@ class AMRParser():
         tokens = sentence_str.split()
 
         # Initialize state machine
-        state_machine = AMRStateMachine(tokens, rule_stats=self.rule_stats)
+        state_machine = AMRStateMachine(tokens)
 
         # execute parsing model
         while not state_machine.is_closed:
@@ -177,19 +159,19 @@ class FakeAMRParser():
     actions
     """
 
-    def __init__(self, model_path=None, from_sent_act_pairs=None, logger=None):
+    def __init__(self, from_sent_act_pairs=None, logger=None,
+                 actions_by_stack_rules=None):
 
         # Dummy mode: simulate parser from pre-computed pairs of sentences
         # and actions
         self.actions_by_sentence = {
             sent: actions for sent, actions in from_sent_act_pairs
         }
-        if model_path:
-            self.rule_stats = read_rule_stats(model_path)
-        else:
-            self.rule_stats = None
         self.logger = logger
         self.sent_idx = 0
+        self.actions_by_stack_rules = actions_by_stack_rules
+
+        self.pred_counts = Counter()
 
     def parse_sentence(self, sentence_str):
 
@@ -202,7 +184,7 @@ class FakeAMRParser():
         tokens = sentence_str.split()
 
         # Initialize state machine
-        state_machine = AMRStateMachine(tokens, rule_stats=self.rule_stats)
+        state_machine = AMRStateMachine(tokens)
 
         # execute parsing model
         while not state_machine.is_closed:
@@ -210,8 +192,22 @@ class FakeAMRParser():
             # get action from model
             raw_action = actions[state_machine.time_step]
 
+            # constrain action space if solicited
+            if raw_action.startswith('PRED') and self.actions_by_stack_rules:
+                node = raw_action[5:-1]
+                token, _ = state_machine.get_top_of_stack()
+                if token not in self.actions_by_stack_rules:
+                    raw_action = f'PRED({token.lower()})'
+                    self.pred_counts.update(['token OOV'])
+                elif node not in self.actions_by_stack_rules[token].keys():    
+                    new_node = self.actions_by_stack_rules[token].most_common(1)[0][0]
+                    raw_action = f'PRED({new_node})'
+                    self.pred_counts.update(['alignment OOV'])
+                else:
+                    self.pred_counts.update(['matches'])
+
             # Print state (pause if solicited)
-            self.logger.update(self.sent_idx, raw_action, state_machine)
+            self.logger.update(self.sent_idx, state_machine)
 
             # Update state machine
             state_machine.applyAction(raw_action)
@@ -231,7 +227,6 @@ class Logger():
         self.clear_print = clear_print
         self.pause_time = pause_time
         self.verbose = verbose or self.step_by_step
-        self.statistics = Statistics()
 
         if step_by_step:
 
@@ -245,10 +240,7 @@ class Logger():
             signal.signal(signal.SIGINT, ordered_exit)
             signal.signal(signal.SIGTERM, ordered_exit)
 
-    def update(self, sent_idx, action, state_machine):
-
-        # Collect statistics
-        self.statistics.update(action, state_machine)
+    def update(self, sent_idx, state_machine):
 
         if self.verbose:
             if self.clear_print:
@@ -280,6 +272,17 @@ def main():
         verbose=args.verbose
     )
 
+    # generate rules to restrict action space by stack content
+    if args.action_rules_from_stats:
+        rule_stats = read_rule_stats(args.action_rules_from_stats)
+        actions_by_stack_rules = defaultdict(lambda: Counter())
+        for item_str, count in rule_stats['tos_action_counts'].items():
+            items = item_str.split('\t')
+            if items[1] == 'PRED':
+                actions_by_stack_rules[items[0]].update([items[2]])
+    else:    
+        actions_by_stack_rules = None
+
     # Load real or dummy Parsing model
     if args.in_actions:
 
@@ -287,14 +290,15 @@ def main():
         actions = read_sentences(args.in_actions)
         assert len(sentences) == len(actions)
         parsing_model = FakeAMRParser(
-            model_path=args.in_rule_stats,
             from_sent_act_pairs=zip(sentences, actions),
-            logger=logger
+            logger=logger,
+            actions_by_stack_rules=actions_by_stack_rules
         )
+
     else:
         # TODO: Real parsing model
         raise NotImplementedError()
-        parsing_model = AMRParser(model_path=None, logger=logger)
+        parsing_model = AMRParser(logger=logger)
 
     # Get output AMR writer
     if args.out_amr:
@@ -313,6 +317,8 @@ def main():
         # store output AMR
         if args.out_amr:
             amr_write(amr.toJAMRString())
+
+    print(parsing_model.pred_counts)
 
     # close output AMR writer
     if args.out_amr:
