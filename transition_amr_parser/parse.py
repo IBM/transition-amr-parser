@@ -197,17 +197,17 @@ class FakeAMRParser():
                 node = raw_action[5:-1]
                 token, _ = state_machine.get_top_of_stack()
                 if token not in self.actions_by_stack_rules:
-                    raw_action = 'PRED({token})'
+                    raw_action = f'PRED({token.lower()})'
                     self.pred_counts.update(['token OOV'])
                 elif node not in self.actions_by_stack_rules[token].keys():    
                     new_node = self.actions_by_stack_rules[token].most_common(1)[0][0]
-                    raw_action = 'PRED({new_node})'
+                    raw_action = f'PRED({new_node})'
                     self.pred_counts.update(['alignment OOV'])
                 else:
                     self.pred_counts.update(['matches'])
 
             # Print state (pause if solicited)
-            self.logger.update(self.sent_idx)
+            self.logger.update(self.sent_idx, state_machine)
 
             # Update state machine
             state_machine.applyAction(raw_action)
@@ -240,7 +240,7 @@ class Logger():
             signal.signal(signal.SIGINT, ordered_exit)
             signal.signal(signal.SIGTERM, ordered_exit)
 
-    def update(self, sent_idx):
+    def update(self, sent_idx, state_machine):
 
         if self.verbose:
             if self.clear_print:

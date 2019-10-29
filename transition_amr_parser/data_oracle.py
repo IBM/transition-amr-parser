@@ -196,6 +196,71 @@ def is_most_common(node_counts, node, rank=0):
      )
 
 
+def alert_inconsistencies(gold_amrs):
+
+    def yellow_font(string):
+        return "\033[93m%s\033[0m" % string
+
+    num_sentences = len(gold_amrs)
+
+    sentence_count = Counter() 
+    amr_by_amrkey_by_sentence = defaultdict(dict)
+    amr_counts_by_sentence = defaultdict(lambda: Counter())
+    for amr in gold_amrs:
+
+        # hash of sentence
+        skey = " ".join(amr.tokens)
+
+        # count number of time sentence repeated
+        sentence_count.update([skey])
+
+        # hash of AMR labeling
+        akey = amr.toJAMRString()
+
+        # store different amr labels for same sent, keep has map
+        if akey not in amr_by_amrkey_by_sentence[skey]:
+            amr_by_amrkey_by_sentence[skey][akey] = amr
+
+        # count how many time each hash appears
+        amr_counts_by_sentence[skey].update([akey])
+
+    num_unique_sents = len(sentence_count)
+
+    num_labelings = 0
+    for skey, sent_count in sentence_count.items():
+        num_labelings += len(amr_counts_by_sentence[skey]) 
+        if len(amr_counts_by_sentence[skey]) > 1:
+            pass
+            # There is more than one labeling for this sentence
+            # amrs = list(amr_by_amrkey_by_sentence[skey].values())
+
+    # inform user
+    if num_sentences > num_unique_sents:
+        num_repeated = num_sentences - num_unique_sents 
+        perc = num_repeated / num_sentences
+        alert_str = '{:d}/{:d} {:2.1f} % repeated sents (max {:d} times)'.format(
+            num_repeated,
+            num_sentences,
+            100 *perc,
+            max(
+                count 
+                for counter in amr_counts_by_sentence.values() 
+                for count in counter.values()
+            )
+        )
+        print(yellow_font(alert_str))
+
+    if num_labelings > num_unique_sents:
+        num_inconsistent = num_labelings - num_unique_sents 
+        perc = num_inconsistent / num_sentences 
+        alert_str = '{:d}/{:d} {:2.4f} % inconsistent labelings from repeated sents'.format(
+            num_inconsistent,
+            num_sentences,
+            perc
+        )
+        print(yellow_font(alert_str))
+
+
 class AMR_Oracle:
 
     def __init__(self, verbose=False):
@@ -247,6 +312,9 @@ class AMR_Oracle:
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
+        # print about inconsistencies in annotations
+        alert_inconsistencies(self.gold_amrs)
+
         # open all files (if paths provided) and get writers to them
         oracle_write = writer(out_oracle)
         amr_write = writer(out_amr)
@@ -295,7 +363,7 @@ class AMR_Oracle:
                     action = 'MERGE'
 
                 elif self.tryEntity(tr, tr.amr, gold_amr):
-                    action = f'ENTITY({self.entity_type})'
+                    action = f'ADDNODE({self.entity_type})'
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
                     action = f'PRED({self.new_node})'
@@ -381,7 +449,9 @@ class AMR_Oracle:
                     #
                     # DEPENDENT({node_label},{edge_label.replace(":","")})
                     #
-                    action = f'DEPENDENT({self.new_edge},{self.new_node},{self.dep_id})'
+                    edge = self.new_edge[1:] \
+                        if self.new_edge.startswith(':') else self.new_edge
+                    action = f'DEPENDENT({self.new_node},{edge})'
 #                     tr.DEPENDENT(
 #                         edge_label=self.new_edge,
 #                         node_label=self.new_node,
@@ -393,16 +463,22 @@ class AMR_Oracle:
                     action = 'INTRODUCE'
 
                 elif self.tryLA(tr, tr.amr, gold_amr):
-                    action = f'LA({self.new_edge})'
+                    if self.new_edge == 'root':
+                        action = f'LA({self.new_edge})'
+                    else:
+                        action = f'LA({self.new_edge[1:]})'
 
                 elif self.tryRA(tr, tr.amr, gold_amr):
-                    action = f'RA({self.new_edge})'
+                    if self.new_edge == 'root':
+                        action = f'RA({self.new_edge})'
+                    else:
+                        action = f'RA({self.new_edge[1:]})'
 
                 elif self.tryReduce(tr, tr.amr, gold_amr):
                     action = 'REDUCE'
 
                 elif self.trySWAP(tr, tr.amr, gold_amr):
-                    action = 'SWAP'
+                    action = 'UNSHIFT'
 
                 elif tr.buffer:
                     action = 'SHIFT'
@@ -478,8 +554,9 @@ class AMR_Oracle:
         actions_write()
 
         # State machine stats for this senetnce
-        with open(out_rule_stats, 'w') as fid:
-            fid.write(json.dumps(self.stats))
+        if out_rule_stats:
+            with open(out_rule_stats, 'w') as fid:
+                fid.write(json.dumps(self.stats))
 
     def tryConfirm(self, transitions, amr, gold_amr):
         """
