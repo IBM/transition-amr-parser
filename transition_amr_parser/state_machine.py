@@ -204,8 +204,11 @@ class AMRStateMachine:
             items = action.split('(')
             action_label = items[0]
             arg_string = items[1][:-1]
-            # split by comma respecting quotes
-            props = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', arg_string)
+            if action_label not in ['PRED', 'CONFIRM']:
+                # split by comma respecting quotes
+                props = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', arg_string)
+            else:    
+                props = [arg_string]
             return action_label, props 
 
     def get_top_of_stack(self):
@@ -217,11 +220,10 @@ class AMRStateMachine:
             token = str(self.amr.tokens[stack0 - 1])
             # store merged tokens by separate
             if stack0 in self.merged_tokens:
-                merged_tokens = " ".join( 
+                merged_tokens = [ 
                     str(self.amr.tokens[i - 1])
                     for i in self.merged_tokens[stack0]
-                )
-
+                ]
         return token, merged_tokens
 
     def applyAction(self, act):
