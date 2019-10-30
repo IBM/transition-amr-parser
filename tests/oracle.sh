@@ -28,8 +28,8 @@ amr-parse \
 # wrt train.oracle.amr F-score: 0.9379
 # wrt train.amr F-score: 0.9371
 test_result="$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)"
+echo $test_result
 if [ "$test_result" != "F-score: 0.9371" ];then
-    echo $test_result
     echo "Oracle train test failed! train F-score not 0.9371"
     exit 1
 else
@@ -56,8 +56,8 @@ amr-parse \
 # evaluate oracle performance
 echo "Evaluating Oracle"
 test_result="$(python smatch/smatch.py --significant 3 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
+echo $test_result
 if [ "$test_result" != "F-score: 0.938" ];then
-    echo $test_result
     echo "Oracle dev test failed! train F-score not 0.938"
     exit 1
 else
@@ -74,9 +74,9 @@ amr-parse \
 # evaluate oracle performance
 echo "Evaluating Oracle"
 test_result="$(python smatch/smatch.py --significant 3 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
-if [ "$test_result" != "F-score: 0.915" ];then
-    echo $test_result
-    echo "Oracle dev test failed! train F-score not 0.915"
+echo $test_result
+if [ "$test_result" != "F-score: 0.914" ];then
+    echo "Oracle dev test failed! train F-score not 0.914"
     exit 1
 else
     echo "Oracle dev test passed!"
