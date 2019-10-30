@@ -195,7 +195,9 @@ class FakeAMRParser():
             # constrain action space if solicited
             if raw_action.startswith('PRED') and self.actions_by_stack_rules:
                 node = raw_action[5:-1]
-                token, _ = state_machine.get_top_of_stack()
+                token, merged_tokens = state_machine.get_top_of_stack()
+                if merged_tokens:
+                    token = ",".join(merged_tokens)
                 if token not in self.actions_by_stack_rules:
                     raw_action = f'PRED({token.lower()})'
                     self.pred_counts.update(['token OOV'])
@@ -275,11 +277,10 @@ def main():
     # generate rules to restrict action space by stack content
     if args.action_rules_from_stats:
         rule_stats = read_rule_stats(args.action_rules_from_stats)
-        actions_by_stack_rules = defaultdict(lambda: Counter())
-        for item_str, count in rule_stats['tos_action_counts'].items():
-            items = item_str.split('\t')
-            if items[1] == 'PRED':
-                actions_by_stack_rules[items[0]].update([items[2]])
+        actions_by_stack_rules = rule_stats['possible_predicates']
+        for token, counter in rule_stats['possible_predicates'].items():
+            actions_by_stack_rules[token] = Counter(counter)
+
     else:    
         actions_by_stack_rules = None
 
@@ -318,7 +319,9 @@ def main():
         if args.out_amr:
             amr_write(amr.toJAMRString())
 
-    print(parsing_model.pred_counts)
+    if args.action_rules_from_stats:
+        print("Predict rules had following statistics")
+        print(parsing_model.pred_counts)
 
     # close output AMR writer
     if args.out_amr:

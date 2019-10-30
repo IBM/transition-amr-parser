@@ -8,7 +8,7 @@ def read_rule_stats(rule_stats_json):
     with open(rule_stats_json) as fid:
         rule_stats = json.loads(fid.read())
     # convert to counters
-    rule_stats['tos_action_counts'] = Counter(rule_stats['tos_action_counts'])
+    rule_stats['possible_predicates'] = Counter(rule_stats['possible_predicates'])
     return rule_stats
 
 
