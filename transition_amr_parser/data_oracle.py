@@ -61,7 +61,6 @@ def argument_parser():
     parser.add_argument(
         "--out-oracle",
         help="tokens, AMR notation and actions given by oracle",
-        default='oracle_actions.txt',
         type=str
     )
     parser.add_argument(
@@ -87,7 +86,6 @@ def argument_parser():
     # Multiple input parameters
     parser.add_argument(
         "--out-amr",
-        default='oracle_amrs.txt',
         help="corresponding AMR",
         type=str
     )
@@ -283,7 +281,7 @@ class AMR_Oracle:
         self.possibleEntityTypes = Counter()
 
         # DEBUG
-        self.copy_rules = False
+        # self.copy_rules = False
 
     def read_actions(self, actions_file):
         transitions = []
@@ -322,7 +320,9 @@ class AMR_Oracle:
         actions_write = writer(out_actions, add_return=True)
 
         # This will store overall stats
-        self.stats = {'tos_action_counts': Counter()}
+        self.stats = {
+            'possible_predicates': Counter(),
+        }
 
         # unaligned tokens
         included_unaligned = [
@@ -498,22 +498,6 @@ class AMR_Oracle:
                 else:    
                     tag = None
  
-                # update counts conditioned on the type of action
-                if token and any(
-                    action.startswith(x) for x in ['PRED', 'ADDNODE']
-                ):
-                    # keep top of stack
-                    assert '\t' not in token
-                    self.stats['tos_action_counts'].update(
-                        ["\t".join([token, action_label, tag])]
-                    )
-                    if merged_tokens:
-                        assert '\t' not in merged_tokens
-                        # Add the same for multi-word expressions
-                        self.stats['tos_action_counts'].update(
-                            ["\t".join([merged_tokens, action_label, tag])]
-                        )
-
                 # APPLY ACTION
                 tr.applyAction(action)
 
@@ -555,6 +539,18 @@ class AMR_Oracle:
 
         # State machine stats for this senetnce
         if out_rule_stats:
+
+            # Add possible predicates to state machine rules
+            # apply same normalization rule
+            possible_predicates = defaultdict(lambda: Counter())
+            for token, counts in self.possiblePredicates.items():
+                for node, count in counts.items():
+                    if ' ' in node:
+                        node = node.replace(' ', '_')
+                    possible_predicates[token][node] = count
+                    
+            self.stats['possible_predicates'] = self.possiblePredicates
+
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(self.stats))
 
