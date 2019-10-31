@@ -127,6 +127,12 @@ def main():
         os.makedirs(args.save_model, exist_ok=True)
     exp_name = args.name if args.name else f'{os.getpid()}'
 
+    # TODO: Provide option to precompute outside of this code. 
+    # 1. Store word/action dictionaries in the rule_stats json that the command line
+    # 2. possiblePredicates is already store there
+    # This should eliminate the train_amrs and # oracle.transitions
+    # dependencies (with the esception of RL mode, which is optional)
+
     # Oracle computation
     cr = JAMR_CorpusReader()
     cr.load_amrs(args.amr_training_data, training=True)
@@ -617,6 +623,7 @@ class AMRModel(torch.nn.Module):
         self.node2idx = {}
         word_counter = Counter()
 
+        # TODO: move word dictionary build-up outside of the model
         for amr in amrs:
             for tok in amr.tokens:
                 word_counter[tok] += 1
@@ -638,6 +645,8 @@ class AMRModel(torch.nn.Module):
         self.labelsA2idx = {'<pad>': 0}
         self.pred2idx = {'<pad>': 0}
         self.action2idx = {'<pad>': 0}
+
+        # TODO: move action dictionary build-up outside of the model
         for tr in oracle_transitions:
             for a in tr.actions:
                 a = AMRStateMachine.readAction(a)[0]
@@ -902,6 +911,8 @@ class AMRModel(torch.nn.Module):
                     tokens[i], sm_actions, sm_labels, sm_labelsA, sm_predicates
                 )
 
+                # TODO: this will still be neededa unless we provide the AMR as
+                # an argument to this function (not for now)
                 # amr predicted by oracle
                 gold_amr = self.amrs[sent_idx[i].item()]
 
