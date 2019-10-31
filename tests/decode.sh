@@ -22,12 +22,10 @@ amr-learn \
     -a $dev_file \
     -B $train_bert  \
     -b $dev_bert \
-    --load_model /dccstor/ykt-parse/ramast/model_nochar-c10-lr0.005_batch10.epoch38.params \
+    --load_model $trained_model \
     --desc "$name" \
     --name model \
     --no_chars \
     --cores $num_cores \
     --batch $batch_size \
     --lr $lr \
-
-# --load_model models/acl2019-nochars-c1-lr0.005_batch10/unit_tests.epoch0.params \
