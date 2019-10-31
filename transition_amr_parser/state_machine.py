@@ -200,6 +200,9 @@ class AMRStateMachine:
         """Read action format"""
         if '(' not in action:
             return action, None
+        elif action == 'LA(root)':
+             # To keep original name to keep learner happy
+             return action, ['root']
         else:    
             items = action.split('(')
             action_label = items[0]
@@ -209,6 +212,11 @@ class AMRStateMachine:
                 props = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', arg_string)
             else:    
                 props = [arg_string]
+
+            # To keep original name to keep learner happy
+            if action_label == 'DEPENDENT':
+                action_label = action
+
             return action_label, props 
 
     def get_top_of_stack(self):
@@ -237,7 +245,7 @@ class AMRStateMachine:
                 return True
         elif action_label in ['REDUCE', 'REDUCE1']:
             self.REDUCE()
-        elif action_label in ['LA', 'LA1']:
+        elif action_label in ['LA(root)', 'LA', 'LA1']:
             assert ':' not in properties, "edge format has no :"
             assert len(properties) == 1
             self.LA(properties[0])
