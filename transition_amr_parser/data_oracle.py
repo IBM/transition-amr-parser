@@ -322,6 +322,7 @@ class AMR_Oracle:
         # This will store overall stats
         self.stats = {
             'possible_predicates': Counter(),
+            'action_vocabulary': Counter()
         }
 
         # unaligned tokens
@@ -527,6 +528,8 @@ class AMR_Oracle:
                         f'PRED({normalized_concept})'
                     )
             actions_write(actions)
+            # Update action count
+            self.stats['action_vocabulary'].update(actions.split())
             del gold_amr.nodes[-1]
 
         print_log("oracle", "Done")
@@ -541,11 +544,11 @@ class AMR_Oracle:
         if out_rule_stats:
 
             # Add possible predicates to state machine rules
-            # apply same normalization rule
+            # apply same normalization rule if solicited
             possible_predicates = defaultdict(lambda: Counter())
             for token, counts in self.possiblePredicates.items():
                 for node, count in counts.items():
-                    if ' ' in node:
+                    if ' ' in node and args.no_whitespace_in_actions:
                         node = node.replace(' ', '_')
                     possible_predicates[token][node] = count
                     
@@ -585,6 +588,7 @@ class AMR_Oracle:
         isPred = stack0 not in transitions.is_confirmed
 
         if isPred:
+
             # FIXME: state altering code should be outside of tryACTION
             new_node = gold_amr.nodes[gold_id]
             old_node = amr.nodes[stack0]
