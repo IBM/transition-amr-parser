@@ -9,6 +9,7 @@ def read_rule_stats(rule_stats_json):
         rule_stats = json.loads(fid.read())
     # convert to counters
     rule_stats['possible_predicates'] = Counter(rule_stats['possible_predicates'])
+    rule_stats['action_vocabulary'] = Counter(rule_stats['action_vocabulary'])
     return rule_stats
 
 

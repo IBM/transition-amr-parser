@@ -301,6 +301,85 @@ class AMRStateMachine:
                 return
         self.CLOSE()
 
+    def get_valid_actions(self):
+        """Return valid actions for this state at test time"""
+        valid_actions = []
+
+        # Buffer not empty
+        if len(self.buffer):
+            valid_actions.append('SHIFT')
+            # FIXME: reduce also accepted here if node_id != None and something
+            # aligned to it (see tryReduce)
+
+        # One or more tokens in stack
+        if len(self.stack) > 0:
+
+            stack0 = self.stack[-1]
+
+            # If not confirmed yet, it can be confirmed
+            if stack0 not in self.is_confirmed:
+                valid_actions.append(['PRED'])
+
+            valid_actions.extend(['REDUCE', 'DEPENDENT'])
+            # 'COPY' 'COPY_LITERAL'
+
+#             # rules dependent on top of the stack
+#             top_of_stack = self.amr.tokens[self.stack[-1] - 1]
+#             if len(self.sense_by_token.get(top_of_stack, Counter())) > 0:
+#                 valid_actions.extend(['COPY_SENSE'])
+#                 if len(self.sense_by_token.get(top_of_stack, Counter())) > 1:
+#                     valid_actions.extend(['COPY_SENSE2'])
+#             if len(self.lemma_by_token.get(top_of_stack, Counter())) > 0:
+#                 valid_actions.extend(['COPY_LEMMA'])
+#                 if len(self.lemma_by_token.get(top_of_stack, Counter())) > 1:
+#                     valid_actions.extend(['COPY_LEMMA2'])
+
+            # Forbid entitity if top token already an entity
+            if stack0 not in self.entities:
+                # FIXME: Any rules involving MERGE here?
+                valid_actions.append('ENTITY')
+
+            # Forbid introduce if no latent
+            if len(self.latent) > 0:
+                valid_actions.append('INTRODUCE')
+
+        # two or more tokens in stack
+        if len(self.stack) > 1:
+            stack0 = self.stack[-1]
+            stack1 = self.stack[-2]
+
+            # Forbid merging if two words are identical
+            # FIXME: ?? this rule does not make any sense, indices will never
+            # be equal
+            #if stack0 != stack1:
+            valid_actions.append('MERGE')
+
+            # Forbid SWAP if both words have been swapped already
+            if (
+                (
+                    stack0 not in self.swapped_words or
+                    stack1 not in self.swapped_words.get(stack0)
+                ) and
+                (
+                    stack1 not in self.swapped_words or
+                    stack0 not in self.swapped_words.get(stack1)
+                )
+            ):
+                valid_actions.append('SWAP')
+
+            # confirmed nodes can be drawn edges between
+            if stack0 in self.is_confirmed and stack1 in self.is_confirmed:
+                valid_actions.extend(['LA', 'RA'])
+
+
+        # If not valid action indices machine is closed, output EOL
+        if valid_actions == []:
+            valid_actions = ['</s>']
+
+        return valid_actions
+
+
+
     def get_valid_action_indices(self):
         """Return valid actions for this state at test time (no oracle info)"""
         valid_action_indices = []
