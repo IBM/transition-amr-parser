@@ -498,6 +498,14 @@ class AMR_Oracle:
                     tag = items[1][:-1]
                 else:    
                     tag = None
+
+                # check action has not invalid chars and normalize
+                # TODO: --no-whitespace-in-actions being deprecated
+                if no_whitespace_in_actions and action_label == 'PRED':
+                    assert '_' not in action, \
+                        "--no-whitespace-in-actions prohibits use of _ in actions"
+                    if ' ' in action_label:
+                        action = action.replace(' ', '_')
  
                 # APPLY ACTION
                 tr.applyAction(action)
@@ -512,21 +520,17 @@ class AMR_Oracle:
             # update files
             oracle_write(str(tr))
             amr_write(tr.amr.toJAMRString())
-            sentence_write(" ".join(tr.amr.tokens))
+            if no_whitespace_in_actions:
+                sentence_write(" ".join(tr.amr.tokens))
+            else:    
+                sentence_write("\t".join(tr.amr.tokens))
             # TODO: Make sure this normalizing strategy is denornalized
             # elsewhere
-            actions = " ".join([a for a in tr.actions])
             if no_whitespace_in_actions:
-                confirmed = re.findall('PRED\(([^\)]*)\)', actions)
-                whitepace_confirmed = [x for x in confirmed if ' ' in x]
-                # ensure we do not have the normalization sign
-                for concept in whitepace_confirmed:
-                    assert '_' not in concept
-                    normalized_concept = concept.replace(' ', '_')
-                    actions = actions.replace(
-                        f'PRED({concept})',
-                        f'PRED({normalized_concept})'
-                    )
+                actions = " ".join([a for a in tr.actions])
+            else:
+                # used in stack-LSTM
+                actions = "\t".join([a for a in tr.actions])
             actions_write(actions)
             # Update action count
             self.stats['action_vocabulary'].update(actions.split())
@@ -548,7 +552,7 @@ class AMR_Oracle:
             possible_predicates = defaultdict(lambda: Counter())
             for token, counts in self.possiblePredicates.items():
                 for node, count in counts.items():
-                    if ' ' in node and args.no_whitespace_in_actions:
+                    if ' ' in node and no_whitespace_in_actions:
                         node = node.replace(' ', '_')
                     possible_predicates[token][node] = count
                     

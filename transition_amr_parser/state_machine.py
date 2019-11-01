@@ -318,7 +318,7 @@ class AMRStateMachine:
 
             # If not confirmed yet, it can be confirmed
             if stack0 not in self.is_confirmed:
-                valid_actions.append(['PRED'])
+                valid_actions.append('PRED')
 
             valid_actions.extend(['REDUCE', 'DEPENDENT'])
             # 'COPY' 'COPY_LITERAL'
