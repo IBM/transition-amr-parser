@@ -83,6 +83,11 @@ def argument_parser():
         help="sample randomly from a max number",
         type=int
     )
+    parser.add_argument(
+        "--no-whitespace-in-actions",
+        action='store_true',
+        help="Assume whitespaces normalized to _ in PRED"
+    )
 
     args = parser.parse_args()
 
@@ -160,7 +165,7 @@ class FakeAMRParser():
     """
 
     def __init__(self, from_sent_act_pairs=None, logger=None,
-                 actions_by_stack_rules=None):
+                 actions_by_stack_rules=None, no_whitespace_in_actions=False):
 
         # Dummy mode: simulate parser from pre-computed pairs of sentences
         # and actions
@@ -170,6 +175,7 @@ class FakeAMRParser():
         self.logger = logger
         self.sent_idx = 0
         self.actions_by_stack_rules = actions_by_stack_rules
+        self.no_whitespace_in_actions = no_whitespace_in_actions
 
         self.pred_counts = Counter()
 
@@ -191,6 +197,9 @@ class FakeAMRParser():
 
             # get action from model
             raw_action = actions[state_machine.time_step]
+
+            if self.no_whitespace_in_actions and raw_action.startswith('PRED'):
+                raw_action = raw_action.replace('_', ' ')
 
             # constrain action space if solicited
             if raw_action.startswith('PRED') and self.actions_by_stack_rules:
@@ -293,7 +302,8 @@ def main():
         parsing_model = FakeAMRParser(
             from_sent_act_pairs=zip(sentences, actions),
             logger=logger,
-            actions_by_stack_rules=actions_by_stack_rules
+            actions_by_stack_rules=actions_by_stack_rules,
+            no_whitespace_in_actions=args.no_whitespace_in_actions
         )
 
     else:

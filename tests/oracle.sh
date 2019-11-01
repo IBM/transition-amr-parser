@@ -47,8 +47,6 @@ amr-oracle \
     --in-amr $dev_file \
     --out-sentences ${oracle_folder}/dev.tokens \
     --out-actions ${oracle_folder}/dev.actions \
-    --no-whitespace-in-actions \
-#    --out-amr ${oracle_folder}/dev.oracle.amr \
 
 # parse a sentence step by step to explore
 amr-parse \
