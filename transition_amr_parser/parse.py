@@ -157,6 +157,52 @@ class AMRParser():
 
         return state_machine.amr
 
+def yellow_font(string):
+    return "\033[93m%s\033[0m" % string
+
+
+def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
+
+#     # Get valid actions
+    valid_actions = state_machine.get_valid_actions()
+    
+    # Fallback for constrained PRED actions
+    if 'PRED' in raw_action:
+        if 'PRED' not in valid_actions:
+            # apply restrictions to predict actions
+            # get valid predict actions
+            valid_pred_actions = [
+                a for a in valid_actions if 'PRED' in a
+            ]
+            if valid_pred_actions == []:
+                # no rule found for this token, try copy
+                token, tokens = state_machine.get_top_of_stack()
+                if tokens:
+                    token = ",".join(tokens)
+                # reasign raw action    
+                raw_action = f'PRED({token.lower()})'
+                pred_counts.update(['token OOV'])
+            elif raw_action not in valid_pred_actions:    
+                # not found, get most common match
+                # reasign raw action    
+                raw_action = valid_pred_actions[0]
+                pred_counts.update(['alignment OOV'])
+            else:
+                pred_counts.update(['matches'])
+    elif (
+        raw_action not in valid_actions and
+        raw_action.split('(')[0] not in valid_actions
+    ):
+    
+        # note-down rule violation
+        token, _ = state_machine.get_top_of_stack()
+        rule_violation.update([(token, raw_action)])
+    
+        # non PRED oracle actions should allways be valid
+        #import ipdb; ipdb.set_trace(context=30)
+        #_ = state_machine.get_valid_actions()
+    
+    return raw_action
 
 class FakeAMRParser():
     """
@@ -177,48 +223,47 @@ class FakeAMRParser():
         self.actions_by_stack_rules = actions_by_stack_rules
         self.no_whitespace_in_actions = no_whitespace_in_actions
 
+        # counters
         self.pred_counts = Counter()
+        self.rule_violation = Counter()
 
     def parse_sentence(self, sentence_str):
 
         # simulated actions given by a parsing model
         assert sentence_str in self.actions_by_sentence, \
             "Fake parser has no actions for sentence: %s" % sentence_str
-        actions = self.actions_by_sentence[sentence_str].split()
+        actions = self.actions_by_sentence[sentence_str].split('\t')
 
         # Fake tokenization
         tokens = sentence_str.split()
 
         # Initialize state machine
-        state_machine = AMRStateMachine(tokens)
+        state_machine = AMRStateMachine(
+            tokens,
+            actions_by_stack_rules=self.actions_by_stack_rules
+        )
 
         # execute parsing model
         while not state_machine.is_closed:
 
-            # get action from model
-            raw_action = actions[state_machine.time_step]
-
-            if self.no_whitespace_in_actions and raw_action.startswith('PRED'):
-                raw_action = raw_action.replace('_', ' ')
-
-            # constrain action space if solicited
-            if raw_action.startswith('PRED') and self.actions_by_stack_rules:
-                node = raw_action[5:-1]
-                token, merged_tokens = state_machine.get_top_of_stack()
-                if merged_tokens:
-                    token = ",".join(merged_tokens)
-                if token not in self.actions_by_stack_rules:
-                    raw_action = f'PRED({token.lower()})'
-                    self.pred_counts.update(['token OOV'])
-                elif node not in self.actions_by_stack_rules[token].keys():    
-                    new_node = self.actions_by_stack_rules[token].most_common(1)[0][0]
-                    raw_action = f'PRED({new_node})'
-                    self.pred_counts.update(['alignment OOV'])
-                else:
-                    self.pred_counts.update(['matches'])
-
             # Print state (pause if solicited)
             self.logger.update(self.sent_idx, state_machine)
+
+            # get action from model
+            raw_action = actions[state_machine.time_step]
+            
+            if self.no_whitespace_in_actions and raw_action.startswith('PRED'):
+                raise Exception("--no-whitespace-in-actions is deprecated")
+                raw_action = raw_action.replace('_', ' ')
+
+            # restrict action space according to machine restrictions and
+            # statistics
+            raw_action = restrict_action(
+                state_machine,
+                raw_action,
+                self.pred_counts,
+                self.rule_violation
+            ) 
 
             # Update state machine
             state_machine.applyAction(raw_action)
@@ -328,6 +373,13 @@ def main():
         # store output AMR
         if args.out_amr:
             amr_write(amr.toJAMRString())
+
+    if (
+        getattr(parsing_model, "rule_violation") and 
+        parsing_model.rule_violation
+    ):
+        print(yellow_font("There were one or more action rule violations"))
+        print(parsing_model.rule_violation)
 
     if args.action_rules_from_stats:
         print("Predict rules had following statistics")
