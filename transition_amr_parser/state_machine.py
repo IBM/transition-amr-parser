@@ -80,6 +80,7 @@ class AMRStateMachine:
         self.labels = []
         self.labelsA = []
         self.predicates = []
+        self.alignments = {}
 
         # information for oracle
         self.merged_tokens = {}
@@ -87,6 +88,8 @@ class AMRStateMachine:
         self.is_confirmed = set()
         self.is_confirmed.add(-1)
         self.swapped_words = {}
+
+        self.actions_by_stack_rules = actions_by_stack_rules
 
         if self.verbose:
             print('INIT')
@@ -101,6 +104,9 @@ class AMRStateMachine:
         def red_background(string):
             return "\033[101m%s\033[0m" % string
 
+        def green_background(string):
+            return "\033[102m%s\033[0m" % string
+
         def black_font(string):
             return "\033[30m%s\033[0m" % string
 
@@ -110,8 +116,11 @@ class AMRStateMachine:
         def green_font(string):
             return "\033[92m%s\033[0m" % string
 
-        def stack_style(string):
-            return black_font(white_background(string))
+        def stack_style(string, confirmed=False):
+            if confirmed:
+                return black_font(green_background(string))
+            else:    
+                return black_font(white_background(string))
 
         def reduced_style(string):
             return black_font(red_background(string))
@@ -151,9 +160,9 @@ class AMRStateMachine:
             if position in buffer_idx:
                 token = token + ' '
             elif position in stack_idx:
-                token = stack_style(token) + ' '
+                token = stack_style(token, position + 1 in self.is_confirmed) + ' '
             elif position in merged_pos:
-                token = stack_style(token + ' ')
+                token = stack_style(token + ' ', position + 1 in self.is_confirmed)
             else:
                 token = reduced_style(token) + ' '
             # position cursor
@@ -169,7 +178,15 @@ class AMRStateMachine:
         pointer_view_str = "".join(pointer_view)
 
         # nodes
-        nodes_str = " ".join([x for x in self.predicates if x != '_'])
+        #nodes_str = " ".join([x for x in self.predicates if x != '_'])
+        node_items = []
+        for pos, node in self.alignments.items():
+            if isinstance(pos, tuple):
+                tokens = " ".join(self.amr.tokens[p] for p in pos)
+            else:
+                tokens = self.amr.tokens[pos]
+            node_items.append(f'({tokens}, {node})')
+        nodes_str = " ".join(node_items)
 
         # Edges
         edges_str = []
@@ -219,19 +236,29 @@ class AMRStateMachine:
 
             return action_label, props 
 
-    def get_top_of_stack(self):
+    def get_top_of_stack(self, positions=False):
+        """
+        Returns surface symbols on top of the stack, inclucing merged
 
+        positions=True  returns the positions (unique ids within sentence)
+        """
         token = None
         merged_tokens = None
         if len(self.stack):
             stack0 = self.stack[-1]
-            token = str(self.amr.tokens[stack0 - 1])
+            if positions:
+                token = stack0 - 1
+            else:
+                token = str(self.amr.tokens[stack0 - 1])
             # store merged tokens by separate
             if stack0 in self.merged_tokens:
-                merged_tokens = [ 
-                    str(self.amr.tokens[i - 1])
-                    for i in self.merged_tokens[stack0]
-                ]
+                if positions:
+                    merged_tokens = [i - 1 for i in self.merged_tokens[stack0]]
+                else:
+                    merged_tokens = [ 
+                        str(self.amr.tokens[i - 1])
+                        for i in self.merged_tokens[stack0]
+                    ]
         return token, merged_tokens
 
     def applyAction(self, act):
@@ -301,12 +328,37 @@ class AMRStateMachine:
                 return
         self.CLOSE()
 
+    def get_pred_by_stack_rules(self):
+        """Return valid actions given the stack rules"""
+
+        # rule input
+        token, merged_tokens = self.get_top_of_stack()
+        if merged_tokens:
+            token = ",".join(merged_tokens)
+            #merged_token = ",".join(merged_tokens)
+            #if merged_token in self.actions_by_stack_rules:
+            #    token = merged_token
+
+        # rule decision
+        if token not in self.actions_by_stack_rules:
+            valid_pred_actions = []
+        else:
+            # return nodes ordered by most common
+            node_counts = sorted(
+                self.actions_by_stack_rules[token].items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+            valid_pred_actions = [f'PRED({nc[0]})' for nc in node_counts]
+        return valid_pred_actions
+
     def get_valid_actions(self):
         """Return valid actions for this state at test time"""
         valid_actions = []
 
         # Buffer not empty
-        if len(self.buffer):
+        if True: #len(self.buffer):
+            # Its admits a SHIFT for empty buffer interpreted as a close
             valid_actions.append('SHIFT')
             # FIXME: reduce also accepted here if node_id != None and something
             # aligned to it (see tryReduce)
@@ -318,7 +370,12 @@ class AMRStateMachine:
 
             # If not confirmed yet, it can be confirmed
             if stack0 not in self.is_confirmed:
-                valid_actions.append('PRED')
+                if self.actions_by_stack_rules:
+                    pred_stack_rules = self.get_pred_by_stack_rules()
+                    if pred_stack_rules:
+                        valid_actions.extend(pred_stack_rules)
+                else:
+                    valid_actions.append('PRED')
 
             valid_actions.extend(['REDUCE', 'DEPENDENT'])
             # 'COPY' 'COPY_LITERAL'
@@ -337,7 +394,8 @@ class AMRStateMachine:
             # Forbid entitity if top token already an entity
             if stack0 not in self.entities:
                 # FIXME: Any rules involving MERGE here?
-                valid_actions.append('ENTITY')
+                # FIXME: Double naming to be rmoevd. This is a source of bugs.
+                valid_actions.extend(['ENTITY', 'ADDNODE'])
 
             # Forbid introduce if no latent
             if len(self.latent) > 0:
@@ -365,20 +423,21 @@ class AMRStateMachine:
                     stack0 not in self.swapped_words.get(stack1)
                 )
             ):
-                valid_actions.append('SWAP')
+                valid_actions.extend(['SWAP', 'UNSHIFT'])
 
             # confirmed nodes can be drawn edges between
-            if stack0 in self.is_confirmed and stack1 in self.is_confirmed:
+            if (stack0 in self.is_confirmed and stack1 in self.is_confirmed):
                 valid_actions.extend(['LA', 'RA'])
 
+            # FIXME: special rule to account for oracle errors
+            elif self.get_top_of_stack()[0] == 'me':    
+                valid_actions.extend(['RA(mode)'])
 
         # If not valid action indices machine is closed, output EOL
         if valid_actions == []:
             valid_actions = ['</s>']
 
         return valid_actions
-
-
 
     def get_valid_action_indices(self):
         """Return valid actions for this state at test time (no oracle info)"""
@@ -533,6 +592,13 @@ class AMRStateMachine:
         self.labelsA.append('_')
         self.predicates.append(node_label)
         self.is_confirmed.add(stack0)
+        # keep alignments
+        token, merged_tokens = self.get_top_of_stack(positions=True)
+        if merged_tokens:
+            self.alignments[tuple(merged_tokens)] = node_label
+        else:
+            self.alignments[token] = node_label
+
         if self.verbose:
             print(f'PRED({node_label})')
             print(self.printStackBuffer())
@@ -733,6 +799,15 @@ class AMRStateMachine:
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
+        # if any token in this merged group is promoted, promote the rest
+        # FIXME: sometimes lead is not in self.merged_tokens. Unclear why
+        if (
+            lead in self.merged_tokens and
+            any(n in self.is_confirmed for n in self.merged_tokens[lead])
+        ):
+            for n in self.merged_tokens[lead]:
+                self.is_confirmed.add(n)
+
         if self.verbose:
             print(f'MERGE({self.amr.nodes[lead]})')
             print(self.printStackBuffer())
@@ -753,6 +828,15 @@ class AMRStateMachine:
         self.labels.append('_')
         self.labelsA.append(f'{entity_type}')
         self.predicates.append('_')
+        self.is_confirmed.add(head)
+
+        # keep alignments
+        token, merged_tokens = self.get_top_of_stack(positions=True)
+        if merged_tokens:
+            self.alignments[tuple(merged_tokens)] = entity_type
+        else:
+            self.alignments[token] = entity_type
+
         if self.verbose:
             print(f'ADDNODE({entity_type})')
             print(self.printStackBuffer())

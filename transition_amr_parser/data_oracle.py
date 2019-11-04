@@ -518,7 +518,9 @@ class AMR_Oracle:
             )
 
             # update files
-            oracle_write(str(tr))
+            if out_oracle:
+                # to avoid printing
+                oracle_write(str(tr))
             amr_write(tr.amr.toJAMRString())
             if no_whitespace_in_actions:
                 sentence_write(" ".join(tr.amr.tokens))
