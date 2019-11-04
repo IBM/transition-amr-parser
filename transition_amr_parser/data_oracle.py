@@ -533,7 +533,10 @@ class AMR_Oracle:
                 actions = "\t".join([a for a in tr.actions])
             actions_write(actions)
             # Update action count
-            self.stats['action_vocabulary'].update(actions.split())
+            if no_whitespace_in_actions:
+                self.stats['action_vocabulary'].update(actions.split())
+            else:
+                self.stats['action_vocabulary'].update(actions.split("\t"))
             del gold_amr.nodes[-1]
 
         print_log("oracle", "Done")
