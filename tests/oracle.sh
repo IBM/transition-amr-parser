@@ -27,7 +27,8 @@ amr-parse \
 # evaluate oracle performance
 # wrt train.oracle.amr F-score: 0.9379
 # wrt train.amr F-score: 0.9371
-# WIP 0.9366
+# F-score: valid actions 0.9366
+# F-score: valid actions + possible predicted 0.9365
 test_result="$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)"
 echo $test_result
 ref_score=0.9371
