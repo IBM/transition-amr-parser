@@ -27,11 +27,12 @@ amr-parse \
 # evaluate oracle performance
 # wrt train.oracle.amr F-score: 0.9379
 # wrt train.amr F-score: 0.9371
+# WIP 0.9366
 test_result="$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)"
 echo $test_result
 ref_score=0.9371
 if [ "$test_result" != "F-score: $ref_score" ];then
-    printf "[\033[91mFAILED[0m] Oracle train F-score not $ref_score\n"
+    printf "[\033[91mFAILED\033[0m] Oracle train F-score not $ref_score\n"
     exit 1
 else
     printf "[\033[92mOK\033[0m] Oracle train passed!\n"
