@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 
 from transition_amr_parser.state_machine import AMRStateMachine
+from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import (
     writer,
     read_sentences,
@@ -157,13 +158,10 @@ class AMRParser():
 
         return state_machine.amr
 
-def yellow_font(string):
-    return "\033[93m%s\033[0m" % string
-
 
 def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
 
-#     # Get valid actions
+    # Get valid actions
     valid_actions = state_machine.get_valid_actions()
     
     # Fallback for constrained PRED actions
@@ -213,6 +211,10 @@ class FakeAMRParser():
     def __init__(self, from_sent_act_pairs=None, logger=None,
                  actions_by_stack_rules=None, no_whitespace_in_actions=False):
 
+
+        assert not no_whitespace_in_actions, \
+            '--no-whitespace-in-actions deprected'
+
         # Dummy mode: simulate parser from pre-computed pairs of sentences
         # and actions
         self.actions_by_sentence = {
@@ -249,13 +251,16 @@ class FakeAMRParser():
             # Print state (pause if solicited)
             self.logger.update(self.sent_idx, state_machine)
 
-            # get action from model
-            raw_action = actions[state_machine.time_step]
+            if len(actions) <= state_machine.time_step:
+                # if machine is not propperly closed hard exit
+                print(yellow_font(
+                    f'machine not closed at step {state_machine.time_step}'
+                ))
+                raw_action = 'CLOSE'
+            else:    
+                # get action from model
+                raw_action = actions[state_machine.time_step]
             
-            if self.no_whitespace_in_actions and raw_action.startswith('PRED'):
-                raise Exception("--no-whitespace-in-actions is deprecated")
-                raw_action = raw_action.replace('_', ' ')
-
             # restrict action space according to machine restrictions and
             # statistics
             raw_action = restrict_action(
