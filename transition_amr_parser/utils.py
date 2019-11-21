@@ -313,6 +313,10 @@ class ConfusionMatrix:
         return s
 
 
+def yellow_font(string):
+    return "\033[93m%s\033[0m" % string
+
+
 def print_log(module, string):
     """formats printing of log to stdout"""
     timestamp = str(datetime.now()).split('.')[0]
