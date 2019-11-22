@@ -925,3 +925,12 @@ class AMRModel(torch.nn.Module):
         tr = AMRStateMachine(toks, verbose=False)
         tr.applyActions(apply_actions)
         return tr.amr
+
+    def parse_sentence(self, tokens, sent_rep, bert_emb):
+        _, actions, labels, labelsA, predicates = self.forward_single(
+            sent_rep,
+            mode='predict',
+            tokens=tokens,
+            bert_embedding=bert_emb
+        )
+        return self.build_amr(tokens, actions, labels, labelsA, predicates)

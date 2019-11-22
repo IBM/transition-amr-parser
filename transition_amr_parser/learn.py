@@ -1,5 +1,6 @@
 import socket
 import time
+import json
 from datetime import datetime, timedelta
 import warnings
 from collections import Counter
@@ -37,6 +38,7 @@ def argument_parser():
     parser = argparse.ArgumentParser(description='AMR parser.')
     parser.add_argument("-A", "--amr_training_data", required=True)
     parser.add_argument("-a", "--amr_dev_data", required=True)
+    parser.add_argument("-s", "--oracle_stats", required=False)
     parser.add_argument('--epoch', type=int, default=300, help='maximum epoch number')
     parser.add_argument('--report', type=int, default=1, help='after how many epochs should the model evaluate on dev data?')
     parser.add_argument('--max_train_size', type=int, help='number of sentences to train on (for debugging purposes)')
@@ -164,7 +166,11 @@ def main():
     if use_bert:
         h5py_train, h5py_test = setup_bert(args.bert_training, args.bert_test)
 
-    oracle_stats =  oracle.stats
+    if args.oracle_stats:
+        print_log('parser', 'Using pre-computed stats')
+        oracle_stats = json.load(open(args.oracle_stats))
+    else:
+        oracle_stats = oracle.stats
 
     model = AMRModel(amrs=train_amrs,
                      oracle_stats=oracle_stats,
