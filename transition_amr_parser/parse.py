@@ -29,6 +29,7 @@ from transition_amr_parser.utils import print_log
 import math
 
 from fairseq.models.roberta import RobertaModel
+from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
 
 # is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
 
@@ -185,8 +186,8 @@ class AMRParser():
                      use_chars=config["use_chars"],
                      use_attention=config["use_attention"],
                      use_function_words=config["use_function_words"],
-                     use_function_words_rels=config["use_function_words_rel"],
-                     parse_unaligned=config["parse_aligned"],
+                     use_function_words_rels=config["use_function_words_rels"],
+                     parse_unaligned=config["parse_unaligned"],
                      weight_inputs=config["weight_inputs"],
                      attend_inputs=config["attend_inputs"]
                      )
@@ -252,7 +253,7 @@ def get_embeddings(model, sentences, batch_size):
         batch = data[i*batch_size : i*batch_size+batch_size]
         batch_indices = [item[0] for item in batch]
         batch_sentences = [item[1] for item in batch]
-        batch_embeddings = model.extract_features_aligned_to_words_batched(batch_sentences, use_all_layers=True, return_all_hiddens=True)
+        batch_embeddings = extract_features_aligned_to_words_batched(model, batch_sentences, use_all_layers=True, return_all_hiddens=True)
         for index, features in zip(batch_indices, batch_embeddings):
             data_features = []
             for tok in features:
@@ -331,7 +332,7 @@ def main():
     master_addr = socket.gethostname()
     master_port = '64646'
 
-    if args.num_cores == 1:
+    if args.num_cores > 1:
         model_use_gpu = False
     else:
         model_use_gpu = args.use_gpu
