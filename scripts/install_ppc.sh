@@ -24,5 +24,8 @@ conda activate $env_name
 # spacy lemmatization
 python -m spacy download en
 
-# smatch
-git clone https://github.com/snowblink14/smatch.git
+# Make smatch importable and editable, use MNLPs smatch (importable and faster) 
+rm -Rf smatch
+git clone git@github.ibm.com:mnlp/smatch.git
+# editable just in case
+pip install --editable smatch/
