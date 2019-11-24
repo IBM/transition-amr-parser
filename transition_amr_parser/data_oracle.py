@@ -557,8 +557,6 @@ class AMR_Oracle:
             possible_predicates = defaultdict(lambda: Counter())
             for token, counts in self.possiblePredicates.items():
                 for node, count in counts.items():
-                    if ' ' in node and no_whitespace_in_actions:
-                        node = node.replace(' ', '_')
                     possible_predicates[token][node] = count
                     
             self.stats['possible_predicates'] = self.possiblePredicates
