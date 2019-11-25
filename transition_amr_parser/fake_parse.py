@@ -292,9 +292,9 @@ def main():
     # generate rules to restrict action space by stack content
     if args.action_rules_from_stats:
         rule_stats = read_rule_stats(args.action_rules_from_stats)
-        # actions_by_stack_rules = rule_stats['possible_predicates']
-        # for token, counter in rule_stats['possible_predicates'].items():
-        #    actions_by_stack_rules[token] = Counter(counter)
+        actions_by_stack_rules = rule_stats['possible_predicates']
+        for token, counter in rule_stats['possible_predicates'].items():
+           actions_by_stack_rules[token] = Counter(counter)
 
     else:    
         actions_by_stack_rules = None
