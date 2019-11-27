@@ -53,6 +53,7 @@ class AMRModel(torch.nn.Module):
         self.parse_unaligned = parse_unaligned
         self.weight_inputs = weight_inputs
         self.attend_inputs = attend_inputs
+        # self.tokenizer = self.spacy_tokenizer()
 
         self.warm_up = False
 
@@ -934,3 +935,14 @@ class AMRModel(torch.nn.Module):
             bert_embedding=bert_emb
         )
         return self.build_amr(tokens, actions, labels, labelsA, predicates)
+
+    # def spacy_tokenizer(self):
+    #     try:
+    #         from spacy.lang.en import English
+    #         from spacy.symbols import ORTH
+    #         nlp = English()
+    #         nlp.tokenizer.add_special_case('<ROOT>', [{ORTH: '<ROOT>'}])
+    #         tokenizer = nlp.tokenizer
+    #     except ImportError:
+    #         raise ImportError('Please install spacy with: pip install spacy')
+    #     return tokenizer

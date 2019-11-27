@@ -120,7 +120,12 @@ def argument_parser():
         action='store_true',
         default=False
     )
-
+    parser.add_argument(
+        "--add-root-token",
+        help="Add root token (<ROOT>) at the end of the sentence.",
+        action='store_true',
+        default=False
+    )
     parser.add_argument(
         "--batch-size",
         help="Batch size to compute roberta embeddings",
@@ -253,7 +258,7 @@ def get_embeddings(model, sentences, batch_size):
         batch = data[i*batch_size : i*batch_size+batch_size]
         batch_indices = [item[0] for item in batch]
         batch_sentences = [item[1] for item in batch]
-        batch_embeddings = extract_features_aligned_to_words_batched(model, batch_sentences, use_all_layers=True, return_all_hiddens=True)
+        batch_embeddings = extract_features_aligned_to_words_batched(model, sentences=batch_sentences, use_all_layers=True, return_all_hiddens=True)
         for index, features in zip(batch_indices, batch_embeddings):
             data_features = []
             for tok in features:
@@ -280,7 +285,6 @@ def worker(rank, parser, handler, results, master_addr, master_port, cores):
     
     data = handler.get_sentences_for_rank(rank)
     print_log("Data", f'Length of data is {len(data)} for rank {rank} ')
-
     for _, item in tqdm(enumerate(data)):
         sent_id = item[0]
         sentence = item[1]
@@ -302,7 +306,7 @@ def main():
     cores = args.num_cores
 
     # Get data
-    sentences = read_sentences(args.in_sentences)
+    sentences = read_sentences(args.in_sentences, add_root_token=args.add_root_token)
 
     # Initialize logger/printer
     logger = Logger(
@@ -311,6 +315,19 @@ def main():
         pause_time=args.pause_time,
         verbose=args.verbose
     )
+
+    if args.num_cores > 1:
+        model_use_gpu = False
+    else:
+        model_use_gpu = args.use_gpu
+
+    # Load the parser
+    parser = AMRParser(
+                model_path=args.in_model,
+                oracle_stats_path=args.action_rules_from_stats,
+                config_path=args.model_config_path,
+                model_use_gpu=model_use_gpu,
+                logger=logger)
 
     # Load the Roberta Model
     start = time.time()
@@ -331,18 +348,6 @@ def main():
 
     master_addr = socket.gethostname()
     master_port = '64646'
-
-    if args.num_cores > 1:
-        model_use_gpu = False
-    else:
-        model_use_gpu = args.use_gpu
-
-    parser = AMRParser(
-                model_path=args.in_model,
-                oracle_stats_path=args.action_rules_from_stats,
-                config_path=args.model_config_path,
-                model_use_gpu=model_use_gpu,
-                logger=logger)
 
     manager = multiprocessing.Manager()
     results = manager.dict()
