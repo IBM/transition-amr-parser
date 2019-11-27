@@ -23,12 +23,11 @@ from transition_amr_parser.io import (
     writer,
     read_sentences,
 )
-from transition_amr_parser.model import AMRModel
 import transition_amr_parser.utils as utils
 from transition_amr_parser.utils import print_log
 import math
 
-from fairseq.models.roberta import RobertaModel
+from transition_amr_parser.amr_parser import AMRParser
 from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
 
 # is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
@@ -132,6 +131,12 @@ def argument_parser():
         default=12,
         type=int
     )
+    parser.add_argument(
+        "--parser-chunk-size",
+        help="number of sentences for which to compute the parse at a time",
+        default=5000,
+        type=int
+    )
 
     args = parser.parse_args()
 
@@ -162,44 +167,6 @@ def reduce_counter(counts, reducer):
         new_key = reducer(key)
         new_counts[new_key] += count
     return new_counts
-
-
-class AMRParser():
-
-    def __init__(self, model_path, oracle_stats_path, config_path, model_use_gpu=False, verbose=False, logger=None):
-
-        self.model = self.load_model(model_path, oracle_stats_path, config_path, model_use_gpu)
-        self.logger = logger 
-
-
-    def load_model(self, model_path, oracle_stats_path, config_path, model_use_gpu):
-
-        oracle_stats = json.load(open(oracle_stats_path))
-        config = json.load(open(config_path))
-        model = AMRModel(
-                     oracle_stats = oracle_stats,
-                     embedding_dim=config["embedding_dim"],
-                     action_embedding_dim=config["action_embedding_dim"],
-                     char_embedding_dim=config["char_embedding_dim"],
-                     hidden_dim=config["hidden_dim"],
-                     char_hidden_dim=config["char_hidden_dim"],
-                     rnn_layers=config["rnn_layers"],
-                     dropout_ratio=config["dropout_ratio"],
-                     pretrained_dim=config["pretrained_dim"],
-                     use_bert=config["use_bert"],
-                     use_gpu=model_use_gpu,
-                     use_chars=config["use_chars"],
-                     use_attention=config["use_attention"],
-                     use_function_words=config["use_function_words"],
-                     use_function_words_rels=config["use_function_words_rels"],
-                     parse_unaligned=config["parse_unaligned"],
-                     weight_inputs=config["weight_inputs"],
-                     attend_inputs=config["attend_inputs"]
-                     )
-
-        model.load_state_dict(torch.load(model_path))
-        model.eval()
-        return model
         
 class DataHandler():
     def __init__(self, sentences, embeddings, cores):
@@ -254,7 +221,7 @@ class Logger():
 def get_embeddings(model, sentences, batch_size):
     embeddings = {}
     data = [(sent_id, sentence) for sent_id, sentence in enumerate(sentences)]
-    for i in range(0, int(len(data)/batch_size)):
+    for i in range(0, math.ceil(len(data)/batch_size)):
         batch = data[i*batch_size : i*batch_size+batch_size]
         batch_indices = [item[0] for item in batch]
         batch_sentences = [item[1] for item in batch]
@@ -268,7 +235,7 @@ def get_embeddings(model, sentences, batch_size):
             embeddings[index] = data_features
     return embeddings
 
-def worker(rank, parser, handler, results, master_addr, master_port, cores):
+def worker(rank, model, handler, results, master_addr, master_port, cores):
     if cores > 1:
         torch.set_num_threads(1)
     print_log("Global: ","Threads :" + str(torch.get_num_threads()))
@@ -278,10 +245,10 @@ def worker(rank, parser, handler, results, master_addr, master_port, cores):
 
     if cores > 1:
         dist.init_process_group(world_size=cores, backend='gloo', rank=rank)
-        dist_module = torch.nn.parallel.DistributedDataParallelCPU(parser.model)
+        dist_module = torch.nn.parallel.DistributedDataParallelCPU(model)
         dist_model = dist_module.module
     else:
-        dist_model = parser.model
+        dist_model = model
     
     data = handler.get_sentences_for_rank(rank)
     print_log("Data", f'Length of data is {len(data)} for rank {rank} ')
@@ -296,12 +263,52 @@ def worker(rank, parser, handler, results, master_addr, master_port, cores):
 
     print("Dist: ","Finished worker for rank: " + str(rank))
 
+def parse(sentences, parser, args):
+
+    cores = args.num_cores
+
+    start = time.time()
+    embeddings = get_embeddings(parser.roberta, sentences, args.batch_size)
+    end = time.time()
+    print_log('parser', f'Time taken to get embeddings: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we got all the embeddings
+    assert (len(embeddings) == len(sentences))
+
+    # Create the distributed data handler
+    handler = DataHandler(sentences, embeddings, cores)
+
+    manager = multiprocessing.Manager()
+    results = manager.dict()
+
+    master_addr = socket.gethostname()
+    master_port = '64646'
+
+    arguments = (parser.model, handler, results, master_addr, master_port, cores)
+    start = time.time()
+
+    # Spawn multiple processes if user wants to run on multiple cores
+    if cores > 1:
+        mp.spawn(worker, nprocs=cores, args=arguments)
+    else:
+        worker(*(tuple([0]) + arguments))
+    end = time.time()
+    print_log('parser', f'Time taken to parse chunk: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we have processed all the sentences in the chunk
+    assert (len(sentences) == len(results))
+
+    amrs = []
+    for i in range(0, len(sentences)):
+        amrs.append(results[i])
+    
+    return amrs
 
 def main():
 
     # Argument handling
     args = argument_parser()
-    
+
     # Get num of cores to run on
     cores = args.num_cores
 
@@ -327,52 +334,32 @@ def main():
                 oracle_stats_path=args.action_rules_from_stats,
                 config_path=args.model_config_path,
                 model_use_gpu=model_use_gpu,
+                roberta_use_gpu=args.use_gpu,
                 logger=logger)
 
-    # Load the Roberta Model
-    start = time.time()
-    RobertaModel = torch.hub.load('pytorch/fairseq', 'roberta.large')
-    RobertaModel.eval()
-    if args.use_gpu:
-        RobertaModel.cuda()
-    end = time.time()
-    print_log('parser', f'Time taken to load Roberta Model: {timedelta(seconds=float(end-start))}')
+    amrs = []
+    num_chunks = math.ceil(len(sentences)/args.parser_chunk_size)
+    print_log('parser', f'Total number of chunks: {num_chunks}')
 
     start = time.time()
-    embeddings = get_embeddings(RobertaModel, sentences, args.batch_size)
+    for i in range(0,num_chunks):
+        print_log('parser', f'Parsing chunk number: {i+1}')
+        current_chunk = sentences[i*args.parser_chunk_size: i*args.parser_chunk_size+args.parser_chunk_size]
+        current_amrs = parse(current_chunk, parser, args)
+        amrs.extend(current_amrs)
+    
     end = time.time()
-    print_log('parser', f'Time taken to get embeddings: {timedelta(seconds=float(end-start))}')
-
-    # Create the distributed data handler
-    handler = DataHandler(sentences, embeddings, cores)
-
-    master_addr = socket.gethostname()
-    master_port = '64646'
-
-    manager = multiprocessing.Manager()
-    results = manager.dict()
-
-    arguments = (parser, handler, results, master_addr, master_port, cores)
-    start = time.time()
-
-    # Spawn multiple processes if user wants to run on multiple cores
-    if cores > 1:
-        mp.spawn(worker, nprocs=cores, args=arguments)
-    else:
-        worker(*(tuple([0]) + arguments))
-    end = time.time()
-    print_log('parser', f'Time taken to parse sentences: {timedelta(seconds=float(end-start))}')
+    print_log('parser', f'Total time taken to parse sentences: {timedelta(seconds=float(end-start))}')
 
     # Make sure we have processed all the sentences
-    assert (len(sentences) == len(results))
+    assert (len(sentences)==len(amrs))
 
     if args.out_amr:
         # Get output AMR writer
         amr_write = writer(args.out_amr)
         
         # store output AMR
-        for i in range(0, len(sentences)):
-            amr = results[i]
+        for amr in amrs:
             amr_write(amr.toJAMRString())
         
         # close output AMR writer
