@@ -378,18 +378,6 @@ class AMRStateMachine:
                     valid_actions.append('PRED')
 
             valid_actions.extend(['REDUCE', 'DEPENDENT'])
-            # 'COPY' 'COPY_LITERAL'
-
-#             # rules dependent on top of the stack
-#             top_of_stack = self.amr.tokens[self.stack[-1] - 1]
-#             if len(self.sense_by_token.get(top_of_stack, Counter())) > 0:
-#                 valid_actions.extend(['COPY_SENSE'])
-#                 if len(self.sense_by_token.get(top_of_stack, Counter())) > 1:
-#                     valid_actions.extend(['COPY_SENSE2'])
-#             if len(self.lemma_by_token.get(top_of_stack, Counter())) > 0:
-#                 valid_actions.extend(['COPY_LEMMA'])
-#                 if len(self.lemma_by_token.get(top_of_stack, Counter())) > 1:
-#                     valid_actions.extend(['COPY_LEMMA2'])
 
             # Forbid entitity if top token already an entity
             if stack0 not in self.entities:
@@ -463,25 +451,6 @@ class AMRStateMachine:
                 self.action_list_by_prefix['COPY_LITERAL']
             )
 
-#             # rules dependent on top of the stack
-#             top_of_stack = self.amr.tokens[self.stack[-1] - 1]
-#             if len(self.sense_by_token.get(top_of_stack, Counter())) > 0:
-#                 valid_action_indices.extend(
-#                     self.action_list_by_prefix['COPY_SENSE']
-#                 )
-#                 if len(self.sense_by_token.get(top_of_stack, Counter())) > 1:
-#                     valid_action_indices.extend(
-#                         self.action_list_by_prefix['COPY_SENSE2']
-#                     )
-#             if len(self.lemma_by_token.get(top_of_stack, Counter())) > 0:
-#                 valid_action_indices.extend(
-#                     self.action_list_by_prefix['COPY_LEMMA']
-#                 )
-#                 if len(self.lemma_by_token.get(top_of_stack, Counter())) > 1:
-#                     valid_action_indices.extend(
-#                         self.action_list_by_prefix['COPY_LEMMA2']
-#                     )
-
             # Forbid entitity if top token already an entity
             if self.stack[-1] not in self.entities:
                 # FIXME: Any rules involving MERGE here?
@@ -526,27 +495,6 @@ class AMRStateMachine:
             valid_action_indices = [self.action_list.index('</s>')]
 
         return valid_action_indices
-
-    def update_from_logp(self, action_logp):
-        """
-        Given log probabilities of all actions update state machine with the
-        most probable and return masked probabilities including only valid
-        actions
-        """
-
-        # get indices of valid actions
-        valid_indices = self.get_valid_action_indices()
-
-        # Set all invalid actions to -Inf log probability
-        const_action_logp = torch.ones_like(action_logp) * float('-inf')
-        const_action_logp.to(action_logp.device)
-        const_action_logp[valid_indices] = action_logp[valid_indices]
-
-        best_action_index = const_action_logp.argmax()
-        best_action = self.action_list[best_action_index]
-        self.applyAction(best_action)
-
-        return const_action_logp
 
     def SHIFT(self):
         """SHIFT : move buffer[-1] to stack[-1]"""
@@ -602,116 +550,6 @@ class AMRStateMachine:
         if self.verbose:
             print(f'PRED({node_label})')
             print(self.printStackBuffer())
-
-#     def COPY(self):
-#         """COPY: Same as CONFIRM but use lowercased top-of-stack"""
-#         # get top of stack
-#         stack0 = self.stack[-1]
-#         node_label = self.amr.tokens[stack0 - 1].lower()
-#         # update AMR graph
-#         self.amr.nodes[stack0] = node_label
-#         # update statistics
-#         self.actions.append(f'COPY')
-#         self.labels.append('_')
-#         self.labelsA.append('_')
-#         self.predicates.append(node_label)
-#         self.is_confirmed.add(stack0)
-#         if self.verbose:
-#             print(f'COPY')
-#             print(self.printStackBuffer())
-# 
-#     def COPY_LITERAL(self):
-#         """COPY_LITERAL: Same as CONFIRM but use top-of-stack between quotes"""
-#         # get top of stack
-#         stack0 = self.stack[-1]
-#         node_label = '\"%s\"' % self.amr.tokens[stack0 - 1]
-#         # update AMR graph
-#         self.amr.nodes[stack0] = node_label
-#         # update statistics
-#         self.actions.append(f'COPY_LITERAL')
-#         self.labels.append('_')
-#         self.labelsA.append('_')
-#         self.predicates.append(node_label)
-#         self.is_confirmed.add(stack0)
-#         if self.verbose:
-#             print(f'COPY_LITERAL')
-#             print(self.printStackBuffer())
-# 
-#     def COPY_SENSE(self):
-#         """COPY_SENSE:"""
-#         # get top of stack
-#         stack0 = self.stack[-1]
-#         token = self.amr.tokens[stack0 - 1]
-#         # Get most common aligned node name
-#         node_label = self.sense_by_token[token].most_common(1)[-1][0]
-#         # update amr graph
-#         self.amr.nodes[stack0] = node_label
-#         # update statistics
-#         self.actions.append(f'COPY_SENSE')
-#         self.labels.append('_')
-#         self.labelsA.append('_')
-#         self.predicates.append(node_label)
-#         self.is_confirmed.add(stack0)
-#         if self.verbose:
-#             print(f'COPY_SENSE')
-#             print(self.printStackBuffer())
-# 
-#     def COPY_SENSE2(self):
-#         """COPY_SENSE:"""
-#         # get top of stack
-#         stack0 = self.stack[-1]
-#         token = self.amr.tokens[stack0 - 1]
-#         # Get most common aligned node name
-#         node_label = self.sense_by_token[token].most_common(2)[-1][0]
-#         # update amr graph
-#         self.amr.nodes[stack0] = node_label
-#         # update statistics
-#         self.actions.append(f'COPY_SENSE2')
-#         self.labels.append('_')
-#         self.labelsA.append('_')
-#         self.predicates.append(node_label)
-#         self.is_confirmed.add(stack0)
-#         if self.verbose:
-#             print(f'COPY_SENSE2')
-#             print(self.printStackBuffer())
-# 
-#     def COPY_LEMMA(self):
-#         """COPY_LEMMA:"""
-#         # get top of stack
-#         stack0 = self.stack[-1]
-#         token = self.amr.tokens[stack0 - 1]
-#         # Get most common aligned node name
-#         node_label = self.lemma_by_token[token].most_common(1)[-1][0]
-#         # update amr graph
-#         self.amr.nodes[stack0] = node_label
-#         # update statistics
-#         self.actions.append(f'COPY_LEMMA')
-#         self.labels.append('_')
-#         self.labelsA.append('_')
-#         self.predicates.append(node_label)
-#         self.is_confirmed.add(stack0)
-#         if self.verbose:
-#             print(f'COPY_LEMMA')
-#             print(self.printStackBuffer())
-# 
-#     def COPY_LEMMA2(self):
-#         """COPY_LEMMA:"""
-#         # get top of stack
-#         stack0 = self.stack[-1]
-#         token = self.amr.tokens[stack0 - 1]
-#         # Get most common aligned node name
-#         node_label = self.lemma_by_token[token].most_common(2)[-1][0]
-#         # update amr graph
-#         self.amr.nodes[stack0] = node_label
-#         # update statistics
-#         self.actions.append(f'COPY_LEMMA2')
-#         self.labels.append('_')
-#         self.labelsA.append('_')
-#         self.predicates.append(node_label)
-#         self.is_confirmed.add(stack0)
-#         if self.verbose:
-#             print(f'COPY_LEMMA2')
-#             print(self.printStackBuffer())
 
     def LA(self, edge_label):
         """LA : add an edge from stack[-1] to stack[-2]"""
