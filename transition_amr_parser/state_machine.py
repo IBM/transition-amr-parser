@@ -264,9 +264,9 @@ class AMRStateMachine:
     def applyAction(self, act):
 
         action_label, properties = self.readAction(act)
-        if action_label in ['SHIFT']:
+        if action_label.startswith('SHIFT'):
             if self.buffer:
-                self.SHIFT()
+                self.SHIFT(properties[0] if properties else None)
             else:
                 self.CLOSE()
                 return True
@@ -496,7 +496,7 @@ class AMRStateMachine:
 
         return valid_action_indices
 
-    def SHIFT(self):
+    def SHIFT(self, shift_label=None):
         """SHIFT : move buffer[-1] to stack[-1]"""
 
         # FIXME: No nested actions. This can be handled at try time
@@ -504,7 +504,10 @@ class AMRStateMachine:
             self.CLOSE()
         tok = self.buffer.pop()
         self.stack.append(tok)
-        self.actions.append('SHIFT')
+        if shift_label:
+            self.actions.append(f'SHIFT({shift_label})')
+        else:
+            self.actions.append('SHIFT')
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
