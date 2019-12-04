@@ -10,6 +10,7 @@ from transition_amr_parser.io import writer, read_propbank
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
+    get_spacy_lemmatizer, 
     entity_rule_stats,
     entity_rule_totals,
     entity_rule_fails
@@ -375,6 +376,9 @@ class AMR_Oracle:
             'imperative', '1', 'thing',
         ]
 
+        # initialize spacy lemmatizer out of the sentence loop for speed
+        spacy_lemmatizer = get_spacy_lemmatizer()
+
         # Loop over golf AMRs
         for sent_idx, gold_amr in tqdm(
             enumerate(self.gold_amrs),
@@ -392,7 +396,8 @@ class AMR_Oracle:
             tr = AMRStateMachine(
                 gold_amr.tokens,
                 verbose=self.verbose,
-                add_unaligned=add_unaligned
+                add_unaligned=add_unaligned,
+                spacy_lemmatizer=spacy_lemmatizer
             )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
@@ -411,7 +416,14 @@ class AMR_Oracle:
                     action = f'ADDNODE({self.entity_type})'
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
-                    action = f'PRED({self.new_node})'
+                    # Get lemma
+                    lemma, _ = tr.get_top_of_stack(lemma=True)
+                    if lemma == self.new_node:
+                        action = 'COPY_LEMMA'
+                    elif f'{lemma}-01' == self.new_node:    
+                        action = 'COPY_SENSE01'
+                    else:    
+                        action = f'PRED({self.new_node})'
 
                 elif self.tryDependent(tr, tr.amr, gold_amr):
                     # FIXME: Internally this is stored as
@@ -981,6 +993,8 @@ def main():
         # store in file
         with open(args.in_multitask_words) as fid:
             multitask_words = [line.strip() for line in fid.readlines()]
+    else:
+        multitask_words = None
 
     # TODO: At the end, an oracle is just a parser with oracle info. This could
     # be turner into a loop similar to parser.py (ore directly use that and a

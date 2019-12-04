@@ -8,7 +8,10 @@ from collections import Counter, defaultdict
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.state_machine import AMRStateMachine
+from transition_amr_parser.state_machine import (
+    AMRStateMachine,
+    get_spacy_lemmatizer
+)
 from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import (
     writer,
@@ -225,6 +228,9 @@ class FakeAMRParser():
         self.actions_by_stack_rules = actions_by_stack_rules
         self.no_whitespace_in_actions = no_whitespace_in_actions
 
+        # initialize here for speed
+        self.spacy_lemmatizer = get_spacy_lemmatizer()
+
         # counters
         self.pred_counts = Counter()
         self.rule_violation = Counter()
@@ -242,7 +248,8 @@ class FakeAMRParser():
         # Initialize state machine
         state_machine = AMRStateMachine(
             tokens,
-            actions_by_stack_rules=self.actions_by_stack_rules
+            actions_by_stack_rules=self.actions_by_stack_rules,
+            spacy_lemmatizer=self.spacy_lemmatizer
         )
 
         # execute parsing model
