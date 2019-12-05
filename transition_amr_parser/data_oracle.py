@@ -10,6 +10,7 @@ from transition_amr_parser.io import writer, read_propbank
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
+    get_spacy_lemmatizer, 
     entity_rule_stats,
     entity_rule_totals,
     entity_rule_fails
@@ -94,6 +95,22 @@ def argument_parser():
         "--verbose",
         action='store_true',
         help="verbose processing"
+    )
+    #
+    parser.add_argument(
+        "--multitask-max-words",
+        type=int,
+        help="number of woprds to use for multi-task"
+    )
+    parser.add_argument(
+        "--out-multitask-words",
+        type=str,
+        help="where to store top-k words for multi-task"
+    )
+    parser.add_argument(
+        "--in-multitask-words",
+        type=str,
+        help="where to read top-k words for multi-task"
     )
     parser.add_argument(
         "--no-whitespace-in-actions",
@@ -259,6 +276,33 @@ def alert_inconsistencies(gold_amrs):
         print(yellow_font(alert_str))
 
 
+def read_multitask_words(multitask_list):
+    multitask_words = []
+    with open(multitask_list) as fid:
+        for line in fid:
+            items = line.strip().split('\t')
+            if len(items) > 2:
+                multitask_words.append(items[1])
+    return multitask_words
+
+
+def get_multitask_actions(max_symbols, tokenized_corpus):
+
+    word_count = Counter()
+    for sentence in tokenized_corpus:
+        word_count.update([x for x in sentence])
+
+    # Restrict to top-k words
+    allowed_words = dict(list(sorted(
+        word_count.items(),
+        key=lambda x: x[1])
+    )[-max_symbols:])
+    # Add root regardless
+    allowed_words.update({'ROOT': word_count['ROOT']})
+
+    return allowed_words
+
+
 class AMR_Oracle:
 
     def __init__(self, verbose=False):
@@ -304,7 +348,8 @@ class AMR_Oracle:
     def runOracle(self, gold_amrs, propbank_args=None, out_oracle=None,
                   out_amr=None, out_sentences=None, out_actions=None,
                   out_rule_stats=None, add_unaligned=0,
-                  no_whitespace_in_actions=False):
+                  no_whitespace_in_actions=False, multitask_words=None):
+                    
 
         print_log("oracle", "Parsing data")
         # deep copy of gold AMRs
@@ -331,6 +376,9 @@ class AMR_Oracle:
             'imperative', '1', 'thing',
         ]
 
+        # initialize spacy lemmatizer out of the sentence loop for speed
+        spacy_lemmatizer = get_spacy_lemmatizer()
+
         # Loop over golf AMRs
         for sent_idx, gold_amr in tqdm(
             enumerate(self.gold_amrs),
@@ -348,7 +396,8 @@ class AMR_Oracle:
             tr = AMRStateMachine(
                 gold_amr.tokens,
                 verbose=self.verbose,
-                add_unaligned=add_unaligned
+                add_unaligned=add_unaligned,
+                spacy_lemmatizer=spacy_lemmatizer
             )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
@@ -367,83 +416,14 @@ class AMR_Oracle:
                     action = f'ADDNODE({self.entity_type})'
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
-                    action = f'PRED({self.new_node})'
-
-#                     # TODO: Multi-word expressions
-#                     top_of_stack_tokens = tr.amr.tokens[stack0 - 1]
-# 
-#                     if not self.copy_rules:
-# 
-#                         # Do not allow copy rules
-#                         rule_str = f'{top_of_stack_tokens} => {self.new_node}'
-#                         self.stats['CONFIRM'].update([rule_str])
-#                         tr.CONFIRM(node_label=self.new_node)
-# 
-#                     elif top_of_stack_tokens.lower() == self.new_node:
-# 
-#                         # COPY (lowercased)
-#                         rule_str = top_of_stack_tokens.lower() + ' => ' + self.new_node
-#                         self.stats['COPY'].update([rule_str])
-#                         tr.COPY()
-# 
-#                     elif '\"%s\"' % top_of_stack_tokens == self.new_node:
-# 
-#                         # Copy literal
-#                         rule_str = '\"%s\"' % top_of_stack_tokens + ' => ' + self.new_node
-#                         self.stats['COPY_LITERAL'].update([rule_str])
-#                         tr.COPY_LITERAL()
-# 
-#                     elif (
-#                         top_of_stack_tokens in tr.sense_by_token or
-#                         top_of_stack_tokens in tr.lemma_by_token
-#                     ):
-# 
-#                         # COPY RULES
-#                         if is_most_common(
-#                             tr.sense_by_token[top_of_stack_tokens],
-#                             self.new_node
-#                         ):
-#                             # most common propbank sense matches
-#                             rule_str = f'{top_of_stack_tokens}  => {self.new_node}'
-#                             self.stats['COPY_SENSE'].update([rule_str])
-#                             tr.COPY_SENSE()
-#                         elif is_most_common(
-#                             tr.lemma_by_token[top_of_stack_tokens],
-#                             self.new_node
-#                         ):
-#                             # most common lemma sense matches
-#                             rule_str = f'{top_of_stack_tokens} => {self.new_node}'
-#                             self.stats['COPY_LEMMA'].update([rule_str])
-#                             tr.COPY_LEMMA()
-#                         elif is_most_common(
-#                             tr.sense_by_token[top_of_stack_tokens],
-#                             self.new_node,
-#                             rank=1
-#                         ):
-#                             # second most common propbank sense matches
-#                             rule_str = f'{top_of_stack_tokens} => {self.new_node}'
-#                             self.stats['COPY_SENSE2'].update([rule_str])
-#                             tr.COPY_SENSE2()
-#                         elif is_most_common(
-#                             tr.lemma_by_token[top_of_stack_tokens],
-#                             self.new_node,
-#                             rank=1
-#                         ):
-#                             # second most common lemma sense matches
-#                             rule_str = f'{top_of_stack_tokens} => {self.new_node}'
-#                             self.stats['COPY_LEMMA2'].update([rule_str])
-#                             tr.COPY_LEMMA2()
-#                         else:
-#                             # Confirm
-#                             rule_str = f'{tr.amr.nodes[stack0]} => {self.new_node}'
-#                             self.stats['CONFIRM'].update([rule_str])
-#                             tr.CONFIRM(node_label=self.new_node)
-# 
-#                     else:
-#                         # Confirm
-#                         rule_str = f'{tr.amr.nodes[stack0]} => {self.new_node}'
-#                         self.stats['CONFIRM'].update([rule_str])
-#                         tr.CONFIRM(node_label=self.new_node)
+                    # Get lemma
+                    lemma, _ = tr.get_top_of_stack(lemma=True)
+                    if lemma == self.new_node:
+                        action = 'COPY_LEMMA'
+                    elif f'{lemma}-01' == self.new_node:    
+                        action = 'COPY_SENSE01'
+                    else:    
+                        action = f'PRED({self.new_node})'
 
                 elif self.tryDependent(tr, tr.amr, gold_amr):
                     # FIXME: Internally this is stored as
@@ -506,6 +486,13 @@ class AMR_Oracle:
                         "--no-whitespace-in-actions prohibits use of _ in actions"
                     if ' ' in action_label:
                         action = action.replace(' ', '_')
+                  
+                # Add prediction ot top of the buffer
+                if action == 'SHIFT' and multitask_words is not None:
+                    # top of buffer
+                    top_of_buffer = tr.amr.tokens[tr.buffer[-1] - 1]
+                    if top_of_buffer in multitask_words:
+                        action = f'SHIFT({top_of_buffer})'
  
                 # APPLY ACTION
                 tr.applyAction(action)
@@ -987,6 +974,28 @@ def main():
     else:    
         propbank_args = None
 
+    # Load/Save words for multi-task
+    if args.multitask_max_words:
+        assert args.multitask_max_words
+        assert args.out_multitask_words
+        # get top words
+        multitask_words = get_multitask_actions(
+            args.multitask_max_words,
+            [list(amr.tokens) for amr in corpus.amrs]
+        )
+        # store in file
+        with open(args.out_multitask_words, 'w') as fid:
+            for word in multitask_words.keys():
+                fid.write('{word}\n')
+    elif args.in_multitask_words:
+        assert not args.multitask_max_words
+        assert not args.out_multitask_words
+        # store in file
+        with open(args.in_multitask_words) as fid:
+            multitask_words = [line.strip() for line in fid.readlines()]
+    else:
+        multitask_words = None
+
     # TODO: At the end, an oracle is just a parser with oracle info. This could
     # be turner into a loop similar to parser.py (ore directly use that and a
     # AMROracleParser())
@@ -1001,7 +1010,8 @@ def main():
         out_actions=args.out_actions,
         out_rule_stats=args.out_rule_stats,
         add_unaligned=0,
-        no_whitespace_in_actions=args.no_whitespace_in_actions
+        no_whitespace_in_actions=args.no_whitespace_in_actions,
+        multitask_words=multitask_words
     )
 
     # inform user

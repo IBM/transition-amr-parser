@@ -4,6 +4,9 @@ import os
 import re
 from collections import Counter
 
+import spacy
+from spacy.tokens.doc import Doc
+
 from transition_amr_parser.amr import AMR
 
 """
@@ -34,10 +37,29 @@ entities_path = f'{repo_root}/data/entity_rules.json'
 default_rel = ':rel'
 
 
+class NoTokenizer(object):
+    def __init__(self, vocab):
+        self.vocab = vocab
+
+    def __call__(self, tokens):
+        spaces = [True] * len(tokens)
+        return Doc(self.vocab, words=tokens, spaces=spaces)
+
+def get_spacy_lemmatizer():
+
+    cache_path = 'lemma_cache.json'
+
+    # TODO: Unclear why this configuration
+    lemmatizer = spacy.load('en', disable=['parser', 'ner'])
+    lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
+    return lemmatizer
+
+
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
-                 actions_by_stack_rules=None, amr_graph=True):
+                 actions_by_stack_rules=None, amr_graph=True, 
+                 spacy_lemmatizer=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
@@ -48,6 +70,16 @@ class AMRStateMachine:
 
         # build and store amr graph (needed e.g. for oracle)
         self.amr_graph = amr_graph
+
+        # spacy tokenizer
+        # this is slow, so better initialize outside the sentence loop
+        if spacy_lemmatizer is None:
+            self.lemmatizer = get_spacy_lemmatizer()
+        else:
+            self.lemmatizer = spacy_lemmatizer
+        # compute lemmas for this sentence
+        self.lemmas = [x.lemma_ for x in self.lemmatizer(tokens[:-1])] + ['ROOT']
+        #self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
 
         # add unaligned
         if add_unaligned and '<unaligned>' not in self.tokens:
@@ -240,12 +272,15 @@ class AMRStateMachine:
 
             return action_label, props 
 
-    def get_top_of_stack(self, positions=False):
+    def get_top_of_stack(self, positions=False, lemma=False):
         """
         Returns surface symbols on top of the stack, inclucing merged
 
         positions=True  returns the positions (unique ids within sentence)
         """
+        # to get the lemma, we will need the positions
+        if lemma:
+            positions = True
         token = None
         merged_tokens = None
         if len(self.stack):
@@ -263,14 +298,20 @@ class AMRStateMachine:
                         str(self.tokens[i - 1])
                         for i in self.merged_tokens[stack0]
                     ]
+
+
+        if lemma:
+            token = self.lemmas[token]
+            merged_tokens = None
+
         return token, merged_tokens
 
     def applyAction(self, act):
 
         action_label, properties = self.readAction(act)
-        if action_label in ['SHIFT']:
+        if action_label.startswith('SHIFT'):
             if self.buffer:
-                self.SHIFT()
+                self.SHIFT(properties[0] if properties else None)
             else:
                 self.CLOSE()
                 return True
@@ -287,7 +328,11 @@ class AMRStateMachine:
         elif action_label in ['PRED', 'CONFIRM']:
             assert len(properties) == 1
             self.CONFIRM(properties[0])
-        # FIXME: Remove multiple keywords for the same action
+        elif action_label in ['COPY_LEMMA']:
+             self.COPY_LEMMA()
+        elif action_label in ['COPY_SENSE01']:
+             self.COPY_SENSE01()
+        # TODO: Why multiple keywords for the same action?
         elif action_label in ['SWAP', 'UNSHIFT', 'UNSHIFT1']:
             self.SWAP()
         elif action_label in ['DUPLICATE']:
@@ -367,6 +412,7 @@ class AMRStateMachine:
 
             # If not confirmed yet, it can be confirmed
             if stack0 not in self.is_confirmed:
+                valid_actions.extend(['COPY_LEMMA', 'COPY_SENSE01'])
                 if self.actions_by_stack_rules:
                     pred_stack_rules = self.get_pred_by_stack_rules()
                     if pred_stack_rules:
@@ -489,7 +535,7 @@ class AMRStateMachine:
 
         return valid_action_indices
 
-    def SHIFT(self):
+    def SHIFT(self, shift_label=None):
         """SHIFT : move buffer[-1] to stack[-1]"""
 
         # FIXME: No nested actions. This can be handled at try time
@@ -497,7 +543,10 @@ class AMRStateMachine:
             self.CLOSE()
         tok = self.buffer.pop()
         self.stack.append(tok)
-        self.actions.append('SHIFT')
+        if shift_label:
+            self.actions.append(f'SHIFT({shift_label})')
+        else:
+            self.actions.append('SHIFT')
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
@@ -541,6 +590,55 @@ class AMRStateMachine:
 
         if self.verbose:
             print(f'PRED({node_label})')
+            print(self.printStackBuffer())
+
+    def COPY_LEMMA(self):
+        """COPY_LEMMA: Same as CONFIRM but use lowercased top-of-stack"""
+        # get top of stack and lemma
+        stack0 = self.stack[-1]
+        node_label, _ = self.get_top_of_stack(lemma=True)
+        # update AMR graph
+        self.amr.nodes[stack0] = node_label
+        # update statistics
+        self.actions.append(f'COPY_LEMMA')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        # keep alignments
+        token, merged_tokens = self.get_top_of_stack(positions=True)
+        if merged_tokens:
+            self.alignments[tuple(merged_tokens)] = node_label
+        else:
+            self.alignments[token] = node_label
+
+        if self.verbose:
+            print(f'COPY_LEMMA')
+            print(self.printStackBuffer())
+
+    def COPY_SENSE01(self):
+        """COPY_SENSE01: Same as CONFIRM but use lowercased top-of-stack"""
+        # get top of stack and lemma
+        stack0 = self.stack[-1]
+        lemma, _ = self.get_top_of_stack(lemma=True)
+        node_label = f'{lemma}-01'
+        # update AMR graph
+        self.amr.nodes[stack0] = node_label
+        # update statistics
+        self.actions.append(f'COPY_SENSE01')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append(node_label)
+        self.is_confirmed.add(stack0)
+        # keep alignments
+        token, merged_tokens = self.get_top_of_stack(positions=True)
+        if merged_tokens:
+            self.alignments[tuple(merged_tokens)] = node_label
+        else:
+            self.alignments[token] = node_label
+
+        if self.verbose:
+            print(f'COPY_SENSE01')
             print(self.printStackBuffer())
 
     def LA(self, edge_label):
