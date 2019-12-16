@@ -1,9 +1,7 @@
 Transition-based AMR Parser
 ============================
 
-Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR). The code includes oracle and state-machine for AMR and an implementation of a stack-LSTM following [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/abs/1707.07755v1) with some improvements from [(Naseem et al 2019)](https://arxiv.org/abs/1905.13370)
-
-Initial code developed by Miguel Ballesteros and Austin Blodgett while at IBM.
+Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR). The code includes oracle and state-machine for AMR and an implementation of a stack-LSTM following [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/abs/1707.07755v1) with some improvements from [(Naseem et al 2019)](https://arxiv.org/abs/1905.13370). Initial commit developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 ## Using the Parser
 
@@ -27,34 +25,30 @@ the code has been tested on Python 3.6. to install
     # here optionally activate your virtual environment
     bash scripts/install.sh
 
-This will pip install the repo, and download necessary SpaCy and Smatch tools.
+This will pip install the repo in `--editable` mode, and download necessary
+SpaCy and Smatch tools.
 
 ## Training you Model
 
-General training AMR data is available from LDC2017T10. You will need to
-reformat the alignments to match the JAMR styles (see sample data file in
-`data/wiki25.jkln`). Files in `data/` are provided with CC-SA 4.0 license. We
-also provide a sample of the corresponding BERT embeddings in `data/`
-
-### Pre-processing Instructions
-After downloading the LDC 2017 data, you can preprocess it as follows. The
-scripts will build JAMR and Kevin alignments using the same tokenization and
-then merge them together. You must have the following installed: pip, g++, and
-ICU (http://site.icu-project.org/home).
-
-```
+This assumes that you have acess to the usual AMR training set from LDC
+(LDC2017T10). You will need to apply preprocessing to build JAMR and Kevin
+Alignments using the same tokenization and then merge them together. You must
+have the following installed: pip, g++, and ICU
+(http://site.icu-project.org/home).
+```bash
 cd preprocess
 bash preprocess.sh path/to/ldc_data
 rm train.* dev.* test.*
 ```
 New files will be placed in the `data` folder. The process will take ~1 hour to run.
 
-## Test Run
+## Test Run on sample data
 
-this will use the sample data (train is same as dev)
-
+We provide annotated examples in `data/` with CC-SA 4.0 license. We also
+provide a sample of the corresponding BERT embeddings. This can be used as a
+sanity check (but data amount unsufficient for training) . To test training
 ```
-amr-learn -A data/wiki25.jkaln -a data/wiki25.jkaln -B data/wiki25.bert_max_cased.hdf5 -b data/wiki25.bert_max_cased.hdf5 --name my-model
+amr-learn -A data/wiki25.jkaln -a data/wiki25.jkaln -B data/wiki25.bert_max_cased.hdf5 -b data/wiki25.bert_max_cased.hdf5 --name toy-model
 ```
 
 # More information
