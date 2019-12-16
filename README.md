@@ -1,15 +1,22 @@
 Transition-based AMR Parser
 ============================
 
-Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR). The code includes oracle and state-machine for AMR and an implementation of a stack-LSTM following [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/pdf/1707.07755.pdf) with some improvements.
+Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR). The code includes oracle and state-machine for AMR and an implementation of a stack-LSTM following [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/abs/1707.07755v1) with some improvements from [(Naseem et al 2019)](https://arxiv.org/abs/1905.13370)
 
-Code developed mainly by Miguel Ballesteros, Austin Blodgett and Revanth Reddy while at IBM.
+Initial code developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 ## Using the Parser
 
-- to install from Github via pip `pip install git+https://@github.ibm.com:mnlp/transition-amr-parser.git`
-- to use through the Watson-NLP artifactory see the wiki
+- to install through the Watson-NLP artifactory see the wiki
 - to install the parser manually see below
+
+To use from the command line with a trained model do
+
+TODO
+
+To use from other Python code with a trained model do
+
+TODO
 
 ## Manual Install
 
@@ -20,9 +27,7 @@ the code has been tested on Python 3.6. to install
     # here optionally activate your virtual environment
     bash scripts/install.sh
 
-This will pip install the repo, and download necessary spacy and smatch tools.
-
-    python -m spacy download en
+This will pip install the repo, and download necessary SpaCy and Smatch tools.
 
 ## Training you Model
 
