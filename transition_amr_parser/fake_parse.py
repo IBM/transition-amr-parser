@@ -8,7 +8,10 @@ from collections import Counter, defaultdict
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.state_machine import AMRStateMachine
+from transition_amr_parser.state_machine import (
+    AMRStateMachine,
+    get_spacy_lemmatizer
+)
 from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import (
     writer,
