@@ -17,7 +17,6 @@ config=$1
 
 # train model
 amr-learn \
-    --unit_tests \
     -A $train_file \
     -a $dev_file \
     -B $train_bert  \
