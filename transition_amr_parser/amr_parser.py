@@ -30,8 +30,11 @@ from transition_amr_parser.roberta_utils import extract_features_aligned_to_word
 
 class AMRParser():
 
-    def __init__(self, model_path, oracle_stats_path, config_path, model_use_gpu=False, roberta_use_gpu=False, verbose=False, logger=None):
-
+    def __init__(self, model_path, oracle_stats_path=None, config_path=None, model_use_gpu=False, roberta_use_gpu=False, verbose=False, logger=None):
+        if not oracle_stats_path:
+            oracle_stats_path = os.path.join(os.path.dirname(__file__), "train.rules.json")
+        if not config_path:
+            config_path = os.path.join(os.path.dirname(__file__), "config.json")
         self.model = self.load_model(model_path, oracle_stats_path, config_path, model_use_gpu)
         self.roberta = self.load_roberta(roberta_use_gpu)
         self.logger = logger 
@@ -86,6 +89,9 @@ class AMRParser():
         return embeddings
 
     def parse_sentence(self, tokens):
+        # The model expects <ROOT> token at the end of the input sentence
+        if tokens[-1] != "<ROOT>":
+            tokens.append("<ROOT>")
         sent_rep = utils.vectorize_words(self.model, tokens, training=False, gpu=self.model.use_gpu)
         bert_emb = self.get_embeddings(tokens)
         amr = self.model.parse_sentence(tokens, sent_rep, bert_emb)
