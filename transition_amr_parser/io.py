@@ -74,9 +74,12 @@ def read_tokenized_sentences(file_path):
     return sentences
 
 
-def read_sentences(file_path):
+def read_sentences(file_path, add_root_token=False):
     sentences = []
     with open(file_path) as fid:
         for line in fid:
-            sentences.append(line.rstrip())
+            line = line.rstrip()
+            if add_root_token:
+                line = line + " <ROOT>"
+            sentences.append(line)
     return sentences

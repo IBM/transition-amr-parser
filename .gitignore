@@ -16,3 +16,6 @@ transition_amr_parser.egg-info/
 models/
 # assumed where data stored
 data/
+
+# python package
+dist/

@@ -18,7 +18,7 @@ amr-oracle \
     #--out-amr ${oracle_folder}/train.oracle.amr \
 
 # parse a sentence step by step
-amr-parse \
+amr-fake-parse \
     --in-sentences ${oracle_folder}/train.tokens \
     --in-actions ${oracle_folder}/train.actions \
     --out-amr ${oracle_folder}/train.amr \

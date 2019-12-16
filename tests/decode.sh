@@ -5,27 +5,25 @@ set -o errexit
 set -o nounset
 set -o pipefail 
 
-# sanity checks
-[ ! -d scripts ] && echo "to be run as bash scripts/train.sh" && exit 1
-
 config=$1
-
-# python modules
 
 # load local variables used below
 . $config 
 
-# train model
-amr-learn \
-    --test_mode \
-    -A $train_file \
-    -a $dev_file \
-    -B $train_bert  \
-    -b $dev_bert \
-    --load_model $trained_model \
-    --desc "$name" \
-    --name model \
-    --no_chars \
-    --cores $num_cores \
-    --batch $batch_size \
-    --lr $lr \
+[ ! -d ${output_folder}/ ] && mkdir ${output_folder}/
+
+# Use the stanalone parser
+amr-parse \
+    --in-sentences ${output_folder}/dev.tokens \
+    --in-model $trained_model \
+    --model-config-path $config_path \
+    --action-rules-from-stats ${oracle_stats} \
+    --num-cores 6 \
+    --use-gpu \
+    --batch-size 12 \
+    --out-amr ${output_folder}/dev.amr
+
+# evaluate model performance
+echo "Evaluating Model"
+test_result="$(python smatch/smatch.py --significant 3 -f $dev_file ${output_folder}/dev.amr -r 10)"
+echo $test_result
