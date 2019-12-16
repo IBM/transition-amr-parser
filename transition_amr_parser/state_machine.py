@@ -31,8 +31,8 @@ entity_rule_totals = Counter()
 entity_rule_fails = Counter()
 
 # get path of provided entity_rules
-repo_root = os.path.realpath(f'{os.path.dirname(__file__)}/../')
-entities_path = f'{repo_root}/data/entity_rules.json'
+repo_root = os.path.realpath(f'{os.path.dirname(__file__)}')
+entities_path = f'{repo_root}/entity_rules.json'
 
 default_rel = ':rel'
 
@@ -70,6 +70,16 @@ class AMRStateMachine:
 
         # build and store amr graph (needed e.g. for oracle)
         self.amr_graph = amr_graph
+
+        # spacy tokenizer
+        # this is slow, so better initialize outside the sentence loop
+        if spacy_lemmatizer is None:
+            self.lemmatizer = get_spacy_lemmatizer()
+        else:
+            self.lemmatizer = spacy_lemmatizer
+        # compute lemmas for this sentence
+        self.lemmas = [x.lemma_ for x in self.lemmatizer(tokens[:-1])] + ['ROOT']
+        #self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
 
         # spacy tokenizer
         # this is slow, so better initialize outside the sentence loop

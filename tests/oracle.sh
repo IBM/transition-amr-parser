@@ -14,11 +14,9 @@ amr-oracle \
     --out-sentences ${oracle_folder}/train.tokens \
     --out-actions ${oracle_folder}/train.actions \
     --out-rule-stats ${oracle_folder}/train.rules.json \
-    #--no-whitespace-in-actions \
-    #--out-amr ${oracle_folder}/train.oracle.amr \
 
 # parse a sentence step by step
-amr-parse \
+amr-fake-parse \
     --in-sentences ${oracle_folder}/train.tokens \
     --in-actions ${oracle_folder}/train.actions \
     --out-amr ${oracle_folder}/train.amr \
@@ -53,7 +51,7 @@ amr-oracle \
     --out-rule-stats ${oracle_folder}/dev.rules.json 
 
 # parse a sentence step by step to explore
-amr-parse \
+amr-fake-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \
@@ -71,7 +69,7 @@ else
 fi
 
 # parse a sentence step by step to explore
-amr-parse \
+amr-fake-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-actions ${oracle_folder}/dev.actions \
     --out-amr ${oracle_folder}/dev.amr \

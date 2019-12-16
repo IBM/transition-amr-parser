@@ -1,10 +1,12 @@
 # AMR parsing given a sentence and a model
 import time
+from datetime import timedelta
 import os
 import signal
+import socket
 import argparse
 from collections import Counter, defaultdict
-
+import json
 import numpy as np
 from tqdm import tqdm
 
@@ -12,13 +14,21 @@ from transition_amr_parser.state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer
 )
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import multiprocessing
 from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import (
     writer,
     read_sentences,
-    read_rule_stats,
 )
+import transition_amr_parser.utils as utils
+from transition_amr_parser.utils import print_log
+import math
 
+from transition_amr_parser.amr_parser import AMRParser
+from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
 
 # is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
 
@@ -45,6 +55,11 @@ def argument_parser():
     parser.add_argument(
         "--in-model",
         help="parsing model",
+        type=str
+    )
+    parser.add_argument(
+        "--model-config-path",
+        help="Path to configuration of the model",
         type=str
     )
     # state machine rules
@@ -92,6 +107,36 @@ def argument_parser():
         action='store_true',
         help="Assume whitespaces normalized to _ in PRED"
     )
+    parser.add_argument(
+        "--num-cores",
+        default=1,
+        help="number of cores to run on",
+        type=int
+    )
+    parser.add_argument(
+        "--use-gpu",
+        help="Use GPU if true",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--add-root-token",
+        help="Add root token (<ROOT>) at the end of the sentence.",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--batch-size",
+        help="Batch size to compute roberta embeddings",
+        default=12,
+        type=int
+    )
+    parser.add_argument(
+        "--parser-chunk-size",
+        help="number of sentences for which to compute the parse at a time",
+        default=5000,
+        type=int
+    )
 
     args = parser.parse_args()
 
@@ -104,11 +149,10 @@ def argument_parser():
         args.verbose = bool(args.step_by_step)
 
     # Sanity checks
-    assert args.in_sentences or args.in_sentence_list
-    assert args.in_actions or args.in_model
-    # Not done yet
-    if args.in_model:
-        raise NotImplementedError()
+    assert args.in_sentences
+    assert args.in_model
+    assert args.action_rules_from_stats
+    assert args.model_config_path
 
     return args
 
@@ -123,168 +167,19 @@ def reduce_counter(counts, reducer):
         new_key = reducer(key)
         new_counts[new_key] += count
     return new_counts
+        
+class DataHandler():
+    def __init__(self, sentences, embeddings, cores):
+        self.sentences_tuples = [(sent_idx, sentence) for sent_idx, sentence in enumerate(sentences)]
+        self.cores = cores
+        self.num_samples = int(math.ceil(len(self.sentences_tuples) * 1.0 / self.cores))
+        self.embeddings = embeddings
 
+    def get_sentences_for_rank(self, rank):
+        return self.sentences_tuples[rank*self.num_samples:rank*self.num_samples+self.num_samples]
 
-class AMRParser():
-
-    def __init__(self, model_path=None, verbose=False, logger=None):
-
-        # TODO: Real parsing model
-        raise NotImplementedError()
-
-        self.rule_stats = read_rule_stats(f'{model_path}/train.rules.json')
-        self.model = None
-        self.logger = logger
-        self.sent_idx = 0
-
-    def parse_sentence(self, sentence_str):
-
-        # TODO: Tokenizer
-        tokens = sentence_str.split()
-
-        # Initialize state machine
-        state_machine = AMRStateMachine(tokens)
-
-        # execute parsing model
-        while not state_machine.is_closed:
-
-            # TODO: get action from model
-            raw_action = None
-
-            # Inform user
-            self.logger.pretty_print(self.sent_idx, state_machine)
-
-            # Update state machine
-            state_machine.applyAction(raw_action)
-
-        self.sent_idx += 1
-
-        return state_machine.amr
-
-
-def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
-
-    # Get valid actions
-    valid_actions = state_machine.get_valid_actions()
-    
-    # Fallback for constrained PRED actions
-    if 'PRED' in raw_action:
-        if 'PRED' not in valid_actions:
-            # apply restrictions to predict actions
-            # get valid predict actions
-            valid_pred_actions = [
-                a for a in valid_actions if 'PRED' in a
-            ]
-            if valid_pred_actions == []:
-                # no rule found for this token, try copy
-                token, tokens = state_machine.get_top_of_stack()
-                if tokens:
-                    token = ",".join(tokens)
-                # reasign raw action    
-                raw_action = f'PRED({token.lower()})'
-                pred_counts.update(['token OOV'])
-            elif raw_action not in valid_pred_actions:    
-                # not found, get most common match
-                # reasign raw action    
-                raw_action = valid_pred_actions[0]
-                pred_counts.update(['alignment OOV'])
-            else:
-                pred_counts.update(['matches'])
-    elif (
-        raw_action not in valid_actions and
-        raw_action.split('(')[0] not in valid_actions
-    ):
-    
-        # note-down rule violation
-        token, _ = state_machine.get_top_of_stack()
-        rule_violation.update([(token, raw_action)])
-    
-        # non PRED oracle actions should allways be valid
-        #import ipdb; ipdb.set_trace(context=30)
-        #_ = state_machine.get_valid_actions()
-    
-    return raw_action
-
-class FakeAMRParser():
-    """
-    Fake parser that uses precomputed sequences of sentences and corresponding
-    actions
-    """
-
-    def __init__(self, from_sent_act_pairs=None, logger=None,
-                 actions_by_stack_rules=None, no_whitespace_in_actions=False):
-
-
-        assert not no_whitespace_in_actions, \
-            '--no-whitespace-in-actions deprected'
-
-        # Dummy mode: simulate parser from pre-computed pairs of sentences
-        # and actions
-        self.actions_by_sentence = {
-            sent: actions for sent, actions in from_sent_act_pairs
-        }
-        self.logger = logger
-        self.sent_idx = 0
-        self.actions_by_stack_rules = actions_by_stack_rules
-        self.no_whitespace_in_actions = no_whitespace_in_actions
-
-        # initialize here for speed
-        self.spacy_lemmatizer = get_spacy_lemmatizer()
-
-        # counters
-        self.pred_counts = Counter()
-        self.rule_violation = Counter()
-
-    def parse_sentence(self, sentence_str):
-
-        # simulated actions given by a parsing model
-        assert sentence_str in self.actions_by_sentence, \
-            "Fake parser has no actions for sentence: %s" % sentence_str
-        actions = self.actions_by_sentence[sentence_str].split('\t')
-
-        # Fake tokenization
-        tokens = sentence_str.split()
-
-        # Initialize state machine
-        state_machine = AMRStateMachine(
-            tokens,
-            actions_by_stack_rules=self.actions_by_stack_rules,
-            spacy_lemmatizer=self.spacy_lemmatizer
-        )
-
-        # execute parsing model
-        while not state_machine.is_closed:
-
-            # Print state (pause if solicited)
-            self.logger.update(self.sent_idx, state_machine)
-
-            if len(actions) <= state_machine.time_step:
-                # if machine is not propperly closed hard exit
-                print(yellow_font(
-                    f'machine not closed at step {state_machine.time_step}'
-                ))
-                raw_action = 'CLOSE'
-            else:    
-                # get action from model
-                raw_action = actions[state_machine.time_step]
-            
-            # restrict action space according to machine restrictions and
-            # statistics
-            raw_action = restrict_action(
-                state_machine,
-                raw_action,
-                self.pred_counts,
-                self.rule_violation
-            ) 
-
-            # Update state machine
-            state_machine.applyAction(raw_action)
-
-        # count one sentence more
-        self.sent_idx += 1
-
-        return state_machine.amr
-
+    def get_embeddings(self, sent_id):
+        return self.embeddings[sent_id]
 
 class Logger():
 
@@ -323,14 +218,102 @@ class Logger():
                 else:
                     input('Press any key to continue')
 
+def get_embeddings(model, sentences, batch_size):
+    embeddings = {}
+    data = [(sent_id, sentence) for sent_id, sentence in enumerate(sentences)]
+    for i in range(0, math.ceil(len(data)/batch_size)):
+        batch = data[i*batch_size : i*batch_size+batch_size]
+        batch_indices = [item[0] for item in batch]
+        batch_sentences = [item[1] for item in batch]
+        batch_embeddings = extract_features_aligned_to_words_batched(model, sentences=batch_sentences, use_all_layers=True, return_all_hiddens=True)
+        for index, features in zip(batch_indices, batch_embeddings):
+            data_features = []
+            for tok in features:
+                if str(tok) not in ['<s>', '</s>']:
+                    data_features.append(tok.vector)
+            data_features = torch.stack(data_features).detach().cpu().numpy()
+            embeddings[index] = data_features
+    return embeddings
+
+def worker(rank, model, handler, results, master_addr, master_port, cores):
+    if cores > 1:
+        torch.set_num_threads(1)
+    print_log("Global: ","Threads :" + str(torch.get_num_threads()))
+    print_log("Dist: ","starting rank:" + str(rank))
+    os.environ['MASTER_ADDR'] = master_addr
+    os.environ['MASTER_PORT'] = str(master_port)
+
+    if cores > 1:
+        dist.init_process_group(world_size=cores, backend='gloo', rank=rank)
+        dist_module = torch.nn.parallel.DistributedDataParallelCPU(model)
+        dist_model = dist_module.module
+    else:
+        dist_model = model
+    
+    data = handler.get_sentences_for_rank(rank)
+    print_log("Data", f'Length of data is {len(data)} for rank {rank} ')
+    for _, item in tqdm(enumerate(data)):
+        sent_id = item[0]
+        sentence = item[1]
+        tokens = sentence.split()
+        sent_rep = utils.vectorize_words(dist_model, tokens, training=False, gpu=dist_model.use_gpu)
+        bert_emb = handler.get_embeddings(sent_id)
+        amr = dist_model.parse_sentence(tokens, sent_rep, bert_emb)
+        results[sent_id] = amr
+
+    print("Dist: ","Finished worker for rank: " + str(rank))
+
+def parse(sentences, parser, args):
+
+    cores = args.num_cores
+
+    start = time.time()
+    embeddings = get_embeddings(parser.roberta, sentences, args.batch_size)
+    end = time.time()
+    print_log('parser', f'Time taken to get embeddings: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we got all the embeddings
+    assert (len(embeddings) == len(sentences))
+
+    # Create the distributed data handler
+    handler = DataHandler(sentences, embeddings, cores)
+
+    manager = multiprocessing.Manager()
+    results = manager.dict()
+
+    master_addr = socket.gethostname()
+    master_port = '64646'
+
+    arguments = (parser.model, handler, results, master_addr, master_port, cores)
+    start = time.time()
+
+    # Spawn multiple processes if user wants to run on multiple cores
+    if cores > 1:
+        mp.spawn(worker, nprocs=cores, args=arguments)
+    else:
+        worker(*(tuple([0]) + arguments))
+    end = time.time()
+    print_log('parser', f'Time taken to parse chunk: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we have processed all the sentences in the chunk
+    assert (len(sentences) == len(results))
+
+    amrs = []
+    for i in range(0, len(sentences)):
+        amrs.append(results[i])
+    
+    return amrs
 
 def main():
 
     # Argument handling
     args = argument_parser()
 
+    # Get num of cores to run on
+    cores = args.num_cores
+
     # Get data
-    sentences = read_sentences(args.in_sentences)
+    sentences = read_sentences(args.in_sentences, add_root_token=args.add_root_token)
 
     # Initialize logger/printer
     logger = Logger(
@@ -340,63 +323,44 @@ def main():
         verbose=args.verbose
     )
 
-    # generate rules to restrict action space by stack content
-    if args.action_rules_from_stats:
-        rule_stats = read_rule_stats(args.action_rules_from_stats)
-        actions_by_stack_rules = rule_stats['possible_predicates']
-        for token, counter in rule_stats['possible_predicates'].items():
-           actions_by_stack_rules[token] = Counter(counter)
-
-    else:    
-        actions_by_stack_rules = None
-
-    # Load real or dummy Parsing model
-    if args.in_actions:
-
-        # Fake parser built from actions
-        actions = read_sentences(args.in_actions)
-        assert len(sentences) == len(actions)
-        parsing_model = FakeAMRParser(
-            from_sent_act_pairs=zip(sentences, actions),
-            logger=logger,
-            actions_by_stack_rules=actions_by_stack_rules,
-            no_whitespace_in_actions=args.no_whitespace_in_actions
-        )
-
+    if args.num_cores > 1:
+        model_use_gpu = False
     else:
-        # TODO: Real parsing model
-        raise NotImplementedError()
-        parsing_model = AMRParser(logger=logger)
+        model_use_gpu = args.use_gpu
 
-    # Get output AMR writer
+    # Load the parser
+    parser = AMRParser(
+                model_path=args.in_model,
+                oracle_stats_path=args.action_rules_from_stats,
+                config_path=args.model_config_path,
+                model_use_gpu=model_use_gpu,
+                roberta_use_gpu=args.use_gpu,
+                logger=logger)
+
+    amrs = []
+    num_chunks = math.ceil(len(sentences)/args.parser_chunk_size)
+    print_log('parser', f'Total number of chunks: {num_chunks}')
+
+    start = time.time()
+    for i in range(0,num_chunks):
+        print_log('parser', f'Parsing chunk number: {i+1}')
+        current_chunk = sentences[i*args.parser_chunk_size: i*args.parser_chunk_size+args.parser_chunk_size]
+        current_amrs = parse(current_chunk, parser, args)
+        amrs.extend(current_amrs)
+    
+    end = time.time()
+    print_log('parser', f'Total time taken to parse sentences: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we have processed all the sentences
+    assert (len(sentences)==len(amrs))
+
     if args.out_amr:
+        # Get output AMR writer
         amr_write = writer(args.out_amr)
-
-    # Loop over sentences
-    for sent_idx, sentence in tqdm(enumerate(sentences)):
-
-        # fast-forward until desired sentence number
-        if args.offset and sent_idx < args.offset:
-            continue
-
-        # parse
-        amr = parsing_model.parse_sentence(sentence)
-
+        
         # store output AMR
-        if args.out_amr:
+        for amr in amrs:
             amr_write(amr.toJAMRString())
-
-    if (
-        getattr(parsing_model, "rule_violation") and 
-        parsing_model.rule_violation
-    ):
-        print(yellow_font("There were one or more action rule violations"))
-        print(parsing_model.rule_violation)
-
-    if args.action_rules_from_stats:
-        print("Predict rules had following statistics")
-        print(parsing_model.pred_counts)
-
-    # close output AMR writer
-    if args.out_amr:
+        
+        # close output AMR writer
         amr_write()
