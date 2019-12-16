@@ -1,35 +1,30 @@
-# stack-lstm-amr-parser
+Transition-based AMR Parser
+============================
 
-Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR), based on stack-lstms. 
+Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR). The code includes oracle and state-machine for AMR and an implementation of a stack-LSTM following [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/pdf/1707.07755.pdf) with some improvements.
 
-Current code implements the original stack-lstm parser for AMR from
+Code developed mainly by Miguel Ballesteros, Austin Blodgett and Revanth Reddy while at IBM.
 
-- Ballesteros, Miguel, and Yaser Al-Onaizan. **AMR Parsing using Stack-LSTMs**. In Proceedings of the 2017 Conference on Empirical Methods in Natural Language Processing. Association for Computational Linguistics. (EMNLP 2017)
+## Using the Parser
 
-with some improvements.
+- to install from Github via pip `pip install git+https://@github.ibm.com:mnlp/transition-amr-parser.git`
+- to use through the Watson-NLP artifactory see the wiki
+- to install the parser manually see below
 
-Code developed mainly by Miguel Ballesteros and Austin Blodgett while at IBM.
+## Manual Install
 
-## Install
+the code has been tested on Python 3.6. to install
 
-the code has been tested on Python 3.6. to install do
-
+    git clone git@github.ibm.com:mnlp/transition-amr-parser.git
     cd transition-amr-parser
-    pip install .
+    # here optionally activate your virtual environment
+    bash scripts/install.sh
 
-use the `--editable` flag if you plan to alter the code. You also need to
-download the spacy English model for lemmatization
+This will pip install the repo, and download necessary spacy and smatch tools.
 
     python -m spacy download en
 
-and SMATCH tools to compute scores
-
-    git clone https://github.com/snowblink14/smatch.git
-
-you can use `virtualenv` and `pyenv` or `conda` to virtualize modules and
-python versions and work without the need for root
-
-## Data
+## Training you Model
 
 General training AMR data is available from LDC2017T10. You will need to
 reformat the alignments to match the JAMR styles (see sample data file in
