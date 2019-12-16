@@ -69,7 +69,8 @@ The transition-based parser operates using 10 actions:
   - `CLOSE` : complete AMR, run post-processing
 
 There are also two optional actions using SpaCy lemmatizer `COPY_LEMMA` and
-`COPY_SENSE01`
+`COPY_SENSE01`. These actions copy `<lemma>` or `<lemma>-01` to form a node
+name.
   
 ## Files
 
