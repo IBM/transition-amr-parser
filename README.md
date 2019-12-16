@@ -40,7 +40,28 @@ cd preprocess
 bash preprocess.sh path/to/ldc_data
 rm train.* dev.* test.*
 ```
-New files will be placed in the `data` folder. The process will take ~1 hour to run.
+New files will be placed in the `data` folder. The process will take ~1 hour to run. The call the train script
+
+```
+bash scripts/train.sh scripts/local_variables.sh
+```
+
+The script `scripts/local_variables.sh` must contain following environment variables
+
+```bash
+# amr files
+train_file 
+dev_file 
+# berts in hdf5 (see sample data)
+train_bert  
+dev_bert 
+# experiment data
+name 
+# hyperparameters
+num_cores=10
+batch_size=10 
+lr=0.005 
+```
 
 ## Test Run on sample data
 
