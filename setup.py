@@ -14,7 +14,8 @@ install_reqs = parse_requirements(
 )
 install_requires = [str(ir.req) for ir in install_reqs]
 
-package_data = {}
+package_data = {'transition_amr_parser':['config.json','entity_rules.json','train.rules.json']}
+data_files = [('',['requirements.txt'])]
 
 setup(
     name='transition_amr_parser',
@@ -32,4 +33,5 @@ setup(
     packages=find_packages(),
     install_requires=install_requires,
     package_data=package_data,
+    data_files=data_files
 )
