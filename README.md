@@ -56,6 +56,7 @@ amr-learn -A data/wiki25.jkaln -a data/wiki25.jkaln -B data/wiki25.bert_max_case
 ## Action set
 
 The transition-based parser operates using 10 actions:
+
   - `SHIFT` : move buffer0 to stack0
   - `REDUCE` : delete token from stack0
   - `CONFIRM` : assign a node concept
@@ -66,6 +67,9 @@ The transition-based parser operates using 10 actions:
   - `MERGE` : merge two tokens (for MWEs)
   - `DEPENDENT(edge,node)` : Add a node which is a dependent of stack0
   - `CLOSE` : complete AMR, run post-processing
+
+There are also two optional actions using SpaCy lemmatizer `COPY_LEMMA` and
+`COPY_SENSE01`
   
 ## Files
 
