@@ -544,17 +544,63 @@ class AMR_Oracle:
         sentence_write()
         actions_write()
 
+        self.labelsO2idx = {'<pad>': 0}
+        self.labelsA2idx = {'<pad>': 0}
+        self.pred2idx = {'<pad>': 0}
+        self.action2idx = {'<pad>': 0}
+
+        for tr in self.transitions:
+            for a in tr.actions:
+                a = AMRStateMachine.readAction(a)[0]
+                self.action2idx.setdefault(a, len(self.action2idx))
+            for p in tr.predicates:
+                self.pred2idx.setdefault(p, len(self.pred2idx))
+            for l in tr.labels:
+                self.labelsO2idx.setdefault(l, len(self.labelsO2idx))
+            for l in tr.labelsA:
+                self.labelsA2idx.setdefault(l, len(self.labelsA2idx))
+
+        self.stats["action2idx"] = self.action2idx 
+        self.stats["pred2idx"] = self.pred2idx
+        self.stats["labelsO2idx"] = self.labelsO2idx
+        self.stats["labelsA2idx"] = self.labelsA2idx
+
+        # Compute the word dictionary
+
+        self.char2idx = {'<unk>': 0}
+        self.word2idx = {'<unk>': 0, '<eof>': 1, '<ROOT>': 2, '<unaligned>': 3}
+        self.node2idx = {}
+        self.word_counter = Counter()
+
+        for amr in self.gold_amrs:
+            for tok in amr.tokens:
+                self.word_counter[tok] += 1
+                self.word2idx.setdefault(tok, len(self.word2idx))
+                for ch in tok:
+                    self.char2idx.setdefault(ch, len(self.char2idx))
+            for n in amr.nodes:
+                self.node2idx.setdefault(amr.nodes[n], len(self.node2idx))
+
+        self.stats["char2idx"] = self.char2idx
+        self.stats["word2idx"] = self.word2idx
+        self.stats["node2idx"] = self.node2idx
+        self.stats["word_counter"] = self.word_counter
+
+        self.stats['possible_predicates'] = self.possiblePredicates
+
         # State machine stats for this senetnce
         if out_rule_stats:
 
             # Add possible predicates to state machine rules
             # apply same normalization rule if solicited
-            possible_predicates = defaultdict(lambda: Counter())
-            for token, counts in self.possiblePredicates.items():
-                for node, count in counts.items():
-                    possible_predicates[token][node] = count
+            # possible_predicates = defaultdict(lambda: Counter())
+            # for token, counts in self.possiblePredicates.items():
+            #     for node, count in counts.items():
+            #         if ' ' in node and no_whitespace_in_actions:
+            #             node = node.replace(' ', '_')
+            #         possible_predicates[token][node] = count
                     
-            self.stats['possible_predicates'] = self.possiblePredicates
+            # self.stats['possible_predicates'] = self.possiblePredicates
 
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(self.stats))

@@ -31,8 +31,8 @@ entity_rule_totals = Counter()
 entity_rule_fails = Counter()
 
 # get path of provided entity_rules
-repo_root = os.path.realpath(f'{os.path.dirname(__file__)}/../')
-entities_path = f'{repo_root}/data/entity_rules.json'
+repo_root = os.path.realpath(f'{os.path.dirname(__file__)}')
+entities_path = f'{repo_root}/entity_rules.json'
 
 default_rel = ':rel'
 
