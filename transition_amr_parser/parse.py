@@ -151,8 +151,6 @@ def argument_parser():
     # Sanity checks
     assert args.in_sentences
     assert args.in_model
-    assert args.action_rules_from_stats
-    assert args.model_config_path
 
     return args
 
