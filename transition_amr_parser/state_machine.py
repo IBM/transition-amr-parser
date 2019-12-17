@@ -81,16 +81,6 @@ class AMRStateMachine:
         self.lemmas = [x.lemma_ for x in self.lemmatizer(tokens[:-1])] + ['ROOT']
         #self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
 
-        # spacy tokenizer
-        # this is slow, so better initialize outside the sentence loop
-        if spacy_lemmatizer is None:
-            self.lemmatizer = get_spacy_lemmatizer()
-        else:
-            self.lemmatizer = spacy_lemmatizer
-        # compute lemmas for this sentence
-        self.lemmas = [x.lemma_ for x in self.lemmatizer(tokens[:-1])] + ['ROOT']
-        #self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
-
         # add unaligned
         if add_unaligned and '<unaligned>' not in self.tokens:
             for i in range(add_unaligned):
@@ -852,7 +842,6 @@ class AMRStateMachine:
         self.buffer = []
         self.stack = []
         if self.amr_graph:
-
             if training and not use_addnonde_rules:
                 self.postprocessing_training(gold_amr)
             else:
