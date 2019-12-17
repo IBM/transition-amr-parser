@@ -1065,12 +1065,8 @@ def main():
         out_rule_stats=args.out_rule_stats,
         add_unaligned=0,
         no_whitespace_in_actions=args.no_whitespace_in_actions,
-<<<<<<< HEAD
-        multitask_words=multitask_words
-=======
         multitask_words=multitask_words,
         copy_lemma_action=args.copy_lemma_action
->>>>>>> master
     )
 
     # inform user
