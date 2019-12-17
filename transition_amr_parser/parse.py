@@ -10,10 +10,6 @@ import json
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.state_machine import (
-    AMRStateMachine,
-    get_spacy_lemmatizer
-)
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
