@@ -5,16 +5,35 @@ Pytorch implementation of a transition-based parser for Abstract Meaning Represe
 
 ## Using the Parser
 
-- to install through the Watson-NLP artifactory see the wiki
-- to install the parser manually see below
+- to install through the Watson-NLP artifactory, see the wiki
+- to install the parser manually, see [Manual Install](#manual-install)
+
+Before using the parser, please refer the [Tokenizer](#tokenizer) section on what tokenizer to use.
 
 To use from the command line with a trained model do
 
-TODO
+    model_path = <path to trained model>
+    input_folder=<path to input folder>
+    output_folder=<path to output folder>
+    amr-parse 
+      --in-sentences ${input_folder}/dev.tokens 
+      --in-model ${model_path} 
+      --num-cores <number of parallel decoding processes to run>
+      --use-gpu (whether to use gpu) 
+      --add-root-token (whether to add root token at end since model expects it) 
+      --batch-size <batch_size_for_roberta> 
+      --parser-chunk-size <chunk-size> (input data is divided into multiple chunks which are run sequentially) 
+      --out-amr ${output_folder}/dev.amr
+
 
 To use from other Python code with a trained model do
 
-TODO
+    from transition_amr_parser import AMRParser
+    model_path = <path to trained model>
+    parser = AMRParser(model_path)
+    tokens = "he wants her to believe in him".split()
+    parse = parser.parse_sentence(tokens)
+    print(parse.toJAMRString())
 
 ## Manual Install
 
@@ -28,7 +47,7 @@ the code has been tested on Python 3.6. to install
 This will pip install the repo in `--editable` mode, and download necessary
 SpaCy and Smatch tools.
 
-## Training you Model
+## Training your Model
 
 This assumes that you have acess to the usual AMR training set from LDC
 (LDC2017T10). You will need to apply preprocessing to build JAMR and Kevin
@@ -106,3 +125,13 @@ learn.py : Runs the parser (use `learn.py --help` for options)
 stack_lstm.py : Implements Stack-LSTM. 
 
 entity_rules.json : Stores rules applied by the ENTITY action 
+
+## Tokenizer
+
+For best performance, it is recommended to use the same tokenizer while testing and training. The model works best with the JAMR Tokenizer.
+
+When using the `AMRParser.parse_sentence` method, the parser expects the input to be tokenized words.
+
+When using the parser as a command line interface, the input file must contain 1 sentence per line. Also, generate these sentences by first tokenizing the raw sentences using a tokenizer of your choice and then joining the tokens using whitespace (Since the model just uses whitespace tokenization when called via CLI).
+
+
