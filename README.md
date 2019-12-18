@@ -68,10 +68,10 @@ rm train.* dev.* test.*
 New files will be placed in the `data` folder. The process will take ~1 hour to run. The call the train script
 
 ```
-bash scripts/train.sh scripts/local_variables.sh
+bash scripts/train.sh 
 ```
 
-The script `scripts/local_variables.sh` must contain following environment variables
+You must define `set_environment.sh` containing following environment variables
 
 ```bash
 # amr files
