@@ -13,9 +13,15 @@ class AMRParser():
 
     def __init__(self, model_path, oracle_stats_path=None, config_path=None, model_use_gpu=False, roberta_use_gpu=False, verbose=False, logger=None):
         if not oracle_stats_path:
-            oracle_stats_path = os.path.join(os.path.dirname(__file__), "train.rules.json")
+            model_folder = os.path.dirname(model_path)
+            oracle_stats_path = os.path.join(model_folder, "train.rules.json")
+            assert os.path.isfile(oracle_stats_path), \
+                f'Expected train.rules.json in {model_folder}'
         if not config_path:
-            config_path = os.path.join(os.path.dirname(__file__), "config.json")
+            model_folder = os.path.dirname(model_path)
+            config_path = os.path.join(model_folder, "config.json")
+            assert os.path.isfile(config_path), \
+                f'Expected config.json in {model_folder}'
         self.model = self.load_model(model_path, oracle_stats_path, config_path, model_use_gpu)
         self.roberta = self.load_roberta(roberta_use_gpu)
         self.logger = logger

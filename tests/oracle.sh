@@ -40,7 +40,7 @@ fi
 # DEV
 
 # ATTENTION: To pass the tests the dev test must have alignments as those
-# obatined with the preprocessing described in README
+# obtained with the preprocessing described in README
 
 # create oracle data
 echo "Generating Oracle"
