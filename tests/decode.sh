@@ -11,12 +11,10 @@ set -o pipefail
 amr-parse \
     --in-sentences ${oracle_folder}/dev.tokens \
     --in-model $trained_model \
-    --model-config-path transition_amr_parser/config.json \
-    --action-rules-from-stats ${oracle_folder}/train.rules.json \
+    --out-amr ${oracle_folder}/dev.amr \
+    --batch-size 12 \
     --num-cores 6 \
     --use-gpu \
-    --batch-size 12 \
-    --out-amr ${oracle_folder}/dev.amr
 
 # evaluate model performance
 echo "Evaluating Model"
