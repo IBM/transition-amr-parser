@@ -24,7 +24,7 @@ amr-parse \
   --add-root-token  
 ```
 
-The argument `--in-sentences` expects whitespace tokenized sentences (one per line). `--batch-size` refers to RoBERTa batch size. `--num-cores` refrees to cpu cores. `--parser-chunk-size` is the batch size for scpu paralelization (RoBERTa not included). The parser expects `<ROOT>` as last token, use `--add-root-token` to do this automatically.
+The argument `--in-sentences` expects white space tokenized sentences (one per line). `--batch-size` refers to RoBERTa batch size. `--num-cores` refers to cpu cores. `--parser-chunk-size` is the batch size for cpu parallelization (RoBERTa not included). The parser expects `<ROOT>` as last token, use `--add-root-token` to do this automatically.
 
 To use from other Python code with a trained model do
 
@@ -41,7 +41,7 @@ print(parse.toJAMRString())
 
 ## Manual Install
 
-the code has been tested on Python 3.6. to install
+The code has been tested on Python `3.6` to install
 
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
@@ -55,7 +55,7 @@ SpaCy and Smatch tools.
 
 ## Training your Model
 
-This assumes that you have acess to the usual AMR training set from LDC
+This assumes that you have access to the usual AMR training set from LDC
 (LDC2017T10). You will need to apply preprocessing to build JAMR and Kevin
 Alignments using the same tokenization and then merge them together. You must
 have the following installed: pip, g++, and ICU
@@ -92,7 +92,7 @@ lr=0.005
 
 We provide annotated examples in `data/` with CC-SA 4.0 license. We also
 provide a sample of the corresponding BERT embeddings. This can be used as a
-sanity check (but data amount unsufficient for training) . To test training
+sanity check (but data amount insufficient for training) . To test training
 ```
 amr-learn -A data/wiki25.jkaln -a data/wiki25.jkaln -B data/wiki25.bert_max_cased.hdf5 -b data/wiki25.bert_max_cased.hdf5 --name toy-model
 ```
@@ -134,10 +134,8 @@ entity_rules.json : Stores rules applied by the ENTITY action
 
 ## Tokenizer
 
-For best performance, it is recommended to use the same tokenizer while testing and training. The model works best with the JAMR Tokenizer.
+For best performance, it is recommended to use the same tokenizer while testing and training. The model works best with the JAMR Tokenizer. 
 
 When using the `AMRParser.parse_sentence` method, the parser expects the input to be tokenized words.
 
-When using the parser as a command line interface, the input file must contain 1 sentence per line. Also, generate these sentences by first tokenizing the raw sentences using a tokenizer of your choice and then joining the tokens using whitespace (Since the model just uses whitespace tokenization when called via CLI).
-
-
+When using the parser as a command line interface, the input file must contain 1 sentence per line. Also, generate these sentences by first tokenizing the raw sentences using a tokenizer of your choice and then joining the tokens using white space (Since the model just uses white space tokenization when called via CLI).
