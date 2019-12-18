@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import spacy
 
-from transition_amr_parser.state_machine import AMRStateMachine
+from transition_amr_parser.state_machine import AMRStateMachine, get_spacy_lemmatizer
 import transition_amr_parser.stack_lstm as sl
 import transition_amr_parser.utils as utils
 
@@ -908,7 +908,7 @@ class AMRModel(torch.nn.Module):
             else:
                 apply_actions.append(act)
         toks = [tok for tok in tokens if tok != "<eof>"]
-        tr = AMRStateMachine(toks, verbose=False)
+        tr = AMRStateMachine(toks, verbose=False, spacy_lemmatizer=self.lemmatizer)
         tr.applyActions(apply_actions)
         return tr.amr
 
@@ -920,14 +920,3 @@ class AMRModel(torch.nn.Module):
             bert_embedding=bert_emb
         )
         return self.build_amr(tokens, actions, labels, labelsA, predicates)
-
-    # def spacy_tokenizer(self):
-    #     try:
-    #         from spacy.lang.en import English
-    #         from spacy.symbols import ORTH
-    #         nlp = English()
-    #         nlp.tokenizer.add_special_case('<ROOT>', [{ORTH: '<ROOT>'}])
-    #         tokenizer = nlp.tokenizer
-    #     except ImportError:
-    #         raise ImportError('Please install spacy with: pip install spacy')
-    #     return tokenizer
