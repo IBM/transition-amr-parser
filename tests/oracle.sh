@@ -29,15 +29,15 @@ amr-fake-parse \
 # wrt train.amr F-score: 0.9371
 # F-score: valid actions 0.9366
 # F-score: valid actions + possible predicted 0.9365
-#test_result="$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)"
-#echo $test_result
-#ref_score=0.9366
-#if [ "$test_result" != "F-score: $ref_score" ];then
-#    printf "[\033[91mFAILED\033[0m] Oracle train F-score not $ref_score\n"
-#    exit 1
-#else
-#    printf "[\033[92mOK\033[0m] Oracle train passed!\n"
-#fi
+test_result="$(python smatch/smatch.py --significant 4 -f $train_file ${oracle_folder}/train.amr -r 10)"
+echo $test_result
+ref_score=0.9366
+if [ "$test_result" != "F-score: $ref_score" ];then
+    printf "[\033[91mFAILED\033[0m] Oracle train F-score not $ref_score\n"
+    exit 1
+else
+    printf "[\033[92mOK\033[0m] Oracle train passed!\n"
+fi
 
 # DEV
 
