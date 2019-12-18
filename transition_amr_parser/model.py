@@ -1,31 +1,16 @@
-import time
-from datetime import datetime, timedelta
-import warnings
-from collections import Counter
-import argparse
 import os
-import sys
 import random
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import torch.distributed as dist
-from torch.utils.data.distributed import DistributedSampler
-import torch.multiprocessing as mp
-from tqdm import tqdm
-import h5py
 import spacy
 
-from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import AMRStateMachine
 import transition_amr_parser.stack_lstm as sl
 import transition_amr_parser.utils as utils
-from transition_amr_parser.utils import print_log, smatch_wrapper
-from transition_amr_parser.data_oracle import AMR_Oracle
+
 
 class AMRModel(torch.nn.Module):
 
@@ -64,7 +49,7 @@ class AMRModel(torch.nn.Module):
             self.lemmatizer.tokenizer = utils.NoTokenizer(self.lemmatizer.vocab)
         except OSError:
             self.lemmatizer = None
-            print_log('parser', "Warning: Could not load Spacy English model. Please install with 'python -m spacy download en'.")
+            utils.print_log('parser', "Warning: Could not load Spacy English model. Please install with 'python -m spacy download en'.")
 
         self.state_dim = 3 * hidden_dim + (hidden_dim if use_attention else 0) \
             + (hidden_dim if self.use_function_words_all else 0)
@@ -82,7 +67,7 @@ class AMRModel(torch.nn.Module):
         self.word2idx = oracle_stats['word2idx']
         self.node2idx = oracle_stats['node2idx']
         word_counter = oracle_stats['word_counter']
-        
+
         self.amrs = amrs
 
         self.singletons = {self.word2idx[w] for w in word_counter if word_counter[w] == 1}
@@ -94,7 +79,7 @@ class AMRModel(torch.nn.Module):
         self.labelsO2idx = oracle_stats["labelsO2idx"]
         self.labelsA2idx = oracle_stats["labelsA2idx"]
         self.pred2idx = oracle_stats["pred2idx"]
-        self.action2idx = oracle_stats["action2idx"] 
+        self.action2idx = oracle_stats["action2idx"]
 
         self.vocab_size = len(self.word2idx)
         self.action_size = len(self.action2idx)
@@ -120,15 +105,15 @@ class AMRModel(torch.nn.Module):
         self.preds = []
         for k, v in self.pred2idx.items():
             self.preds.append(v)
-        print_log('parser', f'Number of characters: {len(self.char2idx)}')
-        print_log('parser', f'Number of words: {len(self.word2idx)}')
-        print_log('parser', f'Number of nodes: {len(self.node2idx)}')
-        print_log('parser', f'Number of actions: {len(self.action2idx)}')
+        utils.print_log('parser', f'Number of characters: {len(self.char2idx)}')
+        utils.print_log('parser', f'Number of words: {len(self.word2idx)}')
+        utils.print_log('parser', f'Number of nodes: {len(self.node2idx)}')
+        utils.print_log('parser', f'Number of actions: {len(self.action2idx)}')
         for action in self.action2idx:
             print('\t', action)
-        print_log('parser', f'Number of labels: {len(self.labelsO2idx)}')
-        print_log('parser', f'Number of labelsA: {len(self.labelsA2idx)}')
-        print_log('parser', f'Number of predicates: {len(self.pred2idx)}')
+        utils.print_log('parser', f'Number of labels: {len(self.labelsO2idx)}')
+        utils.print_log('parser', f'Number of labelsA: {len(self.labelsA2idx)}')
+        utils.print_log('parser', f'Number of predicates: {len(self.pred2idx)}')
 
         # Parameters
         self.word_embeds = nn.Embedding(self.vocab_size, embedding_dim)

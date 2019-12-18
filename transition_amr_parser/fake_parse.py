@@ -3,7 +3,7 @@ import time
 import os
 import signal
 import argparse
-from collections import Counter, defaultdict
+from collections import Counter
 
 import numpy as np
 from tqdm import tqdm
@@ -19,7 +19,6 @@ from transition_amr_parser.io import (
     read_rule_stats,
 )
 
-# is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
 
 def argument_parser():
 
@@ -114,11 +113,12 @@ def reduce_counter(counts, reducer):
         new_counts[new_key] += count
     return new_counts
 
+
 def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
 
     # Get valid actions
     valid_actions = state_machine.get_valid_actions()
-    
+
     # Fallback for constrained PRED actions
     if 'PRED' in raw_action:
         if 'PRED' not in valid_actions:
@@ -132,12 +132,12 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
                 token, tokens = state_machine.get_top_of_stack()
                 if tokens:
                     token = ",".join(tokens)
-                # reasign raw action    
+                # reasign raw action
                 raw_action = f'PRED({token.lower()})'
                 pred_counts.update(['token OOV'])
-            elif raw_action not in valid_pred_actions:    
+            elif raw_action not in valid_pred_actions:
                 # not found, get most common match
-                # reasign raw action    
+                # reasign raw action
                 raw_action = valid_pred_actions[0]
                 pred_counts.update(['alignment OOV'])
             else:
@@ -146,16 +146,13 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
         raw_action not in valid_actions and
         raw_action.split('(')[0] not in valid_actions
     ):
-    
+
         # note-down rule violation
         token, _ = state_machine.get_top_of_stack()
         rule_violation.update([(token, raw_action)])
-    
-        # non PRED oracle actions should allways be valid
-        #import ipdb; ipdb.set_trace(context=30)
-        #_ = state_machine.get_valid_actions()
-    
+
     return raw_action
+
 
 class FakeAMRParser():
     """
@@ -165,7 +162,6 @@ class FakeAMRParser():
 
     def __init__(self, from_sent_act_pairs=None, logger=None,
                  actions_by_stack_rules=None, no_whitespace_in_actions=False):
-
 
         assert not no_whitespace_in_actions, \
             '--no-whitespace-in-actions deprected'
@@ -216,10 +212,10 @@ class FakeAMRParser():
                     f'machine not closed at step {state_machine.time_step}'
                 ))
                 raw_action = 'CLOSE'
-            else:    
+            else:
                 # get action from model
                 raw_action = actions[state_machine.time_step]
-            
+
             # restrict action space according to machine restrictions and
             # statistics
             raw_action = restrict_action(
@@ -227,7 +223,7 @@ class FakeAMRParser():
                 raw_action,
                 self.pred_counts,
                 self.rule_violation
-            ) 
+            )
 
             # Update state machine
             state_machine.applyAction(raw_action)
@@ -297,9 +293,9 @@ def main():
         rule_stats = read_rule_stats(args.action_rules_from_stats)
         actions_by_stack_rules = rule_stats['possible_predicates']
         for token, counter in rule_stats['possible_predicates'].items():
-           actions_by_stack_rules[token] = Counter(counter)
+            actions_by_stack_rules[token] = Counter(counter)
 
-    else:    
+    else:
         actions_by_stack_rules = None
 
     # Fake parser built from actions
@@ -331,7 +327,7 @@ def main():
             amr_write(amr.toJAMRString())
 
     if (
-        getattr(parsing_model, "rule_violation") and 
+        getattr(parsing_model, "rule_violation") and
         parsing_model.rule_violation
     ):
         print(yellow_font("There were one or more action rule violations"))
