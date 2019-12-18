@@ -2,8 +2,10 @@ set -o errexit
 set -o nounset
 set -o pipefail 
 
+[ ! -d scripts/ ] && echo "Call as scripts/$(basename $0)" && exit 1
+
 # load local variables used below
-. scripts/local_variables.sh
+. set_environment.sh
 
 [ ! -d ${oracle_folder}/ ] && mkdir ${oracle_folder}/
 
