@@ -28,7 +28,7 @@ The argument `--in-sentences` expects whitespace tokenized sentences (one per li
 
 To use from other Python code with a trained model do
 
-```
+```python
 from transition_amr_parser import AMRParser
 
 model_path = '/path/to/model.params'
