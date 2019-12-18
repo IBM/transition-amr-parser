@@ -12,6 +12,9 @@ config=$1
 # load local variables used below
 . $config 
 
+# create experiments folder
+[ ! -d models/${name} ] && mkdir -p models/${name}
+
 # train model
 amr-learn \
     -A $train_file \

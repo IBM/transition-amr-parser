@@ -12,37 +12,43 @@ Before using the parser, please refer the [Tokenizer](#tokenizer) section on wha
 
 To use from the command line with a trained model do
 
-    model_path = <path to trained model>
-    input_folder=<path to input folder>
-    output_folder=<path to output folder>
-    amr-parse 
-      --in-sentences ${input_folder}/dev.tokens 
-      --in-model ${model_path} 
-      --num-cores <number of parallel decoding processes to run>
-      --use-gpu (whether to use gpu) 
-      --add-root-token (whether to add root token at end since model expects it) 
-      --batch-size <batch_size_for_roberta> 
-      --parser-chunk-size <chunk-size> (input data is divided into multiple chunks which are run sequentially) 
-      --out-amr ${output_folder}/dev.amr
+```bash
+amr-parse \
+  --in-sentences /path/to/dev.tokens \
+  --in-model /path/to/model.params  \
+  --out-amr /path/to/dev.amr \
+  --batch-size 12 \
+  --parser-chunk-size 128 \
+  --num-cores 10 \
+  --use-gpu \
+  --add-root-token  
+```
 
+The argument `--in-sentences` expects whitespace tokenized sentences (one per line). `--batch-size` refers to RoBERTa batch size. `--num-cores` refrees to cpu cores. `--parser-chunk-size` is the batch size for scpu paralelization (RoBERTa not included). The parser expects `<ROOT>` as last token, use `--add-root-token` to do this automatically.
 
 To use from other Python code with a trained model do
 
-    from transition_amr_parser import AMRParser
-    model_path = <path to trained model>
-    parser = AMRParser(model_path)
-    tokens = "he wants her to believe in him".split()
-    parse = parser.parse_sentence(tokens)
-    print(parse.toJAMRString())
+```
+from transition_amr_parser import AMRParser
+
+model_path = '/path/to/model.params'
+parser = AMRParser(model_path)
+
+tokens = "He wants her to believe in him .".split()
+parse = parser.parse_sentence(tokens)
+print(parse.toJAMRString())
+```
 
 ## Manual Install
 
 the code has been tested on Python 3.6. to install
 
-    git clone git@github.ibm.com:mnlp/transition-amr-parser.git
-    cd transition-amr-parser
-    # here optionally activate your virtual environment
-    bash scripts/install.sh
+```bash
+git clone git@github.ibm.com:mnlp/transition-amr-parser.git
+cd transition-amr-parser
+# here optionally activate your virtual environment
+bash scripts/install.sh
+```
 
 This will pip install the repo in `--editable` mode, and download necessary
 SpaCy and Smatch tools.

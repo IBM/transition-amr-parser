@@ -5,20 +5,14 @@ import os
 import signal
 import socket
 import argparse
-from collections import Counter, defaultdict
-import json
+from collections import Counter
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.state_machine import (
-    AMRStateMachine,
-    get_spacy_lemmatizer
-)
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import multiprocessing
-from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import (
     writer,
     read_sentences,
@@ -165,7 +159,8 @@ def reduce_counter(counts, reducer):
         new_key = reducer(key)
         new_counts[new_key] += count
     return new_counts
-        
+
+
 class DataHandler():
     def __init__(self, sentences, embeddings, cores):
         self.sentences_tuples = [(sent_idx, sentence) for sent_idx, sentence in enumerate(sentences)]
@@ -178,6 +173,7 @@ class DataHandler():
 
     def get_embeddings(self, sent_id):
         return self.embeddings[sent_id]
+
 
 class Logger():
 
@@ -216,11 +212,12 @@ class Logger():
                 else:
                     input('Press any key to continue')
 
+
 def get_embeddings(model, sentences, batch_size):
     embeddings = {}
     data = [(sent_id, sentence) for sent_id, sentence in enumerate(sentences)]
     for i in range(0, math.ceil(len(data)/batch_size)):
-        batch = data[i*batch_size : i*batch_size+batch_size]
+        batch = data[i * batch_size: i * batch_size + batch_size]
         batch_indices = [item[0] for item in batch]
         batch_sentences = [item[1] for item in batch]
         batch_embeddings = extract_features_aligned_to_words_batched(model, sentences=batch_sentences, use_all_layers=True, return_all_hiddens=True)
@@ -233,11 +230,12 @@ def get_embeddings(model, sentences, batch_size):
             embeddings[index] = data_features
     return embeddings
 
+
 def worker(rank, model, handler, results, master_addr, master_port, cores):
     if cores > 1:
         torch.set_num_threads(1)
-    print_log("Global: ","Threads :" + str(torch.get_num_threads()))
-    print_log("Dist: ","starting rank:" + str(rank))
+    print_log("Global: ", "Threads :" + str(torch.get_num_threads()))
+    print_log("Dist: ", "starting rank:" + str(rank))
     os.environ['MASTER_ADDR'] = master_addr
     os.environ['MASTER_PORT'] = str(master_port)
 
@@ -247,7 +245,7 @@ def worker(rank, model, handler, results, master_addr, master_port, cores):
         dist_model = dist_module.module
     else:
         dist_model = model
-    
+
     data = handler.get_sentences_for_rank(rank)
     print_log("Data", f'Length of data is {len(data)} for rank {rank} ')
     for _, item in tqdm(enumerate(data)):
@@ -259,7 +257,8 @@ def worker(rank, model, handler, results, master_addr, master_port, cores):
         amr = dist_model.parse_sentence(tokens, sent_rep, bert_emb)
         results[sent_id] = amr
 
-    print("Dist: ","Finished worker for rank: " + str(rank))
+    print("Dist: ", "Finished worker for rank: " + str(rank))
+
 
 def parse(sentences, parser, args):
 
@@ -299,16 +298,14 @@ def parse(sentences, parser, args):
     amrs = []
     for i in range(0, len(sentences)):
         amrs.append(results[i])
-    
+
     return amrs
+
 
 def main():
 
     # Argument handling
     args = argument_parser()
-
-    # Get num of cores to run on
-    cores = args.num_cores
 
     # Get data
     sentences = read_sentences(args.in_sentences, add_root_token=args.add_root_token)
@@ -340,25 +337,25 @@ def main():
     print_log('parser', f'Total number of chunks: {num_chunks}')
 
     start = time.time()
-    for i in range(0,num_chunks):
+    for i in range(0, num_chunks):
         print_log('parser', f'Parsing chunk number: {i+1}')
         current_chunk = sentences[i*args.parser_chunk_size: i*args.parser_chunk_size+args.parser_chunk_size]
         current_amrs = parse(current_chunk, parser, args)
         amrs.extend(current_amrs)
-    
+
     end = time.time()
     print_log('parser', f'Total time taken to parse sentences: {timedelta(seconds=float(end-start))}')
 
     # Make sure we have processed all the sentences
-    assert (len(sentences)==len(amrs))
+    assert (len(sentences) == len(amrs))
 
     if args.out_amr:
         # Get output AMR writer
         amr_write = writer(args.out_amr)
-        
+
         # store output AMR
         for amr in amrs:
             amr_write(amr.toJAMRString())
-        
+
         # close output AMR writer
         amr_write()

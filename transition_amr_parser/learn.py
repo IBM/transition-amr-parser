@@ -3,11 +3,9 @@ import time
 import json
 from datetime import datetime, timedelta
 import warnings
-from collections import Counter
 import argparse
 import os
 import sys
-import random
 
 import numpy as np
 import torch
@@ -20,11 +18,9 @@ from torch.utils.data.distributed import DistributedSampler
 import torch.multiprocessing as mp
 from tqdm import tqdm
 import h5py
-import spacy
 
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import AMRStateMachine
-import transition_amr_parser.stack_lstm as sl
 import transition_amr_parser.utils as utils
 from transition_amr_parser.utils import print_log, smatch_wrapper
 from transition_amr_parser.data_oracle import AMR_Oracle
@@ -129,7 +125,7 @@ def main():
         os.makedirs(args.save_model, exist_ok=True)
     exp_name = args.name if args.name else f'{os.getpid()}'
 
-    # TODO: Provide option to precompute outside of this code. 
+    # TODO: Provide option to precompute outside of this code.
     # 1. Store word/action dictionaries in the rule_stats json that the command line
     # 2. possiblePredicates is already store there
     # This should eliminate the train_amrs and # oracle.transitions
@@ -546,6 +542,7 @@ def print_epoch_report(model, exp_name, epoch_idx, weight_inputs, attend_inputs,
             f.write(str(model.action_confusion_matrix) + '\n')
             f.write('Labels:\n')
             f.write(str(model.label_confusion_matrix) + '\n')
+
 
 if __name__ == '__main__':
     main()

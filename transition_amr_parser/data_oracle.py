@@ -1,5 +1,4 @@
 import json
-import re
 import argparse
 from collections import Counter, defaultdict
 
@@ -10,7 +9,7 @@ from transition_amr_parser.io import writer, read_propbank
 from transition_amr_parser.amr import JAMR_CorpusReader
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
-    get_spacy_lemmatizer, 
+    get_spacy_lemmatizer,
     entity_rule_stats,
     entity_rule_totals,
     entity_rule_fails
@@ -130,15 +129,15 @@ def argument_parser():
     return args
 
 
-def preprocess_amr(gold_amr, add_unaligned):
+def preprocess_amr(gold_amr, add_unaligned, included_unaligned):
 
     # clean alignments
     for i, tok in enumerate(gold_amr.tokens):
         align = gold_amr.alignmentsToken2Node(i+1)
         if len(align) == 2:
             edges = [
-                (s, r, t) 
-                for s, r, t in gold_amr.edges 
+                (s, r, t)
+                for s, r, t in gold_amr.edges
                 if s in align and t in align
             ]
             if not edges:
@@ -226,7 +225,7 @@ def alert_inconsistencies(gold_amrs):
 
     num_sentences = len(gold_amrs)
 
-    sentence_count = Counter() 
+    sentence_count = Counter()
     amr_by_amrkey_by_sentence = defaultdict(dict)
     amr_counts_by_sentence = defaultdict(lambda: Counter())
     for amr in gold_amrs:
@@ -251,7 +250,7 @@ def alert_inconsistencies(gold_amrs):
 
     num_labelings = 0
     for skey, sent_count in sentence_count.items():
-        num_labelings += len(amr_counts_by_sentence[skey]) 
+        num_labelings += len(amr_counts_by_sentence[skey])
         if len(amr_counts_by_sentence[skey]) > 1:
             pass
             # There is more than one labeling for this sentence
@@ -259,23 +258,23 @@ def alert_inconsistencies(gold_amrs):
 
     # inform user
     if num_sentences > num_unique_sents:
-        num_repeated = num_sentences - num_unique_sents 
+        num_repeated = num_sentences - num_unique_sents
         perc = num_repeated / num_sentences
         alert_str = '{:d}/{:d} {:2.1f} % repeated sents (max {:d} times)'.format(
             num_repeated,
             num_sentences,
-            100 *perc,
+            100 * perc,
             max(
-                count 
-                for counter in amr_counts_by_sentence.values() 
+                count
+                for counter in amr_counts_by_sentence.values()
                 for count in counter.values()
             )
         )
         print(yellow_font(alert_str))
 
     if num_labelings > num_unique_sents:
-        num_inconsistent = num_labelings - num_unique_sents 
-        perc = num_inconsistent / num_sentences 
+        num_inconsistent = num_labelings - num_unique_sents
+        perc = num_inconsistent / num_sentences
         alert_str = '{:d}/{:d} {:2.4f} % inconsistent labelings from repeated sents'.format(
             num_inconsistent,
             num_sentences,
@@ -356,7 +355,7 @@ class AMR_Oracle:
     def runOracle(self, gold_amrs, propbank_args=None, out_oracle=None,
                   out_amr=None, out_sentences=None, out_actions=None,
                   out_rule_stats=None, add_unaligned=0,
-                  no_whitespace_in_actions=False, multitask_words=None, 
+                  no_whitespace_in_actions=False, multitask_words=None,
                   copy_lemma_action=False):
 
         print_log("oracle", "Parsing data")
@@ -398,7 +397,7 @@ class AMR_Oracle:
                 print("New Sentence " + str(sent_idx) + "\n\n\n")
 
             # TODO: Describe what is this pre-processing
-            gold_amr = preprocess_amr(gold_amr, add_unaligned)
+            gold_amr = preprocess_amr(gold_amr, add_unaligned, included_unaligned)
 
             # Initialize state machine
             tr = AMRStateMachine(
@@ -413,10 +412,6 @@ class AMR_Oracle:
             # Loop over potential actions
             while tr.buffer or tr.stack:
 
-                # top and second to top of the stack
-                stack0 = tr.stack[-1] if tr.stack else 'NA'
-                stack1 = tr.stack[-2] if len(tr.stack) > 1 else 'NA'
-
                 if self.tryMerge(tr, tr.amr, gold_amr):
                     action = 'MERGE'
 
@@ -428,24 +423,15 @@ class AMR_Oracle:
                     lemma, _ = tr.get_top_of_stack(lemma=True)
                     if copy_lemma_action and lemma == self.new_node:
                         action = 'COPY_LEMMA'
-                    elif copy_lemma_action and f'{lemma}-01' == self.new_node:    
+                    elif copy_lemma_action and f'{lemma}-01' == self.new_node:
                         action = 'COPY_SENSE01'
-                    else:    
+                    else:
                         action = f'PRED({self.new_node})'
 
                 elif self.tryDependent(tr, tr.amr, gold_amr):
-                    # FIXME: Internally this is stored as
-                    #
-                    # DEPENDENT({node_label},{edge_label.replace(":","")})
-                    #
                     edge = self.new_edge[1:] \
                         if self.new_edge.startswith(':') else self.new_edge
                     action = f'DEPENDENT({self.new_node},{edge})'
-#                     tr.DEPENDENT(
-#                         edge_label=self.new_edge,
-#                         node_label=self.new_node,
-#                         node_id=self.dep_id
-#                     )
                     self.dep_id = None
 
                 elif self.tryIntroduce(tr, tr.amr, gold_amr):
@@ -480,12 +466,7 @@ class AMR_Oracle:
                 # Store stats
                 # get token(s) at the top of the stack
                 token, merged_tokens = tr.get_top_of_stack()
-                items = action.split('(')
                 action_label = action.split('(')[0]
-                if len(items) > 1:
-                    tag = items[1][:-1]
-                else:    
-                    tag = None
 
                 # check action has not invalid chars and normalize
                 # TODO: --no-whitespace-in-actions being deprecated
@@ -494,14 +475,14 @@ class AMR_Oracle:
                         "--no-whitespace-in-actions prohibits use of _ in actions"
                     if ' ' in action_label:
                         action = action.replace(' ', '_')
-                  
+
                 # Add prediction ot top of the buffer
                 if action == 'SHIFT' and multitask_words is not None:
                     # top of buffer
                     top_of_buffer = tr.amr.tokens[tr.buffer[-1] - 1]
                     if top_of_buffer in multitask_words:
                         action = f'SHIFT({top_of_buffer})'
- 
+
                 # APPLY ACTION
                 tr.applyAction(action)
 
@@ -519,7 +500,7 @@ class AMR_Oracle:
             amr_write(tr.amr.toJAMRString())
             if no_whitespace_in_actions:
                 sentence_write(" ".join(tr.amr.tokens))
-            else:    
+            else:
                 sentence_write("\t".join(tr.amr.tokens))
             # TODO: Make sure this normalizing strategy is denornalized
             # elsewhere
@@ -560,7 +541,7 @@ class AMR_Oracle:
             for l in tr.labelsA:
                 self.labelsA2idx.setdefault(l, len(self.labelsA2idx))
 
-        self.stats["action2idx"] = self.action2idx 
+        self.stats["action2idx"] = self.action2idx
         self.stats["pred2idx"] = self.pred2idx
         self.stats["labelsO2idx"] = self.labelsO2idx
         self.stats["labelsA2idx"] = self.labelsA2idx
@@ -590,18 +571,6 @@ class AMR_Oracle:
 
         # State machine stats for this senetnce
         if out_rule_stats:
-
-            # Add possible predicates to state machine rules
-            # apply same normalization rule if solicited
-            # possible_predicates = defaultdict(lambda: Counter())
-            # for token, counts in self.possiblePredicates.items():
-            #     for node, count in counts.items():
-            #         if ' ' in node and no_whitespace_in_actions:
-            #             node = node.replace(' ', '_')
-            #         possible_predicates[token][node] = count
-                    
-            # self.stats['possible_predicates'] = self.possiblePredicates
-
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(self.stats))
 
@@ -845,8 +814,6 @@ class AMR_Oracle:
             k_alignment = gold_amr.alignmentsToken2Node(tok)
             if k_alignment == tok_alignment:
                 return True
-        # if not REPLICATE and self.tryReduce(transitions, amr, gold_amr, stack1):
-        #     return True
         return False
 
     def tryDependent(self, transitions, amr, gold_amr):
@@ -1019,13 +986,13 @@ def main():
             forbidden = [x for x in replacement_rules.keys() if x in token]
             if forbidden:
                 token = token.replace(forbidden[0], replacement_rules[forbidden[0]])
-            new_tokens.append(token)    
+            new_tokens.append(token)
         amr.tokens = new_tokens
 
     # Load propbank
     if args.in_propbank_args:
         propbank_args = read_propbank(args.in_propbank_args)
-    else:    
+    else:
         propbank_args = None
 
     # Load/Save words for multi-task
