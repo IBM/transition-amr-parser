@@ -3,7 +3,6 @@ import subprocess
 import random
 from collections import Counter
 from datetime import datetime
-import spacy
 from spacy.tokens.doc import Doc
 import numpy as np
 import torch.nn as nn
@@ -334,6 +333,7 @@ def smatch_wrapper(amr_dev_data, predicted_amr_file, significant=3):
     smatch_stdout = [line.decode('utf-8') for line in cmd_proc.stdout]
     _, smatch_score = smatch_stdout[0].split()
     return smatch_score
+
 
 class NoTokenizer(object):
     def __init__(self, vocab):
