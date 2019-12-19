@@ -1,49 +1,34 @@
 # Standalone AMR parser
 
-import time
-from datetime import timedelta
 import os
-import signal
-import socket
-import argparse
-from collections import Counter, defaultdict
 import json
-import numpy as np
-from tqdm import tqdm
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
-import multiprocessing
-from transition_amr_parser.state_machine import AMRStateMachine
-from transition_amr_parser.utils import yellow_font
-from transition_amr_parser.io import (
-    writer,
-    read_sentences,
-)
 from transition_amr_parser.model import AMRModel
 import transition_amr_parser.utils as utils
-from transition_amr_parser.utils import print_log
-import math
 
-from fairseq.models.roberta import RobertaModel
 from transition_amr_parser.roberta_utils import extract_features_aligned_to_words
+
 
 class AMRParser():
 
     def __init__(self, model_path, oracle_stats_path=None, config_path=None, model_use_gpu=False, roberta_use_gpu=False, verbose=False, logger=None):
         if not oracle_stats_path:
-            oracle_stats_path = os.path.join(os.path.dirname(__file__), "train.rules.json")
+            model_folder = os.path.dirname(model_path)
+            oracle_stats_path = os.path.join(model_folder, "train.rules.json")
+            assert os.path.isfile(oracle_stats_path), \
+                f'Expected train.rules.json in {model_folder}'
         if not config_path:
-            config_path = os.path.join(os.path.dirname(__file__), "config.json")
+            model_folder = os.path.dirname(model_path)
+            config_path = os.path.join(model_folder, "config.json")
+            assert os.path.isfile(config_path), \
+                f'Expected config.json in {model_folder}'
         self.model = self.load_model(model_path, oracle_stats_path, config_path, model_use_gpu)
         self.roberta = self.load_roberta(roberta_use_gpu)
-        self.logger = logger 
+        self.logger = logger
 
     def load_roberta(self, roberta_use_gpu):
-        
+
         # Load the Roberta Model
-        start = time.time()
-        
         RobertaModel = torch.hub.load('pytorch/fairseq', 'roberta.large')
         RobertaModel.eval()
         if roberta_use_gpu:
@@ -55,25 +40,25 @@ class AMRParser():
         oracle_stats = json.load(open(oracle_stats_path))
         config = json.load(open(config_path))
         model = AMRModel(
-                     oracle_stats = oracle_stats,
-                     embedding_dim=config["embedding_dim"],
-                     action_embedding_dim=config["action_embedding_dim"],
-                     char_embedding_dim=config["char_embedding_dim"],
-                     hidden_dim=config["hidden_dim"],
-                     char_hidden_dim=config["char_hidden_dim"],
-                     rnn_layers=config["rnn_layers"],
-                     dropout_ratio=config["dropout_ratio"],
-                     pretrained_dim=config["pretrained_dim"],
-                     use_bert=config["use_bert"],
-                     use_gpu=model_use_gpu,
-                     use_chars=config["use_chars"],
-                     use_attention=config["use_attention"],
-                     use_function_words=config["use_function_words"],
-                     use_function_words_rels=config["use_function_words_rels"],
-                     parse_unaligned=config["parse_unaligned"],
-                     weight_inputs=config["weight_inputs"],
-                     attend_inputs=config["attend_inputs"]
-                     )
+            oracle_stats=oracle_stats,
+            embedding_dim=config["embedding_dim"],
+            action_embedding_dim=config["action_embedding_dim"],
+            char_embedding_dim=config["char_embedding_dim"],
+            hidden_dim=config["hidden_dim"],
+            char_hidden_dim=config["char_hidden_dim"],
+            rnn_layers=config["rnn_layers"],
+            dropout_ratio=config["dropout_ratio"],
+            pretrained_dim=config["pretrained_dim"],
+            use_bert=config["use_bert"],
+            use_gpu=model_use_gpu,
+            use_chars=config["use_chars"],
+            use_attention=config["use_attention"],
+            use_function_words=config["use_function_words"],
+            use_function_words_rels=config["use_function_words_rels"],
+            parse_unaligned=config["parse_unaligned"],
+            weight_inputs=config["weight_inputs"],
+            attend_inputs=config["attend_inputs"]
+        )
 
         model.load_state_dict(torch.load(model_path))
         model.eval()

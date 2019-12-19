@@ -1,5 +1,4 @@
 import re
-import ast
 import json
 from collections import Counter
 

@@ -1,5 +1,8 @@
 # These should not be commited
+# old version
 scripts/local_variables.sh
+# new version
+set_environment.sh
 
 # external tools
 smatch/
