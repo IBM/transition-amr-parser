@@ -1,16 +1,14 @@
 from collections import Counter
-from typing import List
-import warnings
 import torch
-import spacy
 from spacy.tokens import Doc
 import copy
 from fairseq.models.roberta.alignment_utils import spacy_nlp
-from fairseq import utils
 from fairseq.data.data_utils import collate_tokens
+
 
 def get_tokens(roberta, word):
     return roberta.task.source_dictionary.encode_line(roberta.bpe.encode(word), append_eos=False, add_if_not_exist=False)
+
 
 def get_alignments_and_tokens(roberta, words):
     bpe_tokens = []
@@ -20,7 +18,7 @@ def get_alignments_and_tokens(roberta, words):
     bpe_tokens.extend(first_word_tokens)
     alignments.append([(alignment_position + i) for i in range(0, len(first_word_tokens))])
     alignment_position = alignment_position + len(first_word_tokens)
-    
+
     for word in words[1:]:
         tokens = get_tokens(roberta, " " + word)
         bpe_tokens.extend(tokens)
@@ -29,6 +27,7 @@ def get_alignments_and_tokens(roberta, words):
 
     final_bpe_tokens = [roberta.task.source_dictionary.index('<s>')] + bpe_tokens + [roberta.task.source_dictionary.index('</s>')]
     return alignments, torch.LongTensor(final_bpe_tokens)
+
 
 def align_features_to_words(roberta, features, alignment):
     """
@@ -56,7 +55,8 @@ def align_features_to_words(roberta, features, alignment):
     output = torch.stack(output)
     return output
 
-def extract_features_aligned_to_words_batched(model, sentences : list, use_all_layers: bool = True , return_all_hiddens: bool = False) -> torch.Tensor:
+
+def extract_features_aligned_to_words_batched(model, sentences: list, use_all_layers: bool = True, return_all_hiddens: bool = False) -> torch.Tensor:
     nlp = spacy_nlp()
     bpe_toks = []
     alignments = []
@@ -67,7 +67,7 @@ def extract_features_aligned_to_words_batched(model, sentences : list, use_all_l
         bpe_toks.append(bpe_tok)
         alignments.append(alignment)
         spacy_tokens.append(toks)
-    
+
     bpe_toks_collated = collate_tokens(bpe_toks, pad_idx=1)
 
     features = model.extract_features(bpe_toks_collated, return_all_hiddens=return_all_hiddens)
@@ -85,7 +85,8 @@ def extract_features_aligned_to_words_batched(model, sentences : list, use_all_l
 
     return results
 
-def extract_features_aligned_to_words(model, tokens : list, use_all_layers: bool = True , return_all_hiddens: bool = False) -> torch.Tensor:
+
+def extract_features_aligned_to_words(model, tokens: list, use_all_layers: bool = True, return_all_hiddens: bool = False) -> torch.Tensor:
     nlp = spacy_nlp()
     alignment, bpe_tok = get_alignments_and_tokens(model, tokens)
     features = model.extract_features(bpe_tok, return_all_hiddens=return_all_hiddens)
@@ -98,5 +99,3 @@ def extract_features_aligned_to_words(model, tokens : list, use_all_layers: bool
             )
     doc.user_token_hooks['vector'] = lambda token: aligned_feats[token.i]
     return doc
-
-      
