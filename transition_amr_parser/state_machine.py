@@ -1,5 +1,4 @@
 import json
-import torch
 import os
 import re
 from collections import Counter
@@ -45,10 +44,8 @@ class NoTokenizer(object):
         spaces = [True] * len(tokens)
         return Doc(self.vocab, words=tokens, spaces=spaces)
 
+
 def get_spacy_lemmatizer():
-
-    cache_path = 'lemma_cache.json'
-
     # TODO: Unclear why this configuration
     lemmatizer = spacy.load('en', disable=['parser', 'ner'])
     lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
@@ -74,7 +71,7 @@ class AMRStateMachine:
             self.lemmatizer = spacy_lemmatizer
         # compute lemmas for this sentence
         self.lemmas = [x.lemma_ for x in self.lemmatizer(tokens[:-1])] + ['ROOT']
-        #self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
+        # self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
 
         # add unaligned
         if add_unaligned and '<unaligned>' not in tokens:
@@ -150,7 +147,7 @@ class AMRStateMachine:
         def stack_style(string, confirmed=False):
             if confirmed:
                 return black_font(green_background(string))
-            else:    
+            else:
                 return black_font(white_background(string))
 
         def reduced_style(string):
@@ -209,7 +206,7 @@ class AMRStateMachine:
         pointer_view_str = "".join(pointer_view)
 
         # nodes
-        #nodes_str = " ".join([x for x in self.predicates if x != '_'])
+        # nodes_str = " ".join([x for x in self.predicates if x != '_'])
         node_items = []
         for pos, node in self.alignments.items():
             if isinstance(pos, tuple):
@@ -249,23 +246,23 @@ class AMRStateMachine:
         if '(' not in action:
             return action, None
         elif action == 'LA(root)':
-             # To keep original name to keep learner happy
-             return action, ['root']
-        else:    
+            # To keep original name to keep learner happy
+            return action, ['root']
+        else:
             items = action.split('(')
             action_label = items[0]
             arg_string = items[1][:-1]
             if action_label not in ['PRED', 'CONFIRM']:
                 # split by comma respecting quotes
                 props = re.findall(r'(?:[^\s,"]|"(?:\\.|[^"])*")+', arg_string)
-            else:    
+            else:
                 props = [arg_string]
 
             # To keep original name to keep learner happy
             if action_label == 'DEPENDENT':
                 action_label = action
 
-            return action_label, props 
+            return action_label, props
 
     def get_top_of_stack(self, positions=False, lemma=False):
         """
@@ -289,11 +286,10 @@ class AMRStateMachine:
                 if positions:
                     merged_tokens = [i - 1 for i in self.merged_tokens[stack0]]
                 else:
-                    merged_tokens = [ 
+                    merged_tokens = [
                         str(self.amr.tokens[i - 1])
                         for i in self.merged_tokens[stack0]
                     ]
-
 
         if lemma:
             token = self.lemmas[token]
@@ -324,9 +320,9 @@ class AMRStateMachine:
             assert len(properties) == 1
             self.CONFIRM(properties[0])
         elif action_label in ['COPY_LEMMA']:
-             self.COPY_LEMMA()
+            self.COPY_LEMMA()
         elif action_label in ['COPY_SENSE01']:
-             self.COPY_SENSE01()
+            self.COPY_SENSE01()
         # TODO: Why multiple keywords for the same action?
         elif action_label in ['SWAP', 'UNSHIFT', 'UNSHIFT1']:
             self.SWAP()
@@ -367,8 +363,8 @@ class AMRStateMachine:
         token, merged_tokens = self.get_top_of_stack()
         if merged_tokens:
             token = ",".join(merged_tokens)
-            #merged_token = ",".join(merged_tokens)
-            #if merged_token in self.actions_by_stack_rules:
+            # merged_token = ",".join(merged_tokens)
+            # if merged_token in self.actions_by_stack_rules:
             #    token = merged_token
 
         # rule decision
@@ -389,7 +385,7 @@ class AMRStateMachine:
         valid_actions = []
 
         # Buffer not empty
-        if True: #len(self.buffer):
+        if True:  # len(self.buffer):
             # Its admits a SHIFT for empty buffer interpreted as a close
             valid_actions.append('SHIFT')
             # FIXME: reduce also accepted here if node_id != None and something
@@ -430,7 +426,7 @@ class AMRStateMachine:
             # Forbid merging if two words are identical
             # FIXME: ?? this rule does not make any sense, indices will never
             # be equal
-            #if stack0 != stack1:
+            # if stack0 != stack1:
             valid_actions.append('MERGE')
 
             # Forbid SWAP if both words have been swapped already
@@ -451,7 +447,7 @@ class AMRStateMachine:
                 valid_actions.extend(['LA', 'RA'])
 
             # FIXME: special rule to account for oracle errors
-            elif self.get_top_of_stack()[0] == 'me':    
+            elif self.get_top_of_stack()[0] == 'me':
                 valid_actions.extend(['RA(mode)'])
 
         # If not valid action indices machine is closed, output EOL

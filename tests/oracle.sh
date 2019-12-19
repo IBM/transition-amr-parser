@@ -3,7 +3,9 @@ set -o pipefail
 set -o errexit 
 
 [ ! -d scripts/ ] && echo "Call as scripts/$(basename $0)" && exit 1
-. scripts/local_variables.sh
+
+# load local variables used below
+. set_environment.sh
 
 # TRAIN
 [ ! -d ${oracle_folder}/ ] && mkdir ${oracle_folder}/
@@ -40,7 +42,7 @@ fi
 # DEV
 
 # ATTENTION: To pass the tests the dev test must have alignments as those
-# obatined with the preprocessing described in README
+# obtained with the preprocessing described in README
 
 # create oracle data
 echo "Generating Oracle"
