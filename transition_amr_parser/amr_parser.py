@@ -65,7 +65,7 @@ class AMRParser():
         return model
 
     def get_embeddings(self, tokens):
-        Features = extract_features_aligned_to_words(self.roberta, tokens=tokens, use_all_layers=True, return_all_hiddens=True)
+        features = extract_features_aligned_to_words(self.roberta, tokens=tokens, use_all_layers=True, return_all_hiddens=True)
         embeddings = []
         for tok in features:
             if str(tok) not in ['<s>', '</s>']:
