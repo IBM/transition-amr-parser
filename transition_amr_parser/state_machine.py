@@ -62,7 +62,7 @@ def get_spacy_lemmatizer():
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
-                 actions_by_stack_rules=None, amr_graph=True, 
+                 actions_by_stack_rules=None, amr_graph=True,
                  spacy_lemmatizer=None):
         """
         TODO: action_list containing list of allowed actions should be
@@ -243,7 +243,7 @@ class AMRStateMachine:
             for items in self.amr.edges:
                 i, label, j = items
                 edges_str.append(
-                    "%s %s %s" % 
+                    "%s %s %s" %
                     (self.amr.nodes[i], blue_font(label), self.amr.nodes[j])
                 )
             edges_str = "\n".join(edges_str)
@@ -396,7 +396,7 @@ class AMRStateMachine:
         """Return valid actions for this state at test time"""
 
         # Quick exit for a closed machine
-        if self.is_closed: 
+        if self.is_closed:
             return ['</s>']
 
         valid_actions = []
