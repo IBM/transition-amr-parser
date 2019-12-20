@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import spacy
 
 from transition_amr_parser.state_machine import AMRStateMachine, get_spacy_lemmatizer
 import transition_amr_parser.stack_lstm as sl
@@ -44,12 +43,8 @@ class AMRModel(torch.nn.Module):
 
         self.possible_predicates = oracle_stats["possible_predicates"]
 
-        try:
-            self.lemmatizer = spacy.load('en', disable=['parser', 'ner'])
-            self.lemmatizer.tokenizer = utils.NoTokenizer(self.lemmatizer.vocab)
-        except OSError:
-            self.lemmatizer = None
-            utils.print_log('parser', "Warning: Could not load Spacy English model. Please install with 'python -m spacy download en'.")
+        # Load spacy lemmatizer if needed
+        self.lemmatizer = get_spacy_lemmatizer()
 
         self.state_dim = 3 * hidden_dim + (hidden_dim if use_attention else 0) \
             + (hidden_dim if self.use_function_words_all else 0)
