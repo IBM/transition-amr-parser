@@ -5,7 +5,7 @@ Pytorch implementation of a transition-based parser for Abstract Meaning Represe
 
 ## Using the Parser
 
-- to install through the Watson-NLP artifactory, see the wiki
+- to install through the Watson-NLP artifactory, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-the-python-package-through-Artifactory)
 - to install the parser manually, see [Manual Install](#manual-install)
 
 Before using the parser, please refer the [Tokenizer](#tokenizer) section on what tokenizer to use.
