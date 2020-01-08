@@ -7,6 +7,8 @@ set_environment.sh
 # external tools
 smatch/
 amr-evaluation/
+pytorch_scatter/
+fairseq/
 
 # virtual environments
 .python-version
