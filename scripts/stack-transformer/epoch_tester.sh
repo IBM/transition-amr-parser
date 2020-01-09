@@ -45,7 +45,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     fairseq-generate $fairseq_generate_args --quiet --path $test_model --results-path ${std_name}
     
     # will come to bite us in the future
-    amr-parse \
+    amr-fake-parse \
         --in-sentences $extracted_oracle_folder/${data_set}_extracted/dev.en \
         --in-actions ${std_name}.actions \
         --out-amr ${std_name}.amr 
