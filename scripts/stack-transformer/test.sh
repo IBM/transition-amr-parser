@@ -32,7 +32,7 @@ model_folder=$(dirname $test_model)
 
 # FIXME: We linked dev to test to handle fairseqs hardwired variables. Probably
 # will come to bite us in the future
-amr-parse \
+amr-fake-parse \
     --in-sentences $extracted_oracle_folder/${data_set}_extracted/dev.en \
     --in-actions $model_folder/test.actions \
     --out-amr $model_folder/test.amr \
