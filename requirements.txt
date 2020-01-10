@@ -2,4 +2,6 @@ torch==1.1.0
 h5py==2.10.0
 spacy==2.2.3
 tqdm==4.39.0
-# fairseq==0.8.0
+# MNLP internal versions installed symbolically and pointing to specific git commits
+-e git+git@github.ibm.com:ramon-astudillo/fairseq.git@ee812936bffa5fad0625d4e21f485183eeadf44c#egg=fairseq
+-e git+git@github.ibm.com:mnlp/smatch.git@f728c3d3f4a71b44678224d6934c1e67c4d37b89#egg=smatch
