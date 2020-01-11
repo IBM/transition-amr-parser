@@ -44,6 +44,7 @@ def argument_parser():
     parser.add_argument('--start_epoch', type=int, default=0, help='start epoch idx')
     parser.add_argument('--write_actions', action='store_true', help='whether to output predicted actions')
     parser.add_argument('--write_gold_actions', help='file to output gold actions')
+    parser.add_argument('--write_rule_stats', help='file to output rule stats')
     parser.add_argument('--read_gold_actions', help='use gold actions from this file')
     parser.add_argument('--load_model', help='use parameters file to initialize modal')
     parser.add_argument('--confusion', action='store_true', help='write confusion matrix')
@@ -145,7 +146,8 @@ def main():
         oracle.runOracle(
             cr.amrs,
             add_unaligned=add_unaligned,
-            out_actions=args.write_gold_actions
+            out_actions=args.write_gold_actions,
+            out_rule_stats=args.write_rule_stats
         )
 
     train_amrs = oracle.gold_amrs
