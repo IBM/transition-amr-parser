@@ -2,7 +2,7 @@ import re
 import json as JSON
 import sys
 from collections import Counter
-from amr import JAMR_CorpusReader, AMR
+from transition_amr_parser.amr import JAMR_CorpusReader, AMR
 
 entity_rules_json = {}
 
