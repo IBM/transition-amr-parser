@@ -136,6 +136,9 @@ class AMRStateMachine:
             print('INIT')
             print(self.printStackBuffer())
 
+    def get_stack_buffer(self): 
+        return self.buffer, self.stack 
+
     def __str__(self):
         """Command line styling"""
 
