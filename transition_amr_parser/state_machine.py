@@ -136,8 +136,9 @@ class AMRStateMachine:
             print('INIT')
             print(self.printStackBuffer())
 
-    def get_stack_buffer(self): 
-        return self.buffer, self.stack 
+    def get_buffer_stack_copy(self): 
+        """Return copy of buffer and stack"""
+        return list(self.buffer), list(self.stack)
 
     def __str__(self):
         """Command line styling"""
