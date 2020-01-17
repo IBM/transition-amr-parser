@@ -51,7 +51,8 @@ def vectorize_words(model, words, training=True, random_replace=None, gpu=False)
     if random_replace:
         words = vectorize_random_replace([words], model.word2idx, model.word2idx['<unk>'], random_replace, model.singletons)
     elif training:
-        words = vectorize([words], model.word2idx)
+        #words = vectorize([words], model.word2idx)
+        words = vectorize_safe([words], model.word2idx, model.word2idx['<unk>'])
     else:
         words = vectorize_safe([words], model.word2idx, model.word2idx['<unk>'])
     return torch.LongTensor(words).cuda() if gpu else torch.LongTensor(words)
@@ -68,7 +69,8 @@ def vectorize_safe(input_lines, word_dict, unk):
 
 
 def vectorize_random_replace(input_lines, word_dict, unk, rate, singletons):
-    lines = [[word_dict[w] for w in line] for line in input_lines]
+    #lines = [[word_dict[w] for w in line] for line in input_lines]
+    lines = [[word_dict.get(w,unk) for w in line] for line in input_lines]
     for i, sent in enumerate(lines):
         for j, word in enumerate(sent):
             if word in singletons:
@@ -98,10 +100,10 @@ def construct_dataset_train(model, correct_transitions, gpu=False):
         input_labelA.append(tr.labelsA)
         input_pred.append(tr.predicates)
 
-    labelsO = vectorize(input_labelO, model.labelsO2idx)
-    labelsA = vectorize(input_labelA, model.labelsA2idx)
-    actions = vectorize(input_action, model.action2idx)
-    preds = vectorize(input_pred, model.pred2idx)
+    labelsO = vectorize_safe(input_labelO, model.labelsO2idx, model.labelsO2idx['<pad>'])
+    labelsA = vectorize_safe(input_labelA, model.labelsA2idx, model.labelsA2idx['<pad>'])
+    actions = vectorize_safe(input_action, model.action2idx, model.action2idx['<pad>'])
+    preds = vectorize_safe(input_pred, model.pred2idx, model.pred2idx['<pad>'])
 
     dataset = AMRDataset(input_idxs,
                          [torch.LongTensor(l).cuda() if gpu else torch.LongTensor(l) for l in labelsO],
