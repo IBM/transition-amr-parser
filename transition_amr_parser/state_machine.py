@@ -542,6 +542,13 @@ class AMRStateMachine:
 
         return valid_action_indices
 
+    # forward compatibility aliases
+    def update(self, act):
+        self.applyAction(act)
+
+    def get_annotations(self):
+        return self.amr.toJAMRString()
+
     def SHIFT(self, shift_label=None):
         """SHIFT : move buffer[-1] to stack[-1]"""
 

@@ -497,24 +497,25 @@ class AMR_Oracle:
             if out_oracle:
                 # to avoid printing
                 oracle_write(str(tr))
+            # JAMR format AMR
             amr_write(tr.amr.toJAMRString())
+            # Tokens and actions
+            # extra tag to be reduced at start 
+            tokens = tr.amr.tokens
+            actions = tr.actions
+            # separator
             if no_whitespace_in_actions:
-                sentence_write(" ".join(tr.amr.tokens))
+                sep = " "
             else:
-                sentence_write("\t".join(tr.amr.tokens))
-            # TODO: Make sure this normalizing strategy is denornalized
-            # elsewhere
-            if no_whitespace_in_actions:
-                actions = " ".join([a for a in tr.actions])
-            else:
-                # used in stack-LSTM
-                actions = "\t".join([a for a in tr.actions])
+                sep = "\t"
+            tokens = sep.join(tokens)
+            actions = sep.join(actions)
+            # Write
+            sentence_write(tokens)
             actions_write(actions)
+
             # Update action count
-            if no_whitespace_in_actions:
-                self.stats['action_vocabulary'].update(actions.split())
-            else:
-                self.stats['action_vocabulary'].update(actions.split("\t"))
+            self.stats['action_vocabulary'].update(tr.actions)
             del gold_amr.nodes[-1]
 
         print_log("oracle", "Done")

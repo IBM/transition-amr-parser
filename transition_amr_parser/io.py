@@ -12,6 +12,11 @@ def read_rule_stats(rule_stats_json):
     return rule_stats
 
 
+def write_rule_stats(rule_stats_json, content):
+    with open(rule_stats_json, 'w') as fid:
+        fid.write(json.dumps(content))
+
+
 def read_propbank(propbank_file):
 
     # Read frame argument description
@@ -65,12 +70,18 @@ def tokenized_sentences_egenerator(file_path):
             yield line.rstrip().split()
 
 
-def read_tokenized_sentences(file_path):
+def read_tokenized_sentences(file_path, separator=' '):
     sentences = []
     with open(file_path) as fid:
         for line in fid:
-            sentences.append(line.rstrip().split())
+            sentences.append(line.rstrip().split(separator))
     return sentences
+
+
+def write_tokenized_sentences(file_path, content, separator=' '):
+    with open(file_path, 'w') as fid:
+        for line in content:
+            fid.write(f'{separator.join(line)}\n')
 
 
 def read_sentences(file_path, add_root_token=False):
