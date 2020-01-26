@@ -293,7 +293,17 @@ def read_multitask_words(multitask_list):
     return multitask_words
 
 
-def get_multitask_actions(max_symbols, tokenized_corpus):
+def label_shift(state_machine, multitask_words):
+    # TODO: Legacy numbering
+    buffer, _ = state_machine.get_buffer_stack_copy()
+    top_of_buffer = state_machine.tokens[buffer[-1] - 1]
+    if top_of_buffer in multitask_words:
+        return f'SHIFT({top_of_buffer})'
+    else:
+        return 'SHIFT'
+
+
+def get_multitask_actions(max_symbols, tokenized_corpus, add_root=False):
 
     word_count = Counter()
     for sentence in tokenized_corpus:
@@ -304,8 +314,10 @@ def get_multitask_actions(max_symbols, tokenized_corpus):
         word_count.items(),
         key=lambda x: x[1])
     )[-max_symbols:])
-    # Add root regardless
-    allowed_words.update({'ROOT': word_count['ROOT']})
+
+    if add_root:
+        # Add root regardless
+        allowed_words.update({'ROOT': word_count['ROOT']})
 
     return allowed_words
 
@@ -478,10 +490,7 @@ class AMR_Oracle:
 
                 # Add prediction ot top of the buffer
                 if action == 'SHIFT' and multitask_words is not None:
-                    # top of buffer
-                    top_of_buffer = tr.amr.tokens[tr.buffer[-1] - 1]
-                    if top_of_buffer in multitask_words:
-                        action = f'SHIFT({top_of_buffer})'
+                    action = label_shift(tr, multitask_words)
 
                 # APPLY ACTION
                 tr.applyAction(action)
@@ -970,6 +979,36 @@ class AMR_Oracle:
         return False
 
 
+def process_multitask_words(tokenized_corpus, multitask_max_words, 
+                            in_multitask_words, out_multitask_words,
+                            add_root=False):
+
+    # Load/Save words for multi-task
+    if multitask_max_words:
+        assert multitask_max_words
+        assert out_multitask_words
+        # get top words
+        multitask_words = get_multitask_actions(
+            multitask_max_words,
+            tokenized_corpus,
+            add_root=add_root
+        )
+        # store in file
+        with open(out_multitask_words, 'w') as fid:
+            for word in multitask_words.keys():
+                fid.write(f'{word}\n')
+    elif in_multitask_words:
+        assert not multitask_max_words
+        assert not out_multitask_words
+        # store in file
+        with open(in_multitask_words) as fid:
+            multitask_words = [line.strip() for line in fid.readlines()]
+    else:
+        multitask_words = None
+
+    return multitask_words
+
+
 def main():
 
     # Argument handling
@@ -996,27 +1035,14 @@ def main():
     else:
         propbank_args = None
 
-    # Load/Save words for multi-task
-    if args.multitask_max_words:
-        assert args.multitask_max_words
-        assert args.out_multitask_words
-        # get top words
-        multitask_words = get_multitask_actions(
-            args.multitask_max_words,
-            [list(amr.tokens) for amr in corpus.amrs]
-        )
-        # store in file
-        with open(args.out_multitask_words, 'w') as fid:
-            for word in multitask_words.keys():
-                fid.write('{word}\n')
-    elif args.in_multitask_words:
-        assert not args.multitask_max_words
-        assert not args.out_multitask_words
-        # store in file
-        with open(args.in_multitask_words) as fid:
-            multitask_words = [line.strip() for line in fid.readlines()]
-    else:
-        multitask_words = None
+    # read/write multi-task (labeled shift) action 
+    multitask_words = process_multitask_words(
+        [list(amr.tokens) for amr in corpus.amrs],
+        args.multitask_max_words,
+        args.in_multitask_words,
+        args.out_multitask_words,
+        add_root=True
+    )
 
     # TODO: At the end, an oracle is just a parser with oracle info. This could
     # be turner into a loop similar to parser.py (ore directly use that and a
