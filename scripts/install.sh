@@ -11,7 +11,6 @@ set -o nounset
 pip install -r fairseq/requirements.txt
 pip install --editable fairseq/
 
-# Install requirements nad main module by separate. This is needed for
-# compatibility with PPC installer
-pip install -r requirements.txt
+# this repo without the dependencies (included in fairseq)
+sed '/install_requires=install_requires,/d' -i setup.py
 pip install --editable .
