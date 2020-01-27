@@ -14,3 +14,10 @@ pip install --editable fairseq/
 # this repo without the dependencies (included in fairseq)
 sed '/install_requires=install_requires,/d' -i setup.py
 pip install --editable .
+
+# smatch
+[ ! -d smatch ] && git clone git@github.ibm.com:mnlp/smatch.git
+cd smatch
+git checkout f728c3d3f4a71b44678224d6934c1e67c4d37b89
+cd ..
+pip install smatch/
