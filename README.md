@@ -47,7 +47,12 @@ The code has been tested on Python `3.6` to install
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
 # here optionally activate your virtual environment
-bash scripts/install.sh
+pip install .
+# download spacy lemmatization data
+python -m spacy download en
+# optional smatch tools for AMR score evaluation
+git clone git@github.ibm.com:mnlp/smatch.git
+pip install smatch/
 ```
 
 This will pip install the repo in `--editable` mode, and download necessary
