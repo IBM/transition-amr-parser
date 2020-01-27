@@ -1,21 +1,24 @@
 import os
 from setuptools import setup, find_packages
-try:  # for pip >=12
-    from pip._internal.req import parse_requirements
-    from pip._internal import download
-except ImportError:  # for pip <= 9.0.3
-    from pip.req import parse_requirements
-    from pip import download
 
 VERSION = '0.1.0'
 
-install_reqs = parse_requirements(
-    "requirements.txt", session=download.PipSession()
-)
-install_requires = [str(ir.req) for ir in install_reqs]
+package_data = {
+    'transition_amr_parser': [
+        'config.json',
+        'entity_rules.json',
+        'train.rules.json'
+     ]
+}
 
-package_data = {'transition_amr_parser':['config.json','entity_rules.json','train.rules.json']}
-data_files = [('',['requirements.txt'])]
+# this is what usually goes on requirements.txt
+install_requires = [
+    'torch==1.1.0',
+    'h5py==2.10.0',
+    'spacy==2.2.3',
+    'tqdm==4.39.0',
+    'fairseq==0.8.0'
+]
 
 setup(
     name='transition_amr_parser',
@@ -33,5 +36,4 @@ setup(
     packages=find_packages(),
     install_requires=install_requires,
     package_data=package_data,
-    data_files=data_files
 )
