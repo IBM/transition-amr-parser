@@ -47,11 +47,37 @@ The code has been tested on Python `3.6` to install
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
 # here optionally activate your virtual environment
-bash scripts/install.sh
+pip install --editable .
 ```
 
-This will pip install the repo in `--editable` mode, and download necessary
-SpaCy and Smatch tools.
+This will pip install the repo in `--editable` mode. You will also need to
+download smatch toos if you want to run evaluations
+
+```bash
+git clone git@github.ibm.com:mnlp/smatch.git
+pip install smatch/
+```
+
+The spacy tools will be updated on first use. To do this manually do
+
+```bash
+python -m spacy download en
+```
+
+## Manual Install on CCC
+
+There are also install scripts for the CCC with an environment activator. Just
+copty the environment
+
+    cp /dccstor/ykt-parse/ramast/modular_semantic_parser/set_environment.sh .
+
+and run the install script for the `x86` machines
+
+    bash scripts/install.sh
+
+or the power pc ones
+
+    bash scripts/install_ppc.sh
 
 ## Training your Model
 
