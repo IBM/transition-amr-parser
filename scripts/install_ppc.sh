@@ -36,6 +36,7 @@ cd ..
 # this repo without the dependencies (included in fairseq/dcc/ccc_pcc_fairseq.yml)
 sed '/install_requires=install_requires,/d' -i setup.py
 pip install --editable . 
+
 # smatch
 [ ! -d smatch ] && git clone git@github.ibm.com:mnlp/smatch.git
 cd smatch
