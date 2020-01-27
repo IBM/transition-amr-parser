@@ -1,6 +1,0 @@
-torch==1.1.0
-h5py==2.10.0
-spacy==2.2.3
-tqdm==4.39.0
-# symbolic install of IBM internal version
--e git+git@github.ibm.com:mnlp/smatch.git@f728c3d3f4a71b44678224d6934c1e67c4d37b89#egg=smatch
