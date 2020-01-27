@@ -13,6 +13,7 @@ fairseq/
 # virtual environments
 .python-version
 venv/
+cenv/
 
 # other
 __pycache__/
@@ -24,3 +25,6 @@ data/
 
 # python package
 dist/
+
+# cluster tools
+jbsub_logs/
