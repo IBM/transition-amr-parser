@@ -2,7 +2,7 @@ set -o errexit
 set -o pipefail
 
 # set host architecture
-[ -z "$1" ] && echo -e "\nProvide queue e.g. x86_24h or pcc_6h\n" && exit 1
+[ -z "$1" ] && echo -e "\nProvide queue e.g. x86_24h or ppc_6h\n" && exit 1
 queue=$1
 
 set -o nounset
