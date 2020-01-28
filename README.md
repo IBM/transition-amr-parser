@@ -69,7 +69,7 @@ python -m spacy download en
 There are also install scripts for the CCC with an environment activator. Just
 copty the environment
 
-    cp /dccstor/ykt-parse/ramast/modular_semantic_parser/set_environment.sh .
+    cp /dccstor/ykt-parse/ramast/transition-amr-parser/set_environment.sh .
 
 and run the install script for the `x86` machines
 
@@ -78,6 +78,11 @@ and run the install script for the `x86` machines
 or the power pc ones
 
     bash scripts/install_ppc.sh
+
+to check if the install worked
+
+    . set_environment.sh
+    python tests/correctly_installed.py
 
 ## Training your Model
 
