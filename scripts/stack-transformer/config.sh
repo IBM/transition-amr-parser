@@ -1,9 +1,12 @@
 # Set variables and environment for a give experiment
 set -o errexit
 set -o pipefail
-#set -o nounset
+set -o nounset
 
-# Tag (this should be a short as possible as it will be used in the dcc)
+# AMR ORACLE
+amr_train_file=/dccstor/multi-parse/amr/2016/jkaln_2016_scr.txt 
+amr_dev_file=/dccstor/ykt-parse/AMR/2016data/dev.txt.removedWiki.noempty.JAMRaligned 
+amr_test_file=/dccstor/ykt-parse/AMR/2016data/test.txt.removedWiki.noempty.JAMRaligned
 
 # DATA
 # 1 billion corpus
@@ -44,11 +47,6 @@ data_set=AMR_2016data_oracle3+Word100
 #prepro_tag=LDC2016_prepro_o4+Word100
 #data_set=AMR_2016data_oracle4+Word100
 
-# AMR ORACLE
-amr_train_file=/dccstor/multi-parse/amr/2016/jkaln_2016_scr.txt 
-amr_dev_file=/dccstor/ykt-parse/AMR/2016data/dev.txt.removedWiki.noempty.JAMRaligned 
-amr_test_file=/dccstor/ykt-parse/AMR/2016data/test.txt.removedWiki.noempty.JAMRaligned
-
 # where the oracle data has bee extracted
 # bash dcc/extract_AMR_data.sh
 oracle_folder=$extracted_oracle_folder/${data_set}_extracted/
@@ -70,6 +68,8 @@ fairseq_preprocess_args="
     --testpref ${oracle_folder}/test
     --destdir $features_folder
     --workers $num_cores
+    --machine-type AMR \
+    --machine-rules $oracle_folder/train.rules.json \
     $fp16
 "
 # to restrict vocabulary
@@ -135,6 +135,8 @@ test_basename=checkpoint_best.pt
 fairseq_generate_args="
     $features_folder 
     --gen-subset valid
+    --machine-type AMR 
+    --machine-rules $oracle_folder/train.rules.json \
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe
