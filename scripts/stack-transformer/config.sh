@@ -10,7 +10,8 @@ set -o pipefail
 #extracted_oracle_folder=/dccstor/ramast1/_DATA/1B_Parsed/
 #extracted_oracle_folder=/dccstor/ykt-parse/1B-Parsed/
 #extracted_oracle_folder=/dccstor/ramast1/_DATA/
-extracted_oracle_folder=/dccstor/ykt-parse/ramast/stack-transformer/DATA/
+#extracted_oracle_folder=/dccstor/ykt-parse/ramast/stack-transformer/DATA/
+extracted_oracle_folder=data/
 
 # normal PTB
 #prepro_tag=PTB
@@ -43,10 +44,6 @@ data_set=AMR_2016data_oracle3+Word100
 #prepro_tag=LDC2016_prepro_o4+Word100
 #data_set=AMR_2016data_oracle4+Word100
 
-# use fp16=--fp16 for V100
-#fp16=--fp16
-fp16=""
-
 # AMR ORACLE
 amr_train_file=/dccstor/multi-parse/amr/2016/jkaln_2016_scr.txt 
 amr_dev_file=/dccstor/ykt-parse/AMR/2016data/dev.txt.removedWiki.noempty.JAMRaligned 
@@ -55,6 +52,10 @@ amr_test_file=/dccstor/ykt-parse/AMR/2016data/test.txt.removedWiki.noempty.JAMRa
 # where the oracle data has bee extracted
 # bash dcc/extract_AMR_data.sh
 oracle_folder=$extracted_oracle_folder/${data_set}_extracted/
+
+# use fp16=--fp16 for V100
+#fp16=--fp16
+fp16=""
 
 # PREPROCESSING
 # jbsub will solicit same number of cores. Use 10 for large corpora.
@@ -95,7 +96,7 @@ base_model=stack_transformer_6x6_nopos
 #train_tag=stnp6x6_ostack
 #base_model=stack_transformer_6x6_only_stack_nopos
 
-num_seeds=3
+num_seeds=1
 # use ="--lazy-load" for very large corpora (data does not fit into RAM)
 do_lazy_load=""
 # note that --save-dir is specified inside dcc/train.sh to account for the seed
@@ -133,6 +134,7 @@ test_tag="${train_tag}_beam${beam_size}"
 test_basename=checkpoint_best.pt
 fairseq_generate_args="
     $features_folder 
+    --gen-subset valid
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe
