@@ -1,6 +1,3 @@
-"""
-This is a set of usual checks for the repo installation
-"""
 import torch
 import subprocess
 from torch.utils.cpp_extension import CUDAExtension
@@ -30,7 +27,7 @@ def check_cuda_torch_binary_vs_bare_metal():
 
 
 if __name__ == '__main__':
-    
+
     # Pytorch and CUDA
     assert torch.cuda.is_available(), "No CUDA available"
     print(f'pytorch {torch.__version__}') 
