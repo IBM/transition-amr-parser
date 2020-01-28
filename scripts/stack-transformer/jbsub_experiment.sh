@@ -49,12 +49,6 @@ for index in $(seq $num_seeds);do
 
 done
 
-# sanity check: extracted stack-Transformer data
-[ ! -f "$extracted_oracle_folder/${data_set}_extracted/train.en" ] && \
-    echo "Did you run scripts/stack-transformer/extract.sh in stack-Transformer?" && \
-    echo "missing $extracted_oracle_folder/${data_set}_extracted/train.en" && \
-    exit
-
 echo "stage-1: Preprocess"
 if [ ! -f "$features_folder/train.en-actions.actions.bin" ];then
 

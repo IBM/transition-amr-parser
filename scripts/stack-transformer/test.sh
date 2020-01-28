@@ -34,14 +34,14 @@ model_folder=$(dirname $test_model)
 # will come to bite us in the future
 amr-fake-parse \
     --in-sentences $extracted_oracle_folder/${data_set}_extracted/dev.en \
-    --in-actions $model_folder/test.actions \
-    --out-amr $model_folder/test.amr \
+    --in-actions $model_folder/valid.actions \
+    --out-amr $model_folder/valid.amr \
 
 python smatch/smatch.py \
      --significant 4  \
      -f $amr_dev_file \
-     $model_folder/test.amr \
+     $model_folder/valid.amr \
      -r 10 \
-     > $model_folder/test.smatch
+     > $model_folder/valid.smatch
 
-cat $model_folder/test.smatch
+cat $model_folder/valid.smatch
