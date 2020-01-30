@@ -1,47 +1,53 @@
 set -o errexit 
 set -o pipefail
-# set -o nounset 
-
+# setup environment
+. set_environment.sh
 # Argument handling
 config=$1
-test_model=$2
-
-[ -z "$config" ] && echo -e "\ntest.sh <config> <model_checkpoint>\n" && exit 1
-[ -z "$test_model" ] && echo -e "\ntest.sh <config> <model_checkpoint>\n" && exit 1
+checkpoint=$2
+[ -z "$config" ] && \
+    echo -e "\ntest.sh <config> <model_checkpoint>\n" && \
+    exit 1
+[ -z "$checkpoint" ] && \
+    echo -e "\ntest.sh <config> <model_checkpoint>\n" && \
+    exit 1
+set -o nounset 
 
 # Load config
 . "$config"
 
-# setup environment
-. set_environment.sh
+results_folder=$(dirname $checkpoint)/$TEST_TAG/
 
-# this is given by calling script to iterate over seeds
+mkdir -p $results_folder
 
 # decode 
-echo "fairseq-generate $fairseq_generate_args --path $test_model"
-fairseq-generate $fairseq_generate_args --path $test_model
+echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --path $checkpoint --results-path $results_folder"
+fairseq-generate $FAIRSEQ_GENERATE_ARGS \
+    --path $checkpoint \
+    --results-path $results_folder
 # to profile decoder
-# pip install line_profiler
-# decorate target function with @profile
-# call instead of fairseq-generate
-# kernprof -l generate.py $fairseq_generate_args --path $test_model
-# then you can consult details with 
+# 1. pip install line_profiler
+# 2. decorate target function with @profile
+# 3. call instead of fairseq-generate
+# kernprof -l generate.py $fairseq_generate_args --path $checkpoint
+# 4. then you can consult details with 
 # python -m line_profiler generate.py.lprof
 
-model_folder=$(dirname $test_model)
+model_folder=$(dirname $checkpoint)
 
-# FIXME: We linked dev to test to handle fairseqs hardwired variables. Probably
-# will come to bite us in the future
+# Create the AMR from the model obtained actions
 amr-fake-parse \
-    --in-sentences $extracted_oracle_folder/${data_set}_extracted/dev.en \
-    --in-actions $model_folder/valid.actions \
-    --out-amr $model_folder/valid.amr \
+    --in-sentences $ORACLE_FOLDER/dev.en \
+    --in-actions $results_folder/valid.actions \
+    --out-amr $results_folder/valid.amr \
 
-python smatch/smatch.py \
+# Compute score
+smatch.py \
      --significant 4  \
-     -f $amr_dev_file \
-     $model_folder/valid.amr \
+     -f $AMR_DEV_FILE \
+     $results_folder/valid.amr \
      -r 10 \
-     > $model_folder/valid.smatch
+     > $results_folder/valid.smatch
 
-cat $model_folder/valid.smatch
+# show Smatch results
+cat $results_folder/valid.smatch

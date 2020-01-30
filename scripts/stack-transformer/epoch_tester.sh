@@ -1,18 +1,12 @@
-#set -o nounset
-#set -o pipefail
-#set -o errexit
-#set -o xtrace
-
-# seconds
-SLEEP_TIME=60
-
+set -o pipefail
+set -o errexit
+# setup environment
+. set_environment.sh
 checkpoints_folder=$1
 [ -z "$checkpoints_folder" ] && \
     echo -e "\nepoch_tester.sh <model_checkpoint>\n" && \
     exit 1
-
-# setup environment
-. set_environment.sh
+set -o nounset
 
 # Loop over existing checkpoints
 for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort -r);do
@@ -52,7 +46,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
         
     python smatch/smatch.py \
          --significant 4  \
-         -f $amr_dev_file \
+         -f $AMR_DEV_FILE \
          ${std_name}.amr \
          -r 10 \
          > ${std_name}.smatch
