@@ -35,12 +35,12 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
         # model was meanwhile deleted
         continue
     fi
-    echo "fairseq-generate $fairseq_generate_args --quiet --path $test_model --results-path ${std_name}"
-    fairseq-generate $fairseq_generate_args --quiet --path $test_model --results-path ${std_name}
+    echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}"
+    fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}
     
     # will come to bite us in the future
     amr-fake-parse \
-        --in-sentences $extracted_oracle_folder/${data_set}_extracted/dev.en \
+        --in-sentences $ORACLE_FOLDER/dev.en \
         --in-actions ${std_name}.actions \
         --out-amr ${std_name}.amr 
         
