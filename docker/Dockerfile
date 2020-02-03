@@ -6,7 +6,7 @@ ADD . /amr_parser
 WORKDIR /amr_parser
 
 # Model Location
-ENV MODEL_PATH "model/model.epoch40.params"
+ENV MODEL_PATH "models/model.epoch40.params"
 
 # GRPC Port (so that it can be set during run time)
 ENV GRPC_PORT "50051"
