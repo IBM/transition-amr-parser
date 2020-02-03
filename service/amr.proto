@@ -1,0 +1,22 @@
+syntax = "proto3";
+import "wordvec.proto";
+service AMRServer {
+    rpc process(AMRInput) returns(AMRResponse) {}
+};
+/** 
+ * This contains information about a sentence, used as input by the parser
+ */
+message AMRInput{
+    message WordInfo {
+        string token=1;
+        string lemma=2;
+    }
+    repeated WordInfo word_infos=1;
+    WordVectors word_vectors=2;
+};
+/** 
+ * The parser produces a single string with the amr parse of the sentence.
+ */
+message AMRResponse {
+    string amr_parse=1;
+}
