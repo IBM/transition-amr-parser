@@ -1,0 +1,25 @@
+syntax = "proto3";
+service WordVectorsServer {
+    rpc vectorize(VectorizeRequest) returns(WordVectors) {}
+}
+enum WordVectorType {
+    BERT_LARGE_EP5=0;
+}
+/** 
+ * Tokenized sentence
+ */
+message VectorizeRequest {
+    WordVectorType type=1;
+    repeated string tokens=2;
+}
+/** 
+ * Concatenated vector for the entire sentence. 
+ * 'size' must match the number of tokens.
+ */
+message WordVectors {
+    WordVectorType type=1;
+    int32 size=3;
+    int32 dimension=2;
+    // Concatenated full vectors 
+    repeated float data=4;
+}
