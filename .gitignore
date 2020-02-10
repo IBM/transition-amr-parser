@@ -15,6 +15,9 @@ fairseq/
 venv/
 cenv/
 
+# debug
+*.lprof
+
 # other
 __pycache__/
 transition_amr_parser.egg-info/
@@ -28,3 +31,7 @@ dist/
 
 # cluster tools
 jbsub_logs/
+
+# vim
+.vim/
+*.swp
