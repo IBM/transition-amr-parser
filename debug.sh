@@ -31,8 +31,14 @@ arguments="
 "
 
 # normall run
-#fairseq-train $arguments
+# to list profile decorators
+# grep -rl '@profile' fairseq/fairseq
+# to switich off profile decorators
+# grep -rl '@profile' fairseq/fairseq | xargs sed 's,@profile,#@profile,' -i
+fairseq-train $arguments
 
 # profiled
-kernprof -l fairseq/train.py $arguments
-python -m line_profiler train.py.lprof
+# to switch on profile decorators
+# grep -rl '@profile' fairseq/fairseq | xargs sed 's,#@profile,@profile,' -i
+#kernprof -l fairseq/train.py $arguments
+#python -m line_profiler train.py.lprof

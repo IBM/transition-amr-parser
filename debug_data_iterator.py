@@ -105,20 +105,20 @@ def main(args):
     # max positions
     max_positions = None
 
-    # Load dataset (possibly sharded)
-    import ipdb; ipdb.set_trace(context=30)
-    itr = task.get_batch_iterator(
-        dataset=task.dataset(args.gen_subset),
-        max_tokens=args.max_tokens,
-        max_sentences=args.max_sentences,
-        max_positions=max_positions,
-        ignore_invalid_inputs=args.skip_invalid_size_inputs_valid_test,
-        required_batch_size_multiple=args.required_batch_size_multiple,
-        num_shards=args.num_shards,
-        shard_id=args.shard_id,
-        num_workers=args.num_workers,
-        large_sent_first=False
-    ).next_epoch_itr(shuffle=False)
+#     # Load dataset (possibly sharded)
+#     import ipdb; ipdb.set_trace(context=30)
+#     itr = task.get_batch_iterator(
+#         dataset=task.dataset(args.gen_subset),
+#         max_tokens=args.max_tokens,
+#         max_sentences=args.max_sentences,
+#         max_positions=max_positions,
+#         ignore_invalid_inputs=args.skip_invalid_size_inputs_valid_test,
+#         required_batch_size_multiple=args.required_batch_size_multiple,
+#         num_shards=args.num_shards,
+#         shard_id=args.shard_id,
+#         num_workers=args.num_workers,
+#         large_sent_first=False
+#     ).next_epoch_itr(shuffle=False)
 
     dataset=task.dataset(args.gen_subset)
 

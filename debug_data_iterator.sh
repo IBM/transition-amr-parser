@@ -6,7 +6,7 @@ arguments="
     --batch-size 128
 "
 
-#python debug_data_iterator.py $arguments
+python debug_data_iterator.py $arguments
 
-kernprof -l debug_data_iterator.py $arguments
+#kernprof -l debug_data_iterator.py $arguments
 #python -m line_profiler debug_data_iterator.py.lprof
