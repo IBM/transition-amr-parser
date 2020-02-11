@@ -888,7 +888,6 @@ class AMRStateMachine:
                 del self.amr.nodes[n]
 
             # clean concepts
-            to_del = []
             for n in self.amr.nodes:
                 if self.amr.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
                     self.amr.nodes[n] = 'PUNCT'
