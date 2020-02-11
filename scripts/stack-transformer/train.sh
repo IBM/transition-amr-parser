@@ -27,3 +27,7 @@ echo "fairseq-train $FAIRSEQ_TRAIN_ARGS --seed $seed --save-dir $checkpoints_dir
 fairseq-train $FAIRSEQ_TRAIN_ARGS \
     --seed $seed \
     --save-dir $checkpoints_dir 
+
+# Debug version
+#kernprof -l train.py $FAIRSEQ_GENERATE_ARGS 
+#python -m line_profiler train.py.lprof
