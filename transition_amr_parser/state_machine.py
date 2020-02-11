@@ -871,7 +871,24 @@ class AMRStateMachine:
                 if item in self.amr.nodes and not any(item == s or item == t for s, r, t in self.amr.edges):
                     del self.amr.nodes[item]
             self.latent = []
+
+            # delete (reduce) the nodes that were never confirmed or attached
+            to_del = []
+            for n in self.amr.nodes:
+                found=False
+                if n in self.is_confirmed:
+                    found=True
+                else:
+                    for s, r, t in self.amr.edges:
+                        if n == s or n == t:
+                            found=True
+                if not found:
+                    to_del.append(n)
+            for n in to_del:
+                del self.amr.nodes[n]
+
             # clean concepts
+            to_del = []
             for n in self.amr.nodes:
                 if self.amr.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
                     self.amr.nodes[n] = 'PUNCT'
