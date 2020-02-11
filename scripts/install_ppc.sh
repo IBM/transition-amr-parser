@@ -18,7 +18,6 @@ set -o nounset
 cd fairseq
 #git checkout modular_semantic_parsing
 git checkout feature/fast-stack-transformer-training
-sed 's@ *- apex@# &@' -i dcc/ccc_pcc_fairseq.yml
 conda env update -f dcc/ccc_pcc_fairseq.yml
 pip install --editable .
 cd ..

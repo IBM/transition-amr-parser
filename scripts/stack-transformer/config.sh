@@ -78,6 +78,7 @@ FAIRSEQ_TRAIN_ARGS="
     --keep-last-epochs 40
     --max-tokens 3584
     --log-format json
+    --fp16
 "
 
 # TESTING
