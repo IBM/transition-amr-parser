@@ -1085,4 +1085,3 @@ def main():
             sum(entity_rule_totals.values())
         print_log('Totals:', f'{perc:.2f}')
         print_log('Totals:', 'Failed Entity Predictions:')
-        print_log('Totals:', entity_rule_fails.most_common(1000))
