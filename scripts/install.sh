@@ -8,8 +8,7 @@ set -o nounset
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
 cd fairseq
-#git checkout modular_semantic_parsing
-git checkout feature/fast-stack-transformer-training
+git checkout modular_semantic_parsing
 pip install -r requirements.txt
 pip install --editable .
 cd ..
