@@ -32,6 +32,10 @@ ORACLE_DEV_ARGS="
     --copy-lemma-action
 "
 
+# GPU
+# k80, v100 (3 times faster)
+gpu_type=v100
+
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
 PREPRO_TAG="RoBERTa-base"
