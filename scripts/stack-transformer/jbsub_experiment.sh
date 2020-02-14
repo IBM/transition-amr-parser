@@ -13,17 +13,6 @@ set -o nounset
 # use when softlinked elsewhere
 tools_folder=$(dirname $0)
 
-# Set GPU depending on the type of machine we are in
-if [[ "$queue" =~ ppc_.* ]];then
-    gpu_type=v100
-elif [[ "$queue" =~ x86_.* ]];then
-    gpu_type=k80
-else    
-    # Maybe using the old p9?
-    echo -e "\nUnknown queue $queue, must be x86_.*|ppc_.*\n"    
-    exit 1
-fi
-
 # create folder for each random seed and store a copy of the config there.
 # Refer to that config on all posterio calls
 for index in $(seq $NUM_SEEDS);do
