@@ -17,7 +17,6 @@ set -o nounset
 # Commented for now.
 cd fairseq
 git checkout modular_semantic_parsing
-sed 's@ *- apex@# &@' -i dcc/ccc_pcc_fairseq.yml
 conda env update -f dcc/ccc_pcc_fairseq.yml
 pip install --editable .
 cd ..
@@ -27,7 +26,6 @@ rm -Rf  pytorch_scatter
 git clone https://github.com/rusty1s/pytorch_scatter.git
 cd pytorch_scatter
 git checkout 1.3.2
-#conda install -y pytest-runner -c powerai
 # Ensure modern GCC
 export GCC_DIR=/opt/share/gcc-5.4.0/ppc64le/
 export PATH=/opt/share/cuda-9.0/ppc64le/bin:$GCC_DIR/bin:$PATH
@@ -36,9 +34,12 @@ export LD_LIBRARY_PATH=$GCC_DIR/lib64:$LD_LIBRARY_PATH
 python setup.py develop
 cd ..
 
-# this repo without the dependencies (included in fairseq/dcc/ccc_pcc_fairseq.yml)
+# AMR tools
+# without the dependencies (included in fairseq/dcc/ccc_pcc_fairseq.yml)
+cp setup.py _setup.py.saved
 sed '/install_requires=install_requires,/d' -i setup.py
 pip install --editable . 
+mv _setup.py.saved setup.py 
 
 # smatch
 [ ! -d smatch ] && git clone git@github.ibm.com:mnlp/smatch.git
