@@ -55,6 +55,10 @@ oracle_folder=$extracted_oracle_folder/${data_set}_extracted/
 #fp16=--fp16
 fp16=""
 
+# GPU
+# k40, k80, v100
+gpu_type=v100
+
 # PREPROCESSING
 # jbsub will solicit same number of cores. Use 10 for large corpora.
 num_cores=1
