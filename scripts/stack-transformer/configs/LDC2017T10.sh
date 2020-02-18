@@ -6,8 +6,10 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+TASK_TAG=AMR
+
 # All data stored here
-data_root=DATA/amr/
+data_root=DATA/$TASK_TAG/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
@@ -55,7 +57,7 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6_ppc
+TRAIN_TAG=stnp6x6
 base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=1
