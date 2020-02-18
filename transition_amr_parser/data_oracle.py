@@ -5,8 +5,7 @@ from collections import Counter, defaultdict
 from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
-from transition_amr_parser.io import writer, read_propbank
-from transition_amr_parser.amr import JAMR_CorpusReader
+from transition_amr_parser.io import writer, read_propbank, read_amr
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer,
@@ -33,14 +32,6 @@ from transition_amr_parser.state_machine import (
 """
 
 use_addnode_rules = True
-
-
-# Replacement rules for unicode chartacters
-replacement_rules = {
-    'ˈtʃærɪti': 'charity',
-    '\x96': '_',
-    '⊙': 'O'
-}
 
 
 def argument_parser():
@@ -1014,26 +1005,13 @@ def main():
     # Argument handling
     args = argument_parser()
 
-    # Load AMR
-    corpus = JAMR_CorpusReader()
-    corpus.load_amrs(args.in_amr)
-
-    # FIXME: normalization shold be more robust. Right now use the tokens of
-    # the amr inside the oracle. This is why we need to normalize them.
-    for idx, amr in enumerate(corpus.amrs):
-        new_tokens = []
-        for token in amr.tokens:
-            forbidden = [x for x in replacement_rules.keys() if x in token]
-            if forbidden:
-                token = token.replace(forbidden[0], replacement_rules[forbidden[0]])
-            new_tokens.append(token)
-        amr.tokens = new_tokens
+    # Load AMR (replace some unicode characters)
+    corpus = read_amr(args.in_amr, unicode_fixes=True)
 
     # Load propbank
+    propbank_args = None
     if args.in_propbank_args:
         propbank_args = read_propbank(args.in_propbank_args)
-    else:
-        propbank_args = None
 
     # read/write multi-task (labeled shift) action 
     multitask_words = process_multitask_words(
