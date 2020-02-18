@@ -34,13 +34,21 @@ class AMR:
         for n in self.nodes:
             alignment = ''
             if n in self.alignments and self.alignments[n]:
-                alignment = f'\t{self.alignments[n][0]-1}-{self.alignments[n][-1]}'
+                if type(self.alignments[n]) == int:
+                    alignment = f'\t{self.alignments[n]}-{self.alignments[n]+1}'
+                else:
+                    alignments_in_order = sorted(list(self.alignments[n]))
+                    alignment = f'\t{alignments_in_order[0]}-{alignments_in_order[-1]+1}'
             output += f'# ::node\t{n}\t{self.nodes[n] if n in self.nodes else "None"}' + alignment + '\n'
         # root
         root = self.root
         alignment = ''
         if root in self.alignments and self.alignments[root]:
-            alignment = f'\t{self.alignments[root][0]-1}-{self.alignments[root][-1]}'
+            if type(self.alignments[root]) == int:
+                alignment = f'\t{self.alignments[root]}-{self.alignments[root]+1}'
+            else:
+                alignments_in_order = sorted(list(self.alignments[root]))
+                alignment = f'\t{alignments_in_order[0]}-{alignments_in_order[-1]+1}'
         if self.root:
             output += f'# ::root\t{root}\t{self.nodes[root] if root in self.nodes else "None"}' + alignment + '\n'
         # edges

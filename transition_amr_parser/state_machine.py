@@ -575,9 +575,9 @@ class AMRStateMachine:
         # keep alignments
         token, merged_tokens = self.get_top_of_stack(positions=True)
         if merged_tokens:
-            self.alignments[tuple(merged_tokens)] = node_label
+            self.alignments[stack0] = tuple(merged_tokens)
         else:
-            self.alignments[token] = node_label
+            self.alignments[stack0] = token
 
         if self.verbose:
             print(f'PRED({node_label})')
@@ -599,9 +599,9 @@ class AMRStateMachine:
         # keep alignments
         token, merged_tokens = self.get_top_of_stack(positions=True)
         if merged_tokens:
-            self.alignments[tuple(merged_tokens)] = node_label
+            self.alignments[stack0] = tuple(merged_tokens)
         else:
-            self.alignments[token] = node_label
+            self.alignments[stack0] = token
 
         if self.verbose:
             print(f'COPY_LEMMA')
@@ -624,9 +624,9 @@ class AMRStateMachine:
         # keep alignments
         token, merged_tokens = self.get_top_of_stack(positions=True)
         if merged_tokens:
-            self.alignments[tuple(merged_tokens)] = node_label
+            self.alignments[stack0] = tuple(merged_tokens)
         else:
-            self.alignments[token] = node_label
+            self.alignments[stack0] = token
 
         if self.verbose:
             print(f'COPY_SENSE01')
@@ -752,9 +752,9 @@ class AMRStateMachine:
         # keep alignments
         token, merged_tokens = self.get_top_of_stack(positions=True)
         if merged_tokens:
-            self.alignments[tuple(merged_tokens)] = entity_type
+            self.alignments[head] = tuple(merged_tokens)
         else:
-            self.alignments[token] = entity_type
+            self.alignments[head] = token
 
         if self.verbose:
             print(f'ADDNODE({entity_type})')
@@ -862,6 +862,7 @@ class AMRStateMachine:
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
+        self.amr.alignments = self.alignments
         if self.verbose:
             print('CLOSE')
             print(self.printStackBuffer())
@@ -984,6 +985,9 @@ class AMRStateMachine:
             new_concepts = []
 
             entity_type = self.amr.nodes[entity_id]
+            model_entity_alignments = None
+            if entity_id in self.alignments:
+                model_entity_alignments = self.alignments[entity_id]
             if entity_type.startswith('('):
                 entity_type = entity_type[1:-1]
             entity_edges = [e for e in self.amr.edges if e[0] == entity_id and e[1] == 'entity']
@@ -1122,6 +1126,7 @@ class AMRStateMachine:
                     else:
                         self.amr.nodes[self.new_id] = tok.lower()
                     self.amr.edges.append((entity_id, rel, self.new_id))
+                    self.alignments[self.new_id] = model_entity_alignments
                     new_concepts.append(rel+' '+self.amr.nodes[self.new_id])
                     self.new_id += 1
                 if gold_amr and set(gold_concepts) == set(new_concepts):
@@ -1147,6 +1152,7 @@ class AMRStateMachine:
                     id_map[n] = entity_id if n == root else self.new_id
                     self.new_id += 1
                     self.amr.nodes[id_map[n]] = node_label
+                    self.alignments[id_map[n]] = model_entity_alignments
                     new_concepts.append(node_label)
                 for s, r, t in edges:
                     self.amr.edges.append((id_map[s], r, id_map[t]))
@@ -1181,6 +1187,7 @@ class AMRStateMachine:
                     id_map[n] = entity_id if n == root else self.new_id
                     self.new_id += 1
                     self.amr.nodes[id_map[n]] = node_map[node_label] if node_label in node_map else node_label
+                    self.alignments[id_map[n]] = model_entity_alignments
                     new_concepts.append(self.amr.nodes[id_map[n]])
                 for s, r, t in edges:
                     node_label = self.amr.nodes[id_map[t]]
@@ -1217,6 +1224,7 @@ class AMRStateMachine:
                             name_id = id_map[n]
                         self.new_id += 1
                         self.amr.nodes[id_map[n]] = node_label
+                        self.alignments[id_map[n]] = model_entity_alignments
                         new_concepts.append(node_label)
                     for s, r, t in edges:
                         self.amr.edges.append((id_map[s], r, id_map[t]))
@@ -1229,12 +1237,14 @@ class AMRStateMachine:
                     nodes.remove('name')
                     name_id = entity_id if len(nodes) == 0 else self.new_id
                     self.amr.nodes[name_id] = 'name'
+                    self.alignments[name_id] = model_entity_alignments
                     self.new_id += 1
                     if len(nodes) == 0:
                         new_concepts.append('name')
                     for j, node in enumerate(nodes):
                         new_id = entity_id if j == 0 else self.new_id
                         self.amr.nodes[new_id] = node
+                        self.alignments[new_id] = model_entity_alignments
                         if j == 0:
                             new_concepts.append(node)
                         self.new_id += 1
@@ -1254,6 +1264,7 @@ class AMRStateMachine:
                         continue
                     new_tok = '"' + tok[0].upper()+tok[1:] + '"'
                     self.amr.nodes[self.new_id] = new_tok
+                    self.alignments[self.new_id] = model_entity_alignments
                     rel = f':op{op_idx}'
                     self.amr.edges.append((name_id, rel, self.new_id))
                     new_concepts.append(rel+' ' + new_tok)
@@ -1273,6 +1284,7 @@ class AMRStateMachine:
                     continue
                 new_id = entity_id if idx == 0 else self.new_id
                 self.amr.nodes[new_id] = node
+                self.alignments[new_id] = model_entity_alignments
                 self.new_id += 1
                 if idx > 0:
                     self.amr.edges.append((prev_id, default_rel, new_id))
@@ -1285,6 +1297,7 @@ class AMRStateMachine:
                 if tok in ['(', ')', '']:
                     continue
                 self.amr.nodes[self.new_id] = tok.lower()
+                self.alignments[new_id] = model_entity_alignments
                 self.amr.edges.append((prev_id, default_rel, self.new_id))
                 new_concepts.append(default_rel+' ' + tok.lower())
                 self.new_id += 1
