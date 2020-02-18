@@ -3,6 +3,8 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+TASK_TAG=AMR
+
 # AMR ORACLE
 amr_train_file=/dccstor/ysuklee1/AMR/treebank/QB20200113/qb.jkaln
 amr_test_file=/dccstor/ykt-parse/AMR/2016data/dev.txt.removedWiki.noempty.JAMRaligned 
