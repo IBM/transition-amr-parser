@@ -13,15 +13,13 @@ set -o nounset
 
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
-# FIXME: Installing apex leads to FusedAdam error (missing parameter).
-# Commented for now.
 cd fairseq
 git checkout modular_semantic_parsing
 conda env update -f dcc/ccc_pcc_fairseq.yml
 pip install --editable .
 cd ..
 
-# pytorch scatter
+# install pytorch scatter
 rm -Rf  pytorch_scatter
 git clone https://github.com/rusty1s/pytorch_scatter.git
 cd pytorch_scatter

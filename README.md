@@ -69,15 +69,16 @@ python -m spacy download en
 There are also install scripts for the CCC with an environment activator. Just
 copty the environment
 
-    cp /dccstor/ykt-parse/ramast/transition-amr-parser/set_environment.sh .
+    cp /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/set_environment.sh .
 
-and run the install script for the `x86` machines
+This assumes conda is accesible on your PATH (see inside otherwise). Then to
+install in `x86` machines from a computing node do 
 
-    bash scripts/install.sh
+    scripts/install_x86_with_conda.sh
 
-or the power pc ones
+To install for PowerPC (you will need a ppc conda on your PATH!) just call
 
-    bash scripts/install_ppc.sh
+    scripts/install_ppc_with_conda.sh
 
 to check if the install worked
 
