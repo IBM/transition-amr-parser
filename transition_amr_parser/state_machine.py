@@ -75,15 +75,9 @@ class AMRStateMachine:
         # build and store amr graph (needed e.g. for oracle)
         self.amr_graph = amr_graph
 
-        # spacy tokenizer
-        # this is slow, so better initialize outside the sentence loop
-        if spacy_lemmatizer is None:
-            self.lemmatizer = get_spacy_lemmatizer()
-        else:
-            self.lemmatizer = spacy_lemmatizer
-        # compute lemmas for this sentence
-        self.lemmas = [x.lemma_ for x in self.lemmatizer(tokens[:-1])] + ['ROOT']
-        # self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
+        # spacy lemmatizer
+        self.spacy_lemmatizer = spacy_lemmatizer
+        self.lemmas = None
 
         # add unaligned
         if add_unaligned and '<unaligned>' not in self.tokens:
@@ -288,6 +282,12 @@ class AMRStateMachine:
         """
         # to get the lemma, we will need the positions
         if lemma:
+            # Compute lemmas for this sentence and cache it
+            if self.lemmas is None:
+                assert self.spacy_lemmatizer, "No spacy_lemmatizer provided"
+                self.lemmas = [
+                    x.lemma_ for x in spacy_lemmatizer(tokens[:-1])
+                ] + ['ROOT']
             positions = True
         token = None
         merged_tokens = None
