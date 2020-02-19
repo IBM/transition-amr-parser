@@ -13,9 +13,10 @@ data_root=DATA/$TASK_TAG/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
-AMR_TRAIN_FILE=/dccstor/multi-parse/amr/2016/jkaln_2016_scr.txt 
-AMR_DEV_FILE=/dccstor/ykt-parse/AMR/2016data/dev.txt.removedWiki.noempty.JAMRaligned 
-AMR_TEST_FILE=/dccstor/ykt-parse/AMR/2016data/test.txt.removedWiki.noempty.JAMRaligned
+# NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
+AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt 
+AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
+AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
 # --multitask-max-words --out-multitask-words --in-multitask-words
