@@ -47,7 +47,14 @@ class NoTokenizer(object):
 
 def get_spacy_lemmatizer():
     # TODO: Unclear why this configuration
-    lemmatizer = spacy.load('en', disable=['parser', 'ner'])
+    # from spacy.cli.download import download
+    try:
+        lemmatizer = spacy.load('en', disable=['parser', 'ner'])
+    except OSError:
+        # Assume the problem was the spacy models were not downloaded
+        from spacy.cli.download import download
+        download('en')
+        lemmatizer = spacy.load('en', disable=['parser', 'ner'])
     lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
     return lemmatizer
 
@@ -55,13 +62,18 @@ def get_spacy_lemmatizer():
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
-                 actions_by_stack_rules=None, spacy_lemmatizer=None):
+                 actions_by_stack_rules=None, amr_graph=True,
+                 spacy_lemmatizer=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
         """
 
-        tokens = tokens.copy()
+        # word tokens of sentence
+        self.tokens = tokens.copy()
+
+        # build and store amr graph (needed e.g. for oracle)
+        self.amr_graph = amr_graph
 
         # spacy tokenizer
         # this is slow, so better initialize outside the sentence loop
@@ -74,34 +86,35 @@ class AMRStateMachine:
         # self.lemmas = [self.lemmatizer([x])[0].lemma_ for x in tokens[:-1]] + ['ROOT']
 
         # add unaligned
-        if add_unaligned and '<unaligned>' not in tokens:
+        if add_unaligned and '<unaligned>' not in self.tokens:
             for i in range(add_unaligned):
-                tokens.append('<unaligned>')
+                self.tokens.append('<unaligned>')
         # add root
-        if '<ROOT>' not in tokens:
-            tokens.append("<ROOT>")
+        if '<ROOT>' not in self.tokens:
+            self.tokens.append("<ROOT>")
         # machine is active
         self.time_step = 0
         self.is_closed = False
         # init stack, buffer
         self.stack = []
         self.buffer = list(reversed([
-            i+1 for i, tok in enumerate(tokens) if tok != '<unaligned>'
+            i+1 for i, tok in enumerate(self.tokens) if tok != '<unaligned>'
         ]))
+        # add root
+        self.buffer[0] = -1
         self.latent = list(reversed([
-            i+1 for i, tok in enumerate(tokens) if tok == '<unaligned>'
+            i+1 for i, tok in enumerate(self.tokens) if tok == '<unaligned>'
         ]))
 
         # init amr
-        self.amr = AMR(tokens=tokens)
-        for i, tok in enumerate(tokens):
-            if tok != "<ROOT>":
-                self.amr.nodes[i+1] = tok
-        # add root
-        self.buffer[0] = -1
-        self.amr.nodes[-1] = "<ROOT>"
+        if self.amr_graph:
+            self.amr = AMR(tokens=self.tokens)
+            for i, tok in enumerate(self.tokens):
+                if tok != "<ROOT>":
+                    self.amr.nodes[i+1] = tok
+            self.amr.nodes[-1] = "<ROOT>"
 
-        self.new_id = len(tokens)+1
+        self.new_id = len(self.tokens) + 1
         self.verbose = verbose
         # parser target output
         self.actions = []
@@ -122,6 +135,10 @@ class AMRStateMachine:
         if self.verbose:
             print('INIT')
             print(self.printStackBuffer())
+
+    def get_buffer_stack_copy(self): 
+        """Return copy of buffer and stack"""
+        return list(self.buffer), list(self.stack)
 
     def __str__(self):
         """Command line styling"""
@@ -153,12 +170,16 @@ class AMRStateMachine:
         def reduced_style(string):
             return black_font(red_background(string))
 
+        display_str = ""
+
         # Actions
         action_str = ' '.join([a for a in self.actions])
+        # update display str
+        display_str += "%s\n%s\n\n" % (green_font("# Actions:"), action_str)
 
         # Buffer
         buffer_idx = [
-            i - 1 if i != -1 else len(self.amr.tokens) - 1
+            i - 1 if i != -1 else len(self.tokens) - 1
             for i in reversed(self.buffer)
         ]
 
@@ -169,10 +190,10 @@ class AMRStateMachine:
             if i in self.merged_tokens:
                 # Take into account merged tokens
                 stack_str.append("(" + " ".join([
-                    self.amr.tokens[j - 1] for j in self.merged_tokens[i]
+                    self.tokens[j - 1] for j in self.merged_tokens[i]
                 ]) + ")")
             else:
-                stack_str.append(self.amr.tokens[i])
+                stack_str.append(self.tokens[i])
         stack_str = " ".join(stack_str)
 
         merged_pos = [y - 1 for x in self.merged_tokens.values() for y in x]
@@ -180,9 +201,9 @@ class AMRStateMachine:
         # mask view
         mask_view = []
         pointer_view = []
-        for position in range(len(self.amr.tokens)):
+        for position in range(len(self.tokens)):
             # token
-            token = str(self.amr.tokens[position])
+            token = str(self.tokens[position])
             len_token = len(token)
             # color depending on position
             if position in buffer_idx:
@@ -204,41 +225,36 @@ class AMRStateMachine:
 
         mask_view_str = "".join(mask_view)
         pointer_view_str = "".join(pointer_view)
+        # update display str
+        display_str += "%s\n%s\n%s\n\n" % (green_font("# Buffer/Stack/Reduced:"), pointer_view_str, mask_view_str)
 
         # nodes
         # nodes_str = " ".join([x for x in self.predicates if x != '_'])
         node_items = []
         for pos, node in self.alignments.items():
             if isinstance(pos, tuple):
-                tokens = " ".join(self.amr.tokens[p] for p in pos)
+                tokens = " ".join(self.tokens[p] for p in pos)
             else:
-                tokens = self.amr.tokens[pos]
+                tokens = self.tokens[pos]
             node_items.append(f'({tokens}, {node})')
         nodes_str = " ".join(node_items)
+        # update display str
+        display_str += "%s\n%s\n\n" % (green_font("# Predicates:"), nodes_str)
 
         # Edges
-        edges_str = []
-        for items in self.amr.edges:
-            i, label, j = items
-            edges_str.append("%s %s %s" % (self.amr.nodes[i], blue_font(label), self.amr.nodes[j]))
-        edges_str = "\n".join(edges_str)
+        if self.amr_graph:
+            edges_str = []
+            for items in self.amr.edges:
+                i, label, j = items
+                edges_str.append(
+                    "%s %s %s" %
+                    (self.amr.nodes[i], blue_font(label), self.amr.nodes[j])
+                )
+            edges_str = "\n".join(edges_str)
+            # update display str
+            display_str += "%s\n%s\n" % (green_font("# Edges:"), edges_str)
 
-        return """
-%s\n%s\n\n
-%s\n%s\n%s\n\n
-%s\n%s\n\n
-%s\n%s\n
-        """ % (
-            green_font("# Actions:"),
-            action_str,
-            green_font("# Buffer/Stack/Reduced:"),
-            pointer_view_str,
-            mask_view_str,
-            green_font("# Predicates:"),
-            nodes_str,
-            green_font("# Edges:"),
-            edges_str
-        )
+        return display_str
 
     @classmethod
     def readAction(cls, action):
@@ -280,14 +296,14 @@ class AMRStateMachine:
             if positions:
                 token = stack0 - 1
             else:
-                token = str(self.amr.tokens[stack0 - 1])
+                token = str(self.tokens[stack0 - 1])
             # store merged tokens by separate
             if stack0 in self.merged_tokens:
                 if positions:
                     merged_tokens = [i - 1 for i in self.merged_tokens[stack0]]
                 else:
                     merged_tokens = [
-                        str(self.amr.tokens[i - 1])
+                        str(self.tokens[i - 1])
                         for i in self.merged_tokens[stack0]
                     ]
 
@@ -382,6 +398,11 @@ class AMRStateMachine:
 
     def get_valid_actions(self):
         """Return valid actions for this state at test time"""
+
+        # Quick exit for a closed machine
+        if self.is_closed:
+            return ['</s>']
+
         valid_actions = []
 
         # Buffer not empty
@@ -449,10 +470,6 @@ class AMRStateMachine:
             # FIXME: special rule to account for oracle errors
             elif self.get_top_of_stack()[0] == 'me':
                 valid_actions.extend(['RA(mode)'])
-
-        # If not valid action indices machine is closed, output EOL
-        if valid_actions == []:
-            valid_actions = ['</s>']
 
         return valid_actions
 
@@ -525,6 +542,13 @@ class AMRStateMachine:
 
         return valid_action_indices
 
+    # forward compatibility aliases
+    def update(self, act):
+        self.applyAction(act)
+
+    def get_annotations(self):
+        return self.amr.toJAMRString()
+
     def SHIFT(self, shift_label=None):
         """SHIFT : move buffer[-1] to stack[-1]"""
 
@@ -549,7 +573,7 @@ class AMRStateMachine:
 
         stack0 = self.stack.pop()
         # if stack0 has no edges, delete it from the amr
-        if stack0 != -1 and stack0 not in self.entities:
+        if self.amr_graph and stack0 != -1 and stack0 not in self.entities:
             if len([e for e in self.amr.edges if stack0 in e]) == 0:
                 if stack0 in self.amr.nodes:
                     del self.amr.nodes[stack0]
@@ -564,9 +588,8 @@ class AMRStateMachine:
     def CONFIRM(self, node_label):
         """CONFIRM : assign a propbank label"""
         stack0 = self.stack[-1]
-        # old_label = self.amr.nodes[stack0].split(',')[-1]
-        # old_label = old_label.replace(',','-COMMA-').replace(')','-PAREN-')
-        self.amr.nodes[stack0] = node_label
+        if self.amr_graph:
+            self.amr.nodes[stack0] = node_label
         self.actions.append(f'PRED({node_label})')
         self.labels.append('_')
         self.labelsA.append('_')
@@ -636,11 +659,12 @@ class AMRStateMachine:
         """LA : add an edge from stack[-1] to stack[-2]"""
 
         # Add edge to graph
-        self.amr.edges.append((
-            self.stack[-1],
-            f':{edge_label}' if edge_label != 'root' else 'root',
-            self.stack[-2],
-        ))
+        if self.amr_graph:
+            self.amr.edges.append((
+                self.stack[-1],
+                f':{edge_label}' if edge_label != 'root' else 'root',
+                self.stack[-2],
+            ))
         # keep track of other vars
         self.actions.append(f'LA({edge_label})')
         if edge_label != 'root':
@@ -656,11 +680,12 @@ class AMRStateMachine:
     def RA(self, edge_label):
         """RA : add an edge from stack[-2] to stack[-1]"""
         # Add edge to graph
-        self.amr.edges.append((
-            self.stack[-2],
-            f':{edge_label}' if edge_label != 'root' else 'root',
-            self.stack[-1]
-        ))
+        if self.amr_graph:
+            self.amr.edges.append((
+                self.stack[-2],
+                f':{edge_label}' if edge_label != 'root' else 'root',
+                self.stack[-1]
+            ))
         # keep track of other vars
         self.actions.append(f'RA({edge_label})')
         if edge_label != 'root':
@@ -687,37 +712,41 @@ class AMRStateMachine:
             self.merged_tokens[lead] = self.merged_tokens[sec] + self.merged_tokens[lead]
         else:
             self.merged_tokens[lead].insert(0, sec)
-        merged = ','.join(self.amr.tokens[x - 1].replace(',', '-COMMA-') for x in self.merged_tokens[lead])
+        merged = ','.join(self.tokens[x - 1].replace(',', '-COMMA-') for x in self.merged_tokens[lead])
 
-        for i, e in enumerate(self.amr.edges):
-            if e[1] == 'entity':
-                continue
-            if sec == e[0]:
-                self.amr.edges[i] = (lead, e[1], e[2])
-            if sec == e[2]:
-                self.amr.edges[i] = (e[0], e[1], lead)
+        if self.amr_graph:
 
-        # Just in case you merge entities. This shouldn't happen but might.
-        if lead in self.entities:
-            entity_edges = [e for e in self.amr.edges if e[0] == lead and e[1] == 'entity']
-            lead = [t for s, r, t in entity_edges][0]
-        if sec in self.entities:
-            entity_edges = [e for e in self.amr.edges if e[0] == sec and e[1] == 'entity']
-            child = [t for s, r, t in entity_edges][0]
+            for i, e in enumerate(self.amr.edges):
+                if e[1] == 'entity':
+                    continue
+                if sec == e[0]:
+                    self.amr.edges[i] = (lead, e[1], e[2])
+                if sec == e[2]:
+                    self.amr.edges[i] = (e[0], e[1], lead)
+
+            # Just in case you merge entities. This shouldn't happen but might.
+            # FIXME: Now this code only active if self.amr_graph = True
+            if lead in self.entities:
+                entity_edges = [e for e in self.amr.edges if e[0] == lead and e[1] == 'entity']
+                lead = [t for s, r, t in entity_edges][0]
+            if sec in self.entities:
+                entity_edges = [e for e in self.amr.edges if e[0] == sec and e[1] == 'entity']
+                child = [t for s, r, t in entity_edges][0]
+                del self.amr.nodes[sec]
+                for e in entity_edges:
+                    self.amr.edges.remove(e)
+                self.entities.remove(sec)
+                sec = child
+
+            # make tokens into a single node
             del self.amr.nodes[sec]
-            for e in entity_edges:
-                self.amr.edges.remove(e)
-            self.entities.remove(sec)
-            sec = child
+            self.amr.nodes[lead] = merged
 
-        # make tokens into a single node
-        del self.amr.nodes[sec]
-        self.amr.nodes[lead] = merged
+        elif lead in self.entities or sec in self.entities:
 
-        self.actions.append(f'MERGE')
-        self.labels.append('_')
-        self.labelsA.append('_')
-        self.predicates.append('_')
+            # see FIXME above
+            pass
+
         # if any token in this merged group is promoted, promote the rest
         # FIXME: sometimes lead is not in self.merged_tokens. Unclear why
         if (
@@ -726,6 +755,12 @@ class AMRStateMachine:
         ):
             for n in self.merged_tokens[lead]:
                 self.is_confirmed.add(n)
+
+        # update states
+        self.actions.append(f'MERGE')
+        self.labels.append('_')
+        self.labelsA.append('_')
+        self.predicates.append('_')
 
         if self.verbose:
             print(f'MERGE({self.amr.nodes[lead]})')
@@ -738,9 +773,10 @@ class AMRStateMachine:
         child_id = self.new_id
         self.new_id += 1
 
-        self.amr.nodes[child_id] = self.amr.nodes[head]
-        self.amr.nodes[head] = f'({entity_type})'
-        self.amr.edges.append((head, 'entity', child_id))
+        if self.amr_graph:
+            self.amr.nodes[child_id] = self.amr.nodes[head]
+            self.amr.nodes[head] = f'({entity_type})'
+            self.amr.edges.append((head, 'entity', child_id))
         self.entities.append(head)
 
         self.actions.append(f'ADDNODE({entity_type})')
@@ -768,11 +804,12 @@ class AMRStateMachine:
 
         edge_label = edge_label if edge_label.startswith(':') else ':'+edge_label
 
-        if node_id:
-            new_id = node_id
-        else:
-            self.amr.nodes[new_id] = node_label
-        self.amr.edges.append((head, edge_label, new_id))
+        if self.amr_graph:
+            if node_id:
+                new_id = node_id
+            else:
+                self.amr.nodes[new_id] = node_label
+            self.amr.edges.append((head, edge_label, new_id))
         self.new_id += 1
         self.actions.append(f'DEPENDENT({node_label},{edge_label.replace(":","")})')
         self.labels.append('_')
@@ -818,45 +855,46 @@ class AMRStateMachine:
 
         self.buffer = []
         self.stack = []
-        if training and not use_addnonde_rules:
-            self.postprocessing_training(gold_amr)
-        else:
-            self.postprocessing(gold_amr)
+        if self.amr_graph:
+            if training and not use_addnonde_rules:
+                self.postprocessing_training(gold_amr)
+            else:
+                self.postprocessing(gold_amr)
 
-        for item in self.latent:
-            if item in self.amr.nodes and not any(item == s or item == t for s, r, t in self.amr.edges):
-                del self.amr.nodes[item]
-        self.latent = []
-        # clean concepts
-        for n in self.amr.nodes:
-            if self.amr.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
-                self.amr.nodes[n] = 'PUNCT'
-            if self.amr.nodes[n].startswith('"') and self.amr.nodes[n].endswith('"'):
-                self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
-            if not (self.amr.nodes[n].startswith('"') and self.amr.nodes[n].endswith('"')):
-                for ch in ['/', ':', '(', ')', '\\']:
-                    if ch in self.amr.nodes[n]:
-                        self.amr.nodes[n] = self.amr.nodes[n].replace(ch, '-')
-            if not self.amr.nodes[n]:
-                self.amr.nodes[n] = 'None'
-            if ',' in self.amr.nodes[n]:
-                self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
-            if not self.amr.nodes[n][0].isalpha() and not self.amr.nodes[n][0].isdigit() and not self.amr.nodes[n][0] in ['-', '+']:
-                self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
-        # clean edges
-        for j, e in enumerate(self.amr.edges):
-            s, r, t = e
-            if not r.startswith(':'):
-                r = ':'+r
-            e = (s, r, t)
-            self.amr.edges[j] = e
-        # handle missing nodes (this shouldn't happen but a bad sequence of actions can produce it)
-        for s, r, t in self.amr.edges:
-            if s not in self.amr.nodes:
-                self.amr.nodes[s] = 'NA'
-            if t not in self.amr.nodes:
-                self.amr.nodes[t] = 'NA'
-        self.connectGraph()
+            for item in self.latent:
+                if item in self.amr.nodes and not any(item == s or item == t for s, r, t in self.amr.edges):
+                    del self.amr.nodes[item]
+            self.latent = []
+            # clean concepts
+            for n in self.amr.nodes:
+                if self.amr.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
+                    self.amr.nodes[n] = 'PUNCT'
+                if self.amr.nodes[n].startswith('"') and self.amr.nodes[n].endswith('"'):
+                    self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
+                if not (self.amr.nodes[n].startswith('"') and self.amr.nodes[n].endswith('"')):
+                    for ch in ['/', ':', '(', ')', '\\']:
+                        if ch in self.amr.nodes[n]:
+                            self.amr.nodes[n] = self.amr.nodes[n].replace(ch, '-')
+                if not self.amr.nodes[n]:
+                    self.amr.nodes[n] = 'None'
+                if ',' in self.amr.nodes[n]:
+                    self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
+                if not self.amr.nodes[n][0].isalpha() and not self.amr.nodes[n][0].isdigit() and not self.amr.nodes[n][0] in ['-', '+']:
+                    self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
+            # clean edges
+            for j, e in enumerate(self.amr.edges):
+                s, r, t = e
+                if not r.startswith(':'):
+                    r = ':'+r
+                e = (s, r, t)
+                self.amr.edges[j] = e
+            # handle missing nodes (this shouldn't happen but a bad sequence of actions can produce it)
+            for s, r, t in self.amr.edges:
+                if s not in self.amr.nodes:
+                    self.amr.nodes[s] = 'NA'
+                if t not in self.amr.nodes:
+                    self.amr.nodes[t] = 'NA'
+            self.connectGraph()
 
         self.actions.append('SHIFT')
         self.labels.append('_')
@@ -865,8 +903,9 @@ class AMRStateMachine:
         self.amr.alignments = self.alignments
         if self.verbose:
             print('CLOSE')
-            print(self.printStackBuffer())
-            print(self.amr.toJAMRString())
+            if self.amr_graph:
+                print(self.printStackBuffer())
+                print(self.amr.toJAMRString())
 
         # Close the machine
         self.is_closed = True

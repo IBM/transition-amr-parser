@@ -5,7 +5,7 @@ Pytorch implementation of a transition-based parser for Abstract Meaning Represe
 
 ## Using the Parser
 
-- to install through the Watson-NLP artifactory, see the wiki
+- to install through the Watson-NLP artifactory, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-the-python-package-through-Artifactory)
 - to install the parser manually, see [Manual Install](#manual-install)
 
 Before using the parser, please refer the [Tokenizer](#tokenizer) section on what tokenizer to use.
@@ -47,16 +47,42 @@ The code has been tested on Python `3.6` to install
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
 # here optionally activate your virtual environment
-pip install .
-# download spacy lemmatization data
-python -m spacy download en
-# optional smatch tools for AMR score evaluation
+pip install --editable .
+```
+
+This will pip install the repo in `--editable` mode. You will also need to
+download smatch toos if you want to run evaluations
+
+```bash
 git clone git@github.ibm.com:mnlp/smatch.git
 pip install smatch/
 ```
 
-This will pip install the repo in `--editable` mode, and download necessary
-SpaCy and Smatch tools.
+The spacy tools will be updated on first use. To do this manually do
+
+```bash
+python -m spacy download en
+```
+
+## Manual Install on CCC
+
+There are also install scripts for the CCC with an environment activator. Just
+copty the environment
+
+    cp /dccstor/ykt-parse/ramast/transition-amr-parser/set_environment.sh .
+
+and run the install script for the `x86` machines
+
+    bash scripts/install.sh
+
+or the power pc ones
+
+    bash scripts/install_ppc.sh
+
+to check if the install worked
+
+    . set_environment.sh
+    python tests/correctly_installed.py
 
 ## Training your Model
 
