@@ -1,6 +1,38 @@
 import re
 import json
 from collections import Counter
+from transition_amr_parser.amr import JAMR_CorpusReader
+
+
+def read_amr(in_amr, unicode_fixes=False):
+
+    corpus = JAMR_CorpusReader()
+    corpus.load_amrs(in_amr)
+
+    if unicode_fixes:
+    
+        # Replacement rules for unicode chartacters
+        replacement_rules = {
+            'ˈtʃærɪti': 'charity',
+            '\x96': '_',
+            '⊙': 'O'
+        }
+    
+        # FIXME: normalization shold be more robust. Right now use the tokens
+        # of the amr inside the oracle. This is why we need to normalize them.
+        for idx, amr in enumerate(corpus.amrs):
+            new_tokens = []
+            for token in amr.tokens:
+                forbidden = [x for x in replacement_rules.keys() if x in token]
+                if forbidden:
+                    token = token.replace(
+                        forbidden[0],
+                        replacement_rules[forbidden[0]]
+                     )
+                new_tokens.append(token)
+            amr.tokens = new_tokens
+
+    return corpus
 
 
 def read_rule_stats(rule_stats_json):
@@ -10,6 +42,11 @@ def read_rule_stats(rule_stats_json):
     rule_stats['possible_predicates'] = Counter(rule_stats['possible_predicates'])
     rule_stats['action_vocabulary'] = Counter(rule_stats['action_vocabulary'])
     return rule_stats
+
+
+def write_rule_stats(rule_stats_json, content):
+    with open(rule_stats_json, 'w') as fid:
+        fid.write(json.dumps(content))
 
 
 def read_propbank(propbank_file):
@@ -65,12 +102,18 @@ def tokenized_sentences_egenerator(file_path):
             yield line.rstrip().split()
 
 
-def read_tokenized_sentences(file_path):
+def read_tokenized_sentences(file_path, separator=' '):
     sentences = []
     with open(file_path) as fid:
         for line in fid:
-            sentences.append(line.rstrip().split())
+            sentences.append(line.rstrip().split(separator))
     return sentences
+
+
+def write_tokenized_sentences(file_path, content, separator=' '):
+    with open(file_path, 'w') as fid:
+        for line in content:
+            fid.write(f'{separator.join(line)}\n')
 
 
 def read_sentences(file_path, add_root_token=False):

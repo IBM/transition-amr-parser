@@ -4,13 +4,22 @@ scripts/local_variables.sh
 # new version
 set_environment.sh
 
+# data
+DATA/
+
 # external tools
 smatch/
 amr-evaluation/
+pytorch_scatter/
+fairseq/
 
 # virtual environments
 .python-version
 venv/
+cenv/
+
+# debug
+*.lprof
 
 # other
 __pycache__/
@@ -22,3 +31,10 @@ data/
 
 # python package
 dist/
+
+# cluster tools
+jbsub_logs/
+
+# vim
+.vim/
+*.swp

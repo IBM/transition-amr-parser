@@ -5,8 +5,7 @@ from collections import Counter, defaultdict
 from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
-from transition_amr_parser.io import writer, read_propbank
-from transition_amr_parser.amr import JAMR_CorpusReader
+from transition_amr_parser.io import writer, read_propbank, read_amr
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer,
@@ -33,14 +32,6 @@ from transition_amr_parser.state_machine import (
 """
 
 use_addnode_rules = True
-
-
-# Replacement rules for unicode chartacters
-replacement_rules = {
-    'ˈtʃærɪti': 'charity',
-    '\x96': '_',
-    '⊙': 'O'
-}
 
 
 def argument_parser():
@@ -293,7 +284,17 @@ def read_multitask_words(multitask_list):
     return multitask_words
 
 
-def get_multitask_actions(max_symbols, tokenized_corpus):
+def label_shift(state_machine, multitask_words):
+    # TODO: Legacy numbering
+    buffer, _ = state_machine.get_buffer_stack_copy()
+    top_of_buffer = state_machine.tokens[buffer[-1] - 1]
+    if top_of_buffer in multitask_words:
+        return f'SHIFT({top_of_buffer})'
+    else:
+        return 'SHIFT'
+
+
+def get_multitask_actions(max_symbols, tokenized_corpus, add_root=False):
 
     word_count = Counter()
     for sentence in tokenized_corpus:
@@ -304,8 +305,10 @@ def get_multitask_actions(max_symbols, tokenized_corpus):
         word_count.items(),
         key=lambda x: x[1])
     )[-max_symbols:])
-    # Add root regardless
-    allowed_words.update({'ROOT': word_count['ROOT']})
+
+    if add_root:
+        # Add root regardless
+        allowed_words.update({'ROOT': word_count['ROOT']})
 
     return allowed_words
 
@@ -478,10 +481,7 @@ class AMR_Oracle:
 
                 # Add prediction ot top of the buffer
                 if action == 'SHIFT' and multitask_words is not None:
-                    # top of buffer
-                    top_of_buffer = tr.amr.tokens[tr.buffer[-1] - 1]
-                    if top_of_buffer in multitask_words:
-                        action = f'SHIFT({top_of_buffer})'
+                    action = label_shift(tr, multitask_words)
 
                 # APPLY ACTION
                 tr.applyAction(action)
@@ -497,24 +497,25 @@ class AMR_Oracle:
             if out_oracle:
                 # to avoid printing
                 oracle_write(str(tr))
+            # JAMR format AMR
             amr_write(tr.amr.toJAMRString())
+            # Tokens and actions
+            # extra tag to be reduced at start 
+            tokens = tr.amr.tokens
+            actions = tr.actions
+            # separator
             if no_whitespace_in_actions:
-                sentence_write(" ".join(tr.amr.tokens))
+                sep = " "
             else:
-                sentence_write("\t".join(tr.amr.tokens))
-            # TODO: Make sure this normalizing strategy is denornalized
-            # elsewhere
-            if no_whitespace_in_actions:
-                actions = " ".join([a for a in tr.actions])
-            else:
-                # used in stack-LSTM
-                actions = "\t".join([a for a in tr.actions])
+                sep = "\t"
+            tokens = sep.join(tokens)
+            actions = sep.join(actions)
+            # Write
+            sentence_write(tokens)
             actions_write(actions)
+
             # Update action count
-            if no_whitespace_in_actions:
-                self.stats['action_vocabulary'].update(actions.split())
-            else:
-                self.stats['action_vocabulary'].update(actions.split("\t"))
+            self.stats['action_vocabulary'].update(tr.actions)
             del gold_amr.nodes[-1]
 
         print_log("oracle", "Done")
@@ -969,53 +970,57 @@ class AMR_Oracle:
         return False
 
 
+def process_multitask_words(tokenized_corpus, multitask_max_words, 
+                            in_multitask_words, out_multitask_words,
+                            add_root=False):
+
+    # Load/Save words for multi-task
+    if multitask_max_words:
+        assert multitask_max_words
+        assert out_multitask_words
+        # get top words
+        multitask_words = get_multitask_actions(
+            multitask_max_words,
+            tokenized_corpus,
+            add_root=add_root
+        )
+        # store in file
+        with open(out_multitask_words, 'w') as fid:
+            for word in multitask_words.keys():
+                fid.write(f'{word}\n')
+    elif in_multitask_words:
+        assert not multitask_max_words
+        assert not out_multitask_words
+        # store in file
+        with open(in_multitask_words) as fid:
+            multitask_words = [line.strip() for line in fid.readlines()]
+    else:
+        multitask_words = None
+
+    return multitask_words
+
+
 def main():
 
     # Argument handling
     args = argument_parser()
 
-    # Load AMR
-    corpus = JAMR_CorpusReader()
-    corpus.load_amrs(args.in_amr)
-
-    # FIXME: normalization shold be more robust. Right now use the tokens of
-    # the amr inside the oracle. This is why we need to normalize them.
-    for idx, amr in enumerate(corpus.amrs):
-        new_tokens = []
-        for token in amr.tokens:
-            forbidden = [x for x in replacement_rules.keys() if x in token]
-            if forbidden:
-                token = token.replace(forbidden[0], replacement_rules[forbidden[0]])
-            new_tokens.append(token)
-        amr.tokens = new_tokens
+    # Load AMR (replace some unicode characters)
+    corpus = read_amr(args.in_amr, unicode_fixes=True)
 
     # Load propbank
+    propbank_args = None
     if args.in_propbank_args:
         propbank_args = read_propbank(args.in_propbank_args)
-    else:
-        propbank_args = None
 
-    # Load/Save words for multi-task
-    if args.multitask_max_words:
-        assert args.multitask_max_words
-        assert args.out_multitask_words
-        # get top words
-        multitask_words = get_multitask_actions(
-            args.multitask_max_words,
-            [list(amr.tokens) for amr in corpus.amrs]
-        )
-        # store in file
-        with open(args.out_multitask_words, 'w') as fid:
-            for word in multitask_words.keys():
-                fid.write('{word}\n')
-    elif args.in_multitask_words:
-        assert not args.multitask_max_words
-        assert not args.out_multitask_words
-        # store in file
-        with open(args.in_multitask_words) as fid:
-            multitask_words = [line.strip() for line in fid.readlines()]
-    else:
-        multitask_words = None
+    # read/write multi-task (labeled shift) action 
+    multitask_words = process_multitask_words(
+        [list(amr.tokens) for amr in corpus.amrs],
+        args.multitask_max_words,
+        args.in_multitask_words,
+        args.out_multitask_words,
+        add_root=True
+    )
 
     # TODO: At the end, an oracle is just a parser with oracle info. This could
     # be turner into a loop similar to parser.py (ore directly use that and a
@@ -1058,4 +1063,3 @@ def main():
             sum(entity_rule_totals.values())
         print_log('Totals:', f'{perc:.2f}')
         print_log('Totals:', 'Failed Entity Predictions:')
-        print_log('Totals:', entity_rule_fails.most_common(1000))
