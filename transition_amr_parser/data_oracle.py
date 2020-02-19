@@ -387,7 +387,9 @@ class AMR_Oracle:
         ]
 
         # initialize spacy lemmatizer out of the sentence loop for speed
-        spacy_lemmatizer = get_spacy_lemmatizer()
+        spacy_lemmatizer = None
+        if copy_lemma_action:
+            spacy_lemmatizer = get_spacy_lemmatizer()
 
         # Loop over golf AMRs
         for sent_idx, gold_amr in tqdm(
@@ -422,12 +424,16 @@ class AMR_Oracle:
                     action = f'ADDNODE({self.entity_type})'
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
-                    # Get lemma
-                    lemma, _ = tr.get_top_of_stack(lemma=True)
-                    if copy_lemma_action and lemma == self.new_node:
-                        action = 'COPY_LEMMA'
-                    elif copy_lemma_action and f'{lemma}-01' == self.new_node:
-                        action = 'COPY_SENSE01'
+                    # if --copy-lemma-action check if lemma or first sense
+                    # equal node name. Use corresponding action
+                    if copy_lemma_action:
+                        lemma, _ = tr.get_top_of_stack(lemma=True)
+                        if copy_lemma_action and lemma == self.new_node:
+                            action = 'COPY_LEMMA'
+                        elif copy_lemma_action and f'{lemma}-01' == self.new_node:
+                            action = 'COPY_SENSE01'
+                        else:
+                            action = f'PRED({self.new_node})'
                     else:
                         action = f'PRED({self.new_node})'
 
