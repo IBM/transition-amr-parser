@@ -16,6 +16,8 @@ set -o nounset
 cd fairseq
 git checkout modular_semantic_parsing
 conda env update -f dcc/ccc_x86_fairseq.yml
+# spacy needs to be installed with pip
+pip install spacy
 pip install --editable .
 cd ..
 
