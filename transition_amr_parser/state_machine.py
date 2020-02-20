@@ -286,7 +286,7 @@ class AMRStateMachine:
             if self.lemmas is None:
                 assert self.spacy_lemmatizer, "No spacy_lemmatizer provided"
                 self.lemmas = [
-                    x.lemma_ for x in spacy_lemmatizer(tokens[:-1])
+                    x.lemma_ for x in self.spacy_lemmatizer(self.tokens[:-1])
                 ] + ['ROOT']
             positions = True
         token = None

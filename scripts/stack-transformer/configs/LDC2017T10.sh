@@ -11,6 +11,8 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
+LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/
+
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
 # NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
@@ -59,7 +61,7 @@ FAIRSEQ_PREPROCESS_ARGS="
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/models/transformer.py
 TRAIN_TAG=stnp6x6
-base_model=stack_transformer_6x6_nopos
+base_model=stack_transformer_6x6_tops_nopos
 # number of random seeds trained at once
 NUM_SEEDS=1
 # --lazy-load for very large corpora (data does not fit into RAM)
