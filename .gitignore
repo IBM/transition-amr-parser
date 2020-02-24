@@ -10,7 +10,7 @@ DATA/
 # external tools
 smatch/
 amr-evaluation/
-pytorch_scatter/
+pytorch_scatter*
 fairseq/
 
 # virtual environments
