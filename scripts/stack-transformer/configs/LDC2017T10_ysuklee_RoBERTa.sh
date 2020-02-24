@@ -1,4 +1,7 @@
 # Set variables and environment for a give experiment
+#
+# Variables intended to be use outside of this script are CAPITALIZED
+#
 set -o errexit
 set -o pipefail
 set -o nounset
@@ -8,18 +11,21 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
+LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/
+
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
-AMR_TRAIN_FILE=/dccstor/ysuklee1/AMR/treebank/QB20200113/qb.jkaln
-AMR_TEST_FILE=/dccstor/ykt-parse/AMR/2016data/dev.txt.removedWiki.noempty.JAMRaligned 
-AMR_DEV_FILE=/dccstor/ysuklee1/AMR/treebank/QB20200113/test.jkaln
+# NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
+AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt 
+AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
+AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
 # --multitask-max-words --out-multitask-words --in-multitask-words
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=finetune_o3+Word${MAX_WORDS}
+ORACLE_TAG=o3+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -31,8 +37,6 @@ ORACLE_DEV_ARGS="
     --copy-lemma-action
 "
 
-# FIXME: Maybe borow
-
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
 PREPRO_TAG="RoBERTa-large-ysuklee-v1"
@@ -41,13 +45,10 @@ PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_6h
 features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}
 # NOTE: We do not extract, just copy from ysuk's
-if [ ! -e "$features_folder" ];then
-    ln -s /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/finetune_extracted $features_folder
+if [ ! -e  "${features_folder}" ];then
+    ln -s /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCLarge_extracted $features_folder
 fi    
 FAIRSEQ_PREPROCESS_ARGS="--should-not-be-used"
-# NOTE: This was generated using
-# --srcdict /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.en.txt
-# --tgtdict /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.actions.txt
 
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
@@ -63,12 +64,9 @@ TRAIN_QUEUE=ppc_24h
 # --bert-backprop do backprop though BERT
 # --save-dir is specified inside dcc/train.sh to account for the seed
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
-# NOTE: We start from a pretrained model
-pretrained="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/checkpoints/stack_transformer_6x6_nopos-LDCQALD_prepro_o3+Word100-stnp6x6-seed42/checkpoint83.pt"
 FAIRSEQ_TRAIN_ARGS="
     $features_folder
-    --restore-file $pretrained
-    --max-epoch 190
+    --max-epoch 100
     --arch $base_model
     --optimizer adam
     --adam-betas '(0.9,0.98)'
@@ -83,11 +81,10 @@ FAIRSEQ_TRAIN_ARGS="
     --weight-decay 0.0
     --criterion label_smoothed_cross_entropy
     --label-smoothing 0.01
-    --keep-last-epochs 100
+    --keep-last-epochs 40
     --max-tokens 3584
     --log-format json
-    $do_lazy_load 
-    $fp16
+    --fp16
 "
 
 # TESTING
