@@ -2,8 +2,6 @@ set -o errexit
 set -o pipefail
 [ -z "$1" ] && echo -e "\ne.g. bash $0 /path/to/config.sh x86_24h\n" && exit 1
 config=$1
-[ -z "$2" ] && echo -e "\ne.g. bash $0 /path/to/config.sh x86_24h\n" && exit 1
-queue=$2
 set -o nounset
 
 # load config 
@@ -41,7 +39,10 @@ if [ ! -f "$features_folder/train.en-actions.actions.bin" ];then
 
     # run preprocessing
     jbsub_tag="pr-${repo_tag}-$$"
-    jbsub -cores "1+1" -mem 50g -q "$queue" -require "$gpu_type" \
+    jbsub -cores "1+1" \
+          -mem 50g \
+          -q "$PREPRO_QUEUE" \
+          -require "$PREPRO_GPU_TYPE" \
           -name "$jbsub_tag" \
           -out $features_folder/${jbsub_tag}-%J.stdout \
           -err $features_folder/${jbsub_tag}-%J.stderr \
@@ -71,7 +72,10 @@ for index in $(seq $NUM_SEEDS);do
 
         # run new training
         jbsub_tag="tr-${repo_tag}-s${seed}-$$"
-        jbsub -cores 1+1 -mem 50g -q "$queue" -require "$gpu_type" \
+        jbsub -cores 1+1 \
+              -mem 50g \
+              -q "$TRAIN_QUEUE" \
+              -require "$TRAIN_GPU_TYPE" \
               -name "$jbsub_tag" \
               $train_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
@@ -90,7 +94,10 @@ for index in $(seq $NUM_SEEDS);do
 
     # run test on best CE model
     jbsub_tag="dec-${repo_tag}-$$"
-    jbsub -cores 1+1 -mem 50g -q "$queue" -require "$gpu_type" \
+    jbsub -cores 1+1 \
+          -mem 50g \
+          -q "$TEST_QUEUE" \
+          -require "$TEST_GPU_TYPE" \
           -name "$jbsub_tag" \
           $test_depends \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
@@ -99,7 +106,10 @@ for index in $(seq $NUM_SEEDS);do
 
     # test all available checkpoints
     jbsub_tag="tdec-${repo_tag}-$$"
-    jbsub -cores 1+1 -mem 50g -q "$queue" -require "$gpu_type" \
+    jbsub -cores 1+1 \
+          -mem 50g \
+          -q "$TEST_QUEUE" \
+          -require "$TEST_GPU_TYPE" \
           -name "$jbsub_tag" \
           $test_depends \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
