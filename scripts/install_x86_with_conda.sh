@@ -30,9 +30,9 @@ pip install --editable .
 mv _setup.py.saved setup.py 
 
 # install pytorch scatter
-rm -Rf  pytorch_scatter
-git clone https://github.com/rusty1s/pytorch_scatter.git
-cd pytorch_scatter
+rm -Rf  pytorch_scatter.x86
+git clone https://github.com/rusty1s/pytorch_scatter.git pytorch_scatter.x86
+cd pytorch_scatter.x86
 git checkout 1.3.2
 # Ensure modern GCC
 export GCC_DIR=/opt/share/gcc-5.4.0/x86_64/
