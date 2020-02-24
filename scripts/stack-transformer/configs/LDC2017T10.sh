@@ -39,11 +39,13 @@ ORACLE_DEV_ARGS="
 
 # GPU
 # k80, v100 (3 times faster)
-gpu_type=v100
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
 PREPRO_TAG="RoBERTa-base"
+# CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
+PREPRO_GPU_TYPE=v100
+PREPRO_QUEUE=x86_6h
 features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
 FAIRSEQ_PREPROCESS_ARGS="
     --source-lang en
@@ -54,19 +56,22 @@ FAIRSEQ_PREPROCESS_ARGS="
     --destdir $features_folder 
     --workers 1 
     --machine-type AMR \
-    --machine-rules $ORACLE_FOLDER/train.rules.json \
+    --machine-rules $ORACLE_FOLDER/train.rules.json 
 "
 
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6
-base_model=stack_transformer_6x6_tops_nopos
+TRAIN_TAG=stnp6x6_dbg
+base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=1
+# CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
+TRAIN_GPU_TYPE=v100
+TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
-# --save-dir is specified inside dcc/train.sh to account for the seed
+# NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 FAIRSEQ_TRAIN_ARGS="
     $features_folder
@@ -78,6 +83,7 @@ FAIRSEQ_TRAIN_ARGS="
     --lr-scheduler inverse_sqrt
     --warmup-init-lr 1e-07
     --warmup-updates 4000
+    --pretrained-embed-dim 768
     --lr 0.0005
     --min-lr 1e-09
     --dropout 0.3
@@ -97,6 +103,9 @@ FAIRSEQ_TRAIN_ARGS="
 beam_size=1
 TEST_TAG="beam${beam_size}"
 CHECKPOINT=checkpoint_best.pt
+# CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
+TEST_GPU_TYPE=v100
+TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
     $features_folder 
     --gen-subset valid
