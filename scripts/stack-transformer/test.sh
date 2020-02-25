@@ -34,24 +34,72 @@ fairseq-generate $FAIRSEQ_GENERATE_ARGS \
 # 4. then you can consult details with 
 # python -m line_profiler generate.py.lprof
 
-# Create the AMR from the model obtained actions
-amr-fake-parse \
-    --in-sentences $ORACLE_FOLDER/dev.en \
-    --in-actions $results_folder/valid.actions \
-    --out-amr $results_folder/valid.amr \
+model_folder=$(dirname $checkpoint)
 
-# add wiki
-python fairseq/dcc/add_wiki.py \
-    $results_folder/valid.amr $WIKI_DEV \
-    > $results_folder/valid.wiki.amr
+# Create oracle data
+if [ "$TASK_TAG" == "AMR" ];then
 
-# compute smatch wrt gold with wiki
-smatch.py \
+    # Create the AMR from the model obtained actions
+    amr-fake-parse \
+        --in-sentences $ORACLE_FOLDER/dev.en \
+        --in-actions $results_folder/valid.actions \
+        --out-amr $results_folder/valid.amr \
+
+    # add wiki
+    python fairseq/dcc/add_wiki.py \
+        $results_folder/valid.amr $WIKI_DEV \
+        > $results_folder/valid.wiki.amr
+
+    # Compute score
+    smatch.py \
+         --significant 4  \
+         -f $AMR_DEV_FILE \
+         $results_folder/valid.wiki.amr \
+         -r 10 \
+         > $results_folder/valid.wiki.smatch
+
+    cat $results_folder/valid.wiki.smatch
+
+elif [ "$TASK_TAG" == "NER" ];then
+
+    # play actions to create annotations
+    python play.py \
+        --in-tokens $ORACLE_FOLDER/dev.en \
+        --in-actions $results_folder/valid.actions \
+        --machine-type NER \
+        --out-annotations-folder $results_folder/ \
+        --basename dev
+    
+    # measure performance
+    python bio_tags/metrics.py \
+        --in-annotations $results_folder/dev.dat \
+        --in-reference-annotations $NER_DEV_FILE \
+        --out-score $results_folder/dev.f-measure
+
+elif [ "$TASK_TAG" == "NER+AMR" ];then
+
+    # AMR scores
+    python play.py \
+        --in-tokens $ORACLE_FOLDER/dev.en \
+        --in-actions $results_folder/valid.actions \
+        --in-mixing-indices $ORACLE_FOLDER/dev.mixing_indices \
+        --out-annotations-folder $results_folder/ \
+        --basename dev \
+    
+    # compute F-measure for NER
+    python bio_tags/metrics.py \
+        --in-annotations $results_folder/dev.dat \
+        --in-reference-annotations $NER_DEV_FILE \
+        --out-score $results_folder/dev.f-measure
+    cat $results_folder/dev.f-measure
+
+    # compute smatch for AMR
+    smatch.py \
      --significant 4  \
-     -f $AMR_DEV_FILE_WIKI \
-     $results_folder/valid.wiki.amr \
+         -f $AMR_DEV_FILE \
+         $results_folder/dev.amr \
      -r 10 \
-     > $results_folder/valid.wiki.smatch
+         > $results_folder/dev.smatch
+    cat $results_folder/dev.smatch
 
-# show Smatch results
-cat $results_folder/valid.wiki.smatch
+fi
