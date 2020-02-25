@@ -35,29 +35,77 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
         # model was meanwhile deleted
         continue
     fi
+
     echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}"
     fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}
     
-    # Create the AMR from the model obtained actions
-    amr-fake-parse \
-        --in-sentences $ORACLE_FOLDER/dev.en \
-        --in-actions ${std_name}.actions \
-        --out-amr ${std_name}.amr 
-
-    # add wiki
-    python fairseq/dcc/add_wiki.py \
-        ${std_name}.amr $WIKI_DEV \
-        > ${std_name}.wiki.amr
-        
-    # compute smatch wrt gold with wiki
-    python smatch/smatch.py \
-         --significant 4  \
-         -f $AMR_DEV_FILE_WIKI \
-         ${std_name}.wiki.amr \
-         -r 10 \
-         > ${std_name}.wiki.smatch
+    # Create oracle data
+    if [ "$TASK_TAG" == "AMR" ];then
     
-    # plot score
-    cat ${std_name}.wiki.smatch
+        # will come to bite us in the future
+        amr-fake-parse \
+            --in-sentences $ORACLE_FOLDER/dev.en \
+            --in-actions ${std_name}.actions \
+            --out-amr ${std_name}.amr 
+
+        # add wiki
+        python fairseq/dcc/add_wiki.py \
+            ${std_name}.amr $WIKI_DEV \
+            > ${std_name}.wiki.amr
+    
+        python smatch/smatch.py \
+             --significant 4  \
+             -f $AMR_DEV_FILE \
+             ${std_name}.wiki.amr \
+             -r 10 \
+             > ${std_name}.wiki.smatch
+        
+        # plot score
+        cat ${std_name}.wiki.smatch
+    
+    elif [ "$TASK_TAG" == "NER" ];then
+    
+        # play actions to create annotations
+        python play.py \
+            --in-tokens $ORACLE_FOLDER/dev.en \
+            --in-actions ${std_name}.actions \
+            --machine-type NER \
+            --out-annotations-folder $(dirname ${std_name}) \
+            --basename $(basename ${std_name}) \
+        
+        # measure performance
+        python bio_tags/metrics.py \
+            --in-annotations ${std_name}.dat \
+            --in-reference-annotations $NER_DEV_FILE \
+            --out-score ${std_name}.f-measure
+        cat ${std_name}.f-measure
+    
+    elif [ "$TASK_TAG" == "NER+AMR" ];then
+    
+        # AMR scores
+        python play.py \
+            --in-tokens $ORACLE_FOLDER/dev.en \
+            --in-actions ${std_name}.actions \
+            --in-mixing-indices $ORACLE_FOLDER/dev.mixing_indices \
+            --out-annotations-folder $(dirname ${std_name}) \
+            --basename $(basename ${std_name}) \
+        
+        # compute F-measure for NER
+        python bio_tags/metrics.py \
+            --in-annotations ${std_name}.dat \
+            --in-reference-annotations $NER_DEV_FILE \
+            --out-score ${std_name}.f-measure
+        cat ${std_name}/dev.f-measure
+        
+        # compute smatch for AMR
+        smatch.py \
+             --significant 4  \
+             -f $AMR_DEV_FILE \
+             ${std_name}.amr \
+             -r 10 \
+             > ${std_name}.smatch
+        cat ${std_name}.smatch
+    
+    fi
     
 done
