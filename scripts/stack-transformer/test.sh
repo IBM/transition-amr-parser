@@ -16,8 +16,9 @@ set -o nounset
 # Load config
 . "$config"
 
-results_folder=$(dirname $checkpoint)/$TEST_TAG/
-
+# fix for ensembles
+single_checkpoint=$(echo $checkpoint | sed 's@\.pt:.*@@')
+results_folder=$(dirname $single_checkpoint)/$TEST_TAG/
 mkdir -p $results_folder
 
 # decode 
@@ -32,8 +33,6 @@ fairseq-generate $FAIRSEQ_GENERATE_ARGS \
 # kernprof -l generate.py $fairseq_generate_args --path $checkpoint
 # 4. then you can consult details with 
 # python -m line_profiler generate.py.lprof
-
-model_folder=$(dirname $checkpoint)
 
 # Create the AMR from the model obtained actions
 amr-fake-parse \
