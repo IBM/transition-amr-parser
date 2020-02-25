@@ -19,6 +19,12 @@ LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed
 AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt 
 AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
 AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
+# WIKI files
+WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
+AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
+WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
+AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
+
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
 # --multitask-max-words --out-multitask-words --in-multitask-words
