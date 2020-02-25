@@ -19,7 +19,12 @@ def argument_parser():
     parser = argparse.ArgumentParser(description='AMR parser')
     parser.add_argument(
         "--in-model",
-        help="parsing model",
+        help="path to the AMR parsing model",
+        type=str
+    )
+    parser.add_argument(
+        "--roberta-cache-path",
+        help="Path to the roberta large model",
         type=str
     )
     parser.add_argument(
@@ -37,11 +42,11 @@ def argument_parser():
 
 class Parser():
 
-    def __init__(self, model_path, roberta_use_gpu=False, model_use_gpu=False):
+    def __init__(self, model_path, roberta_cache_path=None, roberta_use_gpu=False, model_use_gpu=False):
         if torch.cuda.is_available():
             roberta_use_gpu = True
             model_use_gpu = True
-        self.parser = AMRParser(model_path, roberta_use_gpu=roberta_use_gpu, model_use_gpu=model_use_gpu)
+        self.parser = AMRParser(model_path, roberta_cache_path=roberta_cache_path, roberta_use_gpu=roberta_use_gpu, model_use_gpu=model_use_gpu)
 
     def process(self, request, context):
         word_tokens = request.word_infos
@@ -54,7 +59,7 @@ def serve():
     args = argument_parser()
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    amr_pb2_grpc.add_AMRServerServicer_to_server(Parser(args.in_model), server)
+    amr_pb2_grpc.add_AMRServerServicer_to_server(Parser(model_path=args.in_model, roberta_cache_path=args.roberta_cache_path), server)
     server.add_insecure_port('[::]:' + args.port)
     server.start()
     server.wait_for_termination()
