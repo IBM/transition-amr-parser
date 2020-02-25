@@ -5,13 +5,13 @@ import json
 import torch
 from transition_amr_parser.model import AMRModel
 import transition_amr_parser.utils as utils
-
+from fairseq.models.roberta import RobertaModel
 from transition_amr_parser.roberta_utils import extract_features_aligned_to_words
 
 
 class AMRParser():
 
-    def __init__(self, model_path, oracle_stats_path=None, config_path=None, model_use_gpu=False, roberta_use_gpu=False, verbose=False, logger=None):
+    def __init__(self, model_path, roberta_cache_path=None, oracle_stats_path=None, config_path=None, model_use_gpu=False, roberta_use_gpu=False, verbose=False, logger=None):
         if not oracle_stats_path:
             model_folder = os.path.dirname(model_path)
             oracle_stats_path = os.path.join(model_folder, "train.rules.json")
@@ -23,17 +23,20 @@ class AMRParser():
             assert os.path.isfile(config_path), \
                 f'Expected config.json in {model_folder}'
         self.model = self.load_model(model_path, oracle_stats_path, config_path, model_use_gpu)
-        self.roberta = self.load_roberta(roberta_use_gpu)
+        self.roberta = self.load_roberta(roberta_use_gpu, roberta_cache_path)
         self.logger = logger
 
-    def load_roberta(self, roberta_use_gpu):
+    def load_roberta(self, roberta_use_gpu, roberta_cache_path=None):
 
-        # Load the Roberta Model
-        RobertaModel = torch.hub.load('pytorch/fairseq', 'roberta.large')
-        RobertaModel.eval()
+        if not roberta_cache_path:
+            # Load the Roberta Model from torch hub
+            roberta = torch.hub.load('pytorch/fairseq', 'roberta.large')
+        else:
+            roberta = RobertaModel.from_pretrained(roberta_cache_path, checkpoint_file='model.pt')
+        roberta.eval()
         if roberta_use_gpu:
-            RobertaModel.cuda()
-        return RobertaModel
+            roberta.cuda()
+        return roberta
 
     def load_model(self, model_path, oracle_stats_path, config_path, model_use_gpu):
 
