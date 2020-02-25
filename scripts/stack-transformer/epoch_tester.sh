@@ -38,20 +38,26 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}"
     fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}
     
-    # will come to bite us in the future
+    # Create the AMR from the model obtained actions
     amr-fake-parse \
         --in-sentences $ORACLE_FOLDER/dev.en \
         --in-actions ${std_name}.actions \
         --out-amr ${std_name}.amr 
+
+    # add wiki
+    python fairseq/dcc/add_wiki.py \
+        ${std_name}.amr $WIKI_DEV \
+        > ${std_name}.wiki.amr
         
+    # compute smatch wrt gold with wiki
     python smatch/smatch.py \
          --significant 4  \
-         -f $AMR_DEV_FILE \
-         ${std_name}.amr \
+         -f $AMR_DEV_FILE_WIKI \
+         ${std_name}.wiki.amr \
          -r 10 \
-         > ${std_name}.smatch
+         > ${std_name}.wiki.smatch
     
     # plot score
-    cat ${std_name}.smatch
+    cat ${std_name}.wiki.smatch
     
 done
