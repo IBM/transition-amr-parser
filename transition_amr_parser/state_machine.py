@@ -2,6 +2,7 @@ import json
 import os
 import re
 from collections import Counter
+from copy import deepcopy
 
 import spacy
 from spacy.tokens.doc import Doc
@@ -129,6 +130,22 @@ class AMRStateMachine:
         if self.verbose:
             print('INIT')
             print(self.printStackBuffer())
+
+    def __deepcopy__(self, memo):
+        """
+        Manual deep copy of the machine
+
+        avoid deep copying spacy lemmatizer
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k == 'spacy_lemmatizer':
+                setattr(result, k, v)
+            else:
+                setattr(result, k, deepcopy(v, memo))
+        return result
 
     def get_buffer_stack_copy(self): 
         """Return copy of buffer and stack"""
