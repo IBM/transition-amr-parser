@@ -116,7 +116,7 @@ FAIRSEQ_GENERATE_ARGS="
     $features_folder 
     --gen-subset valid
     --machine-type AMR 
-    --machine-rules $ORACLE_FOLDER/train.rules.json \
+    --machine-rules $ORACLE_FOLDER/train.rules.json
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe
