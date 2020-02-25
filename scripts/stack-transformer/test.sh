@@ -21,10 +21,10 @@ results_folder=$(dirname $checkpoint)/$TEST_TAG/
 mkdir -p $results_folder
 
 # decode 
-echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --path $checkpoint --results-path $results_folder"
+echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --path $checkpoint --results-path $results_folder/valid"
 fairseq-generate $FAIRSEQ_GENERATE_ARGS \
     --path $checkpoint \
-    --results-path $results_folder
+    --results-path $results_folder/valid
 # to profile decoder
 # 1. pip install line_profiler
 # 2. decorate target function with @profile
@@ -41,13 +41,18 @@ amr-fake-parse \
     --in-actions $results_folder/valid.actions \
     --out-amr $results_folder/valid.amr \
 
-# Compute score
+# add wiki
+python fairseq/dcc/add_wiki.py \
+    $results_folder/valid.amr $WIKI_DEV \
+    > $results_folder/valid.wiki.amr
+
+# compute smatch wrt gold with wiki
 smatch.py \
      --significant 4  \
-     -f $AMR_DEV_FILE \
-     $results_folder/valid.amr \
+     -f $AMR_DEV_FILE_WIKI \
+     $results_folder/valid.wiki.amr \
      -r 10 \
-     > $results_folder/valid.smatch
+     > $results_folder/valid.wiki.smatch
 
 # show Smatch results
-cat $results_folder/valid.smatch
+cat $results_folder/valid.wiki.smatch
