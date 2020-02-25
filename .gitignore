@@ -5,7 +5,7 @@ scripts/local_variables.sh
 set_environment.sh
 
 # data
-DATA/
+DATA*
 
 # external tools
 smatch/
