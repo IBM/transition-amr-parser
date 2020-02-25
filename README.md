@@ -66,24 +66,49 @@ python -m spacy download en
 
 ## Manual Install on CCC
 
-There are also install scripts for the CCC with an environment activator. Just
-copty the environment
+There are also install scripts for the CCC with an environment setter. Copy it
+from here 
 
     cp /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/set_environment.sh .
 
-This assumes conda is accesible on your PATH (see inside otherwise). Then to
-install in `x86` machines from a computing node do 
+and set the conda paths for x86 or ppc architectures (or both). For
+instructions on how to install PPC conda see
+[here](https://github.ibm.com/ramon-astudillo/C3-tools#conda-pytorch-installation-for-the-power-pcs).
+
+Then to install in `x86` machines, from a `x86` computing node do 
 
     scripts/install_x86_with_conda.sh
 
-To install for PowerPC (you will need a ppc conda on your PATH!) just call
+For PowerPC from a `ppc` computing node do
 
     scripts/install_ppc_with_conda.sh
 
-to check if the install worked
+to check if the install worked in either `x86` or `ppc` machines do
 
     . set_environment.sh
     python tests/correctly_installed.py
+
+## Decode with Pre-trained model
+
+To do decoding tests you will need to copy a model. You can soft-link the
+features
+
+```bash
+mkdir DATA/AMR/features/
+ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/o3+Word100_RoBERTa-base DATA/AMR/features/
+mkdir DATA/AMR/models/
+cp -R /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/models/o3+Word100_RoBERTa-base_stnp6x6-seed42 DATA/AMR/models/
+```
+
+To do a simple test run for decoding, on a computing node, do
+
+```bash
+bash scripts/stack-transformer/test.sh DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/config.sh DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/checkpoint70.pt
+```
+
+the results will be stored in
+`DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/beam1`. Copy the config
+and modify for further experiments.
 
 ## Training your Model
 
