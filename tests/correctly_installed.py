@@ -51,6 +51,7 @@ if __name__ == '__main__':
 
     try:
         import torch_scatter.scatter_cuda
+        print("torch_scatter.scatter_cuda works")
     except ImportError:    
         print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
         pass
@@ -58,13 +59,15 @@ if __name__ == '__main__':
     # fairseq
     try:
         from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
+        print("transition_amr_parser.roberta_utils works")
     except ImportError:    
         print("fairseq installation failed")
         pass
 
     try:
-        # transition_amr_parser
-        from transition_amr_parser.amr_parser import AMRParser
+        # scipy
+        import scipy
+        print('scipy installed')
     except ImportError:    
-        print("transition_amr_parser installation failed")
+        print("scipy installation failed")
         pass

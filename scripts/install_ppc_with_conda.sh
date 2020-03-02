@@ -15,9 +15,18 @@ set -o nounset
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
 cd fairseq
 git checkout modular_semantic_parsing
-conda env update -f dcc/ccc_pcc_fairseq.yml
+conda env update -f dcc/ccc_ppc_fairseq.yml
 pip install --editable .
 cd ..
+
+# transition_amr_parser
+# install not previously installed dependencies with conda 
+conda env update -f scripts/ppc_conda.yml
+# without the dependencies (included in fairseq/dcc/ccc_pcc_fairseq.yml)
+cp setup.py _setup.py.saved
+sed '/install_requires=install_requires,/d' -i setup.py
+pip install --editable . 
+mv _setup.py.saved setup.py 
 
 # install pytorch scatter
 rm -Rf  pytorch_scatter
@@ -31,13 +40,6 @@ export LD_LIBRARY_PATH=$GCC_DIR/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$GCC_DIR/lib64:$LD_LIBRARY_PATH
 python setup.py develop
 cd ..
-
-# AMR tools
-# without the dependencies (included in fairseq/dcc/ccc_pcc_fairseq.yml)
-cp setup.py _setup.py.saved
-sed '/install_requires=install_requires,/d' -i setup.py
-pip install --editable . 
-mv _setup.py.saved setup.py 
 
 # smatch
 [ ! -d smatch ] && git clone git@github.ibm.com:mnlp/smatch.git
