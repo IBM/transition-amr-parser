@@ -244,7 +244,7 @@ class AMRStateMachine:
                     "%s %s %s" %
                     (self.amr.nodes[i], blue_font(label), self.amr.nodes[j])
                 )
-            edges_str = "\n".join(edges_str)
+            edges_str = ", ".join(edges_str)
             # update display str
             display_str += "%s\n%s\n" % (green_font("# Edges:"), edges_str)
 
@@ -328,6 +328,12 @@ class AMRStateMachine:
             assert ':' not in properties, "edge format has no :"
             assert len(properties) == 1
             self.LA(properties[0])
+            # Also close if LA(root)
+            if (
+                properties[0] == 'root' and 
+                self.tokens[self.stack[-1]] == '<ROOT>'
+            ):
+                self.CLOSE()
         elif action_label in ['RA', 'RA1']:
             assert ':' not in properties, "edge format has no :"
             assert len(properties) == 1
