@@ -15,8 +15,8 @@ fairseq/
 
 # virtual environments
 .python-version
-venv/
-cenv/
+venv*/
+cenv*/
 
 # debug
 *.lprof
