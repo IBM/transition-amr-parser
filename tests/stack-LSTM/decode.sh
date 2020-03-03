@@ -4,21 +4,16 @@ set -o errexit
 . set_environment.sh
 set -o nounset
 
-[ ! -d scripts/ ] && echo "Call as scripts/$(basename $0)" && exit 1
-
-
-[ ! -d ${oracle_folder}/ ] && mkdir ${oracle_folder}/
-
 # Use the standalone parser
 amr-parse \
-    --in-sentences ${oracle_folder}/dev.tokens \
-    --in-model $trained_model \
-    --out-amr ${oracle_folder}/dev.amr \
+    --in-sentences ${LDC2016_AMR_CORPUS}/dev.JAMR.tokens \
+    --in-model ${LDC2016_AMR_MODELS}/v0.1.0_stack-LSTM/ysook/model.epoch40.params \
+    --out-amr dev.amr \
     --batch-size 12 \
     --num-cores 6 \
-    --use-gpu \
+    --use-gpu
 
 # evaluate model performance
 echo "Evaluating Model"
-test_result="$(python smatch/smatch.py --significant 3 -f $dev_file ${oracle_folder}/dev.amr -r 10)"
+test_result="$(python smatch/smatch.py --significant 3 -f ${LDC2016_AMR_CORPUS}/dev.txt.removedWiki.noempty.JAMRaligned dev.amr -r 10)"
 echo $test_result

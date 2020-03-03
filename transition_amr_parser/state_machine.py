@@ -329,6 +329,7 @@ class AMRStateMachine:
             assert len(properties) == 1
             self.LA(properties[0])
             # Also close if LA(root)
+            # FIXME: This breaks stack-LSTM (IndexError: pop from empty list)
             if (
                 properties[0] == 'root' and 
                 self.tokens[self.stack[-1]] == '<ROOT>'
