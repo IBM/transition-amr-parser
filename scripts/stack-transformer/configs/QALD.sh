@@ -46,8 +46,8 @@ if [ ! -e "$features_folder" ];then
 fi    
 FAIRSEQ_PREPROCESS_ARGS="--should-not-be-used"
 # NOTE: This was generated using
-# --srcdict /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.en.txt
-# --tgtdict /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.actions.txt
+# --srcdict /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/qaldlarge_extracted/dict.en.txt
+# --tgtdict /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/qaldlarge_extracted/dict.actions.txt
 
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
