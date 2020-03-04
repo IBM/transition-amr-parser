@@ -64,7 +64,7 @@ TRAIN_QUEUE=ppc_24h
 # --save-dir is specified inside dcc/train.sh to account for the seed
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 # NOTE: We start from a pretrained model
-pretrained="/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/models/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/checkpoint89.pt
+pretrained="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/checkpoints/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/checkpoint89.pt
     $features_folder
     --restore-file $pretrained
     --max-epoch 190
