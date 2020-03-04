@@ -40,14 +40,22 @@ PREPRO_TAG="RoBERTa-large-ysuklee-v1"
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_6h
 features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}
-# NOTE: We do not extract, just copy from ysuk's
-if [ ! -e "$features_folder" ];then
-    ln -s /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/finetune_extracted $features_folder
-fi    
-FAIRSEQ_PREPROCESS_ARGS="--should-not-be-used"
-# NOTE: This was generated using
-# --srcdict /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.en.txt
-# --tgtdict /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.actions.txt
+srcdict="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.en.txt"
+tgtdict="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.actions.txt"
+fairseq_preprocess_args="
+    --source-lang en
+    --target-lang actions
+    --trainpref $ORACLE_FOLDER/train
+    --validpref $ORACLE_FOLDER/dev
+    --testpref $ORACLE_FOLDER/test
+    --destdir $features_folder
+    --workers 1 
+    --srcdict $srcdict
+    --tgtdict $tgtdict
+    --machine-type AMR \
+    --machine-rules $ORACLE_FOLDER/train.rules.json \
+    $fp16
+"
 
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
