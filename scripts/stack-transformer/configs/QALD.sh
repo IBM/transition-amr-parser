@@ -42,7 +42,7 @@ PREPRO_QUEUE=x86_6h
 features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}
 srcdict="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.en.txt"
 tgtdict="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.actions.txt"
-fairseq_preprocess_args="
+FAIRSEQ_PREPROCESS_ARGS="
     --source-lang en
     --target-lang actions
     --trainpref $ORACLE_FOLDER/train
@@ -54,7 +54,7 @@ fairseq_preprocess_args="
     --tgtdict $tgtdict
     --machine-type AMR \
     --machine-rules $ORACLE_FOLDER/train.rules.json \
-    $fp16
+    --fp16
 "
 
 # TRAINING
