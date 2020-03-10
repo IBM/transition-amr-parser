@@ -70,9 +70,10 @@ TRAIN_QUEUE=ppc_24h
 # --bert-backprop do backprop though BERT
 # --save-dir is specified inside dcc/train.sh to account for the seed
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
+MAX_EPOCH=100
 FAIRSEQ_TRAIN_ARGS="
     $features_folder
-    --max-epoch 100
+    --max-epoch $MAX_EPOCH
     --arch $base_model
     --optimizer adam
     --adam-betas '(0.9,0.98)'
