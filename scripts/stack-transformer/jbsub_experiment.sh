@@ -1,6 +1,6 @@
 set -o errexit
 set -o pipefail
-[ -z "$1" ] && echo -e "\ne.g. bash $0 /path/to/config.sh x86_24h\n" && exit 1
+[ -z "$1" ] && echo -e "\ne.g. bash $0 /path/to/config.sh\n" && exit 1
 config=$1
 set -o nounset
 
@@ -66,7 +66,7 @@ for index in $(seq $NUM_SEEDS);do
     seed=$((41 + $index))
     checkpoints_dir="${CHECKPOINTS_DIR_ROOT}-seed${seed}/"
 
-    if [ ! -f "$checkpoints_dir/checkpoint_best.pt" ];then
+    if [ ! -f "$checkpoints_dir/checkpoint${MAX_EPOCH}.pt" ];then
 
         mkdir -p "$checkpoints_dir"
 
