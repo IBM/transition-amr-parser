@@ -5,14 +5,18 @@ set -o nounset
 
 TASK_TAG=AMR
 
+# Global paths
+AMR_CORPORA=/dccstor/ykt-parse/SHARED/CORPORA/
+AMR_MODELS=/dccstor/ykt-parse/SHARED/MODELS/transition-amr-parser/
+
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
-AMR_TRAIN_FILE=/dccstor/ysuklee1/AMR/treebank/QB20200113/qb.jkaln
-AMR_TEST_FILE=/dccstor/ykt-parse/AMR/2016data/dev.txt.removedWiki.noempty.JAMRaligned 
-AMR_DEV_FILE=/dccstor/ysuklee1/AMR/treebank/QB20200113/test.jkaln
+AMR_TRAIN_FILE=${AMR_CORPORA}/QB20200113/qb.jkaln
+AMR_TEST_FILE=${AMR_CORPORA}/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned 
+AMR_DEV_FILE=${AMR_CORPORA}/test.jkaln
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
 # --multitask-max-words --out-multitask-words --in-multitask-words
@@ -40,6 +44,8 @@ PREPRO_TAG="RoBERTa-large-ysuklee-v1"
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_6h
 features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}
+# TODO: Get this paths refred to the SHARED folder
+# /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/qaldlarge_extracted/
 srcdict="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.en.txt"
 tgtdict="/dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCQALD_extracted/dict.actions.txt"
 FAIRSEQ_PREPROCESS_ARGS="
@@ -73,7 +79,7 @@ TRAIN_QUEUE=ppc_24h
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 # NOTE: We start from a pretrained model
 MAX_EPOCH=190
-pretrained="/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/models/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/checkpoint89.pt
+pretrained="${AMR_MODELS}/models/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/checkpoint89.pt
     $features_folder
     --restore-file $pretrained
     --max-epoch $MAX_EPOCH
