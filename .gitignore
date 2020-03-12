@@ -34,6 +34,7 @@ dist/
 
 # cluster tools
 jbsub_logs/
+.jbsub_logs/
 
 # vim
 .vim/
