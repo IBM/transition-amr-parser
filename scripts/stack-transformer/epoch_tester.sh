@@ -41,7 +41,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     
     # Create oracle data
     if [ "$TASK_TAG" == "AMR" ];then
-    
+
         # will come to bite us in the future
         amr-fake-parse \
             --in-sentences $ORACLE_FOLDER/dev.en \
@@ -109,3 +109,8 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     fi
     
 done
+
+# After all tests are done, rank model and link best SMATCH one
+if [ "$TASK_TAG" == "AMR" ];then
+    python scripts/stack-transformer/rank_model.py
+fi
