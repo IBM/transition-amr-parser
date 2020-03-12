@@ -5,6 +5,9 @@ set -o pipefail
 . set_environment.sh
 set -o nounset 
 
+# install python version to be used
+conda install python=3.6.9=h2bede3c_0 -y -c powerai
+
 # use this environment for debugging (comment line above)
 # eval "$(${CONDA_DIR}/bin/conda shell.bash hook)"
 # rm -Rf ./tmp_debug
