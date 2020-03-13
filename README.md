@@ -94,6 +94,8 @@ To do decoding tests you will need to copy a model. You can soft-link the
 features
 
 ```bash
+mkdir DATA/AMR/oracles/
+ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/oracles/o3+Word100 DATA/AMR/oracles/
 mkdir DATA/AMR/features/
 ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/o3+Word100_RoBERTa-base DATA/AMR/features/
 mkdir DATA/AMR/models/
