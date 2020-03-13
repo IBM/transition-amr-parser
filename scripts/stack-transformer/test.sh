@@ -53,7 +53,7 @@ if [ "$TASK_TAG" == "AMR" ];then
     # Compute score
     smatch.py \
          --significant 4  \
-         -f $AMR_DEV_FILE \
+         -f $AMR_DEV_FILE_WIKI \
          $results_folder/valid.wiki.amr \
          -r 10 \
          > $results_folder/valid.wiki.smatch
