@@ -54,11 +54,12 @@ FAIRSEQ_PREPROCESS_ARGS="
     --validpref $ORACLE_FOLDER/dev
     --testpref $ORACLE_FOLDER/test
     --destdir $features_folder
+    --pretrained-embed roberta.large
     --workers 1 
     --srcdict $srcdict
     --tgtdict $tgtdict
-    --machine-type AMR \
-    --machine-rules $ORACLE_FOLDER/train.rules.json \
+    --machine-type AMR 
+    --machine-rules $ORACLE_FOLDER/train.rules.json 
     --fp16
 "
 
@@ -100,8 +101,9 @@ FAIRSEQ_TRAIN_ARGS="
     --keep-last-epochs 100
     --max-tokens 3584
     --log-format json
-    --fp16
 "
+
+# --fp16
 
 # TESTING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args

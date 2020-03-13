@@ -55,7 +55,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     
         python smatch/smatch.py \
              --significant 4  \
-             -f $AMR_DEV_FILE \
+             -f $AMR_DEV_FILE_WIKI \
              ${std_name}.wiki.amr \
              -r 10 \
              > ${std_name}.wiki.smatch
