@@ -5,6 +5,9 @@ set -o pipefail
 . set_environment.sh
 set -o nounset 
 
+# install python version to be used
+conda install python=3.6.9=h2bede3c_0 -y -c powerai
+
 # use this environment for debugging (comment line above)
 # eval "$(${CONDA_DIR}/bin/conda shell.bash hook)"
 # rm -Rf ./tmp_debug
@@ -29,7 +32,7 @@ pip install --editable .
 mv _setup.py.saved setup.py 
 
 # install pytorch scatter
-rm -Rf  pytorch_scatter.ppc
+rm -Rf pytorch_scatter.ppc
 git clone https://github.com/rusty1s/pytorch_scatter.git pytorch_scatter.ppc
 cd pytorch_scatter.ppc
 git checkout 1.3.2
