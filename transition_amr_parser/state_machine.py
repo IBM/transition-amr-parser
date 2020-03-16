@@ -347,11 +347,11 @@ class AMRStateMachine:
             self.LA(properties[0])
             # Also close if LA(root)
             # FIXME: This breaks stack-LSTM (IndexError: pop from empty list)
-            if (
-                properties[0] == 'root' and 
-                self.tokens[self.stack[-1]] == '<ROOT>'
-            ):
-                self.CLOSE()
+            # if (
+            #     properties[0] == 'root' and 
+            #     self.tokens[self.stack[-1]] == '<ROOT>'
+            # ):
+            #     self.CLOSE()
         elif action_label in ['RA', 'RA1']:
             assert ':' not in properties, "edge format has no :"
             assert len(properties) == 1
@@ -940,7 +940,7 @@ class AMRStateMachine:
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
-        self.amr.alignments = convert_state_machine_alignments_to_amr_alignments(self.alignments)
+        self.convert_state_machine_alignments_to_amr_alignments()
         if self.verbose:
             print('CLOSE')
             if self.amr_graph:
@@ -950,21 +950,19 @@ class AMRStateMachine:
         # Close the machine
         self.is_closed = True
 
-    def convert_state_machine_alignments_to_amr_alignments(alignments):
+    def convert_state_machine_alignments_to_amr_alignments(self):
         # In the state machine, we get the alignments with index 0
         # However, in the AMR, alignments are stored with index 1, since that is the way the oracle expects it
 
-        new_alignments = {}
-        for node in alignments:
-            if type(alignments[node]) == int:
-                new_alignments[node] = alignments[node] + 1
+        for node in self.alignments:
+            if type(self.alignments[node]) == int:
+                self.amr.alignments[node] = self.alignments[node] + 1
             else:
                 new_list = list()
-                for alignment in alignments[node]:
+                for alignment in self.alignments[node]:
                     assert type(alignment) == int
                     new_list.append(alignment+1)
-                new_alignments[node] = deepcopy(new_list)
-        return new_alignments
+                self.amr.alignments[node] = deepcopy(new_list)
 
     def printStackBuffer(self):
         s = 'STACK [' + ' '.join(self.amr.nodes[x] if x in self.amr.nodes else 'None' for x in self.stack) + '] '
