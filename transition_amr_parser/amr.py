@@ -35,26 +35,26 @@ class AMR:
             alignment = ''
             if n in self.alignments and self.alignments[n]:
                 if type(self.alignments[n]) == int:
-                    alignment = f'\t{self.alignments[n]}-{self.alignments[n]+1}'
+                    alignment = f'\t{self.alignments[n]-1}-{self.alignments[n]}'
                 else:
                     alignments_in_order = sorted(list(self.alignments[n]))
-                    alignment = f'\t{alignments_in_order[0]}-{alignments_in_order[-1]+1}'
+                    alignment = f'\t{alignments_in_order[0]-1}-{alignments_in_order[-1]}'
             output += f'# ::node\t{n}\t{self.nodes[n] if n in self.nodes else "None"}' + alignment + '\n'
         # root
         root = self.root
         alignment = ''
-        if root in self.alignments and self.alignments[root]:
-            if type(self.alignments[root]) == int:
-                alignment = f'\t{self.alignments[root]}-{self.alignments[root]+1}'
-            else:
-                alignments_in_order = sorted(list(self.alignments[root]))
-                alignment = f'\t{alignments_in_order[0]}-{alignments_in_order[-1]+1}'
+        # if root in self.alignments and self.alignments[root]:
+        #     if type(self.alignments[root]) == int:
+        #         alignment = f'\t{self.alignments[root]-1}-{self.alignments[root]}'
+        #     else:
+        #         alignments_in_order = sorted(list(self.alignments[root]))
+        #         alignment = f'\t{alignments_in_order[0]-1}-{alignments_in_order[-1]}'
         if self.root:
             output += f'# ::root\t{root}\t{self.nodes[root] if root in self.nodes else "None"}' + alignment + '\n'
         # edges
         for s, r, t in self.edges:
             r = r.replace(':', '')
-            output += f'# ::edge\t{self.nodes[s] if s in self.nodes else "None"}\t{r}\t{self.nodes[t] if t in self.nodes else "None"}\t{s}\t{t}\n'
+            output += f'# ::edge\t{self.nodes[s] if s in self.nodes else "None"}\t{r}\t{self.nodes[t] if t in self.nodes else "None"}\t{s}\t{t}\t\n'
         return output
 
     def alignmentsToken2Node(self, token_id):
@@ -108,7 +108,7 @@ class AMR:
         nodes = {self.root}
         completed = set()
         while '[[' in amr_string:
-            tab = '\t'*depth
+            tab = '      '*depth
             for n in nodes.copy():
                 id = new_ids[n] if n in new_ids else 'r91'
                 concept = self.nodes[n] if n in new_ids and self.nodes[n] else 'None'
@@ -120,7 +120,7 @@ class AMR:
                     children = f'\n{tab}'+children
                 if n not in completed:
                     if (concept[0].isalpha() and concept not in ['imperative', 'expressive', 'interrogative']) or targets:
-                        amr_string = amr_string.replace(f'[[{n}]]', f'({id}/{concept}{children})', 1)
+                        amr_string = amr_string.replace(f'[[{n}]]', f'({id} / {concept}{children})', 1)
                     else:
                         amr_string = amr_string.replace(f'[[{n}]]', f'{concept}')
                     completed.add(n)
@@ -137,11 +137,11 @@ class AMR:
                 raise Exception("Tried to print an uncompleted AMR")
                 print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) + ' nodes printed:\n ' + amr_string)
             if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
-                amr_string = '(x/'+amr_string+')'
+                amr_string = '(x / '+amr_string+')'
             if not amr_string.startswith('('):
                 amr_string = '('+amr_string+')'
             if len(self.nodes) == 0:
-                amr_string = '(a/amr-empty)'
+                amr_string = '(a / amr-empty)'
 
             output += amr_string + '\n\n'
 
