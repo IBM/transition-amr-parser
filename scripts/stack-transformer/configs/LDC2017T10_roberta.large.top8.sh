@@ -43,34 +43,45 @@ ORACLE_DEV_ARGS="
     --copy-lemma-action
 "
 
+# GPU
+# k80, v100 (3 times faster)
+
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
-PREPRO_TAG="RoBERTa-large-ysuklee-v1"
-# these wont be really used
+PREPRO_TAG="RoBERTa-large-top8"
+# CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_6h
-features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}
-# NOTE: We do not extract, just copy from ysuk's
-if [ ! -e  "${features_folder}" ];then
-    ln -s /dccstor/ysuklee1/AMR/CodeBase/transition-amr-parser/fairseq/data-bin/LDCLarge_extracted $features_folder
-fi    
-FAIRSEQ_PREPROCESS_ARGS="--should-not-be-used"
+features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
+FAIRSEQ_PREPROCESS_ARGS="
+    --source-lang en
+    --target-lang actions
+    --trainpref $ORACLE_FOLDER/train
+    --validpref $ORACLE_FOLDER/dev
+    --testpref $ORACLE_FOLDER/test
+    --destdir $features_folder 
+    --workers 1 
+    --pretrained-embed roberta.large
+    --bert-layers 17 18 19 20 21 22 23 24
+    --machine-type AMR 
+    --machine-rules $ORACLE_FOLDER/train.rules.json 
+"
 
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
-# model types defined in ./fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6
-base_model=stack_transformer_6x6_nopos
+# model types defined in ./fairseq/fairseq/models/transformer.py
+TRAIN_TAG=stops6x6
+base_model=stack_transformer_6x6_tops_nopos
 # number of random seeds trained at once
-NUM_SEEDS=1
+NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 TRAIN_GPU_TYPE=v100
 TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
-# --save-dir is specified inside dcc/train.sh to account for the seed
-CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
+# NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
 MAX_EPOCH=100
+CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 FAIRSEQ_TRAIN_ARGS="
     $features_folder
     --max-epoch $MAX_EPOCH
@@ -108,7 +119,7 @@ FAIRSEQ_GENERATE_ARGS="
     $features_folder 
     --gen-subset valid
     --machine-type AMR 
-    --machine-rules $ORACLE_FOLDER/train.rules.json \
+    --machine-rules $ORACLE_FOLDER/train.rules.json
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe
