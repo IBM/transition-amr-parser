@@ -61,7 +61,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --testpref $ORACLE_FOLDER/test
     --destdir $features_folder 
     --workers 1 
-    --machine-type AMR \
+    --machine-type AMR
     --machine-rules $ORACLE_FOLDER/train.rules.json 
 "
 
@@ -71,17 +71,18 @@ FAIRSEQ_PREPROCESS_ARGS="
 TRAIN_TAG=stops6x6
 base_model=stack_transformer_6x6_tops_nopos
 # number of random seeds trained at once
-NUM_SEEDS=1
+NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 TRAIN_GPU_TYPE=v100
 TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
 # NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
+MAX_EPOCH=100
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 FAIRSEQ_TRAIN_ARGS="
     $features_folder
-    --max-epoch 100
+    --max-epoch $MAX_EPOCH
     --arch $base_model
     --optimizer adam
     --adam-betas '(0.9,0.98)'
