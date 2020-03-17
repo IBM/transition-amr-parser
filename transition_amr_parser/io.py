@@ -113,6 +113,7 @@ def read_tokenized_sentences(file_path, separator=' '):
 def write_tokenized_sentences(file_path, content, separator=' '):
     with open(file_path, 'w') as fid:
         for line in content:
+            line = [str(x) for x in line]
             fid.write(f'{separator.join(line)}\n')
 
 
