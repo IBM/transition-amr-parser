@@ -101,7 +101,7 @@ def collect_results(args, results_regex):
         # scores
         scores = {}
         for stdout in checkpoint_logs:
-            epoch = int(stdout_re.match(stdout).groups()[0])
+            epoch = int(results_regex.match(stdout).groups()[0])
             score = get_score_from_log(f'{epoch_folder}/{stdout}')
             if score is not None:
                 scores[epoch] = score
