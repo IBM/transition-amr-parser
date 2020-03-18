@@ -178,15 +178,20 @@ if __name__ == '__main__':
     if args.seed_average:
         items = seed_average(items)
 
+    # add shortname as folder removing checlpoints root
+    for item in items:
+        item['shortname'] = item['folder'].replace(args.checkpoints, '')
+
     # get max length
-    max_name_len = max(len(item['folder']) for item in items)
+    max_name_len = max(len(item['shortname']) for item in items)
     
     if not args.no_print:
+
         print("")
         for item in sorted(items, key=lambda x: x['best_SMATCH']):
             display_str = ''
             display_str = '{:<{width}}  ({:d}) ({:d})'.format(
-                item['folder'],
+                item['shortname'],
                 item['num'],
                 item['best_SMATCH_epoch'],
                 width=max_name_len + 2
