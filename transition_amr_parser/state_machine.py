@@ -940,7 +940,7 @@ class AMRStateMachine:
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
-        self.amr.alignments = self.alignments
+        self.convert_state_machine_alignments_to_amr_alignments()
         if self.verbose:
             print('CLOSE')
             if self.amr_graph:
@@ -949,6 +949,20 @@ class AMRStateMachine:
 
         # Close the machine
         self.is_closed = True
+
+    def convert_state_machine_alignments_to_amr_alignments(self):
+        # In the state machine, we get the alignments with index 0
+        # However, in the AMR, alignments are stored with index 1, since that is the way the oracle expects it
+
+        for node in self.alignments:
+            if type(self.alignments[node]) == int:
+                self.amr.alignments[node] = self.alignments[node] + 1
+            else:
+                new_list = list()
+                for alignment in self.alignments[node]:
+                    assert type(alignment) == int
+                    new_list.append(alignment+1)
+                self.amr.alignments[node] = deepcopy(new_list)
 
     def printStackBuffer(self):
         s = 'STACK [' + ' '.join(self.amr.nodes[x] if x in self.amr.nodes else 'None' for x in self.stack) + '] '
