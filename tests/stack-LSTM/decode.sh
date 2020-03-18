@@ -8,6 +8,7 @@ set -o nounset
 amr-parse \
     --in-sentences ${LDC2016_AMR_CORPUS}/dev.JAMR.tokens \
     --in-model ${LDC2016_AMR_MODELS}/v0.1.0_stack-LSTM/ysook/model.epoch40.params \
+    --add-root-token \
     --out-amr dev.amr \
     --batch-size 12 \
     --num-cores 6 \
