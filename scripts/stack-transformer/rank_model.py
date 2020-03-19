@@ -2,14 +2,14 @@ import os
 import subprocess
 import re
 import argparse
+from math import sqrt
 from collections import defaultdict
 
-import numpy as np
-
 PRINT = True
-checkpoint_re = re.compile('checkpoint([0-9]+).pt')
-stdout_re = re.compile('dec-checkpoint([0-9]+).wiki.smatch')
-dec_stdout_re = re.compile('dec.*.stdout')
+checkpoint_re = re.compile('checkpoint([0-9]+)\.pt')
+stdout_re = re.compile('dec-checkpoint([0-9]+)\.smatch')
+stdout_re_wiki = re.compile('dec-checkpoint([0-9]+)\.wiki\.smatch')
+dec_stdout_re = re.compile('dec.*\.stdout')
 results_re = re.compile('^F-score: ([0-9\.]+)')
 
 
@@ -33,11 +33,28 @@ def argument_parsing():
         help='average results per seed'
     )
     parser.add_argument(
+        '--link-best',
+        action='store_true',
+        help='do not link or relink best smatch model'
+    )
+    parser.add_argument(
         '--no-print',
         action='store_true',
         help='do not print'
     )
     return parser.parse_args()
+
+
+def mean(items):
+    return float(sum(items)) / len(items)
+
+
+def std(items):
+    mu = mean(items)
+    if (len(items) - 1) == 0:
+        return 0.0
+    else:
+        return sqrt(float(sum([(x - mu)**2 for x in items])) / (len(items) - 1))
 
 
 def get_score_from_log(file_path):
@@ -52,62 +69,46 @@ def get_score_from_log(file_path):
     return results[0] if results else None
 
 
-def collect_results(args):
+def collect_results(args, results_regex):
 
-    # Find decoding logs
+    # Find folders of the form /path/to/epoch_folders
     epoch_folders = [
         x[0] 
         for x in os.walk(args.checkpoints) 
         if 'epoch_tests' in x[0]
     ]
 
+    # loop ove those folders
     items = []
-    for folder in epoch_folders:
+    for epoch_folder in epoch_folders:
 
         item = {}
 
-        # model folder
-        model_folder = folder.replace('epoch_tests', '')
+        # data in {epoch_folder}/../
+        # assume containing folder is the model folder
+        model_folder = epoch_folder.replace('epoch_tests', '')
         model_files = os.listdir(model_folder)
-
-        # best checkpoint dec log (and score)
-        checkpoint_best_log = list(filter(dec_stdout_re.match, model_files))
-        checkpoint_best_log = checkpoint_best_log[0] if checkpoint_best_log else None
-        best_CE = None
-        if checkpoint_best_log:
-            best_CE = get_score_from_log(f'{model_folder}/{checkpoint_best_log}')
-
-        # all checkpoints
+        # list all checkpoints
         checkpoints = list(filter(checkpoint_re.match, model_files))
-
-        # epoch folder
-        epoch_files = os.listdir(folder)
-
-        # epoch folder dec logs
-        checkpoint_logs = list(filter(stdout_re.match, epoch_files))
-
-        # scores
-        scores = {}
-        for stdout in checkpoint_logs:
-            epoch = int(stdout_re.match(stdout).groups()[0])
-            score = get_score_from_log(f'{folder}/{stdout}')
-            if score is not None:
-                scores[epoch] = score
-
         stdout_numbers = set([
             int(checkpoint_re.match(dfile).groups()[0])
             for dfile in checkpoints
         ])
 
+        # data in epoch_folder
+        epoch_files = os.listdir(epoch_folder)
+        checkpoint_logs = list(filter(results_regex.match, epoch_files))
+        # scores
+        scores = {}
+        for stdout in checkpoint_logs:
+            epoch = int(results_regex.match(stdout).groups()[0])
+            score = get_score_from_log(f'{epoch_folder}/{stdout}')
+            if score is not None:
+                scores[epoch] = score
         if not scores:
-            print(f'Skipping {folder}')
             continue
-
         best_SMATCH = sorted(scores.items(), key=lambda x: x[1])[-1]
         missing_epochs = list(stdout_numbers - set(scores.keys()))
-
-        # for epoch in missing_epochs:
-        #     print(f'{model_folder}/checkpoint{epoch}.pt')
 
         item = {
             'folder': model_folder,
@@ -116,17 +117,7 @@ def collect_results(args):
             'num_missing_epochs': len(missing_epochs),
             'num': 1
         }
-        if best_CE:
-            item['best_CE_SMATCH'] = best_CE
 
-        # link best SMATCH model
-        target_best = f'{os.path.realpath(model_folder)}/checkpoint_best_SMATCH.pt'
-        source_best = f'checkpoint{int(best_SMATCH[0])}.pt'
-        # We may have created a link before to a worse model, remove it
-        if os.path.isfile(target_best) and os.path.realpath(target_best) != source_best:
-            os.remove(target_best)
-        if not os.path.isfile(target_best):
-            os.symlink(source_best, target_best)
         items.append(item)
 
     return items
@@ -145,18 +136,18 @@ def seed_average(items):
     for key, cluster_items in clusters.items():
 
         def average(field):
-            return np.mean([x[field] for x in cluster_items])
+            return mean([x[field] for x in cluster_items])
 
-        def std(field):
-            return 2*np.std([x[field] for x in cluster_items])
+        def stdev(field):
+            return 2*std([x[field] for x in cluster_items])
 
         def maximum(field):
-            return np.max([x[field] for x in cluster_items])
+            return max([x[field] for x in cluster_items])
 
         merged_items.append({
             'folder': key,
             'best_SMATCH': average('best_SMATCH'),
-            'best_SMATCH_std': std('best_SMATCH'),
+            'best_SMATCH_std': stdev('best_SMATCH'),
             'best_SMATCH_epoch': maximum('best_SMATCH_epoch'),
             'num_missing_epochs': maximum('num_missing_epochs'),
             'num': len(cluster_items)
@@ -168,35 +159,59 @@ def seed_average(items):
     return merged_items
 
 
+def print_table(args, items, pattern):
+
+   
+    # add shortname as folder removing checkpoints root, get max length of
+    # name for padding print
+    for item in items:
+        item['shortname'] = item['folder'].replace(args.checkpoints, '')
+    max_name_len = max(len(item['shortname']) for item in items)
+    
+    print(f'\n{pattern}')
+    for item in sorted(items, key=lambda x: x['best_SMATCH']):
+        display_str = ''
+        display_str = '{:<{width}}  ({:d}) ({:d})'.format(
+            item['shortname'],
+            item['num'],
+            item['best_SMATCH_epoch'],
+            width=max_name_len + 2
+        )
+        display_str += ' SMATCH {:2.1f}'.format(100*item['best_SMATCH'])
+        if 'best_SMATCH_std' in item:
+            display_str += ' ({:3.1f})'.format(100*item['best_SMATCH_std'])
+        if 'num_missing_epochs' in item and item['num_missing_epochs'] > 0:
+            display_str += ' {:d}!'.format(item['num_missing_epochs'])
+        print(display_str)
+    print("")
+
+
 if __name__ == '__main__':
 
     # ARGUMENT HANDLING
     args = argument_parsing()
 
-    items = collect_results(args)
-    
-    if args.seed_average:
-        items = seed_average(items)
+    # Separate results with and without wiki
+    for result_regex in [stdout_re, stdout_re_wiki]:
 
-    # get max length
-    max_name_len = max(len(item['folder']) for item in items)
-    
-    if not args.no_print:
-        print("")
-        for item in sorted(items, key=lambda x: x['best_SMATCH']):
-            display_str = ''
-            display_str = '{:<{width}}  ({:d}) ({:d})'.format(
-                item['folder'],
-                item['num'],
-                item['best_SMATCH_epoch'],
-                width=max_name_len + 2
-            )
-            display_str += ' SMATCH {:2.1f}'.format(100*item['best_SMATCH'])
-            if 'best_SMATCH_std' in item:
-                display_str += ' ({:3.1f})'.format(100*item['best_SMATCH_std'])
-            # if 'best_CE_SMATCH' in item:
-            #    display_str += ' SMATCH {:2.1f}'.format(100*item['best_CE_SMATCH'])
-            if 'num_missing_epochs' in item and item['num_missing_epochs'] > 0:
-                display_str += ' {:d}!'.format(item['num_missing_epochs'])
-            print(display_str)
-        print("")
+        # collect results and link best SMATCH result
+        items = collect_results(args, result_regex)
+
+        # link best SMATCH model
+        if args.link_best:
+            for item in items:
+                model_folder = item['folder']
+                epoch = item['best_SMATCH_epoch']
+                target_best = f'{os.path.realpath(model_folder)}/checkpoint_best_SMATCH.pt'
+                source_best = f'checkpoint{epoch}.pt'
+                # We may have created a link before to a worse model, remove it
+                if os.path.isfile(target_best) and os.path.realpath(target_best) != source_best:
+                    os.remove(target_best)
+                if not os.path.isfile(target_best):
+                    os.symlink(source_best, target_best)
+
+        if items != [] and not args.no_print:
+            # average over seeds
+            if args.seed_average:
+                items = seed_average(items)
+            print_table(args, items, result_regex.pattern)
