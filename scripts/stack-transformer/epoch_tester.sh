@@ -112,5 +112,5 @@ done
 
 # After all tests are done, rank model and link best SMATCH one
 if [ "$TASK_TAG" == "AMR" ];then
-    python scripts/stack-transformer/rank_model.py
+    python scripts/stack-transformer/rank_model.py --link-best
 fi
