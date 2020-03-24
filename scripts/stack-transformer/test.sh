@@ -45,20 +45,37 @@ if [ "$TASK_TAG" == "AMR" ];then
         --in-actions $results_folder/valid.actions \
         --out-amr $results_folder/valid.amr \
 
-    # add wiki
-    python fairseq/dcc/add_wiki.py \
-        $results_folder/valid.amr $WIKI_DEV \
-        > $results_folder/valid.wiki.amr
+    if [ "$WIKI_DEV" == "" ];then
 
-    # Compute score
-    smatch.py \
-         --significant 4  \
-         -f $AMR_DEV_FILE_WIKI \
-         $results_folder/valid.wiki.amr \
-         -r 10 \
-         > $results_folder/valid.wiki.smatch
+        # Smatch evaluation without wiki
+        python smatch/smatch.py \
+             --significant 4  \
+             -f $AMR_DEV_FILE \
+             $results_folder/valid.amr \
+             -r 10 \
+             > $results_folder/valid.smatch
+        
+        # plot score
+        cat $results_folder/valid.smatch
 
-    cat $results_folder/valid.wiki.smatch
+    else:
+
+        # Smatch evaluation with wiki
+
+        # add wiki
+        python fairseq/dcc/add_wiki.py \
+            $results_folder/valid.amr $WIKI_DEV \
+            > $results_folder/valid.wiki.amr
+    
+        # Compute score
+        smatch.py \
+             --significant 4  \
+             -f $AMR_DEV_FILE_WIKI \
+             $results_folder/valid.wiki.amr \
+             -r 10 \
+             > $results_folder/valid.wiki.smatch
+    
+        cat $results_folder/valid.wiki.smatch
 
 elif [ "$TASK_TAG" == "NER" ];then
 
