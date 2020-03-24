@@ -20,6 +20,7 @@ AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
 AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
 AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 # WIKI files
+# NOTE: If left empty no wiki will be added
 WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
 AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
 WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
@@ -59,7 +60,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --trainpref $ORACLE_FOLDER/train
     --validpref $ORACLE_FOLDER/dev
     --testpref $ORACLE_FOLDER/test
-    --destdir $features_folder 
+    --destdir $features_folder
     --workers 1 
     --pretrained-embed roberta.large
     --bert-layers 17 18 19 20 21 22 23 24
