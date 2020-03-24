@@ -1,4 +1,7 @@
 # Set variables and environment for a give experiment
+#
+# Variables intended to be use outside of this script are CAPITALIZED
+#
 set -o errexit
 set -o pipefail
 set -o nounset
