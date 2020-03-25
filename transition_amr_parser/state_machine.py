@@ -347,11 +347,11 @@ class AMRStateMachine:
             self.LA(properties[0])
             # Also close if LA(root)
             # FIXME: This breaks stack-LSTM (IndexError: pop from empty list)
-            if (
-                properties[0] == 'root' and 
-                self.tokens[self.stack[-1]] == '<ROOT>'
-            ):
-                self.CLOSE()
+#             if (
+#                 properties[0] == 'root' and 
+#                 self.tokens[self.stack[-1]] == '<ROOT>'
+#             ):
+#                 self.CLOSE()
         elif action_label in ['RA', 'RA1']:
             assert ':' not in properties, "edge format has no :"
             assert len(properties) == 1
