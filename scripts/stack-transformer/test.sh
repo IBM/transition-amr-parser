@@ -58,7 +58,7 @@ if [ "$TASK_TAG" == "AMR" ];then
         # plot score
         cat $results_folder/valid.smatch
 
-    else:
+    else
 
         # Smatch evaluation with wiki
 
