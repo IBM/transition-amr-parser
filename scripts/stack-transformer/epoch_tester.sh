@@ -61,7 +61,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
             # plot score
             cat ${std_name}.smatch
 
-        else:
+        else
 
             # Smatch evaluation with wiki
             # add wiki
