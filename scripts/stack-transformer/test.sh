@@ -22,7 +22,10 @@ results_folder=$(dirname $single_checkpoint)/$TEST_TAG/
 mkdir -p $results_folder
 
 # decode 
-echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --path $checkpoint --results-path $results_folder/valid"
+echo "fairseq-generate 
+    $FAIRSEQ_GENERATE_ARGS
+    --path $checkpoint
+    --results-path $results_folder/valid"
 fairseq-generate $FAIRSEQ_GENERATE_ARGS \
     --path $checkpoint \
     --results-path $results_folder/valid
@@ -76,6 +79,8 @@ if [ "$TASK_TAG" == "AMR" ];then
              > $results_folder/valid.wiki.smatch
     
         cat $results_folder/valid.wiki.smatch
+
+    fi
 
 elif [ "$TASK_TAG" == "NER" ];then
 
