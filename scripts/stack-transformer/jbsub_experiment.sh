@@ -108,4 +108,30 @@ for index in $(seq $NUM_SEEDS);do
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
           /bin/bash $tools_folder/epoch_tester.sh $checkpoints_dir/
 
+    # testing ensemble will need to wait for epoch tester to finish
+    test_depends="-depend $jbsub_tag"
+
+
+    if [ "$TASK_TAG" == "AMR" ];then
+
+        # create config for ensemble test
+        cp $checkpoints_dir/config.sh $checkpoints_dir/config_top3-average.sh
+        sed 's@^TEST_TAG=.*@TEST_TAG="top3-average"@' -i $checkpoints_dir/config_top3-average.sh
+
+        # run an additional test on the weight ensemble
+        jbsub_tag="edec-${repo_tag}-$$"
+        jbsub -cores 1+1 \
+              -mem 50g \
+              -q "$TEST_QUEUE" \
+              -require "$TEST_GPU_TYPE" \
+              -name "$jbsub_tag" \
+              $test_depends \
+              -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
+              -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
+              /bin/bash $tools_folder/test.sh \
+                  $checkpoints_dir/config_top3-average.sh \
+                  $checkpoints_dir/checkpoint_top3-average_SMATCH.pt
+    
+    fi
+
 done
