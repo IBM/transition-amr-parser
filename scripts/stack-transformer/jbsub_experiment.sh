@@ -111,7 +111,6 @@ for index in $(seq $NUM_SEEDS);do
     # testing ensemble will need to wait for epoch tester to finish
     test_depends="-depend $jbsub_tag"
 
-
     if [ "$TASK_TAG" == "AMR" ];then
 
         # create config for ensemble test
