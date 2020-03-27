@@ -2,7 +2,7 @@ set -o errexit
 set -o pipefail
 . set_environment.sh
 [ -z "$1" ] && \
-    echo -e "\n$o <features folder>\n" && \
+    echo -e "\nbash $0 <features folder>\n" && \
     exit 1
 features_folder=$1
 set -o nounset 
