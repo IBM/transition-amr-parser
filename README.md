@@ -100,6 +100,7 @@ mkdir -p DATA/AMR/features/
 ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/o3+Word100_RoBERTa-base DATA/AMR/features/
 mkdir -p DATA/AMR/models/
 cp -R /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/models/o3+Word100_RoBERTa-base_stnp6x6-seed42 DATA/AMR/models/
+chmod u+w DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/beam1
 ```
 
 To do a simple test run for decoding, on a computing node, do
