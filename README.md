@@ -66,24 +66,37 @@ python -m spacy download en
 
 ## Manual Install on CCC
 
+Clone this repository and check out the appropriate branch:
+
+    git clone git@github.ibm.com:mnlp/transition-amr-parser.git
+    cd transition-amr-parser
+    git checkout systems/emnlp2020
+
 There are also install scripts for the CCC with an environment setter. Copy it
 from here 
 
     cp /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/set_environment.sh .
+    chmod u+w set_environment.sh
 
-and set the conda paths for x86 or ppc architectures (or both). For
-instructions on how to install PPC conda see
+Edit the `set_environment.sh` file to replace the string `"$(/path/to/miniconda3/bin/conda shell.bash hook)"` 
+with the path to your own `conda` installation. If you don't know the path to your `conda` 
+installation, try looking at the `CONDA_EXE` environment variable:
+
+    echo $CONDA_EXE
+
+For instructions on how to install PPC conda see
 [here](https://github.ibm.com/ramon-astudillo/C3-tools#conda-pytorch-installation-for-the-power-pcs).
 
 Then to install in `x86` machines, from a `x86` computing node do 
 
-    scripts/install_x86_with_conda.sh
+    bash scripts/install_x86_with_conda.sh
 
 For PowerPC from a `ppc` computing node do
 
-    scripts/install_ppc_with_conda.sh
+    bash scripts/install_ppc_with_conda.sh
 
-to check if the install worked in either `x86` or `ppc` machines do
+to check if the install worked in either `x86` or `ppc` machines,
+log in to a compute node with a GPU and run the `correctly_installed.py` program:
 
     . set_environment.sh
     python tests/correctly_installed.py
@@ -94,16 +107,16 @@ To do decoding tests you will need to copy a model. You can soft-link the
 features
 
 ```bash
-mkdir DATA/AMR/oracles/
+mkdir -p DATA/AMR/oracles/
 ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/oracles/o3+Word100 DATA/AMR/oracles/
-mkdir DATA/AMR/features/
+mkdir -p DATA/AMR/features/
 ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/o3+Word100_RoBERTa-base DATA/AMR/features/
-mkdir DATA/AMR/models/
+mkdir -p DATA/AMR/models/
 cp -R /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/models/o3+Word100_RoBERTa-base_stnp6x6-seed42 DATA/AMR/models/
 chmod u+w DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/beam1
 ```
 
-To do a simple test run for decoding, on a computing node, do
+To do a simple test run for decoding, on a computing node with a GPU, do
 
 ```bash
 bash scripts/stack-transformer/test.sh DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/config.sh DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/checkpoint70.pt
