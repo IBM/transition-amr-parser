@@ -26,9 +26,9 @@ echo "fairseq-generate
     $FAIRSEQ_GENERATE_ARGS
     --path $checkpoint
     --results-path $results_folder/valid"
-fairseq-generate $FAIRSEQ_GENERATE_ARGS \
-    --path $checkpoint \
-    --results-path $results_folder/valid
+#fairseq-generate $FAIRSEQ_GENERATE_ARGS \
+#    --path $checkpoint \
+#    --results-path $results_folder/valid
 # to profile decoder
 # 1. pip install line_profiler
 # 2. decorate target function with @profile
@@ -48,7 +48,7 @@ if [ "$TASK_TAG" == "AMR" ];then
         --in-actions $results_folder/valid.actions \
         --out-amr $results_folder/valid.amr \
 
-    if [ "$WIKI_DEV" == "" ];then
+    if [ ! -v WIKI_DEV ];then
 
         # Smatch evaluation without wiki
         python smatch/smatch.py \
