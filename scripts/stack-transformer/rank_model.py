@@ -112,7 +112,19 @@ def collect_results(args, results_regex):
             sorted(scores.items(), key=lambda x: x[1])[-3:]
         missing_epochs = list(stdout_numbers - set(scores.keys()))
 
-        item = {
+        # look for weight ensemble results
+        if os.path.isfile(f'{model_folder}/top3-average/valid.smatch'):
+            weight_ensemble_smatch = get_score_from_log(
+                f'{model_folder}/top3-average/valid.smatch'
+            )
+        elif os.path.isfile(f'{model_folder}/top3-average/valid.wiki.smatch'):
+            weight_ensemble_smatch = get_score_from_log(
+                f'{model_folder}/top3-average/valid.wiki.smatch'
+            )
+        else:    
+            weight_ensemble_smatch = None
+
+        items.append({
             'folder': model_folder,
             'best_SMATCH': best_SMATCH[1],
             'best_SMATCH_epoch': int(best_SMATCH[0]),
@@ -122,9 +134,16 @@ def collect_results(args, results_regex):
             'third_best_SMATCH_epoch': int(third_best_SMATCH[0]),
             'num_missing_epochs': len(missing_epochs),
             'num': 1
-        }
+        })
 
-        items.append(item)
+        if weight_ensemble_smatch is not None:
+            items.append({
+                'folder': f'{model_folder} (pt ensemble)',
+                'best_SMATCH': weight_ensemble_smatch,
+                'best_SMATCH_epoch': int(best_SMATCH[0]),
+                'num_missing_epochs': len(missing_epochs),
+                'num': 1,
+            })
 
     return items
 
@@ -134,7 +153,7 @@ def seed_average(items):
     # cluster by key
     clusters = defaultdict(list)
     for item in items:
-        key = item['folder'].split('-seed')[0]
+        key = re.sub('-seed[0-9]+', '', item['folder'])
         clusters[key].append(item)
 
     # merge
@@ -142,7 +161,10 @@ def seed_average(items):
     for key, cluster_items in clusters.items():
 
         def average(field):
-            return mean([x[field] for x in cluster_items])
+            if any([x[field] is None for x in cluster_items]):
+                return None
+            else:
+                return mean([x[field] for x in cluster_items])
 
         def stdev(field):
             return 2*std([x[field] for x in cluster_items])
@@ -200,12 +222,16 @@ if __name__ == '__main__':
     # Separate results with and without wiki
     for result_regex in [stdout_re, stdout_re_wiki]:
 
-        # collect results and link best SMATCH result
+        # collect results for each model
         items = collect_results(args, result_regex)
 
         # link best SMATCH model
         if args.link_best:
             for item in items:
+
+                if 'third_best_SMATCH_epoch' not in intem:
+                    continue
+
                 model_folder = os.path.realpath(item['folder'])
                 for rank in ['best', 'second_best', 'third_best']: 
                     epoch = item[f'{rank}_SMATCH_epoch']
