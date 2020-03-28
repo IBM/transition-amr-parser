@@ -128,7 +128,19 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     
 done
 
-# After all tests are done, rank model and link best SMATCH one
+# After all tests are done, rank model and softlink the top 3 models according
+# to smatch
 if [ "$TASK_TAG" == "AMR" ];then
+
+    # model linking (will also display table)
     python scripts/stack-transformer/rank_model.py --link-best
+
+    # create average enpoint   
+    python fairseq/scripts/average_checkpoints.py \
+        --input \
+            $model_folder/checkpoint_best_SMATCH.pt \
+            $model_folder/checkpoint_second_best_SMATCH.pt \
+            $model_folder/checkpoint_third_best_SMATCH.pt \
+        --output $model_folder/checkpoint_top3-average_SMATCH.pt
+
 fi
