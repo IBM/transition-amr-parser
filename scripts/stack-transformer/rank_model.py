@@ -229,7 +229,7 @@ if __name__ == '__main__':
         if args.link_best:
             for item in items:
 
-                if 'third_best_SMATCH_epoch' not in intem:
+                if 'third_best_SMATCH_epoch' not in item:
                     continue
 
                 model_folder = os.path.realpath(item['folder'])
