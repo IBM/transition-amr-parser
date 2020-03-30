@@ -2,6 +2,69 @@ import re
 import json
 from collections import Counter
 from transition_amr_parser.amr import JAMR_CorpusReader
+import ast
+
+
+def read_action_scores(file_path):
+    """
+    Reads scores to judge the optimality of an action set, comprise
+
+    sentence id (position in the original corpus)       1 int
+    unormalized scores                                  3 int
+    sequence normalized score e.g. smatch               1 float 
+    action sequence length                              1 int
+    saved because of {score, length, None (original)}   1 str
+    action sequence (tab separated)                     1 str (tab separated)
+
+    TODO: Probability
+    """
+    action_scores = []
+    with open(file_path) as fid:
+        for line in fid:
+            line = line.strip()
+            items = list(map(int, line.split()[:4]))
+            items.append(float(line.split()[4]))
+            items.append(int(line.split()[5]))
+            items.append(
+                None if line.split()[6] == 'None' else line.split()[6]
+            )
+            if line.split()[7][0] == '[':
+                # backwards compatibility fix
+                items.append(ast.literal_eval(" ".join(line.split()[7:])))
+            else:    
+                items.append(line.split()[7:])
+            action_scores.append(items)
+
+    return action_scores
+
+
+def write_action_scores(file_path, action_scores):
+    """
+    Writes scores to judge the optimality of an action set, comprise
+
+    sentence id (position in the original corpus)       1 int
+    unormalized scores                                  3 int
+    sequence normalized score e.g. smatch               1 float 
+    action sequence length                              1 int
+    saved because of {score, length, None (original)}   1 str
+    action sequence (tab separated)                     1 str (tab separated)
+
+    TODO: Probability
+    """
+
+    with open(file_path, 'w') as fid:
+        for items in action_scores:
+            sid = items[0]
+            score = items[1:4]     
+            smatch = items[4]
+            length = items[5]
+            reason = items [6]
+            actions = items[7]
+            if actions is not None:
+                actions = '\t'.join(actions)
+            fid.write(
+                f'{sid} {score[0]} {score[1]} {score[2]} {smatch} {length} {reason} {actions}\n'
+            )
 
 
 def read_amr(in_amr, unicode_fixes=False):
@@ -113,6 +176,7 @@ def read_tokenized_sentences(file_path, separator=' '):
 def write_tokenized_sentences(file_path, content, separator=' '):
     with open(file_path, 'w') as fid:
         for line in content:
+            line = [str(x) for x in line]
             fid.write(f'{separator.join(line)}\n')
 
 
