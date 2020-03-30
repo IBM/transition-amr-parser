@@ -120,6 +120,7 @@ def main(args):
         samples = [dataset[i] for i in batch_ids]
         dataset.collater(samples)
 
+
 def cli_main():
     parser = options.get_generation_parser(default_task='parsing')
     args = options.parse_args_and_arch(parser)

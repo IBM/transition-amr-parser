@@ -48,20 +48,38 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
             --in-actions ${std_name}.actions \
             --out-amr ${std_name}.amr 
 
-        # add wiki
-        python fairseq/dcc/add_wiki.py \
-            ${std_name}.amr $WIKI_DEV \
-            > ${std_name}.wiki.amr
-    
-        python smatch/smatch.py \
-             --significant 4  \
-             -f $AMR_DEV_FILE_WIKI \
-             ${std_name}.wiki.amr \
-             -r 10 \
-             > ${std_name}.wiki.smatch
+        if [ "$WIKI_DEV" == "" ];then
+
+            # Smatch evaluation without wiki
+            python smatch/smatch.py \
+                 --significant 4  \
+                 -f $AMR_DEV_FILE \
+                 ${std_name}.amr \
+                 -r 10 \
+                 > ${std_name}.smatch
+            
+            # plot score
+            cat ${std_name}.smatch
+
+        else
+
+            # Smatch evaluation with wiki
+            # add wiki
+            python fairseq/dcc/add_wiki.py \
+                ${std_name}.amr $WIKI_DEV \
+                > ${std_name}.wiki.amr
         
-        # plot score
-        cat ${std_name}.wiki.smatch
+            python smatch/smatch.py \
+                 --significant 4  \
+                 -f $AMR_DEV_FILE_WIKI \
+                 ${std_name}.wiki.amr \
+                 -r 10 \
+                 > ${std_name}.wiki.smatch
+            
+            # plot score
+            cat ${std_name}.wiki.smatch
+    
+        fi
     
     elif [ "$TASK_TAG" == "NER" ];then
     
@@ -110,7 +128,19 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     
 done
 
-# After all tests are done, rank model and link best SMATCH one
+# After all tests are done, rank model and softlink the top 3 models according
+# to smatch
 if [ "$TASK_TAG" == "AMR" ];then
-    python scripts/stack-transformer/rank_model.py
+
+    # model linking (will also display table)
+    python scripts/stack-transformer/rank_model.py --link-best
+
+    # create average enpoint   
+    python fairseq/scripts/average_checkpoints.py \
+        --input \
+            $model_folder/checkpoint_best_SMATCH.pt \
+            $model_folder/checkpoint_second_best_SMATCH.pt \
+            $model_folder/checkpoint_third_best_SMATCH.pt \
+        --output $model_folder/checkpoint_top3-average_SMATCH.pt
+
 fi
