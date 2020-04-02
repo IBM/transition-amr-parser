@@ -1563,15 +1563,17 @@ class DepParsingStateMachine():
     def applyAction(self, action):
         """alias for compatibility"""
 
-        # Quick exit for a closed machine
-        if self.is_closed:
-            return ['</s>']
-
         if action.split('(')[0] == 'SHIFT':
-            # move one elements from stack to buffer
-            shifted_pos = self.buffer.pop(0)
-            self.stack.append(shifted_pos)
-            if shifted_pos is not None:
+
+            if self.buffer == []:
+                # shift on empty buffer closes machine
+                self.is_closed = True:
+                action = "SHIFT" 
+            else:    
+                # move one elements from stack to buffer
+                shifted_pos = self.buffer.pop(0)
+                self.stack.append(shifted_pos)
+                # if shifted_pos is not None: #?
                 action = "%s(%s)" % (action, shifted_pos)
 
         elif action.split('(')[0] == 'LEFT-ARC':
@@ -1600,8 +1602,15 @@ class DepParsingStateMachine():
 
     def get_valid_actions(self):
 
+        # Quick exit for a closed machine
+        if self.is_closed:
+            return ['</s>']
+
         valid_actions = []
-        if self.buffer:
+        if len(self.buffer) > 0:
+            valid_actions.append('SHIFT')
+        elif len(self.stack) == 0:
+            # Allow SHIFT on empty buffer (will close)
             valid_actions.append('SHIFT')
 
         if len(self.stack) >= 2:
