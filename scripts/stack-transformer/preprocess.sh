@@ -15,8 +15,16 @@ config=$1
 # ORACLE
 [ ! -d $ORACLE_FOLDER ] && mkdir -p $ORACLE_FOLDER
 
+
 # Create oracle data
-if [ "$TASK_TAG" == "AMR" ];then
+if [ "$TASK_TAG" == "dep-parsing" ];then
+
+    # nothing to do since the oracle is given, just copy it locally
+    echo "cp $PTB_ORACLE/$ORACLE_TAG/* $ORACLE_FOLDER"
+    cp $PTB_ORACLE/$ORACLE_TAG/* $ORACLE_FOLDER
+    chmod u+w -R $ORACLE_FOLDER
+
+elif [ "$TASK_TAG" == "AMR" ];then
 
     if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
     

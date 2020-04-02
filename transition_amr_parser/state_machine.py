@@ -37,6 +37,34 @@ entities_path = f'{repo_root}/entity_rules.json'
 default_rel = ':rel'
 
 
+def white_background(string):
+    return "\033[107m%s\033[0m" % string
+
+def red_background(string):
+    return "\033[101m%s\033[0m" % string
+
+def green_background(string):
+    return "\033[102m%s\033[0m" % string
+
+def black_font(string):
+    return "\033[30m%s\033[0m" % string
+
+def blue_font(string):
+    return "\033[94m%s\033[0m" % string
+
+def green_font(string):
+    return "\033[92m%s\033[0m" % string
+
+def stack_style(string, confirmed=False):
+    if confirmed:
+        return black_font(green_background(string))
+    else:
+        return black_font(white_background(string))
+
+def reduced_style(string):
+    return black_font(red_background(string))
+
+
 class NoTokenizer(object):
     def __init__(self, vocab):
         self.vocab = vocab
@@ -153,33 +181,6 @@ class AMRStateMachine:
 
     def __str__(self):
         """Command line styling"""
-
-        def white_background(string):
-            return "\033[107m%s\033[0m" % string
-
-        def red_background(string):
-            return "\033[101m%s\033[0m" % string
-
-        def green_background(string):
-            return "\033[102m%s\033[0m" % string
-
-        def black_font(string):
-            return "\033[30m%s\033[0m" % string
-
-        def blue_font(string):
-            return "\033[94m%s\033[0m" % string
-
-        def green_font(string):
-            return "\033[92m%s\033[0m" % string
-
-        def stack_style(string, confirmed=False):
-            if confirmed:
-                return black_font(green_background(string))
-            else:
-                return black_font(white_background(string))
-
-        def reduced_style(string):
-            return black_font(red_background(string))
 
         display_str = ""
 
@@ -1443,3 +1444,169 @@ class AMRStateMachine:
             return lstring[:-1]
 
         return '"' + string + '"'
+
+
+class DepParsingStateMachine():
+
+    def __init__(self, tokens):
+
+        # tokenized sentence
+        self.tokens = tuple(tokens)
+
+        # machine state
+        # keep initial positions as token ids (since token type repeat
+        # theselves)
+        self.buffer = list(range(len(self.tokens)))[::-1]
+        self.stack = []
+
+        # extra state
+        # store action history
+        self.action_history = []
+        # FIXME: This has to be yet set
+        self.is_closed = False
+        # update counter
+        self.time_step = 0
+
+    def __str__(self):
+        """Command line styling"""
+
+        display_str = ""
+
+#         # Actions
+#         action_str = ' '.join([a for a in self.actions])
+#         # update display str
+#         display_str += "%s\n%s\n\n" % (green_font("# Actions:"), action_str)
+# 
+#         # Buffer
+#         buffer_idx = [
+#             i - 1 if i != -1 else len(self.tokens) - 1
+#             for i in reversed(self.buffer)
+#         ]
+# 
+#         # Stack
+#         stack_idx = [i - 1 for i in self.stack]
+#         stack_str = []
+#         for i in stack_idx:
+#             stack_str.append(self.tokens[i])
+#         stack_str = " ".join(stack_str)
+# 
+#         # mask view
+#         mask_view = []
+#         pointer_view = []
+#         for position in range(len(self.tokens)):
+#             # token
+#             token = str(self.tokens[position])
+#             len_token = len(token)
+#             # color depending on position
+#             if position in buffer_idx:
+#                 token = token + ' '
+#             elif position in stack_idx:
+#                 token = stack_style(token, position + 1 in self.is_confirmed) + ' '
+#             elif position in merged_pos:
+#                 token = stack_style(token + ' ', position + 1 in self.is_confirmed)
+#             else:
+#                 token = reduced_style(token) + ' '
+#             # position cursor
+#             if position in stack_idx and stack_idx.index(position) == len(stack_idx) - 1:
+#                 pointer_view.append('_' * len_token + ' ')
+#             elif position in stack_idx and stack_idx.index(position) == len(stack_idx) - 2:
+#                 pointer_view.append('-' * len_token + ' ')
+#             else:
+#                 pointer_view.append(' ' * len_token + ' ')
+#             mask_view.append(token)
+# 
+#         mask_view_str = "".join(mask_view)
+#         pointer_view_str = "".join(pointer_view)
+#         # update display str
+#         display_str += "%s\n%s\n%s\n\n" % (green_font("# Buffer/Stack/Reduced:"), pointer_view_str, mask_view_str)
+# 
+#         # nodes
+#         # nodes_str = " ".join([x for x in self.predicates if x != '_'])
+#         node_items = []
+#         for pos, node in self.alignments.items():
+#             if isinstance(pos, tuple):
+#                 tokens = " ".join(self.tokens[p] for p in pos)
+#             else:
+#                 tokens = self.tokens[pos]
+#             node_items.append(f'({tokens}, {node})')
+#         nodes_str = " ".join(node_items)
+#         # update display str
+#         display_str += "%s\n%s\n\n" % (green_font("# Predicates:"), nodes_str)
+# 
+#         # Edges
+#         if self.amr_graph:
+#             edges_str = []
+#             for items in self.amr.edges:
+#                 i, label, j = items
+#                 edges_str.append(
+#                     "%s %s %s" %
+#                     (self.amr.nodes[i], blue_font(label), self.amr.nodes[j])
+#                 )
+#             edges_str = ", ".join(edges_str)
+#             # update display str
+#             display_str += "%s\n%s\n" % (green_font("# Edges:"), edges_str)
+
+        return display_str
+
+    def get_buffer_stack_copy(self): 
+        """
+        Return stack and buffer with legacy indexing
+
+        Note that the -1 is used for <ROOT> in AMR. This is a special node. 
+        """
+        # if i + 1 != len(self.tokens) else -1
+        return (
+            list([i + 1 for i in self.buffer]), 
+            list([i + 1 for i in self.stack])
+        )
+
+    def applyAction(self, action):
+        """alias for compatibility"""
+
+        # Quick exit for a closed machine
+        if self.is_closed:
+            return ['</s>']
+
+        if action.split('(')[0] == 'SHIFT':
+            # move one elements from stack to buffer
+            shifted_pos = self.buffer.pop(0)
+            self.stack.append(shifted_pos)
+            if shifted_pos is not None:
+                action = "%s(%s)" % (action, shifted_pos)
+
+        elif action.split('(')[0] == 'LEFT-ARC':
+            # remove second element in stack from the top
+            # remove first element in stack from the top
+            dependent = self.stack.pop(-2)
+
+        elif action.split('(')[0] == 'RIGHT-ARC':
+            # remove first element in stack from the top
+            dependent = self.stack.pop(-1)
+
+        elif action.split('(')[0] == 'SWAP':
+            # set element 1 of the stack to 0 of the buffer
+            self.buffer.insert(0, self.stack.pop(-2))
+
+        else: 
+            raise Exception("Invalid action %s" % action)
+
+        # store action history
+        self.action_history.append(action)
+
+        # update counter
+        self.time_step += 1
+
+        return action
+
+    def get_valid_actions(self):
+
+        valid_actions = []
+        if self.buffer:
+            valid_actions.append('SHIFT')
+
+        if len(self.stack) >= 2:
+            valid_actions.append('LEFT-ARC')
+            valid_actions.append('RIGHT-ARC')
+            valid_actions.append('SWAP')
+
+        return valid_actions
