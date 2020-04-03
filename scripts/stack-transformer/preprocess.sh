@@ -17,29 +17,33 @@ config=$1
 
 # Create oracle data
 if [ "$TASK_TAG" == "AMR" ];then
-    
-    # Train
-    amr-oracle \
-        --in-amr $AMR_TRAIN_FILE \
-        --out-sentences $ORACLE_FOLDER/train.en \
-        --out-actions $ORACLE_FOLDER/train.actions \
-        --out-rule-stats $ORACLE_FOLDER/train.rules.json \
-        $ORACLE_TRAIN_ARGS
-    
-    # Dev and test
-    amr-oracle \
-        --in-amr $AMR_DEV_FILE \
-        --out-sentences $ORACLE_FOLDER/dev.en \
-        --out-actions $ORACLE_FOLDER/dev.actions \
-        --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
-        $ORACLE_DEV_ARGS
 
-    amr-oracle \
-        --in-amr $AMR_TEST_FILE \
-        --out-sentences $ORACLE_FOLDER/test.en \
-        --out-actions $ORACLE_FOLDER/test.actions \
-        --out-rule-stats $ORACLE_FOLDER/test.rules.json \
-        $ORACLE_DEV_ARGS
+    if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
+    
+        # Train
+        amr-oracle \
+            --in-amr $AMR_TRAIN_FILE \
+            --out-sentences $ORACLE_FOLDER/train.en \
+            --out-actions $ORACLE_FOLDER/train.actions \
+            --out-rule-stats $ORACLE_FOLDER/train.rules.json \
+            $ORACLE_TRAIN_ARGS
+        
+        # Dev and test
+        amr-oracle \
+            --in-amr $AMR_DEV_FILE \
+            --out-sentences $ORACLE_FOLDER/dev.en \
+            --out-actions $ORACLE_FOLDER/dev.actions \
+            --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
+            $ORACLE_DEV_ARGS
+    
+        amr-oracle \
+            --in-amr $AMR_TEST_FILE \
+            --out-sentences $ORACLE_FOLDER/test.en \
+            --out-actions $ORACLE_FOLDER/test.actions \
+            --out-rule-stats $ORACLE_FOLDER/test.rules.json \
+            $ORACLE_DEV_ARGS
+    
+    fi
     
 elif [ "$TASK_TAG" == "NER" ];then
 
