@@ -96,19 +96,7 @@ for index in $(seq $NUM_SEEDS);do
 
     fi
 
-    # run test on best CE model
-    jbsub_tag="dec-${repo_tag}-$$"
-    jbsub -cores 1+1 \
-          -mem 50g \
-          -q "$TEST_QUEUE" \
-          -require "$TEST_GPU_TYPE" \
-          -name "$jbsub_tag" \
-          $test_depends \
-          -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
-          -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash $tools_folder/test.sh $checkpoints_dir/config.sh $checkpoints_dir/$CHECKPOINT
-
-    # test all available checkpoints
+    # test all available checkpoints and rank them
     jbsub_tag="tdec-${repo_tag}-$$"
     jbsub -cores 1+1 \
           -mem 50g \
