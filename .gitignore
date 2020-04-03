@@ -20,6 +20,9 @@ cenv*/
 
 # debug
 *.lprof
+debug*
+tmp*
+TMP*
 
 # other
 __pycache__/

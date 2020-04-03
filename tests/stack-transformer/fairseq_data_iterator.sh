@@ -9,7 +9,7 @@ set -o nounset
 
 python tests/stack-transformer/fairseq_data_iterator.py \
     $features_folder  \
-    --gen-subset valid \
+    --gen-subset train \
     --batch-size 128 \
     --machine-type AMR \
     --path dummpy.pt
