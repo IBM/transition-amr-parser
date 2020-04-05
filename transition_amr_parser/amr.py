@@ -165,7 +165,8 @@ class JAMR_CorpusReader:
         print_log('amr', 'Starts reading data')
 
     """
-    Reads AMR Graphs file in JAMR format. If Training==true, it is reading training data set and it will affect the dictionaries.
+    Reads AMR Graphs file in JAMR format. If Training==true, it is reading
+    training data set and it will affect the dictionaries.
 
     JAMR format is ...
     # ::scr score
@@ -195,6 +196,7 @@ class JAMR_CorpusReader:
                 tokens = tokens.split()
                 amrs[-1].tokens.extend(tokens)
                 for tok in tokens:
+                    # TODO: update dictionaries after entire AMR is read
                     if training:
                         self.words2Ints.setdefault(tok, len(self.words2Ints))
                         for char in tok:
@@ -215,6 +217,7 @@ class JAMR_CorpusReader:
                     elif col == 2:
                         node = tab.strip()
                         amrs[-1].nodes[node_id] = node
+                        # TODO: update dictionaries after entire AMR is read
                         if training:
                             self.nodes2Ints.setdefault(node, len(self.nodes2Ints))
                     # alignment
@@ -240,6 +243,7 @@ class JAMR_CorpusReader:
                     # edge label
                     if col == 2 + (quote_offset):
                         edge[1] = ':'+tab.strip()
+                        # TODO: update dictionaries after entire AMR is read
                         if training:
                             self.labels2Ints.setdefault(tab, len(self.labels2Ints))
                     # edge source id
