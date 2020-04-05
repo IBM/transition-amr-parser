@@ -1,14 +1,15 @@
-set -o nounset
-set -o pipefail 
 set -o errexit 
+set -o pipefail
+# setup environment
+. set_environment.sh
+set -o nounset 
 
-[ ! -d scripts/ ] && echo "Call as scripts/$(basename $0)" && exit 1
-. scripts/local_variables.sh
+ORACLE_FOLDER=/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/oracles/o3+Word100/
 
 # Parse a sentence step by step for debug
-amr-parse \
-    --in-sentences ${oracle_folder}/train.tokens \
-    --in-actions ${oracle_folder}/train.actions \
+amr-fake-parse \
+    --in-sentences ${ORACLE_FOLDER}/train.en \
+    --in-actions ${ORACLE_FOLDER}/train.actions \
     --step-by-step \
-    --offset 1552 \
+    --offset 3 \
     --clear-print
