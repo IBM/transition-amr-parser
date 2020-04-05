@@ -360,7 +360,7 @@ def main():
         bio_write = writer(args.out_bio_tags)
 
     # Loop over sentences
-    for sent_idx, sentence in tqdm(enumerate(sentences)):
+    for sent_idx, sentence in tqdm(enumerate(sentences), desc='parsing'):
 
         # fast-forward until desired sentence number
         if args.offset and sent_idx < args.offset:
