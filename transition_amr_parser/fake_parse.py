@@ -84,7 +84,11 @@ def argument_parser():
         action='store_true',
         help="Assume whitespaces normalized to _ in PRED"
     )
-
+    parser.add_argument(
+        "--out-bio-tags",
+        type=str,
+        help="Output AMR info as BIO tags (PRED and ADDNODE actions)"
+    )
     args = parser.parse_args()
 
     # Argument pre-processing
@@ -154,6 +158,36 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
     return raw_action
 
 
+def get_bio_from_machine(state_machine, raw_action):
+    annotations = {}
+    if raw_action.startswith('PRED') or raw_action.startswith('ADDNODE'):   
+        token, tokens = state_machine.get_top_of_stack(positions=True)
+        tokens = tuple(tokens) if tokens else [token]
+        for token in tokens:
+            if token in annotations:
+                raise Exception('Overlapping annotations')                
+            annotations[token] = raw_action
+    return annotations
+
+
+def get_bio_tags(state_machine, bio_alignments):
+    bio_tags = []
+    prev_label = None
+    for idx, token in enumerate(state_machine.tokens[:-1]):
+        if idx in bio_alignments:
+            if prev_label == bio_alignments[idx]:
+                tag = f'I-{bio_alignments[idx]}'
+            else:
+                tag = f'B-{bio_alignments[idx]}'
+            prev_label = bio_alignments[idx]
+        else:
+            prev_label = None
+            tag = 'O'
+        bio_tags.append((token, tag))
+
+    return bio_tags 
+
+
 class FakeAMRParser():
     """
     Fake parser that uses precomputed sequences of sentences and corresponding
@@ -200,6 +234,9 @@ class FakeAMRParser():
             spacy_lemmatizer=self.spacy_lemmatizer
         )
 
+        # this will store AMR parsing as BIO tag (PRED, ADDNODE)
+        bio_alignments = {}
+
         # execute parsing model
         while not state_machine.is_closed:
 
@@ -225,13 +262,21 @@ class FakeAMRParser():
                 self.rule_violation
             )
 
+            # update bio tags from AMR
+            bio_alignments.update(
+                get_bio_from_machine(state_machine, raw_action)
+            )
+
             # Update state machine
             state_machine.applyAction(raw_action)
+
+        # build bio tags
+        bio_tags = get_bio_tags(state_machine, bio_alignments)
 
         # count one sentence more
         self.sent_idx += 1
 
-        return state_machine.amr
+        return state_machine, bio_tags
 
 
 class Logger():
@@ -311,6 +356,8 @@ def main():
     # Get output AMR writer
     if args.out_amr:
         amr_write = writer(args.out_amr)
+    if args.out_bio_tags:
+        bio_write = writer(args.out_bio_tags)
 
     # Loop over sentences
     for sent_idx, sentence in tqdm(enumerate(sentences)):
@@ -320,11 +367,15 @@ def main():
             continue
 
         # parse
-        amr = parsing_model.parse_sentence(sentence)
+        machine, bio_tags = parsing_model.parse_sentence(sentence)
 
         # store output AMR
-        if args.out_amr:
-            amr_write(amr.toJAMRString())
+        if args.out_bio_tags:
+            tag_str = '\n'.join([f'{to} {ta}' for to, ta in bio_tags])
+            tag_str += '\n\n'
+            bio_write(tag_str)
+        elif args.out_amr:
+            amr_write(machine.amr.toJAMRString())
 
     if (
         getattr(parsing_model, "rule_violation") and
@@ -337,6 +388,8 @@ def main():
         print("Predict rules had following statistics")
         print(parsing_model.pred_counts)
 
-    # close output AMR writer
+    # close output writers
     if args.out_amr:
         amr_write()
+    if args.out_bio_tags:
+        bio_write()
