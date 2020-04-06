@@ -223,7 +223,7 @@ if __name__ == '__main__':
     for result_regex in [stdout_re, stdout_re_wiki]:
 
         # collect results for each model
-                items = collect_results(args, result_regex)
+        items = collect_results(args, result_regex)
 
         # link best SMATCH model
         if args.link_best:
