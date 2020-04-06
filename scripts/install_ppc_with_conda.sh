@@ -17,7 +17,7 @@ conda install python=3.6.9=h2bede3c_0 -y -c powerai
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
 cd fairseq
-git checkout fix/tab-tokenization-bert
+git checkout modular_semantic_parsing
 conda env update -f dcc/ccc_ppc_fairseq.yml
 pip install --editable .
 cd ..

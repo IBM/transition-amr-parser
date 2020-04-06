@@ -1451,17 +1451,19 @@ class DepParsingStateMachine():
     def __init__(self, tokens):
 
         # tokenized sentence
+        assert tokens[-1] == "<ROOT>"
         self.tokens = tuple(tokens)
 
         # machine state
         # keep initial positions as token ids (since token type repeat
         # theselves)
-        self.buffer = list(range(len(self.tokens)))[::-1]
         self.stack = []
+        self.buffer = [i + 1 for i, tok in enumerate(self.tokens)][::-1] 
+        self.buffer[0] = -1
 
         # extra state
         # store action history
-        self.action_history = []
+        self.actions = []
         # FIXME: This has to be yet set
         self.is_closed = False
         # update counter
@@ -1472,128 +1474,93 @@ class DepParsingStateMachine():
 
         display_str = ""
 
-#         # Actions
-#         action_str = ' '.join([a for a in self.actions])
-#         # update display str
-#         display_str += "%s\n%s\n\n" % (green_font("# Actions:"), action_str)
-# 
-#         # Buffer
-#         buffer_idx = [
-#             i - 1 if i != -1 else len(self.tokens) - 1
-#             for i in reversed(self.buffer)
-#         ]
-# 
-#         # Stack
-#         stack_idx = [i - 1 for i in self.stack]
-#         stack_str = []
-#         for i in stack_idx:
-#             stack_str.append(self.tokens[i])
-#         stack_str = " ".join(stack_str)
-# 
-#         # mask view
-#         mask_view = []
-#         pointer_view = []
-#         for position in range(len(self.tokens)):
-#             # token
-#             token = str(self.tokens[position])
-#             len_token = len(token)
-#             # color depending on position
-#             if position in buffer_idx:
-#                 token = token + ' '
-#             elif position in stack_idx:
-#                 token = stack_style(token, position + 1 in self.is_confirmed) + ' '
-#             elif position in merged_pos:
-#                 token = stack_style(token + ' ', position + 1 in self.is_confirmed)
-#             else:
-#                 token = reduced_style(token) + ' '
-#             # position cursor
-#             if position in stack_idx and stack_idx.index(position) == len(stack_idx) - 1:
-#                 pointer_view.append('_' * len_token + ' ')
-#             elif position in stack_idx and stack_idx.index(position) == len(stack_idx) - 2:
-#                 pointer_view.append('-' * len_token + ' ')
-#             else:
-#                 pointer_view.append(' ' * len_token + ' ')
-#             mask_view.append(token)
-# 
-#         mask_view_str = "".join(mask_view)
-#         pointer_view_str = "".join(pointer_view)
-#         # update display str
-#         display_str += "%s\n%s\n%s\n\n" % (green_font("# Buffer/Stack/Reduced:"), pointer_view_str, mask_view_str)
-# 
-#         # nodes
-#         # nodes_str = " ".join([x for x in self.predicates if x != '_'])
-#         node_items = []
-#         for pos, node in self.alignments.items():
-#             if isinstance(pos, tuple):
-#                 tokens = " ".join(self.tokens[p] for p in pos)
-#             else:
-#                 tokens = self.tokens[pos]
-#             node_items.append(f'({tokens}, {node})')
-#         nodes_str = " ".join(node_items)
-#         # update display str
-#         display_str += "%s\n%s\n\n" % (green_font("# Predicates:"), nodes_str)
-# 
-#         # Edges
-#         if self.amr_graph:
-#             edges_str = []
-#             for items in self.amr.edges:
-#                 i, label, j = items
-#                 edges_str.append(
-#                     "%s %s %s" %
-#                     (self.amr.nodes[i], blue_font(label), self.amr.nodes[j])
-#                 )
-#             edges_str = ", ".join(edges_str)
-#             # update display str
-#             display_str += "%s\n%s\n" % (green_font("# Edges:"), edges_str)
+        # Actions
+        action_title = green_font("# Actions:")
+        action_str = ' '.join([a for a in self.actions])
+        display_str += f'{action_title}\n{action_str}\n\n' 
+
+        # mask view
+        mask_view = []
+        pointer_view = []
+        for idx, position in enumerate(range(len(self.tokens))[::-1]):
+
+            # token
+            token = str(self.tokens[idx])
+            len_token = len(token)
+
+            # color depending on position
+            if position in self.buffer:
+                token = token + ' '
+            elif position in self.stack:
+                token = stack_style(token, False) + ' '
+            else:
+                token = reduced_style(token) + ' '
+
+            # position cursor
+            if (
+                position in self.stack and 
+                self.stack.index(position) == len(self.stack) - 1
+            ):
+                pointer_view.append('_' * len_token + ' ')
+            elif (
+                position in self.stack and 
+                self.stack.index(position) == len(self.stack) - 2
+            ):
+                pointer_view.append('-' * len_token + ' ')
+            else:
+                pointer_view.append(' ' * len_token + ' ')
+            mask_view.append(token)
+
+        # update display str
+        title = green_font("# Buffer/Stack/Reduced:")
+        pointer_view_str = "".join(pointer_view)
+        mask_view_str = "".join(mask_view)
+        display_str += f'{title}\n{pointer_view_str}\n{mask_view_str}\n\n' 
 
         return display_str
 
     def get_buffer_stack_copy(self): 
-        """
-        Return stack and buffer with legacy indexing
-
-        Note that the -1 is used for <ROOT> in AMR. This is a special node. 
-        """
-        # if i + 1 != len(self.tokens) else -1
-        return (
-            list([i + 1 for i in self.buffer]), 
-            list([i + 1 for i in self.stack])
-        )
+        """Return copy of buffer and stack"""
+        return list(self.buffer), list(self.stack)
 
     def applyAction(self, action):
         """alias for compatibility"""
 
-        if action.split('(')[0] == 'SHIFT':
+        base_action = action.split('(')[0] 
+
+        if base_action == 'SHIFT':
 
             if self.buffer == []:
                 # shift on empty buffer closes machine
-                self.is_closed = True:
+                self.is_closed = True
                 action = "SHIFT" 
             else:    
                 # move one elements from stack to buffer
-                shifted_pos = self.buffer.pop(0)
-                self.stack.append(shifted_pos)
+                self.stack.append(self.buffer.pop())
                 # if shifted_pos is not None: #?
-                action = "%s(%s)" % (action, shifted_pos)
+                # action = "%s(%s)" % (action, shifted_pos)
 
-        elif action.split('(')[0] == 'LEFT-ARC':
+        elif base_action == 'LEFT-ARC':
             # remove second element in stack from the top
             # remove first element in stack from the top
-            dependent = self.stack.pop(-2)
+            dependent = self.stack.pop(1)
+            # close machine if LA(root)
+            if action == 'LEFT-ARC(root)':
+                self.is_closed = True
 
         elif action.split('(')[0] == 'RIGHT-ARC':
             # remove first element in stack from the top
-            dependent = self.stack.pop(-1)
+            dependent = self.stack.pop()
 
         elif action.split('(')[0] == 'SWAP':
             # set element 1 of the stack to 0 of the buffer
-            self.buffer.insert(0, self.stack.pop(-2))
+            self.buffer.append(self.stack.pop(1))
 
         else: 
             raise Exception("Invalid action %s" % action)
 
         # store action history
-        self.action_history.append(action)
+        self.actions.append(action)
 
         # update counter
         self.time_step += 1
@@ -1606,13 +1573,14 @@ class DepParsingStateMachine():
         if self.is_closed:
             return ['</s>']
 
+        # if top of the stack contains <ROOT> only LA(root allowed)
+        if self.stack and self.stack[-1] == -1:
+            return ['LEFT-ARC(root)']
+
+        # multiple actions possible
         valid_actions = []
         if len(self.buffer) > 0:
             valid_actions.append('SHIFT')
-        elif len(self.stack) == 0:
-            # Allow SHIFT on empty buffer (will close)
-            valid_actions.append('SHIFT')
-
         if len(self.stack) >= 2:
             valid_actions.append('LEFT-ARC')
             valid_actions.append('RIGHT-ARC')

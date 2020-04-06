@@ -47,7 +47,15 @@ fairseq-generate $FAIRSEQ_GENERATE_ARGS \
 model_folder=$(dirname $checkpoint)
 
 # Create oracle data
-if [ "$TASK_TAG" == "AMR" ];then
+if [ "$TASK_TAG" == "dep-parsing" ];then
+
+    # Create the AMR from the model obtained actions
+    python scripts/dep_parsing_score.py \
+        --in-tokens $ORACLE_FOLDER/dev.en \
+        --in-actions $results_folder/valid.actions \
+        --in-gold-actions $ORACLE_FOLDER/dev.actions
+
+elif [ "$TASK_TAG" == "AMR" ];then
 
     # Create the AMR from the model obtained actions
     amr-fake-parse \
