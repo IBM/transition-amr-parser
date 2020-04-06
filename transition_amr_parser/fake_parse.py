@@ -160,7 +160,17 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
 
 def get_bio_from_machine(state_machine, raw_action):
     annotations = {}
-    if raw_action.startswith('PRED') or raw_action.startswith('ADDNODE'):   
+    if (
+        raw_action.startswith('PRED') or 
+        raw_action.startswith('ADDNODE') or
+        raw_action in ['COPY_SENSE01', 'COPY_LEMMA']
+    ):   
+        if raw_action == 'COPY_SENSE01':
+            lemma, _ = state_machine.get_top_of_stack(lemma=True)
+            raw_action = f'PRED({lemma}-01)'
+        elif raw_action == 'COPY_LEMMA':
+            lemma, _ = state_machine.get_top_of_stack(lemma=True)
+            raw_action = f'PRED({lemma})'
         token, tokens = state_machine.get_top_of_stack(positions=True)
         tokens = tuple(tokens) if tokens else [token]
         for token in tokens:
