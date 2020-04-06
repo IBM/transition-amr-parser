@@ -1451,7 +1451,7 @@ class DepParsingStateMachine():
     def __init__(self, tokens):
 
         # tokenized sentence
-        assert tokens[-1] == "<ROOT>"
+        assert tokens[-1] == "ROOT"
         self.tokens = tuple(tokens)
 
         # machine state
@@ -1480,12 +1480,16 @@ class DepParsingStateMachine():
         display_str += f'{action_title}\n{action_str}\n\n' 
 
         # mask view
+        # legacy positioning system
+        token_positions = [i + 1 for i, tok in enumerate(self.tokens)][::-1] 
+        token_positions[0] = -1
+
         mask_view = []
         pointer_view = []
-        for idx, position in enumerate(range(len(self.tokens))[::-1]):
+        for idx, position in enumerate(token_positions):
 
             # token
-            token = str(self.tokens[idx])
+            token = self.tokens[-(idx + 1)]
             len_token = len(token)
 
             # color depending on position
@@ -1513,8 +1517,8 @@ class DepParsingStateMachine():
 
         # update display str
         title = green_font("# Buffer/Stack/Reduced:")
-        pointer_view_str = "".join(pointer_view)
-        mask_view_str = "".join(mask_view)
+        pointer_view_str = "".join(pointer_view[::-1])
+        mask_view_str = "".join(mask_view[::-1])
         display_str += f'{title}\n{pointer_view_str}\n{mask_view_str}\n\n' 
 
         return display_str
@@ -1543,7 +1547,7 @@ class DepParsingStateMachine():
         elif base_action == 'LEFT-ARC':
             # remove second element in stack from the top
             # remove first element in stack from the top
-            dependent = self.stack.pop(1)
+            dependent = self.stack.pop(-2)
             # close machine if LA(root)
             if action == 'LEFT-ARC(root)':
                 self.is_closed = True
