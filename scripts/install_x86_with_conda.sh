@@ -14,7 +14,7 @@ set -o nounset
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
 cd fairseq
-git checkout fix/tab-tokenization-bert
+git checkout modular_semantic_parsing
 conda env update -f dcc/ccc_x86_fairseq.yml
 pip install --editable .
 cd ..
