@@ -45,8 +45,8 @@ def compute_correct(src_str, hypo_str, target_str):
         # for action ngrams, keep only first action
         return action.split(',')[0]
 
-    hypo_str = " ".join([clean_tag(x) for x in hypo_str.split()])
-    target_str = " ".join([clean_tag(x) for x in target_str.split()])
+    hypo_str = [clean_tag(x) for x in hypo_str]
+    target_str = [clean_tag(x) for x in target_str]
 
     correct_heads = 0
     total_heads = 0
@@ -57,13 +57,13 @@ def compute_correct(src_str, hypo_str, target_str):
     hyp_labels = {}
     pbuffer = []
     pstack = []
-    for i in reversed(range(len(src_str.split()))):
-        if i<len(src_str.split())-1:
+    for i in reversed(range(len(src_str))):
+        if i<len(src_str)-1:
             pbuffer.append(i+1)
         else:
             pbuffer.append(0)
     # compute gold
-    for word in target_str.split():
+    for word in target_str:
 
         if "unk" in word:
             word="RIGHT-ARC(preconj)"
@@ -92,13 +92,13 @@ def compute_correct(src_str, hypo_str, target_str):
     
     pbuffer = []
     pstack = []
-    for i in reversed(range(len(src_str.split()))):
-        if i<len(src_str.split())-1:
+    for i in reversed(range(len(src_str))):
+        if i<len(src_str)-1:
             pbuffer.append(i+1)
         else:
             pbuffer.append(0)
 
-    for word in hypo_str.split():
+    for word in hypo_str:
 
         if "SHIFT" in word:
             pstack.append(pbuffer.pop())
@@ -123,7 +123,7 @@ def compute_correct(src_str, hypo_str, target_str):
             pbuffer.append(s1)
             pstack.append(s0)
 
-    for i in range(len(src_str.split())-1):
+    for i in range(len(src_str)-1):
         idw=i+1
         total_heads +=1
         if idw in gold_heads and idw in hyp_heads:
@@ -140,6 +140,7 @@ if __name__ == '__main__':
     args = argument_parser()
     in_tokens = read_tokenized_sentences(args.in_tokens)
     in_actions = read_tokenized_sentences(args.in_actions, separator='\t')
+    #in_actions = read_tokenized_sentences(args.in_actions)
     in_gold_actions = read_tokenized_sentences(args.in_gold_actions)
 
     assert len(in_tokens) == len(in_actions)
@@ -152,7 +153,6 @@ if __name__ == '__main__':
     for index in tqdm(range(num_sentences)):
 
         # Compute correct for this sentence
-        import ipdb; ipdb.set_trace(context=30)
         total, correct, labels = compute_correct(
             in_tokens[index],
             in_actions[index],
