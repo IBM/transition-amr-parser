@@ -53,6 +53,11 @@ def argument_parser():
         default=False
     )
     parser.add_argument(
+        "--machine-type",
+        choices=['AMR', 'dep-parsing']
+        default='AMR'
+    )
+    parser.add_argument(
         "--step-by-step",
         help="pause after each action",
         action='store_true',
@@ -204,8 +209,9 @@ class FakeAMRParser():
     actions
     """
 
-    def __init__(self, from_sent_act_pairs=None, logger=None,
-                 actions_by_stack_rules=None, no_whitespace_in_actions=False):
+    def __init__(self, logger=None, machine_type='AMR', 
+                 from_sent_act_pairs=None, actions_by_stack_rules=None,
+                 no_whitespace_in_actions=False):
 
         assert not no_whitespace_in_actions, \
             '--no-whitespace-in-actions deprected'
@@ -219,6 +225,7 @@ class FakeAMRParser():
         self.sent_idx = 0
         self.actions_by_stack_rules = actions_by_stack_rules
         self.no_whitespace_in_actions = no_whitespace_in_actions
+        self.machine_type = machine_type
 
         # initialize here for speed
         self.spacy_lemmatizer = get_spacy_lemmatizer()
@@ -238,11 +245,14 @@ class FakeAMRParser():
         tokens = sentence_str.split()
 
         # Initialize state machine
-        state_machine = AMRStateMachine(
-            tokens,
-            actions_by_stack_rules=self.actions_by_stack_rules,
-            spacy_lemmatizer=self.spacy_lemmatizer
-        )
+        if self.machine_type == 'AMR':
+            state_machine = AMRStateMachine(
+                tokens,
+                actions_by_stack_rules=self.actions_by_stack_rules,
+                spacy_lemmatizer=self.spacy_lemmatizer
+            )
+        elif self.machine_type == 'dep-parsing':
+            state_machine = DepParsingStateMachine(tokens)
 
         # this will store AMR parsing as BIO tag (PRED, ADDNODE)
         bio_alignments = {}
@@ -358,6 +368,7 @@ def main():
     assert len(sentences) == len(actions)
     parsing_model = FakeAMRParser(
         from_sent_act_pairs=zip(sentences, actions),
+        machine_type=args.machine_type,
         logger=logger,
         actions_by_stack_rules=actions_by_stack_rules,
         no_whitespace_in_actions=args.no_whitespace_in_actions
