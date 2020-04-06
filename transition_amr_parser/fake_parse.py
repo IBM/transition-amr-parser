@@ -10,12 +10,13 @@ from tqdm import tqdm
 
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
+    DepParsingStateMachine,
     get_spacy_lemmatizer
 )
 from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import (
     writer,
-    read_sentences,
+    read_tokenized_sentences,
     read_rule_stats,
 )
 
@@ -45,7 +46,6 @@ def argument_parser():
         help="Use oracle statistics to restrict possible actions",
         type=str
     )
-    # Visualization arguments
     parser.add_argument(
         "--verbose",
         help="verbose mode",
@@ -54,9 +54,14 @@ def argument_parser():
     )
     parser.add_argument(
         "--machine-type",
-        choices=['AMR', 'dep-parsing']
+        choices=['AMR', 'dep-parsing'],
         default='AMR'
     )
+    parser.add_argument(
+        "--separator",
+        default='\t'
+    )
+
     parser.add_argument(
         "--step-by-step",
         help="pause after each action",
@@ -219,7 +224,7 @@ class FakeAMRParser():
         # Dummy mode: simulate parser from pre-computed pairs of sentences
         # and actions
         self.actions_by_sentence = {
-            sent: actions for sent, actions in from_sent_act_pairs
+            " ".join(sent): actions for sent, actions in from_sent_act_pairs
         }
         self.logger = logger
         self.sent_idx = 0
@@ -235,13 +240,15 @@ class FakeAMRParser():
         self.rule_violation = Counter()
 
     def parse_sentence(self, sentence_str):
+        """
+        sentence_str is a string with whitespace separated tokens
+        """
 
         # simulated actions given by a parsing model
+        key =  " ".join(sentence_str)
         assert sentence_str in self.actions_by_sentence, \
             "Fake parser has no actions for sentence: %s" % sentence_str
-        actions = self.actions_by_sentence[sentence_str].split('\t')
-
-        # Fake tokenization
+        actions = self.actions_by_sentence[sentence_str]
         tokens = sentence_str.split()
 
         # Initialize state machine
@@ -275,17 +282,18 @@ class FakeAMRParser():
 
             # restrict action space according to machine restrictions and
             # statistics
-            raw_action = restrict_action(
-                state_machine,
-                raw_action,
-                self.pred_counts,
-                self.rule_violation
-            )
+            if self.machine_type == 'AMR':
+                raw_action = restrict_action(
+                    state_machine,
+                    raw_action,
+                    self.pred_counts,
+                    self.rule_violation
+                )
 
-            # update bio tags from AMR
-            bio_alignments.update(
-                get_bio_from_machine(state_machine, raw_action)
-            )
+                # update bio tags from AMR
+                bio_alignments.update(
+                    get_bio_from_machine(state_machine, raw_action)
+                )
 
             # Update state machine
             state_machine.applyAction(raw_action)
@@ -343,7 +351,7 @@ def main():
     args = argument_parser()
 
     # Get data
-    sentences = read_sentences(args.in_sentences)
+    sentences = read_tokenized_sentences(args.in_sentences, separator=args.separator)
 
     # Initialize logger/printer
     logger = Logger(
@@ -364,7 +372,10 @@ def main():
         actions_by_stack_rules = None
 
     # Fake parser built from actions
-    actions = read_sentences(args.in_actions)
+    actions = read_tokenized_sentences(
+        args.in_actions,
+        separator=args.separator
+    )
     assert len(sentences) == len(actions)
     parsing_model = FakeAMRParser(
         from_sent_act_pairs=zip(sentences, actions),
@@ -381,14 +392,16 @@ def main():
         bio_write = writer(args.out_bio_tags)
 
     # Loop over sentences
-    for sent_idx, sentence in tqdm(enumerate(sentences), desc='parsing'):
+    for sent_idx, tokens in tqdm(enumerate(sentences), desc='parsing'):
 
         # fast-forward until desired sentence number
         if args.offset and sent_idx < args.offset:
             continue
 
         # parse
-        machine, bio_tags = parsing_model.parse_sentence(sentence)
+        # NOTE: To simulate the real endpoint, input provided as a string of
+        # whitespace separated tokens
+        machine, bio_tags = parsing_model.parse_sentence(" ".join(tokens))
 
         # store output AMR
         if args.out_bio_tags:
