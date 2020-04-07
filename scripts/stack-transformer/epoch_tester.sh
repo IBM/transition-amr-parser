@@ -20,10 +20,9 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     # logs for each run of the checkpoint will be stored here
     mkdir -p "$output_folder"
 
-    # skip if log exists
-    if [ -f "${std_name}.smatch" ];then
+    # skip if decoding ran already once
+    if [ -f "${std_name}.actions" ];then
         echo -e "Skipping $std_name"
-        cat ${std_name}.smatch
         continue
     fi
 
@@ -40,7 +39,16 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}
     
     # Create oracle data
-    if [ "$TASK_TAG" == "AMR" ];then
+    # Create oracle data
+    if [ "$TASK_TAG" == "dep-parsing" ];then
+    
+        # Create the AMR from the model obtained actions
+        python scripts/dep_parsing_score.py \
+            --in-tokens $ORACLE_FOLDER/dev.en \
+            --in-actions $results_folder/valid.actions \
+            --in-gold-actions $ORACLE_FOLDER/dev.actions
+
+    elif [ "$TASK_TAG" == "AMR" ];then
 
         # will come to bite us in the future
         amr-fake-parse \
