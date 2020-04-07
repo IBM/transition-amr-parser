@@ -114,6 +114,13 @@ def argument_parser():
         action='store_true',
         help="Use copy action from Spacy lemmas"
     )
+    # copy lemma action
+    parser.add_argument(
+        "--addnode-count-cutoff",
+        help="forbid all addnode actions appearing less times than count",
+        type=int
+    )
+ 
     #
     args = parser.parse_args()
 
@@ -359,7 +366,7 @@ class AMR_Oracle:
                   out_amr=None, out_sentences=None, out_actions=None,
                   out_rule_stats=None, add_unaligned=0,
                   no_whitespace_in_actions=False, multitask_words=None,
-                  copy_lemma_action=False):
+                  copy_lemma_action=False, addnode_count_cutoff=None):
 
         print_log("oracle", "Parsing data")
         # deep copy of gold AMRs
@@ -377,7 +384,8 @@ class AMR_Oracle:
         # This will store overall stats
         self.stats = {
             'possible_predicates': Counter(),
-            'action_vocabulary': Counter()
+            'action_vocabulary': Counter(),
+            'addnode_counts': Counter()
         }
 
         # unaligned tokens
@@ -509,6 +517,13 @@ class AMR_Oracle:
             # extra tag to be reduced at start 
             tokens = tr.amr.tokens
             actions = tr.actions
+
+            # Update action count
+            self.stats['action_vocabulary'].update(actions)
+            del gold_amr.nodes[-1]
+            addnode_actions = [a for a in actions if a.startswith('ADDNODE')]
+            self.stats['addnode_counts'].update(addnode_actions)
+
             # separator
             if no_whitespace_in_actions:
                 sep = " "
@@ -519,10 +534,6 @@ class AMR_Oracle:
             # Write
             sentence_write(tokens)
             actions_write(actions)
-
-            # Update action count
-            self.stats['action_vocabulary'].update(tr.actions)
-            del gold_amr.nodes[-1]
 
         print_log("oracle", "Done")
 
@@ -575,6 +586,17 @@ class AMR_Oracle:
         self.stats["word_counter"] = self.word_counter
 
         self.stats['possible_predicates'] = self.possiblePredicates
+
+        if addnode_count_cutoff:
+            self.stats['addnode_blacklist'] = [
+                a 
+                for a, c in self.stats['addnode_counts'].items() 
+                if c <= addnode_count_cutoff
+            ]
+            num_addnode_blackl = len(self.stats['addnode_blacklist'])
+            num_addnode = len(self.stats['addnode_counts'])
+            print(f'{num_addnode_blackl}/{num_addnode} blacklisted ADDNODES')
+            del self.stats['addnode_counts']
 
         # State machine stats for this senetnce
         if out_rule_stats:
@@ -1044,7 +1066,8 @@ def main():
         add_unaligned=0,
         no_whitespace_in_actions=args.no_whitespace_in_actions,
         multitask_words=multitask_words,
-        copy_lemma_action=args.copy_lemma_action
+        copy_lemma_action=args.copy_lemma_action,
+        addnode_count_cutoff=args.addnode_count_cutoff
     )
 
     # inform user
