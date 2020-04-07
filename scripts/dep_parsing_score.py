@@ -166,4 +166,4 @@ if __name__ == '__main__':
 
     uas = correct_heads/total_heads if total_heads > 0 else 0.0
     las = correct_labels/total_heads if total_heads > 0 else 0.0
-    print ('UAS: %2.3f %% LAS: %2.3f %%' % (uas*100, las*100))
+    print ('UAS: %2.1f %% LAS: %2.1f %%' % (uas*100, las*100))
