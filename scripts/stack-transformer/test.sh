@@ -5,20 +5,27 @@ set -o pipefail
 # Argument handling
 config=$1
 checkpoint=$2
+results_folder=$3
 [ -z "$config" ] && \
-    echo -e "\ntest.sh <config> <model_checkpoint>\n" && \
+    echo -e "\ntest.sh <config> <model_checkpoint> [<results_folder>]\n" && \
     exit 1
 [ -z "$checkpoint" ] && \
-    echo -e "\ntest.sh <config> <model_checkpoint>\n" && \
+    echo -e "\ntest.sh <config> <model_checkpoint>[<results_folder>] \n" && \
     exit 1
+[ -z "$results_folder" ] && \
+    results_folder=""
 set -o nounset 
 
 # Load config
 . "$config"
 
-# fix for ensembles
-single_checkpoint=$(echo $checkpoint | sed 's@\.pt:.*@@')
-results_folder=$(dirname $single_checkpoint)/$TEST_TAG/
+# If not provided as an argument, use the folder where the checkpoint is
+# contained to store the results
+if [ "$results_folder" == "" ];then
+    # fix for ensembles
+    single_checkpoint=$(echo $checkpoint | sed 's@\.pt:.*@@')
+    results_folder=$(dirname $single_checkpoint)/$TEST_TAG/
+fi
 mkdir -p $results_folder
 
 # decode 
