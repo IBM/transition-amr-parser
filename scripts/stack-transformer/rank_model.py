@@ -108,8 +108,16 @@ def collect_results(args, results_regex):
         if not scores:
             continue
         # get top 3 scores and epochs    
-        third_best_SMATCH, second_best_SMATCH, best_SMATCH = \
-            sorted(scores.items(), key=lambda x: x[1])[-3:]
+        models = sorted(scores.items(), key=lambda x: x[1])[-3:]
+        if len(models) == 3:
+            third_best_SMATCH, second_best_SMATCH, best_SMATCH = models
+        elif len(models) == 2:
+            second_best_SMATCH, best_SMATCH = models
+            third_best_SMATCH = [-1, -1]
+        else:
+            best_SMATCH = models[0]
+            second_best_SMATCH = [-1, -1]
+            third_best_SMATCH = [-1, -1]
         missing_epochs = list(stdout_numbers - set(scores.keys()))
 
         # look for weight ensemble results
