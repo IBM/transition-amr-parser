@@ -202,6 +202,8 @@ def print_table(args, items, pattern):
     # name for padding print
     for item in items:
         item['shortname'] = item['folder'].replace(args.checkpoints, '')
+        if item['shortname'][0] == '/':
+            item['shortname'] = item['shortname'][1:]
     max_name_len = max(len(item['shortname']) for item in items)
     
     print(f'\n{pattern}')
