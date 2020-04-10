@@ -384,7 +384,7 @@ def main():
             tag_str = '\n'.join([f'{to} {ta}' for to, ta in bio_tags])
             tag_str += '\n\n'
             bio_write(tag_str)
-        elif args.out_amr:
+        if args.out_amr:
             amr_write(machine.amr.toJAMRString())
 
     if (
