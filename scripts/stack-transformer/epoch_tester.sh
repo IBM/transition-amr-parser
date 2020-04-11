@@ -45,8 +45,10 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
         # Create the AMR from the model obtained actions
         python scripts/dep_parsing_score.py \
             --in-tokens $ORACLE_FOLDER/dev.en \
-            --in-actions $results_folder/valid.actions \
-            --in-gold-actions $ORACLE_FOLDER/dev.actions
+            --in-actions ${std_name}.actions \
+            --in-gold-actions $ORACLE_FOLDER/dev.actions  \
+            > ${std_name}.las
+        cat ${std_name}.las
 
     elif [ "$TASK_TAG" == "AMR" ];then
 
