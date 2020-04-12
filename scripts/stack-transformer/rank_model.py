@@ -2,7 +2,7 @@ import os
 import subprocess
 import re
 import argparse
-from math import sqrt
+from math import sqrt, ceil
 from collections import defaultdict
 
 PRINT = True
@@ -120,18 +120,19 @@ def collect_results(args, results_regex):
                 scores[epoch] = score
         if not scores:
             continue
+
         # get top 3 scores and epochs    
         sort_idx = 0
-        models = sorted(scores.items(), key=lambda x: x[sort_idx])[-3:]
+        models = sorted(scores.items(), key=lambda x: x[1][sort_idx])[-3:]
         if len(models) == 3:
-            third_best_SMATCH, second_best_SMATCH, best_SMATCH = models
+            third_best_score, second_best_score, best_score = models
         elif len(models) == 2:
-            second_best_SMATCH, best_SMATCH = models
-            third_best_SMATCH = [-1, -1]
+            second_best_score, best_score = models
+            third_best_score = [-1, -1]
         else:
-            best_SMATCH = models[0]
-            second_best_SMATCH = [-1, -1]
-            third_best_SMATCH = [-1, -1]
+            best_score = models[0]
+            second_best_score = [-1, -1]
+            third_best_score = [-1, -1]
         missing_epochs = list(stdout_numbers - set(scores.keys()))
 
         # look for weight ensemble results
@@ -156,6 +157,7 @@ def collect_results(args, results_regex):
             f'second_best_{score_name}_epoch': int(second_best_score[0]),
             f'third_best_{score_name}': third_best_score[1],
             f'third_best_{score_name}_epoch': int(third_best_score[0]),
+            'max_epochs': max(stdout_numbers),
             'num_missing_epochs': len(missing_epochs),
             'num': 1
         })
@@ -215,13 +217,15 @@ def seed_average(items):
             'folder': key,
             f'best_{score_name}': average(f'best_{score_name}'),
             f'best_{score_name}_std': stdev(f'best_{score_name}'),
-            f'best_{score_name}_epoch': maximum(f'best_{score_name}_epoch'),
+            f'best_{score_name}_epoch': ceil(average(f'best_{score_name}_epoch')),
+            'max_epochs': ceil(average('max_epochs')),
             'num_missing_epochs': maximum('num_missing_epochs'),
             'num': len(cluster_items)
         })
 
         if all(['best_CE_{score_name}' in item for item in items]):
-            merged_items[-1][f'best_CE_{score_name}'] = average(f'best_CE_{score_name}')
+            merged_items[-1][f'best_CE_{score_name}'] = \
+                average(f'best_CE_{score_name}')
 
     return merged_items
 
@@ -246,10 +250,11 @@ def print_table(args, items, pattern, score_name):
     for item in sorted(items, key=lambda x: x[f'best_{score_name}']):
         # name, number of seeds, best epoch
         display_str = ''
-        display_str = '{:<{width}}  ({:d}) ({:d})'.format(
+        display_str = '{:<{width}}  ({:d}) ({:d}/{:d})'.format(
             item['shortname'],
             item['num'],
             item[f'best_{score_name}_epoch'],
+            item['max_epochs'],
             width=max_name_len + 2
         )
         # first score
@@ -278,6 +283,32 @@ def print_table(args, items, pattern, score_name):
     print("")
 
 
+def link_top_models(items, score_name):
+
+    for item in items:
+    
+        if f'third_best_{score_name}_epoch' not in item:
+            continue
+    
+        model_folder = os.path.realpath(item['folder'])
+        for rank in ['best', 'second_best', 'third_best']: 
+            epoch = item[f'{rank}_{score_name}_epoch']
+            score_name_caps = score_name.upper()
+            target_best = (f'{model_folder}/'
+                           'checkpoint_{rank}_{score_name_caps}.pt')
+            source_best = f'checkpoint{epoch}.pt'
+            # We may have created a link before to a worse model,
+            # remove it
+            if (
+                os.path.islink(target_best) and
+                os.path.basename(os.path.realpath(target_best)) != 
+                    source_best
+            ):
+                os.remove(target_best)
+            if not os.path.islink(target_best):
+                os.symlink(source_best, target_best)
+
+
 if __name__ == '__main__':
 
     # ARGUMENT HANDLING
@@ -292,30 +323,9 @@ if __name__ == '__main__':
         # get name of score
         score_name = result_regex.pattern.split('.')[-1]
 
-        # link best SMATCH model
+        # link best score model
         if args.link_best:
-            for item in items:
-
-                if f'third_best_{score_name}_epoch' not in item:
-                    continue
-
-                model_folder = os.path.realpath(item['folder'])
-                for rank in ['best', 'second_best', 'third_best']: 
-                    epoch = item[f'{rank}_{score_name}_epoch']
-                    score_name_caps = score_name.upper()
-                    target_best = (f'{model_folder}/'
-                                   'checkpoint_{rank}_{score_name_caps}.pt')
-                    source_best = f'checkpoint{epoch}.pt'
-                    # We may have created a link before to a worse model,
-                    # remove it
-                    if (
-                        os.path.islink(target_best) and
-                        os.path.basename(os.path.realpath(target_best)) != 
-                            source_best
-                    ):
-                        os.remove(target_best)
-                    if not os.path.islink(target_best):
-                        os.symlink(source_best, target_best)
+            link_top_models(items, score_name)
 
         if items != [] and not args.no_print:
             # average over seeds
