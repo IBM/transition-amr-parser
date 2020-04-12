@@ -330,7 +330,7 @@ def link_top_models(items, score_name):
             epoch = item[f'{rank}_{score_name}_epoch']
             score_name_caps = score_name.upper()
             target_best = (f'{model_folder}/'
-                           'checkpoint_{rank}_{score_name_caps}.pt')
+                           f'checkpoint_{rank}_{score_name_caps}.pt')
             source_best = f'checkpoint{epoch}.pt'
             # We may have created a link before to a worse model,
             # remove it
