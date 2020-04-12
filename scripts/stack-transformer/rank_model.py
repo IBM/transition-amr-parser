@@ -27,6 +27,12 @@ def argument_parsing():
         default='DATA/AMR/models/',
         help='Folder containing model folders (containing themselves checkpoints, config.sh etc)'
     )
+    parser.add_argument(
+        '--min-epoch-delta',
+        type=int,
+        default=10,
+        help='Minimum for the difference between best valid epoch and max epochs'
+    )
     # jbinfo args
     parser.add_argument(
         '--seed-average',
@@ -44,6 +50,10 @@ def argument_parsing():
         help='do not print'
     )
     return parser.parse_args()
+
+
+def yellow(string):
+    return "\033[93m%s\033[0m" % string
 
 
 def mean(items):
@@ -79,10 +89,7 @@ def get_score_from_log(file_path, score_name):
     return results
 
 
-def collect_results(args, results_regex):
-
-    # get name of score
-    score_name = results_regex.pattern.split('.')[-1]
+def collect_results(args, results_regex, score_name):
 
     # Find folders of the form /path/to/epoch_folders
     epoch_folders = [
@@ -122,7 +129,10 @@ def collect_results(args, results_regex):
             continue
 
         # get top 3 scores and epochs    
-        sort_idx = 0
+        if score_name == 'las':
+            sort_idx = 1
+        else:    
+            sort_idx = 0
         models = sorted(scores.items(), key=lambda x: x[1][sort_idx])[-3:]
         if len(models) == 3:
             third_best_score, second_best_score, best_score = models
@@ -167,6 +177,7 @@ def collect_results(args, results_regex):
                 'folder': f'{model_folder} (pt ensemble)',
                 f'best_{score_name}': weight_ensemble_smatch,
                 f'best_{score_name}_epoch': int(best_score[0]),
+                'max_epochs': max(stdout_numbers),
                 'num_missing_epochs': len(missing_epochs),
                 'num': 1,
             })
@@ -230,7 +241,7 @@ def seed_average(items):
     return merged_items
 
 
-def print_table(args, items, pattern, score_name):
+def print_table(args, items, pattern, score_name, min_epoch_delta):
    
     # add shortname as folder removing checkpoints root, get max length of
     # name for padding print
@@ -242,43 +253,67 @@ def print_table(args, items, pattern, score_name):
 
     # scale of the read results
     if score_name == 'las':
+        sort_idx = 1
         scale = 1
     elif score_name == 'smatch':
+        sort_idx = 0
         scale = 100
     
     print(f'\n{pattern}')
-    for item in sorted(items, key=lambda x: x[f'best_{score_name}']):
+    for item in sorted(items, key=lambda x: x[f'best_{score_name}'][sort_idx]):
+
+        # colored
+        epoch_delta = item['max_epochs'] - item[f'best_{score_name}_epoch']
+        convergence_epoch = '{:d}'.format(item[f'best_{score_name}_epoch'])
+        if epoch_delta < min_epoch_delta:
+            convergence_epoch = yellow(f'{convergence_epoch}')
+
         # name, number of seeds, best epoch
         display_str = ''
-        display_str = '{:<{width}}  ({:d}) ({:d}/{:d})'.format(
+        display_str = '{:<{width}}  ({:d}) ({:s}/{:d})'.format(
             item['shortname'],
             item['num'],
-            item[f'best_{score_name}_epoch'],
+            convergence_epoch,
             item['max_epochs'],
             width=max_name_len + 2
         )
-        # first score
-        display_str += ' {:s} {:2.1f}'.format(
-            score_name,
-            scale * item[f'best_{score_name}'][0]
-        )
-        if f'best_{score_name}_std' in item:
-            display_str += ' ({:3.1f})'.format(
-                scale * item[f'best_{score_name}_std'][0]
-            )
-        # second score
+
         if score_name == 'las':
+            
+            # first score
             display_str += ' {:s} {:2.1f}'.format(
-                score_name,
+                'UAS',
+                scale * item[f'best_{score_name}'][0]
+            )
+            if f'best_{score_name}_std' in item:
+                display_str += ' ({:3.1f})'.format(
+                    scale * item[f'best_{score_name}_std'][0]
+                )
+            # second score
+            display_str += ' {:s} {:2.1f}'.format(
+                'LAS',
                 scale * item[f'best_{score_name}'][1]
             )
             if f'best_{score_name}_std' in item:
                 display_str += ' ({:3.1f})'.format(
                     scale * item[f'best_{score_name}_std'][1]
                 )
+
+        else:
+
+            # first score
+            display_str += ' {:s} {:2.1f}'.format(
+                score_name.upper(),
+                scale * item[f'best_{score_name}'][0]
+            )
+            if f'best_{score_name}_std' in item:
+                display_str += ' ({:3.1f})'.format(
+                    scale * item[f'best_{score_name}_std'][0]
+                )
+ 
         # missing epochs for test
         if 'num_missing_epochs' in item and item['num_missing_epochs'] > 0:
-            display_str += ' {:d}!'.format(item['num_missing_epochs'])
+            display_str += yellow(' {:d}!'.format(item['num_missing_epochs']))
         print(display_str)
     print("")
 
@@ -317,11 +352,11 @@ if __name__ == '__main__':
     # Separate results with and without wiki
     for result_regex in [smatch_re, smatch_re_wiki, las_re]:
 
-        # collect results for each model
-        items = collect_results(args, result_regex)
-
         # get name of score
         score_name = result_regex.pattern.split('.')[-1]
+
+        # collect results for each model
+        items = collect_results(args, result_regex, score_name)
 
         # link best score model
         if args.link_best:
@@ -331,4 +366,4 @@ if __name__ == '__main__':
             # average over seeds
             if args.seed_average:
                 items = seed_average(items)
-            print_table(args, items, result_regex.pattern, score_name)
+            print_table(args, items, result_regex.pattern, score_name, args.min_epoch_delta)
