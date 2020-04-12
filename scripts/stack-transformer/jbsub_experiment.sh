@@ -4,7 +4,7 @@ set -o pipefail
 config=$1
 if [ -z "$2" ];then
     # identify experiment by the repository tag
-    repo_tag="$(basename $(pwd) | sed 's@.*\.@@')"
+    repo_tag="$(basename $config | sed 's@\.sh$@@')"
 else
     # identify experiment by given tag
     repo_tag=$2
