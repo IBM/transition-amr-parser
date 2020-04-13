@@ -4,10 +4,10 @@ set -o pipefail
 config=$1
 if [ -z "$2" ];then
     # identify experiment by the repository tag
-    repo_tag="$(basename $config | sed 's@\.sh$@@')"
+    jbsub_basename="$(basename $config | sed 's@\.sh$@@')"
 else
     # identify experiment by given tag
-    repo_tag=$2
+    jbsub_basename=$2
 fi
 set -o nounset
 
@@ -17,6 +17,9 @@ set -o nounset
 # Determine tools folder as the folder where this script is. This alloews its
 # use when softlinked elsewhere
 tools_folder=$(dirname $0)
+
+# Ensure jbsub basename does not have forbidden symbols
+jbsub_basename=$(echo $jbsub_basename | sed "s@[+]@_@g")
 
 # create folder for each random seed and store a copy of the config there.
 # Refer to that config on all posterio calls
@@ -42,7 +45,7 @@ if [ ! -f "$features_folder/train.en-actions.actions.bin" ];then
     mkdir -p "$features_folder"
 
     # run preprocessing
-    jbsub_tag="pr-${repo_tag}-$$"
+    jbsub_tag="pr-${jbsub_basename}-$$"
     jbsub -cores "1+1" \
           -mem 50g \
           -q "$PREPRO_QUEUE" \
@@ -75,7 +78,7 @@ for index in $(seq $NUM_SEEDS);do
         mkdir -p "$checkpoints_dir"
 
         # run new training
-        jbsub_tag="tr-${repo_tag}-s${seed}-$$"
+        jbsub_tag="tr-${jbsub_basename}-s${seed}-$$"
         jbsub -cores 1+1 \
               -mem 50g \
               -q "$TRAIN_QUEUE" \
@@ -97,7 +100,7 @@ for index in $(seq $NUM_SEEDS);do
     fi
 
     # test all available checkpoints and rank them
-    jbsub_tag="tdec-${repo_tag}-$$"
+    jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
     jbsub -cores 1+1 \
           -mem 50g \
           -q "$TEST_QUEUE" \
