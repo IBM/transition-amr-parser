@@ -20,14 +20,14 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     # logs for each run of the checkpoint will be stored here
     mkdir -p "$output_folder"
 
+    # activate config
+    . "$config"
+
     # skip if decoding ran already once
     if [ -f "${std_name}.actions" ];then
         echo -e "Skipping $std_name"
         continue
     fi
-
-    # activate config
-    . "$config"
 
     # decode 
     if [ ! -f "$test_model" ];then
