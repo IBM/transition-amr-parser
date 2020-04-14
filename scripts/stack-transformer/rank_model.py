@@ -245,11 +245,17 @@ def print_table(args, items, pattern, score_name, min_epoch_delta):
    
     # add shortname as folder removing checkpoints root, get max length of
     # name for padding print
+    max_size = [0, 0, 0]
     for item in items:
         shortname = item['folder'].replace(args.checkpoints, '')
         shortname = shortname[1:] if shortname[0] == '/' else shortname
-        item['shortname'] = shortname
-    max_name_len = max(len(item['shortname']) for item in items)
+        shortname = shortname[:-1] if shortname[-1] == '/' else shortname
+        pieces = shortname.split('_')
+        pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
+        max_size[0] = max(max_size[0], len(pieces[0]))
+        max_size[1] = max(max_size[1], len(pieces[1]))
+        max_size[2] = max(max_size[2], len(pieces[2]))
+        item['shortname'] = pieces
 
     # scale of the read results
     if score_name == 'las':
@@ -268,14 +274,20 @@ def print_table(args, items, pattern, score_name, min_epoch_delta):
         if epoch_delta < min_epoch_delta:
             convergence_epoch = yellow(f'{convergence_epoch}')
 
+        shortname_str = ''
+        for idx, piece in enumerate(item['shortname']):
+            shortname_str += '{:<{width}} '.format(
+                piece, 
+                width=max_size[idx] + 1
+            ) 
+            
         # name, number of seeds, best epoch
         display_str = ''
-        display_str = '{:<{width}}  ({:d}) ({:s}/{:d})'.format(
-            item['shortname'],
+        display_str = '{:s}  ({:d}) ({:s}/{:d})'.format(
+            shortname_str,
             item['num'],
             convergence_epoch,
             item['max_epochs'],
-            width=max_name_len + 2
         )
 
         if score_name == 'las':
