@@ -148,7 +148,22 @@ def collect_results(args, results_regex, score_name):
             best_score = models[0]
             second_best_score = [-1, -1]
             third_best_score = [-1, -1]
+
+        # Find if checkpoints have been deleted
+        deleted_checkpoints = False
+        for score in [best_score, second_best_score, third_best_score]:
+            if score[0] == -1:
+                continue
+            if not os.path.isfile(f'{model_folder}/checkpoint{score[0]}.pt'):
+                deleted_checkpoints = True
+                break
+
+        # find out epoch checkpoints that still need to be run
         missing_epochs = list(stdout_numbers - set(scores.keys()))
+
+#         if 'large' in model_folder:
+#             import ipdb; ipdb.set_trace(context=30)
+#             print()
 
         # look for weight ensemble results
         if os.path.isfile(f'{model_folder}/top3-average/valid.{score_name}'):
@@ -166,25 +181,33 @@ def collect_results(args, results_regex, score_name):
 
         items.append({
             'folder': model_folder,
+            # top scores
             f'best_{score_name}': best_score[1],
-            f'best_{score_name}_epoch': int(best_score[0]),
             f'second_best_{score_name}': second_best_score[1],
-            f'second_best_{score_name}_epoch': int(second_best_score[0]),
             f'third_best_{score_name}': third_best_score[1],
+            # top score epochs 
+            f'best_{score_name}_epoch': int(best_score[0]),
+            f'second_best_{score_name}_epoch': int(second_best_score[0]),
             f'third_best_{score_name}_epoch': int(third_best_score[0]),
+            # any top score checkpoints missing
+            'deleted_checkpoints': deleted_checkpoints,
+            # other
             'max_epochs': max(stdout_numbers),
             'num_missing_epochs': len(missing_epochs),
-            'num': 1
+            'num': 1,
+            'ensemble': False
         })
 
         if weight_ensemble_smatch is not None:
             items.append({
-                'folder': f'{model_folder} (pt ensemble)',
+                'folder': f'{model_folder}',
                 f'best_{score_name}': weight_ensemble_smatch,
                 f'best_{score_name}_epoch': int(best_score[0]),
                 'max_epochs': max(stdout_numbers),
                 'num_missing_epochs': len(missing_epochs),
+                'deleted_checkpoints': False,
                 'num': 1,
+                'ensemble': True
             })
 
     return items
@@ -200,6 +223,8 @@ def seed_average(items):
     seeds = defaultdict(list)
     for item in items:
         key, seed = model_folder_re.match(item['folder']).groups()
+        if item['ensemble']:
+            key += '*'
         clusters[key].append(item)
         seeds[key].append(seed)
 
@@ -221,6 +246,8 @@ def seed_average(items):
                     return results
                 else:    
                     return fun([x[field] for x in cluster_items])
+        def fany(field):
+            return results_map(field, any)
 
         def average(field):
             return results_map(field, mean)
@@ -239,7 +266,8 @@ def seed_average(items):
             'max_epochs': ceil(average('max_epochs')),
             'num_missing_epochs': maximum('num_missing_epochs'),
             'num': len(cluster_items),
-            'seeds': seeds[key]
+            'seeds': seeds[key],
+            'deleted_checkpoints': fany('deleted_checkpoints')
         })
 
         if all(['best_CE_{score_name}' in item for item in items]):
@@ -249,21 +277,25 @@ def seed_average(items):
     return merged_items
 
 
-def print_table(args, items, pattern, score_name, min_epoch_delta):
+def print_table(args, items, pattern, score_name, min_epoch_delta, 
+                split_name=True):
    
     # add shortname as folder removing checkpoints root, get max length of
     # name for padding print
     max_size = [0, 0, 0]
     for item in items:
         shortname = item['folder'].replace(args.checkpoints, '')
-        shortname = shortname[1:] if shortname[0] == '/' else shortname
-        shortname = shortname[:-1] if shortname[-1] == '/' else shortname
-        pieces = shortname.split('_')
-        pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
-        max_size[0] = max(max_size[0], len(pieces[0]))
-        max_size[1] = max(max_size[1], len(pieces[1]))
-        max_size[2] = max(max_size[2], len(pieces[2]))
-        item['shortname'] = pieces
+        if split_name:
+            shortname = shortname[1:] if shortname[0] == '/' else shortname
+            shortname = shortname[:-1] if shortname[-1] == '/' else shortname
+            pieces = shortname.split('_')
+            pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
+            max_size[0] = max(max_size[0], len(pieces[0]))
+            max_size[1] = max(max_size[1], len(pieces[1]))
+            max_size[2] = max(max_size[2], len(pieces[2]))
+            item['shortname'] = pieces
+        else:
+            item['shortname'] = shortname
 
     # scale of the read results
     if score_name == 'las':
@@ -282,18 +314,7 @@ def print_table(args, items, pattern, score_name, min_epoch_delta):
 
         # check if some checkpoint was deleted by
         folder = item['folder']
-        if 'seeds' in item:
-            deleted_checkpoint = any(
-                not os.path.isfile(
-                    f'{folder}-seed{seed}/checkpoint{convergence_epoch}.pt'
-                )
-                for seed in item['seeds']
-            )
-        else:
-            convergence_checkpoint = f'{folder}/checkpoint{convergence_epoch}.pt'
-            deleted_checkpoint = not os.path.isfile(convergence_checkpoint)
-
-        if deleted_checkpoint:
+        if item['deleted_checkpoints']:
             convergence_epoch = red(f'{convergence_epoch}')
         elif epoch_delta < min_epoch_delta:
             convergence_epoch = yellow(f'{convergence_epoch}')
@@ -360,7 +381,7 @@ def link_top_models(items, score_name):
     
         if f'third_best_{score_name}_epoch' not in item:
             continue
-    
+
         model_folder = os.path.realpath(item['folder'])
         for rank in ['best', 'second_best', 'third_best']: 
             epoch = item[f'{rank}_{score_name}_epoch']
@@ -394,6 +415,9 @@ if __name__ == '__main__':
         # collect results for each model
         items = collect_results(args, result_regex, score_name)
 
+        if items == []:
+            continue
+
         # link best score model
         if args.link_best:
             link_top_models(items, score_name)
@@ -401,5 +425,6 @@ if __name__ == '__main__':
         if items != [] and not args.no_print:
             # average over seeds
             if args.seed_average:
+                folders = [x['folder'] for x in items]
                 items = seed_average(items)
             print_table(args, items, result_regex.pattern, score_name, args.min_epoch_delta)
