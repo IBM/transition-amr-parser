@@ -53,7 +53,9 @@ if [ "$TASK_TAG" == "dep-parsing" ];then
     python scripts/dep_parsing_score.py \
         --in-tokens $ORACLE_FOLDER/dev.en \
         --in-actions $results_folder/valid.actions \
-        --in-gold-actions $ORACLE_FOLDER/dev.actions
+        --in-gold-actions $ORACLE_FOLDER/dev.actions \
+        > $results_folder/valid.las
+    cat $results_folder/valid.las
 
 elif [ "$TASK_TAG" == "AMR" ];then
 

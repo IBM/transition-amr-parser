@@ -11,7 +11,7 @@ for checkpoints_folder in "$@";do
         exit 1
 
     # CREATE ENSEMBLE
-    ensemble_checkpoint=$checkpoints_folder/checkpoint_top3-average_SMATCH.pt
+    ensemble_checkpoint=$checkpoints_folder/checkpoint_top3-average.pt
     if [ ! -f "$ensemble_checkpoint" ];then
 
         # softlink top 3 models
@@ -21,9 +21,9 @@ for checkpoints_folder in "$@";do
         # create average enpoint   
         python fairseq/scripts/average_checkpoints.py \
             --input \
-                $checkpoints_folder/checkpoint_best_SMATCH.pt \
-                $checkpoints_folder/checkpoint_second_best_SMATCH.pt \
-                $checkpoints_folder/checkpoint_third_best_SMATCH.pt \
+                $checkpoints_folder/checkpoint_best_*.pt \
+                $checkpoints_folder/checkpoint_second_best_*.pt \
+                $checkpoints_folder/checkpoint_third_best_*.pt \
             --output $ensemble_checkpoint
     fi
 
@@ -34,8 +34,7 @@ for checkpoints_folder in "$@";do
     echo "Created $checkpoints_folder/config_top3-average.sh"
 
     # run test
-    [ -f "$checkpoints_folder/top3-average/valid.wiki.smatch" ] && continue
-    [ -f "$checkpoints_folder/top3-average/valid.smatch" ] && continue
+    [ -f "$checkpoints_folder/top3-average/valid.actions" ] && continue
     bash scripts/stack-transformer/test.sh $checkpoints_folder/config_top3-average.sh $ensemble_checkpoint
     
 done
