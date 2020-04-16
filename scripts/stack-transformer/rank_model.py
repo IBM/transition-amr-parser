@@ -12,6 +12,7 @@ smatch_re = re.compile('dec-checkpoint([0-9]+)\.smatch')
 smatch_re_wiki = re.compile('dec-checkpoint([0-9]+)\.wiki\.smatch')
 smatch_results_re = re.compile('^F-score: ([0-9\.]+)')
 las_results_re = re.compile('UAS: ([0-9\.]+) % LAS: ([0-9\.]+) %')
+model_folder_re = re.compile('(.*)-seed([0-9]+)')
 
 
 def argument_parsing():
@@ -54,6 +55,10 @@ def argument_parsing():
 
 def yellow(string):
     return "\033[93m%s\033[0m" % string
+
+
+def red(string):
+    return "\033[91m%s\033[0m" % string
 
 
 def mean(items):
@@ -192,9 +197,11 @@ def seed_average(items):
 
     # cluster by key
     clusters = defaultdict(list)
+    seeds = defaultdict(list)
     for item in items:
-        key = re.sub('-seed[0-9]+', '', item['folder'])
+        key, seed = model_folder_re.match(item['folder']).groups()
         clusters[key].append(item)
+        seeds[key].append(seed)
 
     # merge
     merged_items = []
@@ -231,7 +238,8 @@ def seed_average(items):
             f'best_{score_name}_epoch': ceil(average(f'best_{score_name}_epoch')),
             'max_epochs': ceil(average('max_epochs')),
             'num_missing_epochs': maximum('num_missing_epochs'),
-            'num': len(cluster_items)
+            'num': len(cluster_items),
+            'seeds': seeds[key]
         })
 
         if all(['best_CE_{score_name}' in item for item in items]):
@@ -271,7 +279,23 @@ def print_table(args, items, pattern, score_name, min_epoch_delta):
         # colored
         epoch_delta = item['max_epochs'] - item[f'best_{score_name}_epoch']
         convergence_epoch = '{:d}'.format(item[f'best_{score_name}_epoch'])
-        if epoch_delta < min_epoch_delta:
+
+        # check if some checkpoint was deleted by
+        folder = item['folder']
+        if 'seeds' in item:
+            deleted_checkpoint = any(
+                not os.path.isfile(
+                    f'{folder}-seed{seed}/checkpoint{convergence_epoch}.pt'
+                )
+                for seed in item['seeds']
+            )
+        else:
+            convergence_checkpoint = f'{folder}/checkpoint{convergence_epoch}.pt'
+            deleted_checkpoint = not os.path.isfile(convergence_checkpoint)
+
+        if deleted_checkpoint:
+            convergence_epoch = red(f'{convergence_epoch}')
+        elif epoch_delta < min_epoch_delta:
             convergence_epoch = yellow(f'{convergence_epoch}')
 
         shortname_str = ''
