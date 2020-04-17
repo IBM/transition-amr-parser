@@ -50,6 +50,11 @@ def argument_parsing():
         action='store_true',
         help='do not print'
     )
+    parser.add_argument(
+        '--no-split-name',
+        action='store_true',
+        help='do not split model name into components'
+    )
     return parser.parse_args()
 
 
@@ -282,21 +287,6 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
    
     # add shortname as folder removing checkpoints root, get max length of
     # name for padding print
-    max_size = [0, 0, 0]
-    for item in items:
-        shortname = item['folder'].replace(args.checkpoints, '')
-        if split_name:
-            shortname = shortname[1:] if shortname[0] == '/' else shortname
-            shortname = shortname[:-1] if shortname[-1] == '/' else shortname
-            pieces = shortname.split('_')
-            pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
-            max_size[0] = max(max_size[0], len(pieces[0]))
-            max_size[1] = max(max_size[1], len(pieces[1]))
-            max_size[2] = max(max_size[2], len(pieces[2]))
-            item['shortname'] = pieces
-        else:
-            item['shortname'] = shortname
-
     # scale of the read results
     if score_name == 'las':
         sort_idx = 1
@@ -306,74 +296,125 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
         scale = 100
     
     print(f'\n{pattern}')
+    # Header
+    if split_name:
+        centering = ['<', '<', '<', '^', '^']
+        row = ['data/oracle', 'features', 'model', 'seeds', 'best epoch']
+    else:
+        centering = ['<', '^', '^']
+        row = ['name', 'seed', 'best epoch']
+    if score_name == 'las':
+        centering.extend(['^', '^'])
+        row.extend(['UAS', 'LAS'])
+    else:
+        centering.append('^')
+        row.append('SMATCH')
+    # extra warning
+    centering.append('<')
+    row.append('')
+    # style for rows
+    rows = [row]    
+
+    # Loop over table rows
     for item in sorted(items, key=lambda x: x[f'best_{score_name}'][sort_idx]):
 
-        # colored
+        row = []
+
+        # name 
+        shortname = item['folder'].replace(args.checkpoints, '')
+        if split_name:
+            shortname = shortname[1:] if shortname[0] == '/' else shortname
+            shortname = shortname[:-1] if shortname[-1] == '/' else shortname
+            pieces = shortname.split('_')
+            pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
+            row.extend(pieces)
+        else:
+            row.append(shortname)
+
+        # number of seeds
+        row.append('{}'.format(item['num']))
+
+        # best epoch
         epoch_delta = item['max_epochs'] - item[f'best_{score_name}_epoch']
         convergence_epoch = '{:d}'.format(item[f'best_{score_name}_epoch'])
-
         # check if some checkpoint was deleted by
         folder = item['folder']
         if item['deleted_checkpoints']:
             convergence_epoch = red(f'{convergence_epoch}')
         elif epoch_delta < min_epoch_delta:
             convergence_epoch = yellow(f'{convergence_epoch}')
-
-        shortname_str = ''
-        for idx, piece in enumerate(item['shortname']):
-            shortname_str += '{:<{width}} '.format(
-                piece, 
-                width=max_size[idx] + 1
-            ) 
-            
-        # name, number of seeds, best epoch
-        display_str = ''
-        display_str = '{:s}  ({:d}) ({:s}/{:d})'.format(
-            shortname_str,
-            item['num'],
-            convergence_epoch,
-            item['max_epochs'],
-        )
+        row.append('{:s}/{:d}'.format(convergence_epoch, item['max_epochs']))
 
         if score_name == 'las':
             
             # first score
-            display_str += ' {:s} {:2.1f}'.format(
-                'UAS',
+            cell_str = '{:2.1f}'.format(
                 scale * item[f'best_{score_name}'][0]
             )
             if f'best_{score_name}_std' in item:
-                display_str += ' ({:3.1f})'.format(
+                cell_str += ' ({:3.1f})'.format(
                     scale * item[f'best_{score_name}_std'][0]
                 )
+            row.append(cell_str)
+
             # second score
-            display_str += ' {:s} {:2.1f}'.format(
-                'LAS',
+            cell_str = '{:2.1f}'.format(
                 scale * item[f'best_{score_name}'][1]
             )
             if f'best_{score_name}_std' in item:
-                display_str += ' ({:3.1f})'.format(
+                cell_str += ' ({:3.1f})'.format(
                     scale * item[f'best_{score_name}_std'][1]
                 )
+            row.append(cell_str)
 
         else:
 
             # first score
-            display_str += ' {:s} {:2.1f}'.format(
-                score_name.upper(),
+            cell_str = '{:2.1f}'.format(
                 scale * item[f'best_{score_name}'][0]
             )
             if f'best_{score_name}_std' in item:
-                display_str += ' ({:3.1f})'.format(
+                cell_str += ' ({:3.1f})'.format(
                     scale * item[f'best_{score_name}_std'][0]
                 )
+            row.append(cell_str)
  
         # missing epochs for test
         if 'num_missing_epochs' in item and item['num_missing_epochs'] > 0:
-            display_str += yellow(' {:d}!'.format(item['num_missing_epochs']))
-        print(display_str)
-    print("")
+            row.append(yellow(' {:d}!'.format(item['num_missing_epochs'])))
+        else:    
+            row.append('')
 
+        # collect
+        rows.append(row)
+
+    num_columns = len(rows[0])
+    # bash scape chars (used for formatting, have length 0 on display)
+    BASH_SCAPE = re.compile('\\x1b\[\d+m|\\x1b\[0m')
+    try:
+        column_widths = [max([len(BASH_SCAPE.sub('', row[i])) for row in rows]) for i in range(num_columns)]
+    except:
+        import ipdb; ipdb.set_trace(context=30)
+        print()
+
+    table_str = []
+    col_sep = ' '
+    for i,  row in enumerate(rows):
+        row_str = []
+        for j, cell in enumerate(row):
+            # need to discount for bash scape chars
+            delta = len(cell) - len(BASH_SCAPE.sub('', cell))
+            if i == 0:
+                # Header has all cells centered
+                align = '^'
+            else:    
+                align = centering[j]
+            row_str.append('{:{align}{width}} '.format(cell, align=align, width=column_widths[j] + delta))
+        table_str.append(col_sep.join(row_str))
+            
+    row_sep = '\n'
+    print(row_sep.join(table_str))
+    print("")
 
 def link_top_models(items, score_name):
 
@@ -427,4 +468,6 @@ if __name__ == '__main__':
             if args.seed_average:
                 folders = [x['folder'] for x in items]
                 items = seed_average(items)
-            print_table(args, items, result_regex.pattern, score_name, args.min_epoch_delta)
+            print_table(args, items, result_regex.pattern, score_name, 
+                        args.min_epoch_delta, 
+                        split_name=not args.no_split_name)
