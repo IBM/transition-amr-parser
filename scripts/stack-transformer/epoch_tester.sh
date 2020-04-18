@@ -4,7 +4,7 @@ set -o errexit
 . set_environment.sh
 checkpoints_folder=$1
 [ -z "$checkpoints_folder" ] && \
-    echo -e "\nepoch_tester.sh <model_checkpoint>\n" && \
+    echo -e "\nepoch_tester.sh <checkpoints_folder>\n" && \
     exit 1
 set -o nounset
 
