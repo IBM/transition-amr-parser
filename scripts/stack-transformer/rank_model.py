@@ -167,10 +167,6 @@ def collect_results(args, results_regex, score_name):
         # find out epoch checkpoints that still need to be run
         missing_epochs = list(stdout_numbers - set(scores.keys()))
 
-#         if 'large' in model_folder:
-#             import ipdb; ipdb.set_trace(context=30)
-#             print()
-
         items.append({
             'folder': model_folder,
             # top scores
@@ -195,9 +191,6 @@ def collect_results(args, results_regex, score_name):
             # look for extra experiments
             exp_tag = os.path.basename(os.path.dirname(extra_exp)) 
 
-            #if exp_tag == 'beam2':
-            #    import ipdb; ipdb.set_trace(context=30)
-
             if exp_tag == 'epoch_tests':
                 continue
 
@@ -215,7 +208,7 @@ def collect_results(args, results_regex, score_name):
                 )
             else:    
                 exp_smatch = None
-    
+
             if exp_smatch is not None:
                 items.append({
                     'folder': f'{model_folder}',
