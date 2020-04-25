@@ -1,4 +1,5 @@
 import os
+import glob
 import subprocess
 import re
 import argparse
@@ -170,20 +171,6 @@ def collect_results(args, results_regex, score_name):
 #             import ipdb; ipdb.set_trace(context=30)
 #             print()
 
-        # look for weight ensemble results
-        if os.path.isfile(f'{model_folder}/top3-average/valid.{score_name}'):
-            weight_ensemble_smatch = get_score_from_log(
-                f'{model_folder}/top3-average/valid.{score_name}',
-                score_name
-            )
-        elif os.path.isfile(f'{model_folder}/top3-average/valid.wiki.{score_name}'):
-            weight_ensemble_smatch = get_score_from_log(
-                f'{model_folder}/top3-average/valid.wiki.{score_name}',
-                score_name
-            )
-        else:    
-            weight_ensemble_smatch = None
-
         items.append({
             'folder': model_folder,
             # top scores
@@ -203,17 +190,44 @@ def collect_results(args, results_regex, score_name):
             'ensemble': False
         })
 
-        if weight_ensemble_smatch is not None:
-            items.append({
-                'folder': f'{model_folder}',
-                f'best_{score_name}': weight_ensemble_smatch,
-                f'best_{score_name}_epoch': int(best_score[0]),
-                'max_epochs': max(stdout_numbers),
-                'num_missing_epochs': len(missing_epochs),
-                'deleted_checkpoints': False,
-                'num': 1,
-                'ensemble': True
-            })
+        for extra_exp in glob.glob(f'{model_folder}/*/*.{score_name}'):
+
+            # look for extra experiments
+            exp_tag = os.path.basename(os.path.dirname(extra_exp)) 
+
+            #if exp_tag == 'beam2':
+            #    import ipdb; ipdb.set_trace(context=30)
+
+            if exp_tag == 'epoch_tests':
+                continue
+
+            if os.path.isfile(f'{model_folder}/{exp_tag}/valid.{score_name}'):
+                exp_smatch = get_score_from_log(
+                    f'{model_folder}/{exp_tag}/valid.{score_name}',
+                    score_name
+                )
+            elif os.path.isfile(
+                f'{model_folder}/{exp_tag}/valid.wiki.{score_name}'
+            ):
+                exp_smatch = get_score_from_log(
+                    f'{model_folder}/{exp_tag}/valid.wiki.{score_name}',
+                    score_name
+                )
+            else:    
+                exp_smatch = None
+    
+            if exp_smatch is not None:
+                items.append({
+                    'folder': f'{model_folder}',
+                    f'best_{score_name}': exp_smatch,
+                    f'best_{score_name}_epoch': int(best_score[0]),
+                    'max_epochs': max(stdout_numbers),
+                    'num_missing_epochs': len(missing_epochs),
+                    'deleted_checkpoints': False,
+                    'num': 1,
+                    'ensemble': True,
+                    'extra_exp': exp_tag
+                })
 
     return items
 
@@ -228,8 +242,9 @@ def seed_average(items):
     seeds = defaultdict(list)
     for item in items:
         key, seed = model_folder_re.match(item['folder']).groups()
-        if item['ensemble']:
-            key += '*'
+        if 'extra_exp' in item:
+            key += ' '
+            key += item['extra_exp']
         clusters[key].append(item)
         seeds[key].append(seed)
 
@@ -327,8 +342,14 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
             shortname = shortname[:-1] if shortname[-1] == '/' else shortname
             pieces = shortname.split('_')
             pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
+            if 'extra_exp' in item:
+                pieces[-1] += ' '
+                pieces[-1] += item['extra_exp']
             row.extend(pieces)
-        else:
+        else:    
+            if 'extra_exp' in item:
+                shortname += ' '
+                shortname += item['extra_exp']
             row.append(shortname)
 
         # number of seeds
@@ -391,11 +412,7 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
     num_columns = len(rows[0])
     # bash scape chars (used for formatting, have length 0 on display)
     BASH_SCAPE = re.compile('\\x1b\[\d+m|\\x1b\[0m')
-    try:
-        column_widths = [max([len(BASH_SCAPE.sub('', row[i])) for row in rows]) for i in range(num_columns)]
-    except:
-        import ipdb; ipdb.set_trace(context=30)
-        print()
+    column_widths = [max([len(BASH_SCAPE.sub('', row[i])) for row in rows]) for i in range(num_columns)]
 
     table_str = []
     col_sep = ' '
