@@ -167,12 +167,17 @@ class AMRStateMachine:
         """
         cls = self.__class__
         result = cls.__new__(cls)
+        # DEBUG: usew this to detect very heavy constants that can be refered
+        # import time
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if k == 'spacy_lemmatizer':
+            # start = time.time()
+            if k in ['spacy_lemmatizer', 'actions_by_stack_rules']:
                 setattr(result, k, v)
             else:
                 setattr(result, k, deepcopy(v, memo))
+            # print(k, time.time() - start)
+        # import ipdb; ipdb.set_trace(context=30)
         return result
 
     def get_buffer_stack_copy(self): 
