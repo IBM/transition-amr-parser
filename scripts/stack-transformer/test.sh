@@ -28,21 +28,21 @@ if [ "$results_folder" == "" ];then
 fi
 mkdir -p $results_folder
 
-# decode 
-echo "fairseq-generate 
-    $FAIRSEQ_GENERATE_ARGS
-    --path $checkpoint
-    --results-path $results_folder/valid"
-fairseq-generate $FAIRSEQ_GENERATE_ARGS \
-    --path $checkpoint \
-    --results-path $results_folder/valid
 # to profile decoder
 # 1. pip install line_profiler
 # 2. decorate target function with @profile
 # 3. call instead of fairseq-generate
-# kernprof -l generate.py $fairseq_generate_args --path $checkpoint
 # 4. then you can consult details with 
 # python -m line_profiler generate.py.lprof
+#test_command="kernprof -o generate.lprof -l fairseq/generate.py"
+test_command=fairseq-generate
+
+# decode 
+echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
+    --results-path $results_folder/valid"
+$test_command $FAIRSEQ_GENERATE_ARGS \
+    --path $checkpoint \
+    --results-path $results_folder/valid
 
 model_folder=$(dirname $checkpoint)
 
