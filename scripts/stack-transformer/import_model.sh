@@ -53,7 +53,7 @@ mkdir -p $LOCAL_FOLDER/models/
 # ORACLE
 if [ -e "$target_oracle_folder" ];then
     echo "Skiping existing: $target_oracle_folder"
-elif [ -e "$source_oracle_folder" ];then
+elif [ ! -d "$source_oracle_folder" ];then
     echo "Something is wrong, missing $source_oracle_folder"
     exit 1
 else
@@ -64,7 +64,7 @@ fi
 # FEATURES
 if [ -e "$target_features_folder" ];then
     echo "Skiping existing: $target_features_folder"
-elif [ -e "$source_features_folder" ];then
+elif [ ! -d "$source_features_folder" ];then
     echo "Something is wrong, missing $source_features_folder"
     exit 1
 else
