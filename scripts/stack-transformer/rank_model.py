@@ -6,7 +6,6 @@ import argparse
 from math import sqrt, ceil
 from collections import defaultdict
 
-PRINT = True
 checkpoint_re = re.compile('checkpoint([0-9]+)\.pt')
 las_re = re.compile('dec-checkpoint([0-9]+)\.las')
 smatch_re = re.compile('dec-checkpoint([0-9]+)\.smatch')
@@ -402,6 +401,11 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
         # collect
         rows.append(row)
 
+    ptable(rows, centering)
+
+
+def ptable(rows, centering):
+
     num_columns = len(rows[0])
     # bash scape chars (used for formatting, have length 0 on display)
     BASH_SCAPE = re.compile('\\x1b\[\d+m|\\x1b\[0m')
@@ -425,6 +429,7 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
     row_sep = '\n'
     print(row_sep.join(table_str))
     print("")
+
 
 def link_top_models(items, score_name):
 
