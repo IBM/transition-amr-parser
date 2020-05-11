@@ -1,12 +1,19 @@
 import os
+from tqdm import tqdm
 import argparse
+from transition_amr_parser.state_machine import (
+    AMRStateMachine,
+    get_spacy_lemmatizer
+)
 from transition_amr_parser.io import (
     read_amr,
     read_tokenized_sentences,
     read_action_scores,
-    write_tokenized_sentences
+    read_rule_stats,
+    write_tokenized_sentences,
+    write_rule_stats
 )
-from collections import Counter
+from collections import Counter, defaultdict
 from smatch import compute_f
 
 
@@ -55,6 +62,16 @@ def argument_parser():
         "--fix-actions",
         action='store_true',
         help="fix actions split by whitespace arguments",
+    )
+    parser.add_argument(
+        "--in-rule-stats",
+        help="Input rule stats for statistics building",
+        type=str,
+    )
+    parser.add_argument(
+        "--out-rule-stats",
+        help="Output rule stats from mined actions",
+        type=str,
     )
     args = parser.parse_args()
 
@@ -122,6 +139,68 @@ def merge_actions(actions, scored_actions):
     return created_actions 
 
 
+def merge_rules(sentences, actions, rule_stats):
+
+    # generate rules to restrict action space by stack content
+    actions_by_stack_rules = rule_stats['possible_predicates']
+    for token, counter in rule_stats['possible_predicates'].items():
+        actions_by_stack_rules[token] = Counter(counter)
+
+    spacy_lemmatizer = get_spacy_lemmatizer()
+
+    possible_predicates = defaultdict(lambda: Counter())
+    for index, sentence_actions in tqdm(enumerate(actions), desc='merge rules'):
+
+        tokens = sentences[index]
+
+        # Initialize machine
+        state_machine = AMRStateMachine(
+            tokens,
+            actions_by_stack_rules=actions_by_stack_rules,
+            spacy_lemmatizer=spacy_lemmatizer
+        )
+
+        for action in sentence_actions:
+            # NOTE: At the oracle, possible predicates are collected before
+            # PRED/COPY decision (tryConfirm action) we have to take all of
+            # them into account
+            position, mpositions = \
+                state_machine.get_top_of_stack(positions=True)
+            if action.startswith('PRED'):
+                node = action[4:-1]
+                possible_predicates[tokens[position]].update([node])
+                if mpositions:
+                    mtokens = ','.join([tokens[p] for p in mpositions])
+                    possible_predicates[mtokens].update([node])
+
+            elif action == 'COPY_LEMMA':
+                lemma, _ = state_machine.get_top_of_stack(lemma=True)
+                node = lemma
+                possible_predicates[tokens[position]].update([node])
+                if mpositions:
+                    mtokens = ','.join([tokens[p] for p in mpositions])
+                    possible_predicates[mtokens].update([node])
+
+            elif action == 'COPY_SENSE01':
+                lemma, _ = state_machine.get_top_of_stack(lemma=True)
+                node = f'{lemma}-01'
+                possible_predicates[tokens[position]].update([node])
+                if mpositions:
+                    mtokens = ','.join([tokens[p] for p in mpositions])
+                    possible_predicates[mtokens].update([node])
+
+            # execute action
+            state_machine.applyAction(action)
+
+    # TODO: compare with old stats
+    out_rule_stats = rule_stats
+    out_rule_stats['possible_predicates'] = {
+        key: dict(value) for key, value in possible_predicates.items()
+    }
+
+    return out_rule_stats
+
+
 def main():
 
     # Argument handling
@@ -143,23 +222,37 @@ def main():
         scored_actions = read_action_scores(args.in_scored_actions)
         # measure performance
         print_score_action_stats(scored_actions)
+    # Load rule stats
+    if args.in_rule_stats:
+        rule_stats = read_rule_stats(args.in_rule_stats)
 
     # Modify
     # merge --in-actions and --in-scored-actions and store in --out-actions
     if args.merge_mined:
-        assert args.in_actions
+        # sanity checks
+        assert args.in_tokens, "--merge-mined requires --in-tokens"
+        assert args.in_actions, "--merge-mined requires --in-actions"
+        assert args.in_rule_stats, "--merge-mined requires --in-rule-stats"
+        assert args.out_rule_stats, "--merge-mined requires --out-rule-stats"
         if args.in_actions:
             assert len(actions) == len(scored_actions)
         print(f'Merging {args.out_actions} and {args.in_scored_actions}')
+
+        # actions
         actions = merge_actions(actions, scored_actions)
+
     # fix actions split by whitespace arguments 
     if args.fix_actions:
         actions = fix_actions_split_by_spaces(actions)
 
+    # merge rules
+    if args.merge_mined:
+        out_rule_stats = merge_rules(sentences, actions, rule_stats)
+        print(f'Merging {args.out_rule_stats} and {args.in_rule_stats}')
+
     # Write
     # actions
     if args.out_actions:
-        print(f'Wrote {args.out_actions}')
         dirname = os.path.dirname(args.out_actions)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
@@ -168,6 +261,13 @@ def main():
             actions,
             separator='\t'
         )
+        print(f'Wrote {args.out_actions}')
+
+    # rule stats
+    if args.out_rule_stats:
+        write_rule_stats(args.out_rule_stats, out_rule_stats)
+        print(f'Wrote {args.out_rule_stats}')
+
     # AMR
     if args.out_amr:
         with open(args.out_amr, 'w') as fid:
