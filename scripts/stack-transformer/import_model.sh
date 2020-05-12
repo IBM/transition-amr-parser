@@ -32,7 +32,7 @@ model_folder=$EXTERNAL_FOLDER/models/$model_folder_name/
 # Load config
 [ ! -f "$model_folder/config.sh" ] && \
     echo "Expected $model_folder/config.sh" && \
-    echo "Have you included e. g. -seed42 in the name?" && \
+    echo "Have you included e.g. -seed42 in the name?" && \
     exit 1
 . "$model_folder/config.sh"
 

@@ -329,9 +329,9 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
 
         # name 
         shortname = item['folder'].replace(args.checkpoints, '')
+        shortname = shortname[1:] if shortname[0] == '/' else shortname
+        shortname = shortname[:-1] if shortname[-1] == '/' else shortname
         if split_name:
-            shortname = shortname[1:] if shortname[0] == '/' else shortname
-            shortname = shortname[:-1] if shortname[-1] == '/' else shortname
             pieces = shortname.split('_')
             pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
             if 'extra_exp' in item:
