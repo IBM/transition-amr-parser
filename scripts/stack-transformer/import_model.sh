@@ -53,30 +53,41 @@ mkdir -p $LOCAL_FOLDER/models/
 # ORACLE
 if [ -e "$target_oracle_folder" ];then
     echo "Skiping existing: $target_oracle_folder"
-elif [ -e "$source_oracle_folder" ];then
+elif [ ! -d "$source_oracle_folder" ];then
     echo "Something is wrong, missing $source_oracle_folder"
     exit 1
 else
-    echo "ln -s $source_oracle_folder $LOCAL_FOLDER/oracles/"
-    ln -s $source_oracle_folder $LOCAL_FOLDER/oracles/
+    if [ "$flag" == "--copy-model" ];then
+        echo "cp -R $source_oracle_folder $LOCAL_FOLDER/oracles/"
+        cp -R $source_oracle_folder $LOCAL_FOLDER/oracles/
+    else
+        echo "ln -s $source_oracle_folder $LOCAL_FOLDER/oracles/"
+        ln -s $source_oracle_folder $LOCAL_FOLDER/oracles/
+    fi
 fi
 
 # FEATURES
 if [ -e "$target_features_folder" ];then
     echo "Skiping existing: $target_features_folder"
-elif [ -e "$source_features_folder" ];then
+elif [ ! -d "$source_features_folder" ];then
     echo "Something is wrong, missing $source_features_folder"
     exit 1
 else
-    echo "ln -s $source_features_folder $LOCAL_FOLDER/features/"
-    ln -s $source_features_folder $LOCAL_FOLDER/features/
+    if [ "$flag" == "--copy-model" ];then
+        echo "cp -R $source_features_folder $LOCAL_FOLDER/features/"
+        cp -R $source_features_folder $LOCAL_FOLDER/features/
+    else
+        echo "ln -s $source_features_folder $LOCAL_FOLDER/features/"
+        ln -s $source_features_folder $LOCAL_FOLDER/features/
+    fi
 fi
 
 # MODEL
 if [ -e "$target_checkpoints_dir_root" ];then
     echo "Skiping existing: $target_checkpoints_dir_root"
-elif [ -d "$target_checkpoints_dir_root" ];then
-    echo "Skiping existing: $target_checkpoints_dir_root"
+elif [ ! -d "$source_checkpoints_dir_root" ];then
+    echo "Something is wrong, missing $source_checkpoints_dir_root"
+    exit 1
 else
     if [ "$flag" == "--copy-model" ];then
         echo "cp -R $source_checkpoints_dir_root $LOCAL_FOLDER/models/"
