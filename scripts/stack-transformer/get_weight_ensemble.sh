@@ -21,9 +21,9 @@ for checkpoints_folder in "$@";do
         # create average enpoint   
         python fairseq/scripts/average_checkpoints.py \
             --input \
-                $checkpoints_folder/checkpoint_best_*.pt \
-                $checkpoints_folder/checkpoint_second_best_*.pt \
-                $checkpoints_folder/checkpoint_third_best_*.pt \
+                $checkpoints_folder/checkpoint_best_SMATCH.pt \
+                $checkpoints_folder/checkpoint_second_best_SMATCH.pt \
+                $checkpoints_folder/checkpoint_third_best_SMATCH.pt \
             --output $ensemble_checkpoint
     fi
 
