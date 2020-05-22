@@ -310,7 +310,7 @@ def seed_average(items):
             return results_map(field, mean)
 
         def stdev(field):
-            return results_map(field, lambda x: 2 * std(x))
+            return results_map(field, lambda x: std(x))
 
         def maximum(field):
             return results_map(field, max)
