@@ -16,16 +16,16 @@ conda install python=3.6.9=h2bede3c_0 -y -c powerai
 
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
+conda env update -f scripts/stack-transformer/ccc_ppc_fairseq.yml
 cd fairseq
-git checkout modular_semantic_parsing
-conda env update -f dcc/ccc_ppc_fairseq.yml
+git checkout v0.3.0/decouple-fairseq
 pip install --editable .
 cd ..
 
 # transition_amr_parser
 # install not previously installed dependencies with conda 
 conda env update -f scripts/ppc_conda.yml
-# without the dependencies (included in fairseq/dcc/ccc_pcc_fairseq.yml)
+# without the dependencies (included in scripts/stack-transformer/ccc_ppc_fairseq.yml)
 cp setup.py _setup.py.saved
 sed '/install_requires=install_requires,/d' -i setup.py
 pip install --editable . 
