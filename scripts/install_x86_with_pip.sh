@@ -7,9 +7,9 @@ set -o nounset
 
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
+pip install -r scripts/stack-transformer/requirements.txt
 cd fairseq
-git checkout modular_semantic_parsing
-pip install -r requirements.txt
+git checkout v0.3.0/decouple-fairseq
 pip install --editable .
 cd ..
 
