@@ -16,7 +16,7 @@ LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
 # NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt 
+AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/psuedo.txt
 AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
 AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 # WIKI files
@@ -32,7 +32,7 @@ AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=o3+Word${MAX_WORDS}
+ORACLE_TAG=o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -49,7 +49,7 @@ ORACLE_DEV_ARGS="
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
-PREPRO_TAG="RoBERTa-base"
+PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_6h
@@ -62,16 +62,17 @@ FAIRSEQ_PREPROCESS_ARGS="
     --testpref $ORACLE_FOLDER/test
     --destdir $features_folder
     --workers 1 
-    --pretrained-embed roberta.base
-    --machine-type AMR
+    --pretrained-embed roberta.large
+    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+    --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
 "
 
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stops6x6
-base_model=stack_transformer_6x6_tops_nopos
+TRAIN_TAG=stnp6x6
+base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
@@ -80,7 +81,7 @@ TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
 # NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
-MAX_EPOCH=110
+MAX_EPOCH=100
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 FAIRSEQ_TRAIN_ARGS="
     $features_folder
@@ -92,7 +93,7 @@ FAIRSEQ_TRAIN_ARGS="
     --lr-scheduler inverse_sqrt
     --warmup-init-lr 1e-07
     --warmup-updates 4000
-    --pretrained-embed-dim 768
+    --pretrained-embed-dim 1024
     --lr 0.0005
     --min-lr 1e-09
     --dropout 0.3
