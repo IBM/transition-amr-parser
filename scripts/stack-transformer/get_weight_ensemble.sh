@@ -3,6 +3,8 @@ set -o pipefail
 . set_environment.sh
 set -o nounset
 
+score_name=SMATCH
+
 for checkpoints_folder in "$@";do
 
     # this should be a folder containing checkpoints
@@ -15,15 +17,15 @@ for checkpoints_folder in "$@";do
     if [ ! -f "$ensemble_checkpoint" ];then
 
         # softlink top 3 models
-        [ ! -e $checkpoints_folder/checkpoint_third_best_SMATCH.pt ] && \
+        [ ! -e $checkpoints_folder/checkpoint_third_best_${score_name}.pt ] && \
             python scripts/stack-transformer/rank_model.py --link-best --no-print
 
         # create average enpoint   
         python fairseq/scripts/average_checkpoints.py \
             --input \
-                $checkpoints_folder/checkpoint_best_*.pt \
-                $checkpoints_folder/checkpoint_second_best_*.pt \
-                $checkpoints_folder/checkpoint_third_best_*.pt \
+                $checkpoints_folder/checkpoint_best_${score_name}.pt \
+                $checkpoints_folder/checkpoint_second_best_${score_name}.pt \
+                $checkpoints_folder/checkpoint_third_best_${score_name}.pt \
             --output $ensemble_checkpoint
     fi
 

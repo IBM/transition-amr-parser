@@ -51,6 +51,12 @@ def argument_parsing():
         help='do not print'
     )
     parser.add_argument(
+        '--set',
+        default='valid',
+        choices=['valid', 'test'],
+        help='Set of the results'
+    )
+    parser.add_argument(
         '--no-split-name',
         action='store_true',
         help='do not split model name into components'
@@ -143,9 +149,9 @@ def collect_results(args, results_regex, score_name):
             sort_idx = 1
         else:    
             sort_idx = 0
-        models = sorted(scores.items(), key=lambda x: x[1][sort_idx])[-3:]
-        if len(models) == 3:
-            third_best_score, second_best_score, best_score = models
+        models = sorted(scores.items(), key=lambda x: x[1][sort_idx])
+        if len(models) >= 3:
+            third_best_score, second_best_score, best_score = models[-3:]
         elif len(models) == 2:
             second_best_score, best_score = models
             third_best_score = [-1, -1]
@@ -153,6 +159,17 @@ def collect_results(args, results_regex, score_name):
             best_score = models[0]
             second_best_score = [-1, -1]
             third_best_score = [-1, -1]
+
+        # get top 3, but second and third happening before last
+        top3_prev = [(None, None), (None, None)]
+        idx = 0
+        for m in models[::-2]:
+            number, score = m
+            if number < models[-1][0]:
+                top3_prev[idx] = m
+                idx += 1
+            if idx == 2:    
+                break
 
         # Find if checkpoints have been deleted
         deleted_checkpoints = False
@@ -172,10 +189,14 @@ def collect_results(args, results_regex, score_name):
             f'best_{score_name}': best_score[1],
             f'second_best_{score_name}': second_best_score[1],
             f'third_best_{score_name}': third_best_score[1],
+            f'second_best_before_{score_name}': top3_prev[1][1],
+            f'third_best_before_{score_name}': top3_prev[0][1],
             # top score epochs 
             f'best_{score_name}_epoch': int(best_score[0]),
             f'second_best_{score_name}_epoch': int(second_best_score[0]),
             f'third_best_{score_name}_epoch': int(third_best_score[0]),
+            f'second_best_before_{score_name}_epoch': top3_prev[1][0],
+            f'third_best_before_{score_name}_epoch': top3_prev[0][0],
             # any top score checkpoints missing
             'deleted_checkpoints': deleted_checkpoints,
             # other
@@ -185,24 +206,47 @@ def collect_results(args, results_regex, score_name):
             'ensemble': False
         })
 
-        for extra_exp in glob.glob(f'{model_folder}/*/*.{score_name}'):
+    return items
 
+
+def get_extra_results(args):
+
+    # Find folders of the form /path/to/epoch_folders
+    epoch_folders = [
+        x[0] 
+        for x in os.walk(args.checkpoints) 
+        if 'epoch_tests' in x[0]
+    ]
+
+    # loop ove those folders
+    items = []
+    for epoch_folder in epoch_folders:
+
+        item = {}
+
+        # data in {epoch_folder}/../
+        # assume containing folder is the model folder
+        model_folder = epoch_folder.replace('epoch_tests', '')
+
+        # Extra results
+        for extra_exp in glob.glob(f'{model_folder}/*/{args.set}*.{score_name}'):
+    
             # look for extra experiments
             exp_tag = os.path.basename(os.path.dirname(extra_exp)) 
-
+    
             if exp_tag == 'epoch_tests':
                 continue
-
-            if os.path.isfile(f'{model_folder}/{exp_tag}/valid.{score_name}'):
+    
+            if os.path.isfile(f'{model_folder}/{exp_tag}/{args.set}.{score_name}'):
                 exp_smatch = get_score_from_log(
-                    f'{model_folder}/{exp_tag}/valid.{score_name}',
+                    f'{model_folder}/{exp_tag}/{args.set}.{score_name}',
                     score_name
                 )
             elif os.path.isfile(
-                f'{model_folder}/{exp_tag}/valid.wiki.{score_name}'
+                f'{model_folder}/{exp_tag}/{args.set}.wiki.{score_name}'
             ):
                 exp_smatch = get_score_from_log(
-                    f'{model_folder}/{exp_tag}/valid.wiki.{score_name}',
+                    f'{model_folder}/{exp_tag}/{args.set}.wiki.{score_name}',
                     score_name
                 )
             else:    
@@ -212,9 +256,9 @@ def collect_results(args, results_regex, score_name):
                 items.append({
                     'folder': f'{model_folder}',
                     f'best_{score_name}': exp_smatch,
-                    f'best_{score_name}_epoch': int(best_score[0]),
-                    'max_epochs': max(stdout_numbers),
-                    'num_missing_epochs': len(missing_epochs),
+                    f'best_{score_name}_epoch': 0,
+                    'max_epochs': 0,
+                    'num_missing_epochs': 0,
                     'deleted_checkpoints': False,
                     'num': 1,
                     'ensemble': True,
@@ -265,7 +309,7 @@ def seed_average(items):
             return results_map(field, mean)
 
         def stdev(field):
-            return results_map(field, lambda x: 2 * std(x))
+            return results_map(field, lambda x: std(x))
 
         def maximum(field):
             return results_map(field, max)
@@ -305,8 +349,8 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
     print(f'\n{pattern}')
     # Header
     if split_name:
-        centering = ['<', '<', '<', '^', '^']
-        row = ['data/oracle', 'features', 'model', 'seeds', 'best epoch']
+        centering = ['<', '<', '<', '<', '^', '^']
+        row = ['data/oracle', 'features', 'model', 'extra', 'seeds', 'best epoch']
     else:
         centering = ['<', '^', '^']
         row = ['name', 'seed', 'best epoch']
@@ -332,11 +376,19 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
         shortname = shortname[1:] if shortname[0] == '/' else shortname
         shortname = shortname[:-1] if shortname[-1] == '/' else shortname
         if split_name:
-            pieces = shortname.split('_')
-            pieces = ['_'.join(pieces[:-2])] + pieces[-2:] 
+            # Remove slash at start of end 
+            shortname = shortname[1:] if shortname[0] == '/' else shortname
+            shortname = shortname[:-1] if shortname[-1] == '/' else shortname
+            # ignore _ on first field
+            main_pieces = shortname.split()
+            if len(main_pieces) > 1:
+                pieces = main_pieces[0].split('_') + [main_pieces[-1]]
+            else:
+                pieces = shortname.split('_') + ['']
+
             if 'extra_exp' in item:
-                pieces[-1] += ' '
-                pieces[-1] += item['extra_exp']
+                pieces[-1] += ' '.join(item['extra_exp'].split('_'))
+
             row.extend(pieces)
         else:    
             if 'extra_exp' in item:
@@ -399,6 +451,7 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
             row.append('')
 
         # collect
+        assert len(centering) == len(row)
         rows.append(row)
 
     ptable(rows, centering)
@@ -439,8 +492,15 @@ def link_top_models(items, score_name):
             continue
 
         model_folder = os.path.realpath(item['folder'])
+        # TODO: Decide if we want this disabled or not
+        # for rank in ['best', 'second_best', 'third_best', 'second_best_before', 'third_best_before']: 
         for rank in ['best', 'second_best', 'third_best']: 
             epoch = item[f'{rank}_{score_name}_epoch']
+
+            # skip if no model found
+            if epoch == -1:
+                continue
+
             score_name_caps = score_name.upper()
             target_best = (f'{model_folder}/'
                            f'checkpoint_{rank}_{score_name_caps}.pt')
@@ -469,7 +529,10 @@ if __name__ == '__main__':
         score_name = result_regex.pattern.split('.')[-1]
 
         # collect results for each model
-        items = collect_results(args, result_regex, score_name)
+        items = []
+        if args.set == 'valid':
+            items = collect_results(args, result_regex, score_name)
+        items.extend(get_extra_results(args))
 
         if items == []:
             continue
