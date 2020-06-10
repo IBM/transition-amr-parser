@@ -15,7 +15,7 @@ from transition_amr_parser.state_machine import AMRStateMachine, get_spacy_lemma
 from transition_amr_parser.data_oracle import writer
 from transition_amr_parser.io import read_rule_stats
 
-from fairseq.debug_tools import timeit, timeit_average, timeit_average
+# from fairseq.debug_tools import timeit, timeit_average, timeit_average
 
 
 # FONT_COLORORS
