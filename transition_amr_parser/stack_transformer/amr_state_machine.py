@@ -9,6 +9,7 @@ import os
 from itertools import chain
 from collections import defaultdict, Counter
 
+import math
 import numpy as np
 
 from transition_amr_parser.state_machine import AMRStateMachine, get_spacy_lemmatizer
@@ -644,3 +645,43 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
             raise Exception(f'Unknown machine {machine_type}')
 
     return get_new_state_machine
+
+
+def fix_shift_multi_task(lprobs, state_machine_batch, tgt_dict, logits_indices):
+
+    # fix for multi-task mode: If we guess right SHIFT, rename it to
+    # SHIFT({top_of_buffer}), if action exists
+    for machine_idx, i in enumerate(lprobs.argmax(dim=1).tolist()):
+
+        # Get copy of buffer
+        machine_buffer, _ = state_machine_batch.machines[machine_idx].get_buffer_stack_copy()
+
+        action = tgt_dict.symbols[i]
+        machine = state_machine_batch.machines[machine_idx]
+        if action.startswith('SHIFT') and len(machine_buffer):
+
+            # get probability of chosen SHIFT (highest shift probability)
+            best_shift_logprob = lprobs[machine_idx, i].item()
+            shift_idx = list(state_machine_batch.action_indexer(['SHIFT']))
+
+            # get labeled SHIFT action
+            top_of_buffer = machine.tokens[machine_buffer[-1] - 1]
+            tob_shift_action = f'SHIFT({top_of_buffer})'
+
+            # check if its registered
+            if tob_shift_action in tgt_dict.symbols:
+                if tgt_dict.symbols.index(tob_shift_action) == i:
+                    # we selected the correct SHIFT already
+                    new_action_index = i
+                else:
+                    # select correct labeled SHIFT
+                    new_action_index = tgt_dict.symbols.index(tob_shift_action) 
+            else:
+                # remove label from SHIFT (as it is not correct)
+                new_action_index = tgt_dict.symbols.index('SHIFT')
+
+            # Keep most probable shift as its probability, set rest to zero
+            lprobs[machine_idx, shift_idx] = -math.inf
+            lprobs[machine_idx, new_action_index] = best_shift_logprob
+
+    return lprobs
