@@ -281,6 +281,30 @@ def make_masks(args, target_vocab, input_prefix, output_prefix, eos_idx, pad_idx
         make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, pad_idx, mask_predicates=mask_predicates, allow_unk=allow_unk, tokenize=tokenize)
 
 
+def make_state_machine(args, src_dict, tgt_dict, tokenize=None):
+    '''
+    Makes BERT features and source and target masks
+    '''
+
+    assert tokenize
+
+    if args.trainpref:
+        make_binary_bert_features(args, args.trainpref, "train", src_dict.eos_index, src_dict.pad_index, tokenize)
+        make_masks(args, tgt_dict, args.trainpref, "train", tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, tokenize=tokenize)
+
+    if args.validpref:
+        for k, validpref in enumerate(args.validpref.split(",")):
+            outprefix = "valid{}".format(k) if k > 0 else "valid"
+            make_binary_bert_features(args, validpref, outprefix, src_dict.eos_index, src_dict.pad_index, tokenize)
+            make_masks(args, tgt_dict, validpref, outprefix, tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, allow_unk=True, tokenize=tokenize)
+
+    if args.testpref:
+        for k, testpref in enumerate(args.testpref.split(",")):
+            outprefix = "test{}".format(k) if k > 0 else "test"
+            make_binary_bert_features(args, testpref, outprefix, src_dict.eos_index, src_dict.pad_index, tokenize)
+            make_masks(args, tgt_dict, testpref, outprefix, tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, allow_unk=True, tokenize=tokenize)
+
+
 def get_scatter_indices(word2piece, reverse=False):
     if reverse:
         indices = range(len(word2piece))[::-1]
