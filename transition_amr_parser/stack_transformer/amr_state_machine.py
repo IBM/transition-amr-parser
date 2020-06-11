@@ -812,6 +812,53 @@ class StackStateMachine():
         self.memory_pos = self.memory_pos[reorder_state, :, :]
 
 
+def update_machine(step, tokens, scores, state_machine):
+
+    # Update action by action
+    for index, action_index in enumerate(tokens[:, step+1].tolist()):
+    
+        # machine of the batch
+        machine = state_machine.machines[index]
+    
+        # some action may be invalid due to beam > 1. They should
+        # have -Inf score so that they are pruned on the next iteration
+        # so we do not execute those actions 
+        action = state_machine.tgt_dict.symbols[action_index]
+        if machine.is_closed:
+    
+            # machine is closed
+            if scores[index, step] != float("-inf"):
+                import ipdb; ipdb.set_trace(context=30)
+            machine.applyAction('</s>')
+    
+        elif (
+            action not in machine.get_valid_actions() and
+            action.split('(')[0] not in machine.get_valid_actions()
+        ):
+    
+            # FIXME: This should not happen
+            machine.applyAction('</s>')
+            scores[index, step] = float("-inf")
+            print(machine)
+            print(action)
+            print()
+            import ipdb; ipdb.set_trace()
+            print(scores[index, step].item())
+    
+            # if the scores are -Inf it will be pruned the next step 
+            if scores[index, step] != float("-inf"):
+                import ipdb; ipdb.set_trace(context=30)
+            # TODO: Close machine?
+            # machine.applyAction('</s>')
+    
+        else:
+            machine.applyAction(action)
+    
+    # increase counter and update masks
+    state_machine.step_index += 1
+    state_machine.update_masks()
+
+
 def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
     """Return function that itself returns initialized state machines"""
 
