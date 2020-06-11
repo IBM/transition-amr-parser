@@ -1,4 +1,5 @@
 import torch
+import os
 
 
 def collate_embeddings(values, pad_idx, eos_idx=None, left_pad=False, move_eos_to_beginning=False):
@@ -189,3 +190,44 @@ def collate_masks(values, pad_idx, eos_idx, left_pad_source, left_pad_target):
         else:
             copy_tensor(v, res[i, :v.shape[0], :v.shape[1]])
     return res
+
+
+class Examples():
+
+    def __init__(self, path, results_path, gen_subset):
+        self.examples = []
+        self.path = path
+        self.results_path = results_path
+        self.gen_subset = gen_subset
+
+    def append(self, example):
+        self.examples.append(example)
+
+    def save(self):
+
+        # Recover origninal sentence order
+        reordering = {
+            example['sample_id']: idx for idx, example in enumerate(self.examples)
+        }
+        self.examples = [
+            self.examples[reordering[i]] 
+            for i in range(len(self.examples)) 
+            if i in reordering
+        ]
+
+        # Write data 
+        dirname = os.path.dirname(self.path.split(':')[0])
+        if self.results_path:
+            file_path = f'{self.results_path}.actions' 
+        else:
+            file_path = f'{dirname}/{self.gen_subset}.actions' 
+        with open(file_path, 'w') as fid:
+            for example in self.examples:
+                fid.write("{}\n".format(example['hypothesis']))
+        if self.results_path:
+            file_path = f'{self.results_path}.en' 
+        else:
+            file_path = f'{dirname}/{self.gen_subset}.en' 
+        with open(file_path, 'w') as fid:
+            for example in self.examples:
+                fid.write("{}\n".format(example['src_str']))
