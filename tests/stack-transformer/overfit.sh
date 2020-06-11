@@ -11,6 +11,7 @@ ORACLE_FOLDER=DATA.tests/oracles/wiki25/
 FEATURES_FOLDER=DATA.tests/features/wiki25/
 MODEL_FOLDER=DATA.tests/models/wiki25/
 RESULTS_FOLDER=$MODEL_FOLDER/beam1
+max_epoch=10
 
 # ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the
@@ -46,7 +47,6 @@ fairseq-preprocess \
  
 # TRAINING
 rm -Rf DATA.tests/models/wiki25/
-max_epoch=10
 fairseq-train \
     $FEATURES_FOLDER \
     --max-epoch $max_epoch \

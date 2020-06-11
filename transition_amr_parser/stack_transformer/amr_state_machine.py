@@ -408,11 +408,214 @@ def get_action_indexer(symbols):
     return action_indexer
 
 
-class StackStateMachine():
+class StateMachineBatch():
     """
     Batch of state machines
     """
 
+    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None):
+
+        # Get all actions indexed by prefix
+        self.action_indexer = get_action_indexer(tgt_dict.symbols)
+
+        # Load rule stats if provided
+        if machine_rules is not None:
+            assert os.path.isfile(machine_rules)
+            rule_stats = read_rule_stats(machine_rules)
+            # self.state_machine = StateMachine(folder)
+            self.get_new_state_machine = machine_generator(
+                rule_stats['possible_predicates']
+            )
+        else:
+            assert machine_type != 'AMR', \
+                "AMR machine expects --machine-rules"
+            rule_stats = None
+            self.get_new_state_machine = machine_generator(None)
+
+        # store some variables
+        self.src_dict = src_dict
+        self.tgt_dict = tgt_dict
+        self.machine_type = machine_type
+
+    def reset(self, src_tokens, src_lengths, max_tgt_len):
+        '''
+        Reset state of state machine and start with new sentence
+        '''
+
+        batch_size, max_src_len = src_tokens.shape
+
+        # time step counter
+        self.step_index = 0
+
+        # Watch out, these two variables need to be reorderd in reorder_state!
+        self.left_pad = []
+        self.machines = []
+        for batch_idx in range(batch_size):
+
+            # Get tokens and sentence length
+            sent_len = src_lengths[batch_idx]
+            word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
+            tokens = [self.src_dict[x] for x in word_idx]
+
+            # intialize state machine batch for size 1
+            self.machines.append(self.get_new_state_machine(
+                tokens,
+                machine_type=self.machine_type
+            ))
+
+            # store left pad size to be used in mask creation
+            self.left_pad.append(max_src_len - sent_len)
+
+        # these have the same info as buffer and stack but in stack-transformer
+        # form (batch_size * beam_size, src_len, tgt_len)
+        dummy = src_tokens.unsqueeze(2).repeat(1, 1, max_tgt_len)
+        self.memory = (torch.ones_like(dummy) * self.tgt_dict.pad()).float()
+        self.memory_pos = (torch.ones_like(dummy) * self.tgt_dict.pad()).float()
+        self.update_masks()
+
+    def get_active_logits(self):
+
+        # Collect active indices for the entire batch
+        batch_active_logits = set()
+        shape = (len(self.machines), 1, len(self.tgt_dict.symbols))
+        logits_mask = torch.zeros(shape, dtype=torch.int16)
+        for i in range(len(self.machines)):
+            if self.machines[i].is_closed:
+                # TODO: Change this to <pad> (will mess with decoder)
+                expanded_valid_indices = set([self.tgt_dict.indices['</s>']])
+            else:
+                valid_actions = self.machines[i].get_valid_actions()
+                expanded_valid_indices = self.action_indexer(valid_actions)
+            batch_active_logits |= expanded_valid_indices
+            logits_mask[i, 0, list(expanded_valid_indices)] = 1
+        batch_active_logits = list(batch_active_logits)
+
+        # FIXME: Entropic fix to avoid <unk>. Fix at oracle/fairseq level
+        # needed
+        batch_active_logits = [
+            idx 
+            for idx in batch_active_logits
+            if idx != self.tgt_dict.indices['<unk>']
+        ]
+
+        # store as indices mapping    
+        logits_indices = {
+            key: idx 
+            for idx, key in enumerate(batch_active_logits)
+        }
+        return logits_indices, logits_mask[:, :, batch_active_logits]
+
+    def update(self, action_batch):
+
+        # sanity check
+        batch_size = len(action_batch)
+        assert batch_size == len(self.machines)
+        #batch_size, num_actions = log_probabilities.shape
+        #assert batch_size == len(self.machines)
+        # FIXME: Decode adds extra symbols? This seem to be appended but this
+        # is a dangerous behaviour
+        # if num_actions != len(self.tgt_dict.symbols):
+        #    import ipdb; ipdb.set_trace(context=30)
+        #    pass
+
+        # execute most probable valid action and return masked probabilities
+        # for each sentence in the batch
+        for i in range(batch_size):
+            self.machines[i].applyAction(action_batch[i])
+
+        # increase action counter
+        self.step_index += 1
+
+        # update state expressed as masks
+        self.update_masks()
+
+    def update_masks(self, add_padding=0):
+
+        # Get masks from states
+        # buffer words    
+        device = self.memory.device
+
+        # basis is all padded
+        if add_padding:
+            raise NotImplementedError()
+            # Need to concatenate extra space
+
+        for sent_index, machine in enumerate(self.machines):
+
+            # if machine is closed stop here
+            if machine.is_closed:
+                continue
+
+            # Get machines buffer and stack compatible with AMR machine 
+            # get legacy indexing of buffer and stack from function
+            machine_buffer, machine_stack = machine.get_buffer_stack_copy()
+
+            # Reset mask to all non pad elements as being in deleted state 
+            pad = self.left_pad[sent_index].item()
+            self.memory[sent_index, pad:, self.step_index] = 5
+            self.memory_pos[sent_index, pad:, self.step_index] = 0
+
+            # Set buffer elements taking into account padding
+            if machine_buffer:
+
+                indices = np.array(machine_buffer) - 1 + pad
+                indices[indices == -1 - 1 + pad] = len(machine.tokens) - 1 + pad
+
+                # update masks
+                buffer_pos = np.arange(len(machine_buffer))
+                positions = len(machine_buffer) - buffer_pos - 1
+                self.memory[sent_index, indices, self.step_index] = 3
+                self.memory_pos[sent_index, indices, self.step_index] = \
+                    torch.tensor(positions, device=self.memory.device).float()
+
+            # Set stack elements taking into account padding
+            if machine_stack:
+
+                indices = np.array(machine_stack) - 1 + pad
+                # index of root in stack, if there is
+                root_in_stack_idx = (indices == -1 - 1 + pad).nonzero()[0]
+                indices[root_in_stack_idx] = len(machine.tokens) - 1 + pad
+
+                # update masks
+                stack_pos = np.arange(len(machine_stack))
+                positions = len(machine_stack) - stack_pos - 1
+                self.memory[sent_index, indices, self.step_index] = 4
+                # FIXME: This is a BUG in preprocessing by which
+                # shifted ROOT is considered deleted
+                # update masks
+                self.memory[sent_index, indices[root_in_stack_idx], self.step_index] = 5
+                self.memory_pos[sent_index, indices, self.step_index] = \
+                    torch.tensor(positions, device=self.memory.device).float()
+
+    def reoder_machine(self, reorder_state):
+        """Reorder/eliminate machines during decoding"""
+
+        # DEBUG
+        # self.encoder_padding_mask = self.encoder_padding_mask[reorder_state, :]
+        
+        new_machines = []
+        new_left_pad = []
+        used_indices = set()
+        for i in reorder_state.cpu().tolist():
+            if i in used_indices:
+                # If a machine is duplicated we need to deep copy
+                new_machines.append(deepcopy(self.machines[i]))
+                new_left_pad.append(self.left_pad[i])
+            else:
+                new_machines.append(self.machines[i])
+                new_left_pad.append(self.left_pad[i])
+                used_indices.add(i)
+        self.machines = new_machines
+        self.left_pad = new_left_pad
+
+        self.memory = self.memory[reorder_state, :, :]
+        self.memory_pos = self.memory_pos[reorder_state, :, :]
+
+
+class StackStateMachine():
+    """
+    Batch of state machines
+    """
 
     def __init__(self, src_tokens, src_lengths, src_dict, tgt_dict, 
                  max_tgt_len, beam_size, rule_stats, machine_type=None,
