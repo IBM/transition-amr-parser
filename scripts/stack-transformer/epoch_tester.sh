@@ -75,7 +75,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
 
             # Smatch evaluation with wiki
             # add wiki
-            python fairseq/dcc/add_wiki.py \
+            python scripts/add_wiki.py \
                 ${std_name}.amr $WIKI_DEV \
                 > ${std_name}.wiki.amr
         
