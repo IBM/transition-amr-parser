@@ -16,9 +16,9 @@ data_root=DATA/$TASK_TAG/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
-AMR_TRAIN_FILE=${AMR_CORPORA}/QB20200113/ldcQB.jkaln
-AMR_DEV_FILE=${AMR_CORPORA}/QB20200113/test.jkaln
-AMR_TEST_FILE=${AMR_CORPORA}/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned 
+AMR_TRAIN_FILE=$AMR_CORPORA/QB20200305/ldcQB.pseudo.aln
+AMR_DEV_FILE=$AMR_CORPORA/QB20200305/qald_dev2_pass3.jaln
+AMR_TEST_FILE=$AMR_CORPORA/QB20200305/blindtest.jkaln
 # WIKI files
 # NOTE: If left empty no wiki will be added
 WIKI_DEV=""
@@ -32,7 +32,7 @@ AMR_TEST_FILE_WIKI=""
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=ldcQB_o3+Word${MAX_WORDS}
+ORACLE_TAG=ldcqbqaldlarge_o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -46,7 +46,7 @@ ORACLE_DEV_ARGS="
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
-PREPRO_TAG="RoBERTa-large-top8"
+PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_24h
@@ -60,7 +60,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --destdir $features_folder
     --workers 1 
     --pretrained-embed roberta.large
-    --bert-layers 17 18 19 20 21 22 23 24
+    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
 "
@@ -68,8 +68,8 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stops6x6
-base_model=stack_transformer_6x6_tops_nopos
+TRAIN_TAG=stnp6x6
+base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh

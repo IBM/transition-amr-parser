@@ -12,28 +12,29 @@ set -o nounset
 #
 # to get (see use below)
 #
-# DATA/AMR/features/ldcQB_o3+Word100_RoBERTa-large-top8/dict.en.txt
-# DATA/AMR/features/ldcQB_o3+Word100_RoBERTa-large-top8/dict.actions.txt
-# DATA/AMR/models/ldcQB_o3+Word100_RoBERTa-large-top8_stops6x6-seed44/checkpoint_best_SMATCH.pt
+# DATA/AMR/features/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24/dict.en.txt
+# DATA/AMR/features/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24/dict.actions.txt
+# DATA/AMR/models/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24_stnp6x6-seed44/checkpoint_best_SMATCH.pt
 #
 
 TASK_TAG=AMR
 
 # Global paths
+# Global paths
 AMR_CORPORA=/dccstor/ykt-parse/SHARED/CORPORA/AMR/
-AMR_MODELS=/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/
 
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
-AMR_TRAIN_FILE=${AMR_CORPORA}/QB20200113/qb.jkaln
-AMR_TEST_FILE=${AMR_CORPORA}/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned 
-AMR_DEV_FILE=${AMR_CORPORA}/QB20200113/test.jkaln
+AMR_TRAIN_FILE=$AMR_CORPORA/QB20200305/qb.pseudo.aln
+AMR_DEV_FILE=$AMR_CORPORA/QB20200305/qald_dev2_pass3.jaln
+AMR_TEST_FILE=$AMR_CORPORA/QB20200305/blindtest.jkaln
 # WIKI files
+# NOTE: If left empty no wiki will be added
 WIKI_DEV=""
-AMR_DEV_FILE_WIKI=""
+AMR_DEV_FILE_WIKI="" 
 WIKI_TEST=""
 AMR_TEST_FILE_WIKI=""
 
@@ -43,7 +44,7 @@ AMR_TEST_FILE_WIKI=""
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=qb_finetune_o3+Word${MAX_WORDS}
+ORACLE_TAG=qbqaldlargefinetune_o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -58,15 +59,15 @@ ORACLE_DEV_ARGS="
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
-PREPRO_TAG="RoBERTa-large-top8"
+PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_24h
 features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
 # TODO: Get this paths refred to the SHARED folder
 # ${AMR_MODELS}/features/qaldlarge_extracted/
-srcdict="DATA/AMR/features/ldcQB_o3+Word100_RoBERTa-large-top8/dict.en.txt"
-tgtdict="DATA/AMR/features/ldcQB_o3+Word100_RoBERTa-large-top8/dict.actions.txt"
+srcdict="$data_root/features/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24/dict.en.txt"
+tgtdict="$data_root/features/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24/dict.actions.txt"
 FAIRSEQ_PREPROCESS_ARGS="
     --source-lang en
     --target-lang actions
@@ -76,7 +77,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --destdir $features_folder
     --workers 1 
     --pretrained-embed roberta.large
-    --bert-layers 17 18 19 20 21 22 23 24
+    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
     --srcdict $srcdict
     --tgtdict $tgtdict
     --machine-type AMR 
@@ -87,8 +88,8 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stops6x6
-base_model=stack_transformer_6x6_tops_nopos
+TRAIN_TAG=stnp6x6
+base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
@@ -100,7 +101,7 @@ TRAIN_QUEUE=ppc_24h
 MAX_EPOCH=190
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 # NOTE: We start from a pretrained model
-pretrained="DATA/AMR/models/ldcQB_o3+Word100_RoBERTa-large-top8_stops6x6-seed44/checkpoint_best_SMATCH.pt"
+pretrained="$data_root/models/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24_stnp6x6-seed44/checkpoint_best_SMATCH.pt"
 FAIRSEQ_TRAIN_ARGS="
     $features_folder
     --restore-file $pretrained
