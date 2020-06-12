@@ -83,7 +83,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
         # Smatch evaluation with wiki
 
         # add wiki
-        python fairseq/dcc/add_wiki.py \
+        python scripts/add_wiki.py \
             $results_folder/valid.amr $WIKI_DEV \
             > $results_folder/valid.wiki.amr
     
