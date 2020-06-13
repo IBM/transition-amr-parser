@@ -199,6 +199,7 @@ class Examples():
         self.path = path
         self.results_path = results_path
         self.gen_subset = gen_subset
+        self.nbest = nbest
 
     def append(self, example):
         self.examples.append(example)
@@ -216,13 +217,13 @@ class Examples():
         ]
 
         # Write data 
-        dirname = os.path.dirname(args.path.split(':')[0])
-        if args.results_path:
-            file_path = f'{args.results_path}' 
+        dirname = os.path.dirname(self.path.split(':')[0])
+        if self.results_path:
+            file_path = f'{self.results_path}' 
         else:
-            file_path = f'{dirname}/{args.gen_subset}' 
+            file_path = f'{dirname}/{self.gen_subset}' 
         # Write actions
-        for n in range(nbest):
+        for n in range(self.nbest):
             if n > 0:
                 dfile_path = f'{file_path}.{n}'
             else:    
