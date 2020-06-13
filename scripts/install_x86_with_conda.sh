@@ -15,6 +15,8 @@ set -o nounset
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
 conda env update -f scripts/stack-transformer/ccc_x86_fairseq.yml
 cd fairseq
+# TODO: Copy parsing data
+# TODO: Copy transition_based_parsing task
 git checkout v0.3.0/decouple-fairseq
 pip install --editable .
 cd ..
@@ -50,5 +52,5 @@ cd ..
 pip install smatch/
 
 # for debugging
-# conda install -y line_profiler
-# pip install ipdb
+conda install -y line_profiler
+pip install ipdb
