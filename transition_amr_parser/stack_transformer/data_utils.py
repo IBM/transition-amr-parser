@@ -1,4 +1,5 @@
 import torch
+from collections import defaultdict
 import os
 
 
@@ -202,21 +203,26 @@ class Examples():
         self.nbest = nbest
         self.sample_ids = []
 
-    def append(self, sample_id, example):
+    def append(self, example):
         self.examples.append(example)
 
     def save(self):
 
-        # Recover origninal sentence order
-        reordering = {
-            example['sample_id']: idx for idx, example in enumerate(self.examples)
-        }
-        sample_ids = range(len(self.examples))
-        self.examples = [
-            self.examples[reordering[i]] 
-            for i in sample_ids
-            if i in reordering
-        ]
+        # Get unique sample ids
+        sample_ids = sorted(set([x['sample_id'] for x in self.examples]))
+        # make sure no id is missing
+        assert (
+            list(range(max(sample_ids) + 1)) == \
+            sorted(set([x['sample_id'] for x in self.examples]))
+        )
+
+        # Collect example per id
+        results = defaultdict(list)
+        for example in self.examples:
+            results[example['sample_id']].append(example)
+
+        # make sure right number of examples
+        assert all(len(x) == self.nbest for x in results.values())
 
         # Write data 
         dirname = os.path.dirname(self.path.split(':')[0])
@@ -232,10 +238,10 @@ class Examples():
                 dfile_path = file_path
             with open(f'{dfile_path}.actions', 'w') as fid:
                 for sid in sample_ids:
-                    fid.write("{}\n".format(examples[sid][n]['hypothesis']))
+                    fid.write(
+                        "{}\n".format(results[sid][n]['hypothesis'])
+                    )
         # Write source sentences            
         with open(f'{file_path}.en', 'w') as fid:
             for sid in sample_ids:
-                fid.write("{}\n".format(examples[sid][0]['src_str']))
-
-
+                fid.write("{}\n".format(results[sid][0]['src_str']))
