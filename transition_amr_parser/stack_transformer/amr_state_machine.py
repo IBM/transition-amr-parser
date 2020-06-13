@@ -839,17 +839,17 @@ def update_machine(step, tokens, scores, state_machine):
             # FIXME: This should not happen
             machine.applyAction('</s>')
             scores[index, step] = float("-inf")
-            print(machine)
-            print(action)
-            print()
-            import ipdb; ipdb.set_trace()
-            print(scores[index, step].item())
-    
-            # if the scores are -Inf it will be pruned the next step 
-            if scores[index, step] != float("-inf"):
-                import ipdb; ipdb.set_trace(context=30)
-            # TODO: Close machine?
-            # machine.applyAction('</s>')
+#             print(machine)
+#             print(action)
+#             print()
+#             import ipdb; ipdb.set_trace()
+#             print(scores[index, step].item())
+#     
+#             # if the scores are -Inf it will be pruned the next step 
+#             if scores[index, step] != float("-inf"):
+#                 import ipdb; ipdb.set_trace(context=30)
+#             # TODO: Close machine?
+#             # machine.applyAction('</s>')
     
         else:
             machine.applyAction(action)
