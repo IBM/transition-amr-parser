@@ -32,7 +32,7 @@ cp $ORACLE_FOLDER/train.actions $ORACLE_FOLDER/test.actions
 # PREPROCESSING
 # Extract sentence featrures and action sequence and store them in fairseq
 # format
-rm -R DATA.tests/features/wiki25/  # not as var for security
+rm -Rf DATA.tests/features/wiki25/  # not as var for security
 mkdir -p $FEATURES_FOLDER
 fairseq-preprocess \
     --source-lang en \
@@ -72,6 +72,7 @@ fairseq-train \
     --save-dir $MODEL_FOLDER 
 
 # DECODING
+rm -Rf DATA.tests/models/wiki25/beam1
 mkdir -p $RESULTS_FOLDER
 fairseq-generate \
     $FEATURES_FOLDER  \
