@@ -194,7 +194,7 @@ def collate_masks(values, pad_idx, eos_idx, left_pad_source, left_pad_target):
 
 class Examples():
 
-    def __init__(self, path, results_path, gen_subset):
+    def __init__(self, path, results_path, gen_subset, nbest):
         self.examples = []
         self.path = path
         self.results_path = results_path
@@ -216,18 +216,23 @@ class Examples():
         ]
 
         # Write data 
-        dirname = os.path.dirname(self.path.split(':')[0])
-        if self.results_path:
-            file_path = f'{self.results_path}.actions' 
+        dirname = os.path.dirname(args.path.split(':')[0])
+        if args.results_path:
+            file_path = f'{args.results_path}' 
         else:
-            file_path = f'{dirname}/{self.gen_subset}.actions' 
-        with open(file_path, 'w') as fid:
-            for example in self.examples:
-                fid.write("{}\n".format(example['hypothesis']))
-        if self.results_path:
-            file_path = f'{self.results_path}.en' 
-        else:
-            file_path = f'{dirname}/{self.gen_subset}.en' 
-        with open(file_path, 'w') as fid:
-            for example in self.examples:
-                fid.write("{}\n".format(example['src_str']))
+            file_path = f'{dirname}/{args.gen_subset}' 
+        # Write actions
+        for n in range(nbest):
+            if n > 0:
+                dfile_path = f'{file_path}.{n}'
+            else:    
+                dfile_path = file_path
+            with open(f'{dfile_path}.actions', 'w') as fid:
+                for sid in sample_ids:
+                    fid.write("{}\n".format(examples[sid][n]['hypothesis']))
+        # Write source sentences            
+        with open(f'{file_path}.en', 'w') as fid:
+            for sid in sample_ids:
+                fid.write("{}\n".format(examples[sid][0]['src_str']))
+
+
