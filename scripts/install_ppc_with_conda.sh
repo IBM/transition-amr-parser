@@ -52,5 +52,5 @@ cd ..
 pip install smatch/
 
 # for debugging
-# conda install -y line_profiler
-# pip install ipdb
+conda install -y line_profiler
+pip install ipdb
