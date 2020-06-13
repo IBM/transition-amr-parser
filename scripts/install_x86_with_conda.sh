@@ -13,9 +13,9 @@ set -o nounset
 
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
+conda env update -f scripts/stack-transformer/ccc_x86_fairseq.yml
 cd fairseq
-git checkout modular_semantic_parsing
-conda env update -f dcc/ccc_x86_fairseq.yml
+git checkout v0.3.0/decouple-fairseq
 pip install --editable .
 cd ..
 
@@ -23,7 +23,7 @@ cd ..
 # install not previously installed dependencies with conda or pip when not
 # possible
 pip install spacy h5py
-# without the dependencies (included in fairseq/dcc/ccc_pcc_fairseq.yml)
+# without the dependencies (scripts/stack-transformer/ccc_x86_fairseq.yml)
 cp setup.py _setup.py.saved
 sed '/install_requires=install_requires,/d' -i setup.py
 pip install --editable . 
