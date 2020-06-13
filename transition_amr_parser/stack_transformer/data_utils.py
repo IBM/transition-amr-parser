@@ -200,8 +200,9 @@ class Examples():
         self.results_path = results_path
         self.gen_subset = gen_subset
         self.nbest = nbest
+        self.sample_ids = []
 
-    def append(self, example):
+    def append(self, sample_id, example):
         self.examples.append(example)
 
     def save(self):
@@ -210,9 +211,10 @@ class Examples():
         reordering = {
             example['sample_id']: idx for idx, example in enumerate(self.examples)
         }
+        sample_ids = range(len(self.examples))
         self.examples = [
             self.examples[reordering[i]] 
-            for i in range(len(self.examples)) 
+            for i in sample_ids
             if i in reordering
         ]
 
