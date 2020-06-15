@@ -2,18 +2,14 @@ import argparse
 from copy import deepcopy
 import torch
 from tqdm import tqdm
-import json
 import signal
-import time
 import os
-from itertools import chain
 from collections import defaultdict, Counter
 
 import math
 import numpy as np
 
 from transition_amr_parser.state_machine import AMRStateMachine, get_spacy_lemmatizer
-from transition_amr_parser.data_oracle import writer
 from transition_amr_parser.io import read_rule_stats
 
 # from fairseq.debug_tools import timeit, timeit_average, timeit_average
@@ -68,9 +64,9 @@ def get_word_states(amr_state_machine, sent_tokens, indices=[3, 4, 5]):
     buffer, stack = amr_state_machine.get_buffer_stack_copy()
     # translate to sane indexing
     buffer = [
-        i - 1 if i != -1 else len(sent_tokens) - 1 
+        i - 1 if i != -1 else len(sent_tokens) - 1
         for i in reversed(buffer)
-    ] 
+    ]
     stack = [i - 1 for i in stack]
 
     # translate to word states
@@ -99,27 +95,27 @@ def argument_parser():
     parser = argparse.ArgumentParser(description='AMR parser')
     # Multiple input parameters
     parser.add_argument(
-        "--in-sentences", 
+        "--in-sentences",
         help="file space with carriare return separated sentences",
         type=str
     )
     parser.add_argument(
-        "--in-actions", 
+        "--in-actions",
         help="file space with carriare return separated sentences",
         type=str
     )
     parser.add_argument(
-        "--in-rule-stats", 
+        "--in-rule-stats",
         help="rule statistics computed by the state machine",
         type=str
     )
     parser.add_argument(
-        "--out-word-states", 
+        "--out-word-states",
         help="stack-transformer word states",
         type=str
     )
     parser.add_argument(
-        "--out-valid_actions", 
+        "--out-valid_actions",
         help="stack-transformer word states",
         type=str
     )
@@ -157,6 +153,7 @@ def argument_parser():
 
 def h5_writer(file_path):
 
+    import h5py
     fid = h5py.File(file_path, 'w', libver='latest')
     sent_idx = 0
 
@@ -187,14 +184,14 @@ def h5_writer(file_path):
 
 
 def get_valid_actions(action_list, amr_state_machine, train_rule_stats,
-                      action_by_basic, gold_action, stats): 
+                      action_by_basic, gold_action, stats):
     # Get basic actions
     valid_basic_actions = amr_state_machine.get_valid_actions()
 
     # Expand non-pred actions
     valid_actions = [
-        b 
-        for a in valid_basic_actions if a != 'PRED' 
+        b
+        for a in valid_basic_actions if a != 'PRED'
         for b in action_by_basic[a]
     ]
 
@@ -207,7 +204,7 @@ def get_valid_actions(action_list, amr_state_machine, train_rule_stats,
             # if merged tokens ket present, use it
             merged_tokens = ",".join(merged_tokens)
             if merged_tokens in train_rule_stats['possible_predicates']:
-                token = merged_tokens                        
+                token = merged_tokens
 
         # add rules from possible predicates
         if token in train_rule_stats['possible_predicates']:
@@ -218,7 +215,7 @@ def get_valid_actions(action_list, amr_state_machine, train_rule_stats,
 
     # ensure gold action is among the choices if it is a PRED
     if (
-        gold_action.startswith('PRED') and 
+        gold_action.startswith('PRED') and
         gold_action not in train_rule_stats['possible_predicates']
     ):
         stats['missing_pred_count'].update([gold_action])
@@ -286,7 +283,7 @@ def main():
             sent_tokens,
             spacy_lemmatizer=spacy_lemmatizer
         )
-    
+
         # process each action
         word_states_sent = []
         valid_actions_sent = []
@@ -296,13 +293,13 @@ def main():
             # state of each word (buffer B, stack S, reduced X)
             word_states = get_word_states(amr_state_machine, sent_tokens)
 
-            # Get actions valid for this state 
+            # Get actions valid for this state
             valid_actions = get_valid_actions(
                 action_list,
                 amr_state_machine,
                 train_rule_stats,
                 action_by_basic,
-                raw_action, 
+                raw_action,
                 stats
             )
 
@@ -344,7 +341,7 @@ def readlines(file_path):
 
 def print_state_machine(word_states, sent_tokens, sent_idx, amr_state_machine):
 
-    # mask display strings  
+    # mask display strings
     display_items = []
     display_pos = []
     for state, token in zip(word_states, sent_tokens):
@@ -352,7 +349,7 @@ def print_state_machine(word_states, sent_tokens, sent_idx, amr_state_machine):
             styled_token = " %s" % token
         elif state[1] == 'S':
             styled_token = white_background(" %s" % black_font(token))
-        else:    
+        else:
             styled_token = red_background(" %s" % black_font(token))
         display_items.append(styled_token)
         if state == (0, 'S'):
@@ -363,7 +360,7 @@ def print_state_machine(word_states, sent_tokens, sent_idx, amr_state_machine):
             display_pos.append(' ' + '-' * len(token))
         else:
             display_pos.append(' ' + ' ' * len(token))
-    
+
     os.system('clear')
     print("")
     print("sentence %d\n" % sent_idx)
@@ -400,8 +397,8 @@ def get_action_indexer(symbols):
                     idx.add(symbols.index('<unk>'))
                 else:
                     idx.add(symbols.index(action))
-            else:    
-                # base action, expand 
+            else:
+                # base action, expand
                 idx |= set(action_list_by_prefix[action])
         return idx
 
@@ -493,14 +490,14 @@ class StateMachineBatch():
         # FIXME: Entropic fix to avoid <unk>. Fix at oracle/fairseq level
         # needed
         batch_active_logits = [
-            idx 
+            idx
             for idx in batch_active_logits
             if idx != self.tgt_dict.indices['<unk>']
         ]
 
-        # store as indices mapping    
+        # store as indices mapping
         logits_indices = {
-            key: idx 
+            key: idx
             for idx, key in enumerate(batch_active_logits)
         }
         return logits_indices, logits_mask[:, :, batch_active_logits]
@@ -532,7 +529,7 @@ class StateMachineBatch():
     def update_masks(self, add_padding=0):
 
         # Get masks from states
-        # buffer words    
+        # buffer words
         device = self.memory.device
 
         # basis is all padded
@@ -546,11 +543,11 @@ class StateMachineBatch():
             if machine.is_closed:
                 continue
 
-            # Get machines buffer and stack compatible with AMR machine 
+            # Get machines buffer and stack compatible with AMR machine
             # get legacy indexing of buffer and stack from function
             machine_buffer, machine_stack = machine.get_buffer_stack_copy()
 
-            # Reset mask to all non pad elements as being in deleted state 
+            # Reset mask to all non pad elements as being in deleted state
             pad = self.left_pad[sent_index].item()
             self.memory[sent_index, pad:, self.step_index] = 5
             self.memory_pos[sent_index, pad:, self.step_index] = 0
@@ -592,207 +589,7 @@ class StateMachineBatch():
 
         # DEBUG
         # self.encoder_padding_mask = self.encoder_padding_mask[reorder_state, :]
-        
-        new_machines = []
-        new_left_pad = []
-        used_indices = set()
-        for i in reorder_state.cpu().tolist():
-            if i in used_indices:
-                # If a machine is duplicated we need to deep copy
-                new_machines.append(deepcopy(self.machines[i]))
-                new_left_pad.append(self.left_pad[i])
-            else:
-                new_machines.append(self.machines[i])
-                new_left_pad.append(self.left_pad[i])
-                used_indices.add(i)
-        self.machines = new_machines
-        self.left_pad = new_left_pad
 
-        self.memory = self.memory[reorder_state, :, :]
-        self.memory_pos = self.memory_pos[reorder_state, :, :]
-
-
-class StackStateMachine():
-    """
-    Batch of state machines
-    """
-
-    def __init__(self, src_tokens, src_lengths, src_dict, tgt_dict, 
-                 max_tgt_len, beam_size, rule_stats, machine_type=None,
-                 prec_action_indexer=None, 
-                 prec_get_new_state_machine=None):
-
-        # Get all actions indexed by prefix
-        if prec_action_indexer is None:
-            self.action_indexer = get_action_indexer(tgt_dict.symbols)
-        else:    
-            self.action_indexer = prec_action_indexer
-
-        # Initialize state machines
-        batch_size, max_len = src_tokens.shape
-        if rule_stats:
-            actions_by_stack_rules = rule_stats['possible_predicates']
-        else:
-            actions_by_stack_rules = None
-
-        # Returns function that generates initialized state machines given
-        if prec_get_new_state_machine is None:
-            get_new_state_machine = machine_generator(actions_by_stack_rules)
-        else:
-            get_new_state_machine = prec_get_new_state_machine
-
-        # store some variables
-        self.batch_size = batch_size
-        self.tgt_dict = tgt_dict
-
-        # keep count of time step for stopping and action history
-        # self.max_tgt_len = max_tgt_len
-        self.step_index = 0
-
-        # Watch out, these two variables need to be reorderd in reorder_state!
-        self.left_pad = []
-        self.machines = []
-        for batch_idx in range(batch_size):
-            sent_len = src_lengths[batch_idx]
-            word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
-            tokens = [src_dict[x] for x in word_idx]
-
-            # intialize state machine batch for size 1
-            self.machines.append(get_new_state_machine(
-                tokens,
-                machine_type=machine_type
-            ))
-
-            # store left pad size to be used in mask creation
-            self.left_pad.append(max_len - sent_len)
-
-        # these have the same info as buffer and stack but in stack-transformer
-        # form (batch_size * beam_size, src_len, tgt_len)
-        dummy = src_tokens.unsqueeze(2).repeat(1, 1, max_tgt_len)
-        self.memory = (torch.ones_like(dummy) * tgt_dict.pad()).float()
-        self.memory_pos = (torch.ones_like(dummy) * tgt_dict.pad()).float()
-        self.update_masks()
-
-    def get_active_logits(self):
-
-        # Collect active indices for the entire batch
-        batch_active_logits = set()
-        shape = (len(self.machines), 1, len(self.tgt_dict.symbols))
-        logits_mask = torch.zeros(shape, dtype=torch.int16)
-        for i in range(len(self.machines)):
-            if self.machines[i].is_closed:
-                # TODO: Change this to <pad> (will mess with decoder)
-                expanded_valid_indices = set([self.tgt_dict.indices['</s>']])
-            else:
-                valid_actions = self.machines[i].get_valid_actions()
-                expanded_valid_indices = self.action_indexer(valid_actions)
-            batch_active_logits |= expanded_valid_indices
-            logits_mask[i, 0, list(expanded_valid_indices)] = 1
-        batch_active_logits = list(batch_active_logits)
-
-        # FIXME: Entropic fix to avoid <unk>. Fix at oracle/fairseq level
-        # needed
-        batch_active_logits = [
-            idx 
-            for idx in batch_active_logits
-            if idx != self.tgt_dict.indices['<unk>']
-        ]
-
-        # store as indices mapping    
-        logits_indices = {
-            key: idx 
-            for idx, key in enumerate(batch_active_logits)
-        }
-        return logits_indices, logits_mask[:, :, batch_active_logits]
-
-    def update(self, action_batch):
-
-        # sanity check
-        batch_size = len(action_batch)
-        assert batch_size == len(self.machines)
-        #batch_size, num_actions = log_probabilities.shape
-        #assert batch_size == len(self.machines)
-        # FIXME: Decode adds extra symbols? This seem to be appended but this
-        # is a dangerous behaviour
-        # if num_actions != len(self.tgt_dict.symbols):
-        #    import ipdb; ipdb.set_trace(context=30)
-        #    pass
-
-        # execute most probable valid action and return masked probabilities
-        # for each sentence in the batch
-        for i in range(batch_size):
-            self.machines[i].applyAction(action_batch[i])
-
-        # increase action counter
-        self.step_index += 1
-
-        # update state expressed as masks
-        self.update_masks()
-
-    def update_masks(self, add_padding=0):
-
-        # Get masks from states
-        # buffer words    
-        device = self.memory.device
-
-        # basis is all padded
-        if add_padding:
-            raise NotImplementedError()
-            # Need to concatenate extra space
-
-        for sent_index, machine in enumerate(self.machines):
-
-            # if machine is closed stop here
-            if machine.is_closed:
-                continue
-
-            # Get machines buffer and stack compatible with AMR machine 
-            # get legacy indexing of buffer and stack from function
-            machine_buffer, machine_stack = machine.get_buffer_stack_copy()
-
-            # Reset mask to all non pad elements as being in deleted state 
-            pad = self.left_pad[sent_index].item()
-            self.memory[sent_index, pad:, self.step_index] = 5
-            self.memory_pos[sent_index, pad:, self.step_index] = 0
-
-            # Set buffer elements taking into account padding
-            if machine_buffer:
-
-                indices = np.array(machine_buffer) - 1 + pad
-                indices[indices == -1 - 1 + pad] = len(machine.tokens) - 1 + pad
-
-                # update masks
-                buffer_pos = np.arange(len(machine_buffer))
-                positions = len(machine_buffer) - buffer_pos - 1
-                self.memory[sent_index, indices, self.step_index] = 3
-                self.memory_pos[sent_index, indices, self.step_index] = \
-                    torch.tensor(positions, device=self.memory.device).float()
-
-            # Set stack elements taking into account padding
-            if machine_stack:
-
-                indices = np.array(machine_stack) - 1 + pad
-                # index of root in stack, if there is
-                root_in_stack_idx = (indices == -1 - 1 + pad).nonzero()[0]
-                indices[root_in_stack_idx] = len(machine.tokens) - 1 + pad
-
-                # update masks
-                stack_pos = np.arange(len(machine_stack))
-                positions = len(machine_stack) - stack_pos - 1
-                self.memory[sent_index, indices, self.step_index] = 4
-                # FIXME: This is a BUG in preprocessing by which
-                # shifted ROOT is considered deleted
-                # update masks
-                self.memory[sent_index, indices[root_in_stack_idx], self.step_index] = 5
-                self.memory_pos[sent_index, indices, self.step_index] = \
-                    torch.tensor(positions, device=self.memory.device).float()
-
-    def reoder_machine(self, reorder_state):
-        """Reorder/eliminate machines during decoding"""
-
-        # DEBUG
-        # self.encoder_padding_mask = self.encoder_padding_mask[reorder_state, :]
-        
         new_machines = []
         new_left_pad = []
         used_indices = set()
@@ -816,26 +613,26 @@ def update_machine(step, tokens, scores, state_machine):
 
     # Update action by action
     for index, action_index in enumerate(tokens[:, step+1].tolist()):
-    
+
         # machine of the batch
         machine = state_machine.machines[index]
-    
+
         # some action may be invalid due to beam > 1. They should
         # have -Inf score so that they are pruned on the next iteration
-        # so we do not execute those actions 
+        # so we do not execute those actions
         action = state_machine.tgt_dict.symbols[action_index]
         if machine.is_closed:
-    
+
             # machine is closed
             if scores[index, step] != float("-inf"):
                 import ipdb; ipdb.set_trace(context=30)
             machine.applyAction('</s>')
-    
+
         elif (
             action not in machine.get_valid_actions() and
             action.split('(')[0] not in machine.get_valid_actions()
         ):
-    
+
             # FIXME: This should not happen
             machine.applyAction('</s>')
             scores[index, step] = float("-inf")
@@ -844,16 +641,16 @@ def update_machine(step, tokens, scores, state_machine):
 #             print()
 #             import ipdb; ipdb.set_trace()
 #             print(scores[index, step].item())
-#     
-#             # if the scores are -Inf it will be pruned the next step 
+#
+#             # if the scores are -Inf it will be pruned the next step
 #             if scores[index, step] != float("-inf"):
 #                 import ipdb; ipdb.set_trace(context=30)
 #             # TODO: Close machine?
 #             # machine.applyAction('</s>')
-    
+
         else:
             machine.applyAction(action)
-    
+
     # increase counter and update masks
     state_machine.step_index += 1
     state_machine.update_masks()
@@ -872,7 +669,7 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
         nonlocal spacy_lemmatizer
 
         # automatic determination of machine if no flag provided
-        if sent_tokens[0] in ['<NER>', '<AMR>', 'SRL']: 
+        if sent_tokens[0] in ['<NER>', '<AMR>', 'SRL']:
             assert machine_type is None, \
                 "specify --machine-type OR pre-append <machine-type token>"
             machine_type = sent_tokens[0][1:-1]
@@ -925,7 +722,7 @@ def fix_shift_multi_task(lprobs, state_machine_batch, tgt_dict, logits_indices):
                     new_action_index = i
                 else:
                     # select correct labeled SHIFT
-                    new_action_index = tgt_dict.symbols.index(tob_shift_action) 
+                    new_action_index = tgt_dict.symbols.index(tob_shift_action)
             else:
                 # remove label from SHIFT (as it is not correct)
                 new_action_index = tgt_dict.symbols.index('SHIFT')
