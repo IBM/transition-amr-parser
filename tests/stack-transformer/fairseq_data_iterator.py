@@ -98,7 +98,6 @@ def main(args):
     utils.import_user_module(args)
     task = tasks.setup_task(args)
     task.load_dataset(args.gen_subset)
-    # fairseq.data.transition_based_parsing_dataset.TransitionBasedParsingDataset 
     dataset = task.dataset(args.gen_subset)
 
     # Get iterator over batches
@@ -122,7 +121,7 @@ def main(args):
 
 
 def cli_main():
-    parser = options.get_generation_parser(default_task='parsing')
+    parser = options.get_generation_parser()
     args = options.parse_args_and_arch(parser)
     main(args)
 

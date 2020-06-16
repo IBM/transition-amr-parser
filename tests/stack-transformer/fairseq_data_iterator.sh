@@ -10,6 +10,6 @@ set -o nounset
 python tests/stack-transformer/fairseq_data_iterator.py \
     $features_folder  \
     --gen-subset train \
-    --batch-size 128 \
+    --max-tokens 3584 \
     --machine-type AMR \
     --path dummpy.pt
