@@ -70,7 +70,7 @@ Clone this repository and check out the appropriate branch:
 
     git clone git@github.ibm.com:mnlp/transition-amr-parser.git
     cd transition-amr-parser
-    git checkout systems/emnlp2020
+    git checkout v0.3.0rc
 
 There are also install scripts for the CCC with an environment setter. Copy it
 from here 
