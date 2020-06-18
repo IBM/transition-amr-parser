@@ -8,8 +8,11 @@ from collections import defaultdict, Counter
 
 import math
 import numpy as np
-
-from transition_amr_parser.state_machine import AMRStateMachine, get_spacy_lemmatizer
+from transition_amr_parser.state_machine import ( 
+    AMRStateMachine,
+    DepParsingStateMachine,
+    get_spacy_lemmatizer
+)
 from transition_amr_parser.io import read_rule_stats
 
 # from fairseq.debug_tools import timeit, timeit_average, timeit_average
@@ -685,6 +688,12 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
                 actions_by_stack_rules=actions_by_stack_rules,
                 spacy_lemmatizer=spacy_lemmatizer
             )
+        elif machine_type == 'dep-parsing':
+            assert sent_tokens[-1] == 'ROOT'
+            # sent_tokens.pop()
+            # sent_tokens.append('<ROOT>')
+            return DepParsingStateMachine(sent_tokens)
+
         elif machine_type in ['NER', 'SRL']:
             from bio_tags.machine import BIOStateMachine
             return BIOStateMachine(sent_tokens)
