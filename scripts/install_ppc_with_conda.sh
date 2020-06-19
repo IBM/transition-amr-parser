@@ -14,6 +14,11 @@ conda install python=3.6.9=h2bede3c_0 -y -c powerai
 # conda create -y -p ./tmp_debug
 # conda activate ./tmp_debug
 
+# Ensure modern GCC                                                                                                                                                                     
+export GCC_DIR=/opt/share/gcc-5.4.0/ppc64le/
+export PATH=/opt/share/cuda-9.0/ppc64le/bin:$GCC_DIR/bin:$PATH
+export LD_LIBRARY_PATH=$GCC_DIR/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$GCC_DIR/lib64:$LD_LIBRARY_PATH
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
 conda env update -f scripts/stack-transformer/ccc_ppc_fairseq.yml
