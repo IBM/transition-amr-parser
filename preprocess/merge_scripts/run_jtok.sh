@@ -26,6 +26,9 @@ echo "fill_kevin_1st.py ..."
 python2 fill_kevin_1st.py tmp_in > tmp_out ; mv tmp_out tmp_in ; cp tmp_in 8;
 
 echo "fill_with_head.py ..."
-python2 fill_with_head.py tmp_in > $aln.mrged
+python2 fill_with_head.py tmp_in > tmp_out ; mv tmp_out tmp_in ; cp tmp_in 9;
+
+echo "align_the_rest.py ..."
+python align_the_rest.py tmp_in > $aln.mrged 
 
 rm tmp_in
