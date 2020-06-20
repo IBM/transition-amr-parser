@@ -11,6 +11,8 @@ dirs_and_outputs = [('training','train.txt'),
 def merge_dir(dir, outfile):
     amrs = []
     for filename in sorted(os.listdir(dir)):
+        if not filename.startswith("amr"):
+            continue
         with open(os.path.join(dir,filename), 'r', encoding='utf8') as f:
             print(filename)
             for i,line in enumerate(f):
@@ -33,4 +35,6 @@ def merge_dir(dir, outfile):
 
 for dir, output_file in dirs_and_outputs:
     dir1 = os.path.join(LDC_dir,'data','amrs','split',dir)
+    if "2014" in LDC_dir:
+        dir1 = os.path.join(LDC_dir,'data','split',dir)
     merge_dir(dir1,output_file)
