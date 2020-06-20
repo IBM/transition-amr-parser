@@ -9,10 +9,10 @@ echo -e "\nRunning Preprocessing Script: process will take ~1 hour\n"
 
 # process files
 echo -e "\nMerge files\n"
-python merge_files.py $1
+python3 merge_files.py $1
 
 echo -e "\nRemove wikis\n"
-python remove_wiki.py
+python3 remove_wiki.py
 
 
 # JAMR
@@ -33,12 +33,12 @@ cd ..
 
 
 echo -e "\nBuild Kevin input files\n"
-python jamr_2_kevin.py
+python3 jamr_2_kevin.py
 
 
 # Kevin
 echo -e "\nDownloading Kevin\n"
-wget https://www.isi.edu/~damghani/papers/Aligner.zip
+wget --no-check-certificate https://www.isi.edu/~damghani/papers/Aligner.zip
 unzip Aligner.zip >> output 2>> error-log.out
 mv Publish_Version kevin
 rm Aligner.zip
@@ -77,28 +77,24 @@ cd ..
 
 # merge alignments
 echo -e "\nClean Kevin output\n"
-python clean_kevin.py
+python3 clean_kevin.py
 
 
 echo -e "\nMerge Alignments\n"
 cd merge_scripts
 bash run_jtok.sh ../train.kevin.txt ../train.jamr.txt
-mv ../train.kevin.txt.mrged ../train.merged.txt
+mv ../train.kevin.txt.mrged ../train.aligned.txt
 
 bash run_jtok.sh ../dev.kevin.txt ../dev.jamr.txt
-mv ../dev.kevin.txt.mrged ../dev.merged.txt
+mv ../dev.kevin.txt.mrged ../dev.aligned.txt
 
 bash run_jtok.sh ../test.kevin.txt ../test.jamr.txt
-mv ../test.kevin.txt.mrged ../test.merged.txt
+mv ../test.kevin.txt.mrged ../test.aligned.txt
 cd ..
 
 
 echo -e "\nClean\n"
-python clean.py
-rm merge_scripts/1 merge_scripts/2 merge_scripts/3 merge_scripts/4 merge_scripts/5 merge_scripts/6 merge_scripts/7 merge_scripts/8
+python3 clean.py
+rm merge_scripts/1 merge_scripts/2 merge_scripts/3 merge_scripts/4 merge_scripts/5 merge_scripts/6 merge_scripts/7 merge_scripts/8 merge_scripts/9
 
-echo -e "\nCopying data to ../data\n"
-cp train.merged.txt ../data/train.txt
-cp dev.merged.txt ../data/dev.txt
-cp test.merged.txt ../data/test.txt
 echo -e "\nFinished\n"
