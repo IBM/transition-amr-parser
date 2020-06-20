@@ -49,6 +49,10 @@ for line in fg:
             unalnd_nodes.append((line,prev))
         else:
             (a,b) = line.split("\t")[-1].split('-')
+            if not a.isdigit() or not b.isdigit():
+                nline = "\t".join(line.split("\t")[:-1])+" "+line.split("\t")[-1]
+                line = nline
+                continue
             for i in range(int(a),int(b)):
                 if i < len(isalnd_words):
                     isalnd_words[i] = True
