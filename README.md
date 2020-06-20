@@ -135,10 +135,11 @@ have the following installed: pip, g++, and ICU
 (http://site.icu-project.org/home).
 ```bash
 cd preprocess
-bash preprocess.sh path/to/ldc_data
-rm train.* dev.* test.*
+bash preprocess.sh path/to/ldc_data_home
 ```
-New files will be placed in the `data` folder. The process will take ~1 hour to run. The call the train script
+New files will be `train.aligned.txt`, `test.aligned.txt` and `dev.aligned.txt` . The process will take ~1 hour to run for AMR 2.0. 
+
+Then call the train script with appropriately set paths
 
 ```
 bash scripts/train.sh 
