@@ -61,7 +61,7 @@ def main(args):
 # TODO: Get rid of options parser from fairseq and task loading if it
 # represents a big overhead
 def cli_main():
-    parser = options.get_interactive_generation_parser(default_task='parsing')
+    parser = options.get_interactive_generation_parser()
     options.add_optimization_args(parser)
     add_standalone_arguments(parser)
     args = options.parse_args_and_arch(parser)
