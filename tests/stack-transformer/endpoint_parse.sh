@@ -10,15 +10,20 @@ set -o nounset
 
 # set data to be used
 DATA=/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/
-input_file=${DATA}/oracles/o3+Word100/dev.en
+ORACLE_TAG=o5+Word100
+PREPRO_TAG="RoBERTa-large-top24"
+TRAIN_TAG=stnp6x6
 # reference file
 AMR_DEV_FILE=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned
+
+
+input_file=${DATA}/oracles/$ORACLE_TAG/dev.en
 
 # Set model to be used
 # features_folder=${DATA}/features/qaldlarge_extracted/
 # checkpoints_dir=${DATA}/models/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/
-features_folder=${DATA}/features/o3+Word100_RoBERTa-large-top8/
-checkpoints_dir=${DATA}/models/o3+Word100_RoBERTa-large-top8_stops6x6-seed42/
+features_folder=${DATA}/features/${ORACLE_TAG}_${PREPRO_TAG}
+checkpoints_dir=${DATA}/models/${ORACLE_TAG}_${PREPRO_TAG}_stops6x6-seed42/
 
 # folder where we write data
 mkdir -p TMP

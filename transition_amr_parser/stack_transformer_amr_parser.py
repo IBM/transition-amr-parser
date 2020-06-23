@@ -13,15 +13,21 @@ from fairseq import checkpoint_utils, options, tasks, utils
 # further modification
 from fairseq.sequence_generator import EnsembleModel
 # This is the AMRStateMachine wrapper (for a batch of them)
-from fairseq.amr_state_machine import StackStateMachine
 
+from transition_amr_parser.stack_transformer.amr_state_machine import (
+    StateMachineBatch,
+    get_action_indexer,
+    machine_generator
+)
+from transition_amr_parser.stack_transformer.pretrained_embeddings import (
+    PretrainedEmbeddings
+)
 from transition_amr_parser.io import read_rule_stats, read_sentences
 from fairseq.binarizer import Binarizer
 from fairseq.tokenizer import tokenize_line
-from fairseq.data.transition_based_parsing_dataset import collate
-from fairseq.amr_state_machine import get_action_indexer, machine_generator
+from fairseq.data.language_pair_dataset import collate
 from fairseq.models.roberta import RobertaModel
-from fairseq.pretrained_embeddings import PretrainedEmbeddings
+
 
 def extract_encoder(sample):
     encoder_input = {
@@ -326,8 +332,3 @@ class AMRParser():
             result.append(amr_annotations[i])
 
         return result
-        
-
-
-    
-
