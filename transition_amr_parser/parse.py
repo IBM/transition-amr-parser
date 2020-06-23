@@ -21,7 +21,7 @@ import transition_amr_parser.utils as utils
 from transition_amr_parser.utils import print_log
 import math
 
-from transition_amr_parser.amr_parser import AMRParser
+from transition_amr_parser.stack_lstm_amr_parser import AMRParser
 from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
 
 # is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
