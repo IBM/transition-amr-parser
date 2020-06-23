@@ -23,7 +23,7 @@ input_file=${DATA}/oracles/$ORACLE_TAG/dev.en
 # features_folder=${DATA}/features/qaldlarge_extracted/
 # checkpoints_dir=${DATA}/models/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/
 features_folder=${DATA}/features/${ORACLE_TAG}_${PREPRO_TAG}
-checkpoints_dir=${DATA}/models/${ORACLE_TAG}_${PREPRO_TAG}_stops6x6-seed42/
+checkpoints_dir=${DATA}/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}-seed42/
 
 # folder where we write data
 mkdir -p TMP
@@ -35,7 +35,7 @@ python scripts/stack-transformer/parse.py \
     --source-lang en \
     --target-lang actions \
     --path $checkpoints_dir/checkpoint89.pt \
-    --model-overrides "{'pretrained_embed_dim':1024}" \
+    --model-overrides "{'pretrained_embed_dim':1024, 'task': 'translation'}" \
     --pretrained-embed roberta.large \
     --bert-layers 17 18 19 20 21 22 23 24 \
     --input $input_file \
