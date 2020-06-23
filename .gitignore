@@ -4,6 +4,13 @@ scripts/local_variables.sh
 # new version
 set_environment.sh
 
+# compressed formats
+*.zip
+*.gz
+
+# wiki folder
+*.wiki/
+
 # data
 DATA*
 
