@@ -249,6 +249,8 @@ class AMRStateMachine:
         # nodes_str = " ".join([x for x in self.predicates if x != '_'])
         node_items = []
         for stack0, token_pos in self.alignments.items():
+            if stack0 not in self.amr.nodes:
+                continue
             node = self.amr.nodes[stack0]
             if isinstance(token_pos, tuple):
                 tokens = " ".join(self.tokens[p] for p in token_pos)

@@ -22,6 +22,7 @@ from transition_amr_parser.stack_transformer.amr_state_machine import (
 from transition_amr_parser.stack_transformer.pretrained_embeddings import (
     PretrainedEmbeddings
 )
+from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import read_rule_stats, read_sentences
 from fairseq.binarizer import Binarizer
 from fairseq.tokenizer import tokenize_line
@@ -39,6 +40,41 @@ def extract_encoder(sample):
     encoder_input['memory_pos'] = None
     return encoder_input
 
+
+def get_batch_tensors(sample, source_dictionary, machine_type):
+
+    # auxiliary variables
+    encoder_input = extract_encoder(sample)
+    src_tokens = encoder_input['src_tokens']
+    src_lengths = (
+        src_tokens.ne(source_dictionary.eos()) & 
+        src_tokens.ne(source_dictionary.pad())
+    ).long().sum(dim=1)
+    input_size = src_tokens.size()
+    bsz = input_size[0]
+    
+    # max number of steps in episode
+    if machine_type == 'NER':
+        max_len = int(math.ceil(src_lengths.max().item() * 3))
+    elif machine_type == 'AMR':
+        max_len = int(math.ceil(src_lengths.max().item() * 10))
+    
+    # more aux vars
+    bos_token = None
+    beam_size = 1
+    target_actions = src_tokens.new(
+        bsz * beam_size, max_len + 2
+    ).long().fill_(source_dictionary.pad())
+    target_actions[:, 0] = source_dictionary.eos() \
+        if bos_token is None else bos_token
+
+    return (
+        src_tokens.clone().detach(),
+        src_lengths.clone().detach(),
+        target_actions
+    )
+
+
 class MachineBatchGenerator():
     """
     Generates a state machine batch precomputing some variables for speed
@@ -48,14 +84,22 @@ class MachineBatchGenerator():
                  machine_rules):
 
         # precompute variables
-        self.machine_type = machine_type
-        self.source_dictionary = source_dictionary
-        self.target_dictionary = target_dictionary
-        self.rule_stats = read_rule_stats(machine_rules)
-        symbols = target_dictionary.symbols
-        self.action_indexer = get_action_indexer(symbols)
-        actions_by_stack_rules = self.rule_stats['possible_predicates']
-        self.get_new_state_machine = machine_generator(actions_by_stack_rules)
+        # self.machine_type = machine_type
+        # self.source_dictionary = source_dictionary
+        # self.target_dictionary = target_dictionary
+        # symbols = target_dictionary.symbols
+        # self.action_indexer = get_action_indexer(symbols)
+        # self.rule_stats = read_rule_stats(machine_rules)
+        # actions_by_stack_rules = self.rule_stats['possible_predicates']
+        # self.get_new_state_machine = machine_generator(actions_by_stack_rules)
+
+        # Uninitialized batch state machines
+        self.state_machine_batch = StateMachineBatch(
+            source_dictionary,
+            target_dictionary,
+            machine_type,
+            machine_rules=machine_rules
+        )
  
     def new(self, sample):
     
@@ -83,22 +127,30 @@ class MachineBatchGenerator():
         ).long().fill_(self.source_dictionary.pad())
         target_actions[:, 0] = self.source_dictionary.eos() \
             if bos_token is None else bos_token
-    
+
         # Initialize state machine and get first states
-        state_machine_batch = StackStateMachine(
-            src_tokens.clone().detach(),
-            src_lengths.clone().detach(),
-            self.source_dictionary,
-            self.target_dictionary,
-            target_actions.shape[1],
-            beam_size,
-            self.rule_stats,
-            machine_type=self.machine_type,
-            # precompute these for speed
-            prec_action_indexer=self.action_indexer, 
-            prec_get_new_state_machine=self.get_new_state_machine,
-            orig_tokens=encoder_input["orig_tokens"]
-        )
+        # get rules from model folder
+        self.state_machine_batch.reset(
+            src_tokens[new_order, :].clone().detach(),
+            src_lengths[new_order].clone().detach(),
+            target_actions.shape[1]
+        ) 
+
+#         # Initialize state machine and get first states
+#         state_machine_batch = StackStateMachine(
+#             src_tokens.clone().detach(),
+#             src_lengths.clone().detach(),
+#             self.source_dictionary,
+#             self.target_dictionary,
+#             target_actions.shape[1],
+#             beam_size,
+#             self.rule_stats,
+#             machine_type=self.machine_type,
+#             # precompute these for speed
+#             prec_action_indexer=self.action_indexer, 
+#             prec_get_new_state_machine=self.get_new_state_machine,
+#             orig_tokens=encoder_input["orig_tokens"]
+#         )
     
         return state_machine_batch, target_actions
 
@@ -126,8 +178,7 @@ class Model():
         return encoder_outs
 
 
-    def get_action(self, sample, prev_actions, memory, memory_pos, 
-                   logits_indices, logits_mask):
+    def get_action(self, sample, parser_state, prev_actions):
 
         # Compute part of the model that does not depend on episode steps
         # (encoder). Cache it for future use
@@ -140,10 +191,7 @@ class Model():
         lprobs, avg_attn_scores = self.model.forward_decoder(
             prev_actions,
             self.encoder_outs,
-            memory.clone(),
-            memory_pos.clone(),
-            logits_mask=logits_mask,
-            logits_indices=logits_indices,
+            parser_state,
             temperature=self.temperature
         )
 
@@ -162,18 +210,31 @@ class AMRParser():
         self.use_cuda = torch.cuda.is_available() and not args.cpu
         self.task = tasks.setup_task(args)
         self.model = self.load_models(args)
-        self.machine_batch_generator = MachineBatchGenerator(
-                self.task.source_dictionary,
-                self.task.target_dictionary,
-                args.machine_type, 
-                args.machine_rules
-            )
+#         self.machine_batch_generator = MachineBatchGenerator(
+#                 self.task.source_dictionary,
+#                 self.task.target_dictionary,
+#                 args.machine_type, 
+#                 args.machine_rules
+#             )
+
+        # Uninitialized batch state machines
+        self.state_machine_batch = StateMachineBatch(
+            self.task.source_dictionary,
+            self.task.target_dictionary,
+            args.machine_type,
+            machine_rules=args.machine_rules
+        )
+        # Load RoBERTa
         self.roberta = self.load_roberta(
             name=args.pretrained_embed,
             roberta_cache_path=args.roberta_cache_path,
             roberta_use_gpu=self.use_cuda
         )
-        self.embeddings = PretrainedEmbeddings(name=args.pretrained_embed, bert_layers=args.bert_layers, model=self.roberta)
+        self.embeddings = PretrainedEmbeddings(
+            name=args.pretrained_embed,
+            bert_layers=args.bert_layers,
+            model=self.roberta
+        )
         self.parser_batch_size = args.max_sentences
         self.roberta_batch_size = args.roberta_batch_size
         self.left_pad_source = args.left_pad_source
@@ -276,11 +337,22 @@ class AMRParser():
 
             # step, sample, state_machine_batch, tokens = state
             sample = utils.move_to_cuda(sample) if self.use_cuda else sample 
-            # instantiate a state machine batch for this sentence batch
-            # also provide tensor that will hold actions taken
-            state_machine_batch, target_actions = self.machine_batch_generator.new(
-                sample, 
+
+            # Get input tensors and preallocate space for output tensors
+            # TODO: This could be inside StateMachineBatch but we need to be
+            # coherent with fairseq/generate.py
+            src_tokens, src_lengths, target_actions = get_batch_tensors(
+                sample,
+                self.state_machine_batch.src_dict,
+                self.state_machine_batch.machine_type,
             )
+            # Initialize state machine and get first states
+            # get rules from model folder
+            self.state_machine_batch.reset(
+                src_tokens,
+                src_lengths,
+                target_actions.shape[1]
+            ) 
 
             # Reset model. This is to clean up the key/value cache in the decoder
             # and the encoder cache. There may be more efficient ways.
@@ -289,42 +361,64 @@ class AMRParser():
             # Loop over actions until all machines finish
             done = True
             time_step = 0
-            while any(not m.is_closed for m in state_machine_batch.machines):
+            while any(not m.is_closed for m in self.state_machine_batch.machines):
+
+                # DEBUG
+                # os.system('clear')
+                # print(self.state_machine_batch.machines[2])
+                # import pdb;pdb.set_trace()
 
                 # Get target masks from machine state
-                logits_indices, logits_mask = state_machine_batch.get_active_logits()
+                logits_indices, logits_mask = self.state_machine_batch.get_active_logits()
+                parser_state = (
+                    self.state_machine_batch.memory[:, :, :time_step + 1].clone(),
+                    self.state_machine_batch.memory_pos[:, :, :time_step + 1].clone(),
+                    logits_mask,
+                    logits_indices
+                )
 
                 # Get most probably action from the model for each sentence given
                 # input data, previous actions and state machine state
                 actions, log_probs = self.model.get_action(
                     sample,
+                    parser_state,
                     target_actions[:, :time_step + 1].data,
-                    state_machine_batch.memory[:, :, :time_step + 1].clone(),
-                    state_machine_batch.memory_pos[:, :, :time_step + 1].clone(),
-                    logits_indices,
-                    logits_mask
                 )
 
                 # act on the state machine batch
                 # Loop over paralele machines in the batch
-                for machine_idx, machine in enumerate(state_machine_batch.machines):
-        
+                for machine_idx, machine in enumerate(self.state_machine_batch.machines):
+
+                    # Emergency stop. If we reach maximum action number, force
+                    # stop the machine
+                    if (
+                        time_step + 2 == target_actions.shape[1] and
+                        not machine.is_closed
+                    ):
+                        msg = (
+                            f'machine {machine_idx} not closed at step '
+                            '{time_step}'
+                        )
+                        print(yellow_font(msg))
+                        action = 'CLOSE'
+                    else:
+                        action = actions[machine_idx]
+
                     # update state machine
-                    machine.update(actions[machine_idx])
-        
+                    machine.update(action)
                     # update list of previous actions
-                    new_action = self.task.target_dictionary.index(actions[machine_idx])
-                    target_actions[machine_idx, time_step + 1] = new_action
+                    action_idx = self.task.target_dictionary.index(action)
+                    target_actions[machine_idx, time_step + 1] = action_idx
 
                 # update counters and recompute masks
                 time_step +=1
-                state_machine_batch.step_index += 1
-                state_machine_batch.update_masks()
+                self.state_machine_batch.step_index += 1
+                self.state_machine_batch.update_masks()
 
             # collect all annotations
             ids = sample["id"].detach().cpu().tolist()
             for index, id in enumerate(ids):
-                amr_annotations[id] = state_machine_batch.machines[index].get_annotations()
+                amr_annotations[id] = self.state_machine_batch.machines[index].get_annotations()
 
         # return the AMRs
         result = []
