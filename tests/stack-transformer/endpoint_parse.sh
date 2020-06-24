@@ -28,22 +28,34 @@ checkpoints_dir=${DATA}/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}-seed42/
 # folder where we write data
 mkdir -p TMP
 
+# TODO: Remove extra arguments, read only folder checkpoint and deduce aregs
+# from it
 # run decoding
 # kernprof -l scripts/stack-transformer/parse.py \
 python scripts/stack-transformer/parse.py \
     $features_folder \
     --source-lang en \
     --target-lang actions \
-    --path $checkpoints_dir/checkpoint89.pt \
+    --path $checkpoints_dir/checkpoint_top3-average_SMATCH.pt \
     --model-overrides "{'pretrained_embed_dim':1024, 'task': 'translation'}" \
     --pretrained-embed roberta.large \
-    --bert-layers 17 18 19 20 21 22 23 24 \
+    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 \
     --input $input_file \
     --machine-type AMR \
     --machine-rules $checkpoints_dir/train.rules.json \
     --roberta_batch_size 10 \
     --batch-size 10
-# python -m line_profiler parse.py.lprof
 
-# FIXME: removed for debugging
-#    --roberta-cache-path ./cache/roberta.large \
+# # python -m line_profiler parse.py.lprof
+# 
+# # FIXME: removed for debugging
+# #    --roberta-cache-path ./cache/roberta.large \
+
+smatch.py \
+     --significant 4  \
+     -f $AMR_DEV_FILE \
+     tmp.amr \
+     -r 10 \
+     > tmp.smatch
+
+cat tmp.smatch
