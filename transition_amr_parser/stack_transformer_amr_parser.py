@@ -1,14 +1,11 @@
 # Standalone AMR parser
 
-import os
 import math
 import torch
 from tqdm import tqdm
 import copy
-import time
-from datetime import timedelta
 
-from fairseq import checkpoint_utils, options, tasks, utils
+from fairseq import checkpoint_utils, tasks, utils
 # if you provides model paths separated by : you enable ensembling with no
 # further modification
 from fairseq.sequence_generator import EnsembleModel
@@ -16,15 +13,11 @@ from fairseq.sequence_generator import EnsembleModel
 
 from transition_amr_parser.stack_transformer.amr_state_machine import (
     StateMachineBatch,
-    get_action_indexer,
-    machine_generator
 )
 from transition_amr_parser.stack_transformer.pretrained_embeddings import (
     PretrainedEmbeddings
 )
 from transition_amr_parser.utils import yellow_font
-from transition_amr_parser.io import read_rule_stats, read_sentences
-from fairseq.binarizer import Binarizer
 from fairseq.tokenizer import tokenize_line
 from fairseq.data.language_pair_dataset import collate
 from fairseq.models.roberta import RobertaModel
@@ -47,18 +40,18 @@ def get_batch_tensors(sample, source_dictionary, machine_type):
     encoder_input = extract_encoder(sample)
     src_tokens = encoder_input['src_tokens']
     src_lengths = (
-        src_tokens.ne(source_dictionary.eos()) & 
+        src_tokens.ne(source_dictionary.eos()) &
         src_tokens.ne(source_dictionary.pad())
     ).long().sum(dim=1)
     input_size = src_tokens.size()
     bsz = input_size[0]
-    
+
     # max number of steps in episode
     if machine_type == 'NER':
         max_len = int(math.ceil(src_lengths.max().item() * 3))
     elif machine_type == 'AMR':
         max_len = int(math.ceil(src_lengths.max().item() * 10))
-    
+
     # more aux vars
     bos_token = None
     beam_size = 1
@@ -74,59 +67,6 @@ def get_batch_tensors(sample, source_dictionary, machine_type):
         target_actions
     )
 
-
-class MachineBatchGenerator():
-    """
-    Generates a state machine batch precomputing some variables for speed
-    """
-
-    def __init__(self, source_dictionary, target_dictionary, machine_type, 
-                 machine_rules):
-
-        # Uninitialized batch state machines
-        self.state_machine_batch = StateMachineBatch(
-            source_dictionary,
-            target_dictionary,
-            machine_type,
-            machine_rules=machine_rules
-        )
- 
-    def new(self, sample):
-    
-        # auxiliary variables
-        encoder_input = extract_encoder(sample)
-        src_tokens = encoder_input['src_tokens']
-        src_lengths = (
-            src_tokens.ne(self.source_dictionary.eos()) & 
-            src_tokens.ne(self.source_dictionary.pad())
-        ).long().sum(dim=1)
-        input_size = src_tokens.size()
-        bsz = input_size[0]
-        
-        # max number of steps in episode
-        if self.machine_type == 'NER':
-            max_len = int(math.ceil(src_lengths.max().item() * 3))
-        elif self.machine_type == 'AMR':
-            max_len = int(math.ceil(src_lengths.max().item() * 10))
-        
-        # more aux vars
-        bos_token = None
-        beam_size = 1
-        target_actions = src_tokens.new(
-            bsz * beam_size, max_len + 2
-        ).long().fill_(self.source_dictionary.pad())
-        target_actions[:, 0] = self.source_dictionary.eos() \
-            if bos_token is None else bos_token
-
-        # Initialize state machine and get first states
-        # get rules from model folder
-        self.state_machine_batch.reset(
-            src_tokens[new_order, :].clone().detach(),
-            src_lengths[new_order].clone().detach(),
-            target_actions.shape[1]
-        ) 
-
-        return state_machine_batch, target_actions
 
 class Model():
     """Wrapper around the stack-transformer and state machine"""
@@ -151,7 +91,6 @@ class Model():
         encoder_outs = self.model.forward_encoder(encoder_input)
         return encoder_outs
 
-
     def get_action(self, sample, parser_state, prev_actions):
 
         # Compute part of the model that does not depend on episode steps
@@ -174,24 +113,22 @@ class Model():
             best_action_indices = lprobs.argmax(dim=1).tolist()
         else:
             # sampling
-            best_action_indices = torch.squeeze(lprobs.exp().multinomial(1),1).tolist()
+            best_action_indices = torch.squeeze(
+                lprobs.exp().multinomial(1), 1
+            ).tolist()
         actions = [self.target_dictionary[i] for i in best_action_indices]
         actions_lprob = [lprobs[0, i] for i in best_action_indices]
         return actions, actions_lprob
 
+
 class AMRParser():
+
     def __init__(self, args):
         self.use_cuda = torch.cuda.is_available() and not args.cpu
         self.task = tasks.setup_task(args)
         self.model = self.load_models(args)
-#         self.machine_batch_generator = MachineBatchGenerator(
-#                 self.task.source_dictionary,
-#                 self.task.target_dictionary,
-#                 args.machine_type, 
-#                 args.machine_rules
-#             )
 
-        # Uninitialized batch state machines
+        # Uninitialized batch of state machines
         self.state_machine_batch = StateMachineBatch(
             self.task.source_dictionary,
             self.task.target_dictionary,
@@ -199,6 +136,7 @@ class AMRParser():
             machine_rules=args.machine_rules
         )
         # Load RoBERTa
+        # TODO: Merge these two
         self.roberta = self.load_roberta(
             name=args.pretrained_embed,
             roberta_cache_path=args.roberta_cache_path,
@@ -245,21 +183,27 @@ class AMRParser():
             batch = sentences[i * batch_size: i * batch_size + batch_size]
             batch_data = self.embeddings.extract_batch(batch)
             for i in range(0, len(batch)):
-                bert_data.append((copy.deepcopy(batch_data["word_features"][i]), copy.deepcopy(batch_data["wordpieces_roberta"][i]), copy.deepcopy(batch_data["word2piece_scattered_indices"][i])))
+                bert_data.append((
+                    copy.deepcopy(batch_data["word_features"][i]),
+                    copy.deepcopy(batch_data["wordpieces_roberta"][i]),
+                    copy.deepcopy(batch_data["word2piece_scattered_indices"][i])
+                ))
         print(len(bert_data))
         assert len(bert_data) == len(sentences)
         return bert_data
 
     def get_token_ids(self, sentence):
-        return self.task.source_dictionary.encode_line(line=sentence,
-                                                line_tokenizer=tokenize_line,
-                                                add_if_not_exist=False,
-                                                append_eos=False,
-                                                reverse_order=False)
+        return self.task.source_dictionary.encode_line(
+            line=sentence,
+            line_tokenizer=tokenize_line,
+            add_if_not_exist=False,
+            append_eos=False,
+            reverse_order=False
+        )
 
     def convert_sentences_to_data(self, sentences, batch_size):
         roberta_features = self.get_bert_features_batched(sentences, self.roberta_batch_size)
-        
+
         data = []
         for index, sentence in enumerate(sentences):
             ids = self.get_token_ids(sentence)
@@ -268,7 +212,7 @@ class AMRParser():
                 'id': index,
                 'source': ids,
                 'source_fix_emb': word_features,
-                'src_wordpieces': wordpieces_roberta, 
+                'src_wordpieces': wordpieces_roberta,
                 'src_wp2w': word2piece_scattered_indices,
                 'orig_tokens': tokenize_line(sentence)
             })
@@ -292,8 +236,9 @@ class AMRParser():
         for tokens in batch:
             if tokens[-1] != "<ROOT>":
                 tokens.append("<ROOT>")
-            # TODO: We are joining with tabs since the model was trained this way. 
-            # Change it to whitespace once we update to using the model trained with whitespace separated text
+            # TODO: We are joining with tabs since the model was trained this way.
+            # Change it to whitespace once we update to using the model trained
+            # with whitespace separated text
             sentences.append(" ".join(tokens))
 
         if len(batch) < self.parser_batch_size:
@@ -310,7 +255,7 @@ class AMRParser():
         for sample in tqdm(data_iterator, desc='decoding'):
 
             # step, sample, state_machine_batch, tokens = state
-            sample = utils.move_to_cuda(sample) if self.use_cuda else sample 
+            sample = utils.move_to_cuda(sample) if self.use_cuda else sample
 
             # Get input tensors and preallocate space for output tensors
             # TODO: This could be inside StateMachineBatch but we need to be
@@ -326,14 +271,13 @@ class AMRParser():
                 src_tokens,
                 src_lengths,
                 target_actions.shape[1]
-            ) 
+            )
 
             # Reset model. This is to clean up the key/value cache in the decoder
             # and the encoder cache. There may be more efficient ways.
             self.model.reset()
 
             # Loop over actions until all machines finish
-            done = True
             time_step = 0
             while any(not m.is_closed for m in self.state_machine_batch.machines):
 
@@ -351,8 +295,8 @@ class AMRParser():
                     logits_indices
                 )
 
-                # Get most probably action from the model for each sentence given
-                # input data, previous actions and state machine state
+                # Get most probably action from the model for each sentence
+                # given input data, previous actions and state machine state
                 actions, log_probs = self.model.get_action(
                     sample,
                     parser_state,
@@ -361,7 +305,9 @@ class AMRParser():
 
                 # act on the state machine batch
                 # Loop over paralele machines in the batch
-                for machine_idx, machine in enumerate(self.state_machine_batch.machines):
+                for machine_idx, machine in enumerate(
+                    self.state_machine_batch.machines
+                ):
 
                     # Emergency stop. If we reach maximum action number, force
                     # stop the machine
@@ -385,18 +331,19 @@ class AMRParser():
                     target_actions[machine_idx, time_step + 1] = action_idx
 
                 # update counters and recompute masks
-                time_step +=1
+                time_step += 1
                 self.state_machine_batch.step_index += 1
                 self.state_machine_batch.update_masks()
 
             # collect all annotations
             ids = sample["id"].detach().cpu().tolist()
             for index, id in enumerate(ids):
-                amr_annotations[id] = self.state_machine_batch.machines[index].get_annotations()
+                amr_annotations[id] = \
+                    self.state_machine_batch.machines[index].get_annotations()
 
         # return the AMRs
         result = []
-        for i in range(0,len(batch)):
+        for i in range(0, len(batch)):
             result.append(amr_annotations[i])
 
         return result
