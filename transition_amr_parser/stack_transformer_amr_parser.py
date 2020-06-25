@@ -83,16 +83,6 @@ class MachineBatchGenerator():
     def __init__(self, source_dictionary, target_dictionary, machine_type, 
                  machine_rules):
 
-        # precompute variables
-        # self.machine_type = machine_type
-        # self.source_dictionary = source_dictionary
-        # self.target_dictionary = target_dictionary
-        # symbols = target_dictionary.symbols
-        # self.action_indexer = get_action_indexer(symbols)
-        # self.rule_stats = read_rule_stats(machine_rules)
-        # actions_by_stack_rules = self.rule_stats['possible_predicates']
-        # self.get_new_state_machine = machine_generator(actions_by_stack_rules)
-
         # Uninitialized batch state machines
         self.state_machine_batch = StateMachineBatch(
             source_dictionary,
@@ -136,22 +126,6 @@ class MachineBatchGenerator():
             target_actions.shape[1]
         ) 
 
-#         # Initialize state machine and get first states
-#         state_machine_batch = StackStateMachine(
-#             src_tokens.clone().detach(),
-#             src_lengths.clone().detach(),
-#             self.source_dictionary,
-#             self.target_dictionary,
-#             target_actions.shape[1],
-#             beam_size,
-#             self.rule_stats,
-#             machine_type=self.machine_type,
-#             # precompute these for speed
-#             prec_action_indexer=self.action_indexer, 
-#             prec_get_new_state_machine=self.get_new_state_machine,
-#             orig_tokens=encoder_input["orig_tokens"]
-#         )
-    
         return state_machine_batch, target_actions
 
 class Model():
