@@ -26,7 +26,8 @@ features_folder=${DATA}/features/${ORACLE_TAG}_${PREPRO_TAG}
 checkpoints_dir=${DATA}/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}-seed42/
 
 # folder where we write data
-mkdir -p TMP
+rm -f DATA.tests/endpoint.amr
+mkdir -p DATA.tests/
 
 # TODO: Remove extra arguments, read only folder checkpoint and deduce aregs
 # from it
@@ -44,18 +45,19 @@ python scripts/stack-transformer/parse.py \
     --machine-type AMR \
     --machine-rules $checkpoints_dir/train.rules.json \
     --roberta_batch_size 10 \
-    --batch-size 10
+    --batch-size 10 \
+    --out-amr DATA.tests/endpoint.amr
 
-# # python -m line_profiler parse.py.lprof
-# 
-# # FIXME: removed for debugging
-# #    --roberta-cache-path ./cache/roberta.large \
+# python -m line_profiler parse.py.lprof
+ 
+# FIXME: removed for debugging
+#    --roberta-cache-path ./cache/roberta.large \
 
 smatch.py \
      --significant 4  \
      -f $AMR_DEV_FILE \
-     tmp.amr \
+     DATA.tests/endpoint.amr \
      -r 10 \
-     > tmp.smatch
+     > DATA.tests/endpoint.smatch
 
-cat tmp.smatch
+cat DATA.tests/endpoint.smatch

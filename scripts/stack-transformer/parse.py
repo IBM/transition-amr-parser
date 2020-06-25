@@ -1,8 +1,3 @@
-import os
-import math
-import torch
-from tqdm import tqdm
-import copy
 import time
 from datetime import timedelta
 
@@ -11,6 +6,7 @@ from fairseq.tokenizer import tokenize_line
 
 from transition_amr_parser.io import read_sentences
 from transition_amr_parser.stack_transformer_amr_parser import AMRParser
+
 
 def add_standalone_arguments(parser):
     parser.add_argument(
@@ -24,13 +20,18 @@ def add_standalone_arguments(parser):
         help="Path to the roberta large model",
         type=str
     )
+    parser.add_argument(
+        "--out-amr",
+        help="Path to the file where AMR will be tored",
+        type=str
+    )
     # for pretrained external embeddings
     parser.add_argument("--pretrained-embed", default='roberta.base',
-                       help="Type of pretrained embedding")
+                        help="Type of pretrained embedding")
     # NOTE: Previous default "17 18 19 20 21 22 23 24"
     parser.add_argument('--bert-layers', nargs='+', type=int,
-                       help='RoBERTa layers to extract (default last)')
-    
+                        help='RoBERTa layers to extract (default last)')
+
 
 def main(args):
 
@@ -54,10 +55,11 @@ def main(args):
     print(f'Total time taken to parse sentences: {timedelta(seconds=float(end-start))}')
 
     # write annotations
-    with open('tmp.amr', 'w') as fid:
-        for i in range(0,len(sentences)):
+    with open(args.out_amr, 'w') as fid:
+        for i in range(0, len(sentences)):
             fid.write(result[i])
-    
+
+
 # TODO: Get rid of options parser from fairseq and task loading if it
 # represents a big overhead
 def cli_main():
@@ -66,6 +68,7 @@ def cli_main():
     add_standalone_arguments(parser)
     args = options.parse_args_and_arch(parser)
     main(args)
+
 
 if __name__ == '__main__':
     cli_main()
