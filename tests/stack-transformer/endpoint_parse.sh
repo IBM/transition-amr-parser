@@ -45,7 +45,7 @@ python scripts/stack-transformer/parse.py \
     --machine-type AMR \
     --machine-rules $checkpoints_dir/train.rules.json \
     --roberta_batch_size 10 \
-    --batch-size 10 \
+    --batch-size 128 \
     --out-amr DATA.tests/endpoint.amr
 
 # python -m line_profiler parse.py.lprof
