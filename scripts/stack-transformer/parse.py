@@ -37,22 +37,30 @@ def main(args):
 
     # TODO: Consider getting rid of this and manually loading needed stuff if
     # the overhead is big. LEave otheriwse
-    utils.import_user_module(args)
+    # utils.import_user_module(args)
 
+    # read tokenized sentences
     sentences = read_sentences(args.input)
     split_sentences = []
     for sentence in sentences:
         split_sentences.append(tokenize_line(sentence))
     print(len(split_sentences))
+
+    # Load parser
     start = time.time()
+    import ipdb; ipdb.set_trace(context=30)
     parser = AMRParser(args)
     end = time.time()
-    print(f'Total time taken to load parser: {timedelta(seconds=float(end-start))}')
+    time_secs = timedelta(seconds=float(end-start))
+    print(f'Total time taken to load parser: {time_secs}')
+
+    # Parse
     start = time.time()
     result = parser.parse_sentences(split_sentences)
     end = time.time()
     print(len(result))
-    print(f'Total time taken to parse sentences: {timedelta(seconds=float(end-start))}')
+    time_secs = timedelta(seconds=float(end-start))
+    print(f'Total time taken to parse sentences: {time_secs}')
 
     # write annotations
     with open(args.out_amr, 'w') as fid:

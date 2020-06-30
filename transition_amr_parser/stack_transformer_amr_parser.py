@@ -1,15 +1,14 @@
 # Standalone AMR parser
 
+import os
+import json
 import math
 import torch
 from tqdm import tqdm
 import copy
 
 from fairseq import checkpoint_utils, tasks, utils
-# if you provides model paths separated by : you enable ensembling with no
-# further modification
 from fairseq.sequence_generator import EnsembleModel
-# This is the AMRStateMachine wrapper (for a batch of them)
 
 from transition_amr_parser.stack_transformer.amr_state_machine import (
     StateMachineBatch,
@@ -69,7 +68,7 @@ def get_batch_tensors(sample, source_dictionary, machine_type):
 
 
 class Model():
-    """Wrapper around the stack-transformer and state machine"""
+    """Wrapper around the stack-transformer model"""
 
     def __init__(self, models, target_dictionary):
         self.temperature = 1.
@@ -124,6 +123,14 @@ class Model():
 class AMRParser():
 
     def __init__(self, args):
+
+        # Read extra arguments
+        model_folder = os.path.dirname(args.path.split(':')[0])
+        config_json = f'{model_folder}/config.json'
+        assert os.path.isfile(config_json)
+        with open(config_json) as fid:
+            extra_args = json.loads(fid.read())
+
         self.use_cuda = torch.cuda.is_available() and not args.cpu
         self.task = tasks.setup_task(args)
         self.model = self.load_models(args)
