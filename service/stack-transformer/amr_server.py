@@ -49,7 +49,7 @@ class Parser():
 
 def serve():
     # Argument handling
-    parser = options.get_interactive_generation_parser(default_task='parsing')
+    parser = options.get_interactive_generation_parser()
     options.add_optimization_args(parser)
     add_server_arguments(parser)
     args = options.parse_args_and_arch(parser)
