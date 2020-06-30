@@ -30,8 +30,9 @@ RUN tar -xzvf ${CACHE_DIR}/roberta.large.tar.gz -C ${CACHE_DIR}
 RUN rm ${CACHE_DIR}/roberta.large.tar.gz
 
 # Install the packages
-RUN python3 -m pip install torch==1.1.0
-RUN python3 -m pip install -r fairseq/requirements.txt
+RUN python3 -m pip install torch==1.1.0 spacy==2.2.3 h5py cffi fastBPE regex sacrebleu requests 
+# torch-scatter requires torch to be installed
+RUN python3 -m pip install torch-scatter==1.3.2 
 RUN python3 -m pip install --editable fairseq/.
 RUN python3 -m pip install --editable .
 RUN python3 -m spacy download en
@@ -40,4 +41,4 @@ RUN python3 -m spacy download en
 RUN python3 -m grpc_tools.protoc -I./service/stack-transformer/  --python_out=./service/stack-transformer/ --grpc_python_out=./service/stack-transformer/ ./service/stack-transformer/amr.proto
 
 # start the server
-CMD python3 -u service/stack-transformer/amr_server.py ${MODEL_DIR} --source-lang en --target-lang actions --path ${MODEL_DIR}model.pt --machine-type AMR --model-overrides "{'pretrained_embed_dim':1024}" --machine-rules ${MODEL_DIR}train.rules.json --pretrained-embed roberta.large --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 --batch-size 64 --roberta-batch-size 10 --roberta-cache-path ${ROBERTA_CACHE_PATH} --port ${GRPC_PORT}
+CMD python3 -u service/stack-transformer/amr_server.py ${MODEL_DIR} --source-lang en --target-lang actions --path ${MODEL_DIR}model.pt --machine-type AMR --model-overrides "{'pretrained_embed_dim':1024, 'task': 'translation'}" --machine-rules ${MODEL_DIR}train.rules.json --pretrained-embed roberta.large --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 --batch-size 64 --roberta-batch-size 10 --roberta-cache-path ${ROBERTA_CACHE_PATH} --port ${GRPC_PORT}
