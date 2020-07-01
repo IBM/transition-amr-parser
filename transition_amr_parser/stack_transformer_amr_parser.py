@@ -248,7 +248,8 @@ class AMRParser():
 
     def get_bert_features_batched(self, sentences, batch_size):
         bert_data = []
-        for i in tqdm(range(0, math.ceil(len(sentences)/batch_size)), desc='roberta'):
+        num_batches = math.ceil(len(sentences)/batch_size)
+        for i in tqdm(range(0, num_batches), desc='roberta'):
             batch = sentences[i * batch_size: i * batch_size + batch_size]
             batch_data = self.embeddings.extract_batch(batch)
             for i in range(0, len(batch)):
@@ -306,119 +307,122 @@ class AMRParser():
             batches.append(batch)
         return batches
 
-    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10):
+    def parse_feature_batch(self, sample):
 
-        sentences = []
-        # The model expects <ROOT> token at the end of the input sentence
-        for tokens in batch:
-            if tokens[-1] != "<ROOT>":
-                tokens.append("<ROOT>")
-            # TODO: We are joining with tabs since the model was trained this way.
-            # Change it to whitespace once we update to using the model trained
-            # with whitespace separated text
-            sentences.append(" ".join(tokens))
+        # Get input tensors and preallocate space for output tensors
+        # TODO: This could be inside StateMachineBatch but we need to be
+        # coherent with fairseq/generate.py
+        src_tokens, src_lengths, target_actions = get_batch_tensors(
+            sample,
+            self.src_dict,
+            self.state_machine_batch.machine_type,
+        )
+        # Initialize state machine and get first states
+        # get rules from model folder
+        self.state_machine_batch.reset(
+            src_tokens,
+            src_lengths,
+            target_actions.shape[1]
+        )
+        
+        # Reset model. This is to clean up the key/value cache in the decoder
+        # and the encoder cache. There may be more efficient ways.
+        self.model.reset()
+        
+        # Loop over actions until all machines finish
+        time_step = 0
+        while any(not m.is_closed for m in self.state_machine_batch.machines):
+        
+            # DEBUG
+            # os.system('clear')
+            # print(self.state_machine_batch.machines[2])
+            # import pdb;pdb.set_trace()
+        
+            # Get target masks from machine state
+            logits_indices, logits_mask = \
+                self.state_machine_batch.get_active_logits()
+            parser_state = (
+                self.state_machine_batch.memory[:, :, :time_step + 1].clone(),
+                self.state_machine_batch.memory_pos[:, :, :time_step + 1].clone(),
+                logits_mask,
+                logits_indices
+            )
+        
+            # Get most probably action from the model for each sentence
+            # given input data, previous actions and state machine state
+            actions, log_probs = self.model.get_action(
+                sample,
+                parser_state,
+                target_actions[:, :time_step + 1].data,
+            )
+        
+            # act on the state machine batch
+            # Loop over paralele machines in the batch
+            for machine_idx, machine in enumerate(
+                self.state_machine_batch.machines
+            ):
+        
+                # Emergency stop. If we reach maximum action number, force
+                # stop the machine
+                if (
+                    time_step + 2 == target_actions.shape[1] and
+                    not machine.is_closed
+                ):
+                    msg = (
+                        f'machine {machine_idx} not closed at step '
+                        '{time_step}'
+                    )
+                    print(yellow_font(msg))
+                    action = 'CLOSE'
+                else:
+                    action = actions[machine_idx]
+        
+                # update state machine
+                machine.update(action)
+                # update list of previous actions
+                action_idx = self.tgt_dict.index(action)
+                target_actions[machine_idx, time_step + 1] = action_idx
+        
+            # update counters and recompute masks
+            time_step += 1
+            self.state_machine_batch.step_index += 1
+            self.state_machine_batch.update_masks()
+
+    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10):
 
         # max batch_size
         if len(batch) < batch_size:
             batch_size = len(batch)
         print("Running on batch size: " + str(batch_size))
 
+        sentences = []
+        # The model expects <ROOT> token at the end of the input sentence
+        for tokens in batch:
+            if tokens[-1] != "<ROOT>":
+                tokens.append("<ROOT>")
+            sentences.append(" ".join(tokens))
+
         data = self.convert_sentences_to_data(sentences, batch_size, 
                                               roberta_batch_size)
         data_iterator = self.get_iterator(data, batch_size)
-        # final annotations
-        amr_annotations = {}
 
+        # Lopp over batches of sentences
+        amr_annotations = {}
         for sample in tqdm(data_iterator, desc='decoding'):
 
             # step, sample, state_machine_batch, tokens = state
             sample = utils.move_to_cuda(sample) if self.use_cuda else sample
 
-            # Get input tensors and preallocate space for output tensors
-            # TODO: This could be inside StateMachineBatch but we need to be
-            # coherent with fairseq/generate.py
-            src_tokens, src_lengths, target_actions = get_batch_tensors(
-                sample,
-                self.state_machine_batch.src_dict,
-                self.state_machine_batch.machine_type,
-            )
-            # Initialize state machine and get first states
-            # get rules from model folder
-            self.state_machine_batch.reset(
-                src_tokens,
-                src_lengths,
-                target_actions.shape[1]
-            )
-
-            # Reset model. This is to clean up the key/value cache in the decoder
-            # and the encoder cache. There may be more efficient ways.
-            self.model.reset()
-
-            # Loop over actions until all machines finish
-            time_step = 0
-            while any(not m.is_closed for m in self.state_machine_batch.machines):
-
-                # DEBUG
-                # os.system('clear')
-                # print(self.state_machine_batch.machines[2])
-                # import pdb;pdb.set_trace()
-
-                # Get target masks from machine state
-                logits_indices, logits_mask = self.state_machine_batch.get_active_logits()
-                parser_state = (
-                    self.state_machine_batch.memory[:, :, :time_step + 1].clone(),
-                    self.state_machine_batch.memory_pos[:, :, :time_step + 1].clone(),
-                    logits_mask,
-                    logits_indices
-                )
-
-                # Get most probably action from the model for each sentence
-                # given input data, previous actions and state machine state
-                actions, log_probs = self.model.get_action(
-                    sample,
-                    parser_state,
-                    target_actions[:, :time_step + 1].data,
-                )
-
-                # act on the state machine batch
-                # Loop over paralele machines in the batch
-                for machine_idx, machine in enumerate(
-                    self.state_machine_batch.machines
-                ):
-
-                    # Emergency stop. If we reach maximum action number, force
-                    # stop the machine
-                    if (
-                        time_step + 2 == target_actions.shape[1] and
-                        not machine.is_closed
-                    ):
-                        msg = (
-                            f'machine {machine_idx} not closed at step '
-                            '{time_step}'
-                        )
-                        print(yellow_font(msg))
-                        action = 'CLOSE'
-                    else:
-                        action = actions[machine_idx]
-
-                    # update state machine
-                    machine.update(action)
-                    # update list of previous actions
-                    action_idx = self.tgt_dict.index(action)
-                    target_actions[machine_idx, time_step + 1] = action_idx
-
-                # update counters and recompute masks
-                time_step += 1
-                self.state_machine_batch.step_index += 1
-                self.state_machine_batch.update_masks()
-
+            # parse for this batch
+            self.parse_feature_batch(sample)
+            
             # collect all annotations
             ids = sample["id"].detach().cpu().tolist()
             for index, id in enumerate(ids):
                 amr_annotations[id] = \
                     self.state_machine_batch.machines[index].get_annotations()
 
-        # return the AMRs
+        # return the AMRs in order
         result = []
         for i in range(0, len(batch)):
             result.append(amr_annotations[i])
