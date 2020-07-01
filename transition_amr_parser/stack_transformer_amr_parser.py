@@ -7,7 +7,7 @@ import torch
 from tqdm import tqdm
 import copy
 
-from fairseq import checkpoint_utils, tasks, utils
+from fairseq import checkpoint_utils, utils
 from fairseq.sequence_generator import EnsembleModel
 
 from transition_amr_parser.stack_transformer.amr_state_machine import (
@@ -23,6 +23,33 @@ from fairseq.models.roberta import RobertaModel
 from fairseq import options, utils
 from fairseq.tasks.translation import TranslationTask 
 from fairseq.data import Dictionary
+
+
+def load_models(args, task, use_cuda):
+    models, _ = checkpoint_utils.load_model_ensemble(
+        args.path.split(':'),
+        arg_overrides=eval(args.model_overrides),
+        task=task,
+    )
+    if use_cuda:
+        print("using GPU for models")
+        [m.cuda() for m in models]
+    else:
+        print("using CPU for models")
+    model = Model(models, task.target_dictionary)
+    return model
+
+
+def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
+    if not roberta_cache_path:
+        # Load the Roberta Model from torch hub
+        roberta = torch.hub.load('pytorch/fairseq', name)
+    else:
+        roberta = RobertaModel.from_pretrained(roberta_cache_path, checkpoint_file='model.pt')
+    roberta.eval()
+    if roberta_use_gpu:
+        roberta.cuda()
+    return roberta
 
 
 def extract_encoder(sample):
@@ -125,14 +152,41 @@ class Model():
 
 class AMRParser():
 
-    def __init__(self, checkpoint):
+    def __init__(self, 
+        model,           # Pytorch model
+        machine_rules,   # path to train.rules.json
+        machine_type,    # AMR, NER, etc
+        src_dict,        # fairseq dict
+        tgt_dict,        # fairseq dict 
+        use_cuda,        # 
+        embeddings=None  # pytorch RoBERTa model (if dealing with token input)
+    ):
+
+        # member variables
+        self.src_dict = src_dict
+        self.tgt_dict = tgt_dict 
+        self.embeddings = embeddings
+        self.model = model
+        self.use_cuda = use_cuda
+
+        # uninitialized batch of state machines
+        self.state_machine_batch = StateMachineBatch(
+            src_dict, 
+            tgt_dict,
+            machine_type,
+            machine_rules=machine_rules
+        )
+
+    @classmethod
+    def from_checkpoint(self, checkpoint):
+        '''
+        Initialize model from checkpoint
+        '''
 
         # load fairseq task
         parser = options.get_interactive_generation_parser()
         options.add_optimization_args(parser)
         args = options.parse_args_and_arch(parser, input_args=['--data dummy'])
-
-        # self.task = tasks.setup_task(args)
 
         # Read extra arguments
         model_folder = os.path.dirname(checkpoint.split(':')[0])
@@ -144,7 +198,6 @@ class AMRParser():
             extra_args = json.loads(fid.read())
         prepro_args = extra_args['fairseq_preprocess_args']
         train_args = extra_args['fairseq_train_args']
-
         # extra args by hand
         args.source_lang = 'en'
         args.target_lang = 'actions'
@@ -153,6 +206,8 @@ class AMRParser():
         dim = train_args['--pretrained-embed-dim'][0]
         args.model_overrides = \
             "{'pretrained_embed_dim':%s, 'task': 'translation'}" % dim
+        assert bool(args.left_pad_source), "Only left pad supported"
+
         # dictionaries
         src_dict_path = f'{model_folder}/dict.{args.source_lang}.txt'
         tgt_dict_path = f'{model_folder}/dict.{args.target_lang}.txt'
@@ -163,69 +218,33 @@ class AMRParser():
         src_dict = Dictionary.load(src_dict_path)
         tgt_dict = Dictionary.load(tgt_dict_path)
 
-        self.use_cuda = torch.cuda.is_available() and not args.cpu
+        use_cuda = torch.cuda.is_available() and not args.cpu
 
-        # load task 
-        # TODO: Encapsulate this
-        self.task = TranslationTask(args, src_dict, tgt_dict)
-    
         # Override task to ensure compatibility with old models and overide
-        # roberta size
-        self.model = self.load_models(args)
+        # TODO: Task may not be even needed
+        task = TranslationTask(args, src_dict, tgt_dict)
+        model = load_models(args, task, use_cuda)
 
-        # Uninitialized batch of state machines
-        machine_rules = f'{model_folder}/train.rules.json'
-        assert os.path.isfile(machine_rules), f"Missing {machine_rules}"
-        self.state_machine_batch = StateMachineBatch(
-            self.task.source_dictionary,
-            self.task.target_dictionary,
-            prepro_args['--machine-type'][0],
-            machine_rules=machine_rules
-        )
         # Load RoBERTa
-        # TODO: Merge these two
-        self.roberta = self.load_roberta(
-            name=prepro_args['--pretrained-embed'][0],
-            roberta_cache_path=args.roberta_cache_path,
-            roberta_use_gpu=self.use_cuda
-        )
-        self.embeddings = PretrainedEmbeddings(
+        embeddings = PretrainedEmbeddings(
             name=prepro_args['--pretrained-embed'][0],
             bert_layers=[int(x) for x in prepro_args['--bert-layers']],
-            model=self.roberta
+            model=load_roberta(
+                name=prepro_args['--pretrained-embed'][0],
+                roberta_cache_path=args.roberta_cache_path,
+                roberta_use_gpu=use_cuda
+            )
         )
 
-        self.left_pad_source = args.left_pad_source
-        # self.roberta_batch_size = args.roberta_batch_size
         print("Finished loading models")
 
-    # @classmethod
-    # def from_checkpoint(cls, args, **kwargs):
+        # State machine variables
+        machine_rules = f'{model_folder}/train.rules.json'
+        assert os.path.isfile(machine_rules), f"Missing {machine_rules}"
+        machine_type = prepro_args['--machine-type'][0]
 
-    def load_models(self, args):
-        models, _ = checkpoint_utils.load_model_ensemble(
-                args.path.split(':'),
-                arg_overrides=eval(args.model_overrides),
-                task=self.task,
-                )
-        if self.use_cuda:
-            print("using GPU for models")
-            [m.cuda() for m in models]
-        else:
-            print("using CPU for models")
-        model = Model(models, self.task.target_dictionary)
-        return model
-
-    def load_roberta(self, name=None, roberta_cache_path=None, roberta_use_gpu=False):
-        if not roberta_cache_path:
-            # Load the Roberta Model from torch hub
-            roberta = torch.hub.load('pytorch/fairseq', name)
-        else:
-            roberta = RobertaModel.from_pretrained(roberta_cache_path, checkpoint_file='model.pt')
-        roberta.eval()
-        if roberta_use_gpu:
-            roberta.cuda()
-        return roberta
+        return self(model, machine_rules, machine_type, src_dict, tgt_dict, 
+                    use_cuda, embeddings=embeddings)
 
     def get_bert_features_batched(self, sentences, batch_size):
         bert_data = []
@@ -243,7 +262,7 @@ class AMRParser():
         return bert_data
 
     def get_token_ids(self, sentence):
-        return self.task.source_dictionary.encode_line(
+        return self.src_dict.encode_line(
             line=sentence,
             line_tokenizer=tokenize_line,
             add_if_not_exist=False,
@@ -279,14 +298,16 @@ class AMRParser():
         for i in range(0, math.ceil(len(samples)/batch_size)):
             sample = samples[i * batch_size: i * batch_size + batch_size]
             batch = collate(
-                sample, pad_idx=self.task.source_dictionary.pad(), eos_idx=self.task.source_dictionary.eos(),
-                left_pad_source=self.left_pad_source,
+                sample, pad_idx=self.src_dict.pad(), 
+                eos_idx=self.src_dict.eos(),
+                left_pad_source=True,
                 state_machine=False
             )
             batches.append(batch)
         return batches
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10):
+
         sentences = []
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
@@ -297,6 +318,7 @@ class AMRParser():
             # with whitespace separated text
             sentences.append(" ".join(tokens))
 
+        # max batch_size
         if len(batch) < batch_size:
             batch_size = len(batch)
         print("Running on batch size: " + str(batch_size))
@@ -382,7 +404,7 @@ class AMRParser():
                     # update state machine
                     machine.update(action)
                     # update list of previous actions
-                    action_idx = self.task.target_dictionary.index(action)
+                    action_idx = self.tgt_dict.index(action)
                     target_actions[machine_idx, time_step + 1] = action_idx
 
                 # update counters and recompute masks
