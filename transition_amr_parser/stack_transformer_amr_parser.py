@@ -125,11 +125,11 @@ class AMRParser():
     def __init__(self, args):
 
         # Read extra arguments
-        model_folder = os.path.dirname(args.path.split(':')[0])
-        config_json = f'{model_folder}/config.json'
-        assert os.path.isfile(config_json)
-        with open(config_json) as fid:
-            extra_args = json.loads(fid.read())
+#         model_folder = os.path.dirname(args.path.split(':')[0])
+#         config_json = f'{model_folder}/config.json'
+#         assert os.path.isfile(config_json)
+#         with open(config_json) as fid:
+#             extra_args = json.loads(fid.read())
 
         self.use_cuda = torch.cuda.is_available() and not args.cpu
         self.task = tasks.setup_task(args)
