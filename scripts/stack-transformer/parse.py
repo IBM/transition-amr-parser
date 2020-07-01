@@ -48,7 +48,6 @@ def main(args):
 
     # Load parser
     start = time.time()
-    import ipdb; ipdb.set_trace(context=30)
     parser = AMRParser(args)
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
