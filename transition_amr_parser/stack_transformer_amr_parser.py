@@ -20,6 +20,9 @@ from transition_amr_parser.utils import yellow_font
 from fairseq.tokenizer import tokenize_line
 from fairseq.data.language_pair_dataset import collate
 from fairseq.models.roberta import RobertaModel
+from fairseq import options, utils
+from fairseq.tasks.translation import TranslationTask 
+from fairseq.data import Dictionary
 
 
 def extract_encoder(sample):
@@ -122,42 +125,82 @@ class Model():
 
 class AMRParser():
 
-    def __init__(self, args):
+    def __init__(self, checkpoint):
+
+        # load fairseq task
+        parser = options.get_interactive_generation_parser()
+        options.add_optimization_args(parser)
+        args = options.parse_args_and_arch(parser, input_args=['--data dummy'])
+
+        # self.task = tasks.setup_task(args)
 
         # Read extra arguments
-#         model_folder = os.path.dirname(args.path.split(':')[0])
-#         config_json = f'{model_folder}/config.json'
-#         assert os.path.isfile(config_json)
-#         with open(config_json) as fid:
-#             extra_args = json.loads(fid.read())
+        model_folder = os.path.dirname(checkpoint.split(':')[0])
+        # config with fairseq-preprocess and fairseq-train args
+        config_json = f'{model_folder}/config.json'
+        assert os.path.isfile(config_json), \
+            "Model trained with v0.3.0 or above?"
+        with open(config_json) as fid:
+            extra_args = json.loads(fid.read())
+        prepro_args = extra_args['fairseq_preprocess_args']
+        train_args = extra_args['fairseq_train_args']
+
+        # extra args by hand
+        args.source_lang = 'en'
+        args.target_lang = 'actions'
+        args.path = checkpoint
+        args.roberta_cache_path = None
+        dim = train_args['--pretrained-embed-dim'][0]
+        args.model_overrides = \
+            "{'pretrained_embed_dim':%s, 'task': 'translation'}" % dim
+        # dictionaries
+        src_dict_path = f'{model_folder}/dict.{args.source_lang}.txt'
+        tgt_dict_path = f'{model_folder}/dict.{args.target_lang}.txt'
+        assert os.path.isfile(src_dict_path), \
+            "Model trained with v0.3.0 or above?"
+        assert os.path.isfile(tgt_dict_path), \
+            "Model trained with v0.3.0 or above?"
+        src_dict = Dictionary.load(src_dict_path)
+        tgt_dict = Dictionary.load(tgt_dict_path)
 
         self.use_cuda = torch.cuda.is_available() and not args.cpu
-        self.task = tasks.setup_task(args)
+
+        # load task 
+        # TODO: Encapsulate this
+        self.task = TranslationTask(args, src_dict, tgt_dict)
+    
+        # Override task to ensure compatibility with old models and overide
+        # roberta size
         self.model = self.load_models(args)
 
         # Uninitialized batch of state machines
+        machine_rules = f'{model_folder}/train.rules.json'
+        assert os.path.isfile(machine_rules), f"Missing {machine_rules}"
         self.state_machine_batch = StateMachineBatch(
             self.task.source_dictionary,
             self.task.target_dictionary,
-            args.machine_type,
-            machine_rules=args.machine_rules
+            prepro_args['--machine-type'][0],
+            machine_rules=machine_rules
         )
         # Load RoBERTa
         # TODO: Merge these two
         self.roberta = self.load_roberta(
-            name=args.pretrained_embed,
+            name=prepro_args['--pretrained-embed'][0],
             roberta_cache_path=args.roberta_cache_path,
             roberta_use_gpu=self.use_cuda
         )
         self.embeddings = PretrainedEmbeddings(
-            name=args.pretrained_embed,
-            bert_layers=args.bert_layers,
+            name=prepro_args['--pretrained-embed'][0],
+            bert_layers=[int(x) for x in prepro_args['--bert-layers']],
             model=self.roberta
         )
-        self.parser_batch_size = args.max_sentences
-        self.roberta_batch_size = args.roberta_batch_size
+
         self.left_pad_source = args.left_pad_source
+        # self.roberta_batch_size = args.roberta_batch_size
         print("Finished loading models")
+
+    # @classmethod
+    # def from_checkpoint(cls, args, **kwargs):
 
     def load_models(self, args):
         models, _ = checkpoint_utils.load_model_ensemble(
@@ -208,13 +251,19 @@ class AMRParser():
             reverse_order=False
         )
 
-    def convert_sentences_to_data(self, sentences, batch_size):
-        roberta_features = self.get_bert_features_batched(sentences, self.roberta_batch_size)
+    def convert_sentences_to_data(self, sentences, batch_size, 
+                                  roberta_batch_size):
 
+        # extract RoBERTa features
+        roberta_features = \
+            self.get_bert_features_batched(sentences, roberta_batch_size)
+
+        # organize data into a fairseq batch
         data = []
         for index, sentence in enumerate(sentences):
             ids = self.get_token_ids(sentence)
-            word_features, wordpieces_roberta, word2piece_scattered_indices = roberta_features[index]
+            word_features, wordpieces_roberta, word2piece_scattered_indices =\
+                roberta_features[index]
             data.append({
                 'id': index,
                 'source': ids,
@@ -237,7 +286,7 @@ class AMRParser():
             batches.append(batch)
         return batches
 
-    def parse_sentences(self, batch):
+    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10):
         sentences = []
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
@@ -248,13 +297,12 @@ class AMRParser():
             # with whitespace separated text
             sentences.append(" ".join(tokens))
 
-        if len(batch) < self.parser_batch_size:
+        if len(batch) < batch_size:
             batch_size = len(batch)
-        else:
-            batch_size = self.parser_batch_size
         print("Running on batch size: " + str(batch_size))
 
-        data = self.convert_sentences_to_data(sentences, batch_size)
+        data = self.convert_sentences_to_data(sentences, batch_size, 
+                                              roberta_batch_size)
         data_iterator = self.get_iterator(data, batch_size)
         # final annotations
         amr_annotations = {}
