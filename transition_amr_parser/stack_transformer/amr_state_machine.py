@@ -437,7 +437,7 @@ class StateMachineBatch():
         self.tgt_dict = tgt_dict
         self.machine_type = machine_type
 
-    def reset(self, src_tokens, src_lengths, max_tgt_len):
+    def reset(self, src_tokens, src_lengths, max_tgt_len, orig_tokens=None):
         '''
         Reset state of state machine and start with new sentence
         '''
@@ -454,8 +454,12 @@ class StateMachineBatch():
 
             # Get tokens and sentence length
             sent_len = src_lengths[batch_idx]
-            word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
-            tokens = [self.src_dict[x] for x in word_idx]
+            if orig_tokens is None:
+                word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
+                tokens = [self.src_dict[x] for x in word_idx]
+            else:
+                tokens = orig_tokens[batch_idx]
+                assert len(tokens) == sent_len
 
             # intialize state machine batch for size 1
             self.machines.append(self.get_new_state_machine(
