@@ -413,7 +413,8 @@ class StateMachineBatch():
     Batch of state machines
     """
 
-    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None):
+    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None,
+                 orig_tokens=None):
 
         # Get all actions indexed by prefix
         self.action_indexer = get_action_indexer(tgt_dict.symbols)
@@ -454,8 +455,12 @@ class StateMachineBatch():
 
             # Get tokens and sentence length
             sent_len = src_lengths[batch_idx]
-            word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
-            tokens = [self.src_dict[x] for x in word_idx]
+            if orig_tokens is None:
+                word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
+                tokens = [self.src_dict[x] for x in word_idx]
+            else:
+                tokens = orig_tokens[batch_idx]
+                assert len(tokens) == sent_len
 
             # intialize state machine batch for size 1
             self.machines.append(self.get_new_state_machine(
