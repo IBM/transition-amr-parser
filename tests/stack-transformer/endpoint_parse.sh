@@ -26,7 +26,7 @@ features_folder=${DATA}/features/${ORACLE_TAG}_${PREPRO_TAG}
 checkpoints_dir=${DATA}/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}-seed42/
 
 # folder where we write data
-rm -f DATA.tests/endpoint.amr
+rm -f DATA.tests/endpoint.amr DATA.tests/endpoint.smatch
 mkdir -p DATA.tests/
 
 # TODO: Remove extra arguments, read only folder checkpoint and deduce aregs
