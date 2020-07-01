@@ -89,7 +89,7 @@ def main():
 
     # Load parser
     start = time.time()
-    parser = AMRParser(args.in_checkpoint)
+    parser = AMRParser.from_checkpoint(args.in_checkpoint)
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to load parser: {time_secs}')
