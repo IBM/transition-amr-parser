@@ -413,8 +413,7 @@ class StateMachineBatch():
     Batch of state machines
     """
 
-    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None,
-                 orig_tokens=None):
+    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None):
 
         # Get all actions indexed by prefix
         self.action_indexer = get_action_indexer(tgt_dict.symbols)
@@ -438,7 +437,7 @@ class StateMachineBatch():
         self.tgt_dict = tgt_dict
         self.machine_type = machine_type
 
-    def reset(self, src_tokens, src_lengths, max_tgt_len):
+    def reset(self, src_tokens, src_lengths, max_tgt_len, orig_tokens=None):
         '''
         Reset state of state machine and start with new sentence
         '''

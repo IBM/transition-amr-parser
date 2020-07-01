@@ -260,6 +260,8 @@ class AMRParser():
             # Get input tensors and preallocate space for output tensors
             # TODO: This could be inside StateMachineBatch but we need to be
             # coherent with fairseq/generate.py
+            encoder_input = extract_encoder(sample)
+            orig_tokens = encoder_input["orig_tokens"]
             src_tokens, src_lengths, target_actions = get_batch_tensors(
                 sample,
                 self.state_machine_batch.src_dict,
@@ -270,7 +272,8 @@ class AMRParser():
             self.state_machine_batch.reset(
                 src_tokens,
                 src_lengths,
-                target_actions.shape[1]
+                target_actions.shape[1],
+                orig_tokens
             )
 
             # Reset model. This is to clean up the key/value cache in the decoder
