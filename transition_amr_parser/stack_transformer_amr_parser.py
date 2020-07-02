@@ -20,8 +20,8 @@ from transition_amr_parser.utils import yellow_font
 from fairseq.tokenizer import tokenize_line
 from fairseq.data.language_pair_dataset import collate
 from fairseq.models.roberta import RobertaModel
-from fairseq import options, utils
-from fairseq.tasks.translation import TranslationTask 
+from fairseq import options
+from fairseq.tasks.translation import TranslationTask
 from fairseq.data import Dictionary
 
 
@@ -45,7 +45,10 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
         # Load the Roberta Model from torch hub
         roberta = torch.hub.load('pytorch/fairseq', name)
     else:
-        roberta = RobertaModel.from_pretrained(roberta_cache_path, checkpoint_file='model.pt')
+        roberta = RobertaModel.from_pretrained(
+            roberta_cache_path,
+            checkpoint_file='model.pt'
+        )
     roberta.eval()
     if roberta_use_gpu:
         roberta.cuda()
@@ -152,26 +155,27 @@ class Model():
 
 class AMRParser():
 
-    def __init__(self, 
+    def __init__(
+        self,
         model,           # Pytorch model
         machine_rules,   # path to train.rules.json
         machine_type,    # AMR, NER, etc
         src_dict,        # fairseq dict
-        tgt_dict,        # fairseq dict 
-        use_cuda,        # 
+        tgt_dict,        # fairseq dict
+        use_cuda,        #
         embeddings=None  # pytorch RoBERTa model (if dealing with token input)
     ):
 
         # member variables
         self.src_dict = src_dict
-        self.tgt_dict = tgt_dict 
+        self.tgt_dict = tgt_dict
         self.embeddings = embeddings
         self.model = model
         self.use_cuda = use_cuda
 
         # uninitialized batch of state machines
         self.state_machine_batch = StateMachineBatch(
-            src_dict, 
+            src_dict,
             tgt_dict,
             machine_type,
             machine_rules=machine_rules
@@ -243,7 +247,7 @@ class AMRParser():
         assert os.path.isfile(machine_rules), f"Missing {machine_rules}"
         machine_type = prepro_args['--machine-type'][0]
 
-        return self(model, machine_rules, machine_type, src_dict, tgt_dict, 
+        return self(model, machine_rules, machine_type, src_dict, tgt_dict,
                     use_cuda, embeddings=embeddings)
 
     def get_bert_features_batched(self, sentences, batch_size):
@@ -256,7 +260,9 @@ class AMRParser():
                 bert_data.append((
                     copy.deepcopy(batch_data["word_features"][i]),
                     copy.deepcopy(batch_data["wordpieces_roberta"][i]),
-                    copy.deepcopy(batch_data["word2piece_scattered_indices"][i])
+                    copy.deepcopy(
+                        batch_data["word2piece_scattered_indices"][i]
+                    )
                 ))
         print(len(bert_data))
         assert len(bert_data) == len(sentences)
@@ -271,7 +277,7 @@ class AMRParser():
             reverse_order=False
         )
 
-    def convert_sentences_to_data(self, sentences, batch_size, 
+    def convert_sentences_to_data(self, sentences, batch_size,
                                   roberta_batch_size):
 
         # extract RoBERTa features
@@ -299,7 +305,7 @@ class AMRParser():
         for i in range(0, math.ceil(len(samples)/batch_size)):
             sample = samples[i * batch_size: i * batch_size + batch_size]
             batch = collate(
-                sample, pad_idx=self.src_dict.pad(), 
+                sample, pad_idx=self.src_dict.pad(),
                 eos_idx=self.src_dict.eos(),
                 left_pad_source=True,
                 state_machine=False
@@ -324,30 +330,31 @@ class AMRParser():
             src_lengths,
             target_actions.shape[1]
         )
-        
+
         # Reset model. This is to clean up the key/value cache in the decoder
         # and the encoder cache. There may be more efficient ways.
         self.model.reset()
-        
+
         # Loop over actions until all machines finish
         time_step = 0
         while any(not m.is_closed for m in self.state_machine_batch.machines):
-        
+
             # DEBUG
             # os.system('clear')
             # print(self.state_machine_batch.machines[2])
             # import pdb;pdb.set_trace()
-        
+
             # Get target masks from machine state
             logits_indices, logits_mask = \
                 self.state_machine_batch.get_active_logits()
             parser_state = (
                 self.state_machine_batch.memory[:, :, :time_step + 1].clone(),
-                self.state_machine_batch.memory_pos[:, :, :time_step + 1].clone(),
+                self.state_machine_batch.memory_pos[:, :, :time_step + 1]
+                .clone(),
                 logits_mask,
                 logits_indices
             )
-        
+
             # Get most probably action from the model for each sentence
             # given input data, previous actions and state machine state
             actions, log_probs = self.model.get_action(
@@ -355,13 +362,13 @@ class AMRParser():
                 parser_state,
                 target_actions[:, :time_step + 1].data,
             )
-        
+
             # act on the state machine batch
             # Loop over paralele machines in the batch
             for machine_idx, machine in enumerate(
                 self.state_machine_batch.machines
             ):
-        
+
                 # Emergency stop. If we reach maximum action number, force
                 # stop the machine
                 if (
@@ -376,13 +383,13 @@ class AMRParser():
                     action = 'CLOSE'
                 else:
                     action = actions[machine_idx]
-        
+
                 # update state machine
                 machine.update(action)
                 # update list of previous actions
                 action_idx = self.tgt_dict.index(action)
                 target_actions[machine_idx, time_step + 1] = action_idx
-        
+
             # update counters and recompute masks
             time_step += 1
             self.state_machine_batch.step_index += 1
@@ -402,7 +409,7 @@ class AMRParser():
                 tokens.append("<ROOT>")
             sentences.append(" ".join(tokens))
 
-        data = self.convert_sentences_to_data(sentences, batch_size, 
+        data = self.convert_sentences_to_data(sentences, batch_size,
                                               roberta_batch_size)
         data_iterator = self.get_iterator(data, batch_size)
 
@@ -415,7 +422,7 @@ class AMRParser():
 
             # parse for this batch
             self.parse_feature_batch(sample)
-            
+
             # collect all annotations
             ids = sample["id"].detach().cpu().tolist()
             for index, id in enumerate(ids):
