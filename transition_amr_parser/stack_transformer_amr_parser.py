@@ -365,7 +365,7 @@ class AMRParser():
 
             # act on the state machine batch
             # Loop over paralele machines in the batch
-            for machine_idx, machine in enumerate(
+            for m_idx, machine in enumerate(
                 self.state_machine_batch.machines
             ):
 
@@ -375,20 +375,17 @@ class AMRParser():
                     time_step + 2 == target_actions.shape[1] and
                     not machine.is_closed
                 ):
-                    msg = (
-                        f'machine {machine_idx} not closed at step '
-                        '{time_step}'
-                    )
+                    msg = f'machine {m_idx} not closed at step {time_step}'
                     print(yellow_font(msg))
                     action = 'CLOSE'
                 else:
-                    action = actions[machine_idx]
+                    action = actions[m_idx]
 
                 # update state machine
                 machine.update(action)
                 # update list of previous actions
                 action_idx = self.tgt_dict.index(action)
-                target_actions[machine_idx, time_step + 1] = action_idx
+                target_actions[m_idx, time_step + 1] = action_idx
 
             # update counters and recompute masks
             time_step += 1
