@@ -1,9 +1,7 @@
 import time
 import argparse
 from datetime import timedelta
-
 from fairseq.tokenizer import tokenize_line
-
 from transition_amr_parser.io import read_sentences
 from transition_amr_parser.stack_transformer_amr_parser import AMRParser
 

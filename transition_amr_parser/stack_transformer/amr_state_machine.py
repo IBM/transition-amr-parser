@@ -8,7 +8,7 @@ from collections import defaultdict, Counter
 
 import math
 import numpy as np
-from transition_amr_parser.state_machine import ( 
+from transition_amr_parser.state_machine import (
     AMRStateMachine,
     DepParsingStateMachine,
     get_spacy_lemmatizer
@@ -29,10 +29,10 @@ FONT_COLOR = {
 # BG FONT_COLORORS
 BACKGROUND_COLOR = {
     'black': 40,  'red': 41, 'green': 42, 'yellow': 43, 'blue': 44,
-     'magenta': 45, 'cyan': 46, 'light gray': 47, 'dark gray': 100,
-     'light red': 101, 'light green': 102, 'light yellow': 103,
-     'light blue': 104, 'light magenta': 105, 'light cyan': 106,
-     'white': 107
+    'magenta': 45, 'cyan': 46, 'light gray': 47, 'dark gray': 100,
+    'light red': 101, 'light green': 102, 'light yellow': 103,
+    'light blue': 104, 'light magenta': 105, 'light cyan': 106,
+    'white': 107
 }
 
 
@@ -264,7 +264,6 @@ def main():
     spacy_lemmatizer = get_spacy_lemmatizer()
 
     sent_idx = -1
-    corpus_states = []
     stats = {
         'missing_pred_count': Counter(),
         'missing_action_count': Counter(),
@@ -474,7 +473,9 @@ class StateMachineBatch():
         # form (batch_size * beam_size, src_len, tgt_len)
         dummy = src_tokens.unsqueeze(2).repeat(1, 1, max_tgt_len)
         self.memory = (torch.ones_like(dummy) * self.tgt_dict.pad()).float()
-        self.memory_pos = (torch.ones_like(dummy) * self.tgt_dict.pad()).float()
+        self.memory_pos = (
+            torch.ones_like(dummy) * self.tgt_dict.pad()
+        ).float()
         self.update_masks()
 
     def get_active_logits(self):
@@ -514,8 +515,8 @@ class StateMachineBatch():
         # sanity check
         batch_size = len(action_batch)
         assert batch_size == len(self.machines)
-        #batch_size, num_actions = log_probabilities.shape
-        #assert batch_size == len(self.machines)
+        # batch_size, num_actions = log_probabilities.shape
+        # assert batch_size == len(self.machines)
         # FIXME: Decode adds extra symbols? This seem to be appended but this
         # is a dangerous behaviour
         # if num_actions != len(self.tgt_dict.symbols):
@@ -534,10 +535,6 @@ class StateMachineBatch():
         self.update_masks()
 
     def update_masks(self, add_padding=0):
-
-        # Get masks from states
-        # buffer words
-        device = self.memory.device
 
         # basis is all padded
         if add_padding:
@@ -563,7 +560,8 @@ class StateMachineBatch():
             if machine_buffer:
 
                 indices = np.array(machine_buffer) - 1 + pad
-                indices[indices == -1 - 1 + pad] = len(machine.tokens) - 1 + pad
+                indices[indices == -1 - 1 + pad] = \
+                    len(machine.tokens) - 1 + pad
 
                 # update masks
                 buffer_pos = np.arange(len(machine_buffer))
@@ -587,15 +585,16 @@ class StateMachineBatch():
                 # FIXME: This is a BUG in preprocessing by which
                 # shifted ROOT is considered deleted
                 # update masks
-                self.memory[sent_index, indices[root_in_stack_idx], self.step_index] = 5
+                self.memory[
+                    sent_index,
+                    indices[root_in_stack_idx],
+                    self.step_index
+                ] = 5
                 self.memory_pos[sent_index, indices, self.step_index] = \
                     torch.tensor(positions, device=self.memory.device).float()
 
     def reoder_machine(self, reorder_state):
         """Reorder/eliminate machines during decoding"""
-
-        # DEBUG
-        # self.encoder_padding_mask = self.encoder_padding_mask[reorder_state, :]
 
         new_machines = []
         new_left_pad = []
@@ -632,7 +631,7 @@ def update_machine(step, tokens, scores, state_machine):
 
             # machine is closed
             if scores[index, step] != float("-inf"):
-                import ipdb; ipdb.set_trace(context=30)
+                raise Exception("Machine closed at score not -Inf!")
             machine.applyAction('</s>')
 
         elif (
@@ -707,14 +706,16 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
     return get_new_state_machine
 
 
-def fix_shift_multi_task(lprobs, state_machine_batch, tgt_dict, logits_indices):
+def fix_shift_multi_task(lprobs, state_machine_batch, tgt_dict,
+                         logits_indices):
 
     # fix for multi-task mode: If we guess right SHIFT, rename it to
     # SHIFT({top_of_buffer}), if action exists
     for machine_idx, i in enumerate(lprobs.argmax(dim=1).tolist()):
 
         # Get copy of buffer
-        machine_buffer, _ = state_machine_batch.machines[machine_idx].get_buffer_stack_copy()
+        machine_buffer, _ = state_machine_batch.machines[machine_idx] \
+            .get_buffer_stack_copy()
 
         action = tgt_dict.symbols[i]
         machine = state_machine_batch.machines[machine_idx]
