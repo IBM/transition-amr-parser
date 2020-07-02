@@ -13,7 +13,7 @@ set -o nounset
 DATA=DATA/AMR/
 ORACLE_TAG=o5+Word100
 PREPRO_TAG="RoBERTa-large-top24"
-TRAIN_TAG=stnp6x6-2
+TRAIN_TAG=stnp6x6
 # reference file
 AMR_DEV_FILE=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned
 
