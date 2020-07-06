@@ -1,114 +1,214 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.4.2`. Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. The model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test.
+Pytorch implementation of a transition-based parser for Abstract Meaning Representation (AMR). The code includes oracle and state-machine for AMR and an implementation of a stack-LSTM following [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/abs/1707.07755v1) with some improvements from [(Naseem et al 2019)](https://arxiv.org/abs/1905.13370). Initial commit developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
-Checkout the stack-transformer branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.2` Smatch (`81.3` with self-learning) on AMR2.0 test (this code reaches `80.5` due to the aligner implementation). Stack-Transformer can be used to reproduce our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
+## Using the Parser
 
-The code also contains an implementation of the AMR aligner from [(Naseem et al 2019)](https://www.aclweb.org/anthology/P19-1451/) with the forced-alignment introduced in [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89).
+- to install through the Watson-NLP artifactory, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-the-python-package-through-Artifactory)
+- to install the parser manually, see [Manual Install](#manual-install)
 
-Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
-
-## IBM Internal Features
-
-IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing web-services, CCC installers/trainers, trained models, etc. 
-
-## Installation
-
-Just clone and pip install (see `set_environment.sh` below if you use a virtualenv)
-
-```bash
-git clone git@github.ibm.com:mnlp/transition-amr-parser.git
-cd transition-amr-parser
-pip install .  # use --editable if you plan to modify code
-```
-
-We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
-
-```bash
-[ ! -d venv ] && virtualenv venv
-. venv/bin/activate
-```
-You can leave this empty if you don't want to use it
-
-```bash
-touch set_environment.sh
-```
-
-train and test scripts always source this script i.e.
-
-```bash
-. set_environment.sh
-```
-
-that will spare you activating the environments or setting up system variables and other each time, which helps when working with computer clusters. 
-
-To test if install worked
-```bash
-bash tests/correctly_installed.sh
-```
-To do a mini-test with 25 annotated sentences that we provide. This should take 1-3 minutes. It wont learn anything but at least will run all stages.
-```bash
-bash tests/minimal_test.sh
-```
-
-If you want to align AMR data, the aligner uses additional tools that can be donwloaded and installed with
-
-```bash
-bash preprocess/install_alignment_tools.sh
-```
-
-See [here](scripts/README.md#install-details) for more install details
-
-## Training a model
-
-You first need to pre-process and align the data. For AMR2.0 do
-
-```bash
-. set_environment.sh
-python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
-```
-
-You will also need to unzip the precomputed BLINK cache
-
-```
-unzip /path/to/linkcache.zip
-```
-
-To launch train/test use (this will also run the aligner)
-
-```
-bash run/run_experiment.sh configs/amr2.0-action-pointer.sh
-```
-
-you can check training status with
-
-```
-python run/status.py --config configs/amr2.0-action-pointer.sh
-```
-
-use `--results` to check for scores once models are finished.
-
-## Decode with Pre-trained model
+Before using the parser, please refer the [Tokenizer](#tokenizer) section on what tokenizer to use.
 
 To use from the command line with a trained model do
 
 ```bash
-amr-parse -c $in_checkpoint -i $input_file -o file.amr
+amr-parse \
+  --in-sentences /path/to/dev.tokens \
+  --in-model /path/to/model.params  \
+  --out-amr /path/to/dev.amr \
+  --batch-size 12 \
+  --parser-chunk-size 128 \
+  --num-cores 10 \
+  --use-gpu \
+  --add-root-token  
 ```
 
-It will parse each line of `$input_file` separately (assumed tokenized).
-`$in_checkpoint` is the Pytorch checkpoint of a trained model. The `file.amr`
-will contain the PENMAN notation AMR with additional alignment information as
-comments. Use the flag `--service` together with `-c` for an iterative parsing
-mode.
+The argument `--in-sentences` expects white space tokenized sentences (one per line). `--batch-size` refers to RoBERTa batch size. `--num-cores` refers to cpu cores. `--parser-chunk-size` is the batch size for cpu parallelization (RoBERTa not included). The parser expects `<ROOT>` as last token, use `--add-root-token` to do this automatically.
 
 To use from other Python code with a trained model do
 
 ```python
-from transition_amr_parser.parse import AMRParser
-parser = AMRParser.from_checkpoint(in_checkpoint)
-annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
-# Penman notation
-print(''.join(annotations[0][0]))
+from transition_amr_parser import AMRParser
+
+model_path = '/path/to/model.params'
+parser = AMRParser(model_path)
+
+tokens = "He wants her to believe in him .".split()
+parse = parser.parse_sentence(tokens)
+print(parse.toJAMRString())
 ```
+
+## Manual Install
+
+The code has been tested on Python `3.6` to install
+
+```bash
+git clone git@github.ibm.com:mnlp/transition-amr-parser.git
+cd transition-amr-parser
+# here optionally activate your virtual environment
+pip install --editable .
+```
+
+This will pip install the repo in `--editable` mode. You will also need to
+download smatch toos if you want to run evaluations
+
+```bash
+git clone git@github.ibm.com:mnlp/smatch.git
+pip install smatch/
+```
+
+The spacy tools will be updated on first use. To do this manually do
+
+```bash
+python -m spacy download en
+```
+
+## Manual Install on CCC
+
+Clone this repository and check out the appropriate branch:
+
+    git clone git@github.ibm.com:mnlp/transition-amr-parser.git
+    cd transition-amr-parser
+    git checkout systems/emnlp2020
+
+There are also install scripts for the CCC with an environment setter. Copy it
+from here 
+
+    cp /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/set_environment.sh .
+    chmod u+w set_environment.sh
+
+Edit the `set_environment.sh` file to replace the string `"$(/path/to/miniconda3/bin/conda shell.bash hook)"` 
+with the path to your own `conda` installation. If you don't know the path to your `conda` 
+installation, try looking at the `CONDA_EXE` environment variable:
+
+    echo $CONDA_EXE
+
+For instructions on how to install PPC conda see
+[here](https://github.ibm.com/ramon-astudillo/C3-tools#conda-pytorch-installation-for-the-power-pcs).
+
+Then to install in `x86` machines, from a `x86` computing node do 
+
+    bash scripts/install_x86_with_conda.sh
+
+For PowerPC from a `ppc` computing node do
+
+    bash scripts/install_ppc_with_conda.sh
+
+to check if the install worked in either `x86` or `ppc` machines,
+log in to a compute node with a GPU and run the `correctly_installed.py` program:
+
+    . set_environment.sh
+    python tests/correctly_installed.py
+
+## Decode with Pre-trained model
+
+To do decoding tests you will need to copy a model. You can soft-link the
+features
+
+```bash
+mkdir -p DATA/AMR/oracles/
+ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/oracles/o3+Word100 DATA/AMR/oracles/
+mkdir -p DATA/AMR/features/
+ln -s /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/features/o3+Word100_RoBERTa-base DATA/AMR/features/
+mkdir -p DATA/AMR/models/
+cp -R /dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/models/o3+Word100_RoBERTa-base_stnp6x6-seed42 DATA/AMR/models/
+chmod u+w DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/beam1
+```
+
+To do a simple test run for decoding, on a computing node with a GPU, do
+
+```bash
+bash scripts/stack-transformer/test.sh DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/config.sh DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/checkpoint70.pt
+```
+
+the results will be stored in
+`DATA/AMR/models/o3+Word100_RoBERTa-base_stnp6x6-seed42/beam1`. Copy the config
+and modify for further experiments.
+
+## Training your Model
+
+This assumes that you have access to the usual AMR training set from LDC
+(LDC2017T10). You will need to apply preprocessing to build JAMR and Kevin
+Alignments using the same tokenization and then merge them together. You must
+have the following installed: pip, g++, and ICU
+(http://site.icu-project.org/home).
+```bash
+cd preprocess
+bash preprocess.sh path/to/ldc_data
+rm train.* dev.* test.*
+```
+New files will be placed in the `data` folder. The process will take ~1 hour to run. The call the train script
+
+```
+bash scripts/train.sh 
+```
+
+You must define `set_environment.sh` containing following environment variables
+
+```bash
+# amr files
+train_file 
+dev_file 
+# berts in hdf5 (see sample data)
+train_bert  
+dev_bert 
+# experiment data
+name 
+# hyperparameters
+num_cores=10
+batch_size=10 
+lr=0.005 
+```
+
+## Test Run on sample data
+
+We provide annotated examples in `data/` with CC-SA 4.0 license. We also
+provide a sample of the corresponding BERT embeddings. This can be used as a
+sanity check (but data amount insufficient for training) . To test training
+```
+amr-learn -A data/wiki25.jkaln -a data/wiki25.jkaln -B data/wiki25.bert_max_cased.hdf5 -b data/wiki25.bert_max_cased.hdf5 --name toy-model
+```
+
+# More information
+
+## Action set
+
+The transition-based parser operates using 10 actions:
+
+  - `SHIFT` : move buffer0 to stack0
+  - `REDUCE` : delete token from stack0
+  - `CONFIRM` : assign a node concept
+  - `SWAP` : move stack1 to buffer
+  - `LA(label)` : stack0 parent of stack1
+  - `RA(label)` : stack1 parent of stack0
+  - `ENTITY(type)` : form a named entity
+  - `MERGE` : merge two tokens (for MWEs)
+  - `DEPENDENT(edge,node)` : Add a node which is a dependent of stack0
+  - `CLOSE` : complete AMR, run post-processing
+
+There are also two optional actions using SpaCy lemmatizer `COPY_LEMMA` and
+`COPY_SENSE01`. These actions copy `<lemma>` or `<lemma>-01` to form a node
+name.
+  
+## Files
+
+amr.py : contains a basic AMR class and a class JAMR_CorpusReader for reading AMRs from JAMR format.
+  
+state_machine.py : Implement AMR state machine with a stack and buffer 
+
+data_oracle.py : Implements oracle to assign gold actions.
+
+learn.py : Runs the parser (use `learn.py --help` for options)
+
+stack_lstm.py : Implements Stack-LSTM. 
+
+entity_rules.json : Stores rules applied by the ENTITY action 
+
+## Tokenizer
+
+For best performance, it is recommended to use the same tokenizer while testing and training. The model works best with the JAMR Tokenizer. 
+
+When using the `AMRParser.parse_sentence` method, the parser expects the input to be tokenized words.
+
+When using the parser as a command line interface, the input file must contain 1 sentence per line. Also, generate these sentences by first tokenizing the raw sentences using a tokenizer of your choice and then joining the tokens using white space (Since the model just uses white space tokenization when called via CLI).

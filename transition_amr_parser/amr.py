@@ -1,48 +1,9 @@
 import sys
-import re
-from collections import Counter
 from transition_amr_parser.utils import print_log
-from collections import defaultdict
 
-
-def find_subgraph_edges(total_edges, split_node_id):
-
-    children = defaultdict(list)
-    for t in total_edges:
-        children[t[0]].append(t)
-    
-    # Find subgraph first
-    subgraph_edges = []
-    nodes = [split_node_id]
-    while nodes:
-        if nodes[-1] not in children:
-            # backtrack to previous node
-            nodes.pop()
-        # get edges from current node to children
-        edges = [e for e in children[nodes[-1]] if e not in subgraph_edges]
-        if edges:
-            edge = edges[0]
-            node_id = edge[2]
-            nodes.append(node_id)
-            subgraph_edges.append(edge)
-        else:
-            # backtrack to previous node
-            nodes.pop()
-
-    return subgraph_edges
-
-
-class InvalidAMRError(Exception):
-    pass
 
 # TODO change method names; change alignment token indexes to be from 0 instead of from 1 (be careful as these require
 # to change many files)
-
-
-class InvalidAMRError(Exception):
-    pass
-
-
 class AMR:
 
     def __init__(self, tokens=None, root='', nodes=None, edges=None, alignments=None, score=0.0):
@@ -99,76 +60,6 @@ class AMR:
                       f'{self.nodes[t] if t in self.nodes else "None"}\t{s}\t{t}\t\n'
         return output
 
-    def split(self, split_node_id):
-        '''
-        Return two AMR graphs resulting from splitting a graph by a node.
-        '''
-        assert split_node_id in self.nodes
-
-        # Child subgraph edges
-        child_subgraph_edges = find_subgraph_edges(self.edges, split_node_id)
-        # Parent subgraph edges
-        father_subgraph_edges = []
-        for edge in self.edges:
-            if edge not in child_subgraph_edges:
-                father_subgraph_edges.append(edge)
-
-        # Instantiate clases
-        child_amr = self.subgraph_from_edges(
-            split_node_id,
-            child_subgraph_edges
-        )
-        parent_amr = self.subgraph_from_edges(
-            self.root,
-            father_subgraph_edges
-        )
-
-        return parent_amr, child_amr
-
-
-    def subgraph_from_edges(self, root_id, subgraph_edges):
-
-        # Get node ids
-        subgraph_node_ids = set()
-        for e in subgraph_edges:
-            subgraph_node_ids |= set([e[0]])
-            subgraph_node_ids |= set([e[2]])
-
-        # get nodes
-        subgraph_nodes = {
-            node_id: node
-            for node_id, node in self.nodes.items()
-            if node_id in subgraph_node_ids
-        }
-
-        # get alignments
-        subgraph_alignments = {
-            node_id: alignments
-            for node_id, alignments in self.alignments.items()
-            if node_id in subgraph_node_ids
-        }
-
-        # we use all the tokens as we do not know where the boundaries are.
-        # Also alignments refer to absolute positions.
-
-        return AMR(
-            root=root_id,
-            tokens=self.tokens,
-            edges=subgraph_edges,
-            nodes=subgraph_nodes,
-            alignments=subgraph_alignments
-        )
-
-    def get_entity_nodes(self):
-        entity_ids = []
-        for t in self.edges:
-            if t[1] == ':name' and self.nodes[t[2]] == 'name':
-                root_node = t[0]
-                name_node = t[2]
-                name_nodes = [t[2] for t in self.edges if t[0] == name_node]
-                entity_ids.append([root_node, name_nodes])
-        return entity_ids
-
     def alignmentsToken2Node(self, token_id):
         if token_id not in self.token2node_memo:
             self.token2node_memo[token_id] = sorted([node_id for node_id in self.alignments
@@ -198,7 +89,7 @@ class AMR:
                    edges=sg_edges,
                    nodes={n: self.nodes[n] for n in node_ids})
 
-    def toJAMRString(self, only_penman=False, allow_incomplete=False):
+    def toJAMRString(self, allow_incomplete=False):
         output = str(self)
 
         # amr string
@@ -248,7 +139,9 @@ class AMR:
             pass
         else:
             if len(completed) < len(self.nodes):
-                raise InvalidAMRError("Tried to print an uncompleted AMR")
+                raise Exception("Tried to print an uncompleted AMR")
+                print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) +
+                          ' nodes printed:\n ' + amr_string)
             if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
                 amr_string = '(x / '+amr_string+')'
             if not amr_string.startswith('('):
@@ -256,15 +149,7 @@ class AMR:
             if len(self.nodes) == 0:
                 amr_string = '(a / amr-empty)'
 
-            # ::short attribute from Revanth                                                    \
-            output += f'# ::short\t{str(new_ids)}\t\n'
             output += amr_string + '\n\n'
-
-        if only_penman:
-            output = '\n'.join([
-                line
-                for line in output.split('\n') if line and line[0] != '#'
-            ])
 
         return output
 
@@ -282,6 +167,8 @@ class JAMR_CorpusReader:
         self.words2Ints = {}
         self.chars2Ints = {}
         self.labels2Ints = {}
+
+        print_log('amr', 'Starts reading data')
 
     """
     Reads AMR Graphs file in JAMR format. If Training==true, it is reading
@@ -381,88 +268,14 @@ class JAMR_CorpusReader:
                 root = root.strip()
                 amrs[-1].root = root
 
-                # if amrs[-1].tokens == ['here', ',', 'you', 'can', 'come', 'up', 'close', 'with',
-                #                     'the', 'stars', 'in', 'your', 'mind', '.']:
-                #     import pdb; pdb.set_trace()
-
-                # to fix the data alignments where the root alignment is different from the corresponding node alignment
-                # when the root alignment is a subset of node alignment, use the smaller alignment
-                if root in amrs[-1].nodes:
-                    if len(splinetabs) >= 4:
-                        tab = splinetabs[3]
-                        # root alignment exists
-                        if '-' in tab:
-                            start_end = tab.strip().split("-")
-                            start = int(start_end[0])  # inclusive
-                            end = int(start_end[1])  # exclusive
-                            word_idxs = list(range(start + 1, end + 1))  # off by one (we start at index 1)
-                            assert all(x in amrs[-1].alignments[root] for x in word_idxs)
-                            if len(word_idxs) < len(amrs[-1].alignments[root]):
-                                # import pdb; pdb.set_trace()
-                                amrs[-1].alignments[root] = word_idxs
-                    # specific fix for one training sentence for the prefix alignment data
-                    elif amrs[-1].tokens == ['Muslim', 'hatred', 'has', 'zero', 'to', 'do',
-                                             'with', '"', 'election', 'cycles', '.', '"']:
-                        # for this sentence the data does not contain root alignment; we fix by hard setting
-                        amrs[-1].alignments[root] = [3]    # root id '0', label 'have-to-do-with-04'
-                        amrs[-1].alignments['0.0'] = [2]   # node id '0.0', label 'hate-01'
-
         if len(amrs[-1].nodes) == 0:
             amrs.pop()
-
-
-def get_duplicate_edges(amr):
-
-    # Regex for ARGs
-    arg_re = re.compile(r'^(ARG)([0-9]+)$')
-    unique_re = re.compile(r'^(snt|op)([0-9]+)$')
-    argof_re = re.compile(r'^ARG([0-9]+)-of$')
-
-    # count duplicate edges
-    edge_child_count = Counter()
-    for t in amr.edges:
-        edge = t[1][1:]
-        if edge in ['polarity', 'mode']:
-            keys = [(t[0], edge, amr.nodes[t[2]])]
-        elif unique_re.match(edge):
-            keys = [(t[0], edge)]
-        elif arg_re.match(edge):
-            keys = [(t[0], edge)]
-        elif argof_re.match(edge):
-            # normalize ARG0-of --> to ARG0 <--
-            keys = [(t[2], edge.split('-')[0])]
-        else:
-            continue
-        edge_child_count.update(keys)
-
-    return [(t, c) for t, c in edge_child_count.items() if c > 1]
-
-
-def get_duplicate_edges(amr):
-
-    # Regex for ARGs
-    arg_re = re.compile(r'^(ARG)([0-9]+)$')
-    unique_re = re.compile(r'^(snt|op)([0-9]+)$')
-    argof_re = re.compile(r'^ARG([0-9]+)-of$')
-
-    # count duplicate edges
-    edge_child_count = Counter()
-    for t in amr.edges:
-        edge = t[1][1:]
-        if edge in ['polarity', 'mode']:
-            keys = [(t[0], edge, amr.nodes[t[2]])]
-        elif unique_re.match(edge):
-            keys = [(t[0], edge)]
-        elif arg_re.match(edge):
-            keys = [(t[0], edge)]
-        elif argof_re.match(edge):
-            # normalize ARG0-of --> to ARG0 <--
-            keys = [(t[2], edge.split('-')[0])]
-        else:
-            continue
-        edge_child_count.update(keys)
-
-    return [(t, c) for t, c in edge_child_count.items() if c > 1]
+        print_log('amr', "Training Data" if training else "Dev Data")
+        if training:
+            print_log('amr', "Number of labels: " + str(len(self.labels2Ints)))
+            print_log('amr', "Number of nodes: " + str(len(self.nodes2Ints)))
+            print_log('amr', "Number of words: " + str(len(self.words2Ints)))
+        print_log('amr', "Number of sentences: " + str(len(amrs)))
 
 
 def main():

@@ -6,7 +6,7 @@ from transition_amr_parser.amr import JAMR_CorpusReader, AMR
 
 entity_rules_json = {}
 
-verbose = False
+verbose = True
 
 
 def create_fixed_rules(all_entities):
@@ -313,18 +313,15 @@ def main():
     create_date_entity_rules(all_entities)
     create_normalization_rules()
 
-    if verbose:
-        print('[entity rules] Writing rules')
-    frules_out = sys.argv[2]
-    with open(frules_out, 'w+', encoding='utf8') as f:
+    print('[entity rules] Writing rules')
+    with open('../entity_rules.json', 'w+', encoding='utf8') as f:
         JSON.dump(entity_rules_json, f, sort_keys=True)
-    if verbose:
-        print('[entity rules] Fixed:', len(entity_rules_json['fixed']))
-        print('[entity rules] Variable:', len(entity_rules_json['var']))
-        print('[entity rules] Date-entity:', len(entity_rules_json['date-entity']))
-        print('[entity rules] Named entity:', len(entity_rules_json['names']))
-        print('[entity rules] Normalize:', sum(len(x) for x in entity_rules_json['normalize'].values()))
-        print('[entity rules] Done')
+    print('[entity rules] Fixed:', len(entity_rules_json['fixed']))
+    print('[entity rules] Variable:', len(entity_rules_json['var']))
+    print('[entity rules] Date-entity:', len(entity_rules_json['date-entity']))
+    print('[entity rules] Named entity:', len(entity_rules_json['names']))
+    print('[entity rules] Normalize:', sum(len(x) for x in entity_rules_json['normalize'].values()))
+    print('[entity rules] Done')
 
 
 def normalize(string):
