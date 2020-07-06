@@ -1,0 +1,7 @@
+channels:
+  - https://public.dhe.ibm.com/ibmdl/export/pub/software/server/ibm-ai/conda
+  - powerai
+  - defaults
+dependencies:
+  - spacy
+  - h5py

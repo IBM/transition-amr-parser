@@ -1,71 +1,74 @@
-# Standalone AMR parser from an existing trained APT model
-
-import os
+# AMR parsing given a sentence and a model
 import time
-import math
-import copy
-import signal
-import argparse
 from datetime import timedelta
-
-from ipdb import set_trace
+import os
+import signal
+import socket
+import argparse
+from collections import Counter
+import numpy as np
 from tqdm import tqdm
+
 import torch
-from fairseq import checkpoint_utils, utils
-from fairseq.models.roberta import RobertaModel
-from fairseq.tokenizer import tokenize_line
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import multiprocessing
+from transition_amr_parser.io import (
+    writer,
+    read_sentences,
+)
+import transition_amr_parser.utils as utils
+from transition_amr_parser.utils import print_log
+import math
 
-from fairseq_ext import options    # this is key to recognizing the customized arguments
-from fairseq_ext.roberta.pretrained_embeddings import PretrainedEmbeddings
-from fairseq_ext.data.amr_action_pointer_dataset import collate
-# OR (same results) from fairseq_ext.data.amr_action_pointer_graphmp_dataset import collate
-from fairseq_ext.utils import post_process_action_pointer_prediction, clean_pointer_arcs
-from transition_amr_parser.amr_state_machine import AMRStateMachine, get_spacy_lemmatizer
-from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
-from transition_amr_parser.utils import yellow_font
-from transition_amr_parser.io import read_config_variables, read_tokenized_sentences
+from transition_amr_parser.amr_parser import AMRParser
+from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
+
+# is_url_regex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
 
 
-def argument_parsing():
+def argument_parser():
 
-    # Argument hanlding
-    parser = argparse.ArgumentParser(
-        description='Call parser from the command line'
+    parser = argparse.ArgumentParser(description='AMR parser')
+    # Multiple input parameters
+    parser.add_argument(
+        "--in-sentences",
+        help="file space with carriare return separated sentences",
+        type=str
     )
     parser.add_argument(
-        '-i', '--in-tokenized-sentences',
-        type=str,
-        help='File with one __tokenized__ sentence per line'
+        "--in-actions",
+        help="file space with carriage return separated sentences",
+        type=str
     )
     parser.add_argument(
-        '--service',
+        "--out-amr",
+        help="parsing model",
+        type=str
+    )
+    parser.add_argument(
+        "--in-model",
+        help="parsing model",
+        type=str
+    )
+    parser.add_argument(
+        "--model-config-path",
+        help="Path to configuration of the model",
+        type=str
+    )
+    # state machine rules
+    parser.add_argument(
+        "--action-rules-from-stats",
+        help="Use oracle statistics to restrict possible actions",
+        type=str
+    )
+    # Visualization arguments
+    parser.add_argument(
+        "--verbose",
+        help="verbose mode",
         action='store_true',
-        help='Prompt user for sentences'
+        default=False
     )
-    parser.add_argument(
-        '-c', '--in-checkpoint',
-        type=str,
-        required=True,
-        help='one fairseq model checkpoint (or various, separated by :)'
-    )
-    parser.add_argument(
-        '-o', '--out-amr',
-        type=str,
-        help='File to store AMR in PENNMAN format'
-    )
-    parser.add_argument(
-        '--roberta-batch-size',
-        type=int,
-        default=10,
-        help='Batch size for roberta computation (watch for OOM)'
-    )
-    parser.add_argument(
-        '--batch-size',
-        type=int,
-        default=128,
-        help='Batch size for decoding (excluding roberta)'
-    )
-    # step by step parameters
     parser.add_argument(
         "--step-by-step",
         help="pause after each action",
@@ -73,476 +76,286 @@ def argument_parsing():
         default=False
     )
     parser.add_argument(
-        "--set-trace",
-        help="breakpoint after each action",
+        "--pause-time",
+        help="time waited after each step, default is manual",
+        type=int
+    )
+    parser.add_argument(
+        "--clear-print",
+        help="clear command line before each print",
         action='store_true',
         default=False
     )
+    parser.add_argument(
+        "--offset",
+        help="start at given sentence number (starts at zero)",
+        type=int
+    )
+    parser.add_argument(
+        "--random-up-to",
+        help="sample randomly from a max number",
+        type=int
+    )
+    parser.add_argument(
+        "--no-whitespace-in-actions",
+        action='store_true',
+        help="Assume whitespaces normalized to _ in PRED"
+    )
+    parser.add_argument(
+        "--num-cores",
+        default=1,
+        help="number of cores to run on",
+        type=int
+    )
+    parser.add_argument(
+        "--use-gpu",
+        help="Use GPU if true",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--add-root-token",
+        help="Add root token (<ROOT>) at the end of the sentence.",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--batch-size",
+        help="Batch size to compute roberta embeddings",
+        default=12,
+        type=int
+    )
+    parser.add_argument(
+        "--parser-chunk-size",
+        help="number of sentences for which to compute the parse at a time",
+        default=5000,
+        type=int
+    )
+
     args = parser.parse_args()
 
-    # sanity checks
-    assert bool(args.in_tokenized_sentences) or bool(args.service), \
-        "Must either specify --in-tokenized-sentences or set --service"
+    # Argument pre-processing
+    if args.random_up_to:
+        args.offset = np.random.randint(args.random_up_to)
+
+    # force verbose
+    if not args.verbose:
+        args.verbose = bool(args.step_by_step)
+
+    # Sanity checks
+    assert args.in_sentences
+    assert args.in_model
 
     return args
 
 
-def ordered_exit(signum, frame):
-    print("\nStopped by user\n")
-    exit(0)
+def reduce_counter(counts, reducer):
+    """
+    Returns a new counter from an existing one where keys have been mapped
+    to in  many-to-one fashion and counts added
+    """
+    new_counts = Counter()
+    for key, count in counts.items():
+        new_key = reducer(key)
+        new_counts[new_key] += count
+    return new_counts
 
 
-def load_models_and_task(args, use_cuda, task=None):
-    # if `task` is not provided, it will be from the saved model args
-    models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
-        args.path.split(':'),
-        arg_overrides=eval(args.model_overrides),
-        task=task,
-    )
-    # Optimize ensemble for generation
-    for model in models:
-        model.make_generation_fast_(
-            beamable_mm_beam_size=None if args.no_beamable_mm else args.beam,
-            need_attn=args.print_alignment,
-        )
-        if args.fp16:
-            print('using fp16 for models')
-            model.half()
-        if use_cuda:
-            print('using GPU for models')
-            model.cuda()
-        else:
-            print('using CPU for models')
-
-    # model = Model(models, task.target_dictionary)
-    return models, model_args, task
-
-
-def load_args_from_config(config_path):
-    """Load args from bash configuration scripts"""
-    # TODO there might be better ways; e.g. source the bash script in python and use $BERT_LAYERS directly
-    config_dict = {}
-    with open(config_path, 'r') as f:
-        for line in f:
-            if line.strip():
-                if not line.startswith('#') and '=' in line:
-                    kv = line.strip().split('#')[0].strip().split('=')
-                    assert len(kv) == 2
-                    config_dict[kv[0]] = kv[1].replace('"', '')    # remove the " in bach args
-    return config_dict
-
-
-def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
-    if not roberta_cache_path:
-        # Load the Roberta Model from torch hub
-        roberta = torch.hub.load('pytorch/fairseq', name)
-    else:
-        roberta = RobertaModel.from_pretrained(
-            roberta_cache_path,
-            checkpoint_file='model.pt'
-        )
-    roberta.eval()
-    if roberta_use_gpu:
-        roberta.cuda()
-    return roberta
-
-
-class AMRParser:
-    def __init__(
-        self,
-        models,           # PyTorch model
-        task,             # fairseq task
-        src_dict,         # fairseq dict
-        tgt_dict,         # fairseq dict
-        machine_rules,    # path to train.rules.json
-        machine_type,     # AMR, NER, etc
-        use_cuda,         #
-        args,             # args for decoding
-        model_args,       # args read from the saved model checkpoint
-        to_amr=True,      # whether to output the final AMR graph
-        entities_with_preds=None,        # special entities in the data oracle
-        entity_rules=None,               # entity rules file path for postprocessing to recover amr
-        embeddings=None,  # PyTorch RoBERTa model (if dealing with token input)
-        inspector=None    # function to call after each step
-    ):
-
-        # member variables
-        self.models = models
-        self.task = task
-        self.use_cuda = use_cuda
-        self.src_dict = src_dict
-        self.tgt_dict = tgt_dict
+class DataHandler():
+    def __init__(self, sentences, embeddings, cores):
+        self.sentences_tuples = [(sent_idx, sentence) for sent_idx, sentence in enumerate(sentences)]
+        self.cores = cores
+        self.num_samples = int(math.ceil(len(self.sentences_tuples) * 1.0 / self.cores))
         self.embeddings = embeddings
-        self.inspector = inspector
 
-        self.machine_rules = machine_rules
-        self.machine_type = machine_type
+    def get_sentences_for_rank(self, rank):
+        return self.sentences_tuples[rank*self.num_samples:rank*self.num_samples+self.num_samples]
 
-        self.args = args
-        self.model_args = model_args
-
-        self.generator = self.task.build_generator(args, model_args)
-
-        self.to_amr = to_amr
-        if to_amr:
-            # Initialize lemmatizer as this is slow
-            self.lemmatizer = get_spacy_lemmatizer()
-            self.entities_with_preds = entities_with_preds
-            self.entity_rules = entity_rules
-
-    @classmethod
-    def default_args(cls, checkpoint=None, fp16=False):
-        """Default args for generation"""
-        default_args = ['dummy_data_folder',
-                        '--emb-dir', 'dummy_emb_dir',
-                        '--user-dir', '../fairseq_ext',
-                        '--task', 'amr_action_pointer',    # this is dummy; will be updated by the model args
-                        '--modify-arcact-score', '1',
-                        '--use-pred-rules', '0',
-                        '--beam', '1',
-                        '--batch-size', '128',
-                        '--remove-bpe',
-                        '--path', checkpoint or 'dummy_model_path',
-                        '--quiet',
-                        '--results-path', 'dummy_results_path',
-                        '--machine-type', 'AMR',        # not currently used
-                        '--machine-rules', 'dummy']     # not currently used
-        if fp16:
-            default_args.append('--fp16')
-        return default_args
+    def get_embeddings(self, sent_id):
+        return self.embeddings[sent_id]
 
 
-    @classmethod
-    def from_checkpoint(cls, checkpoint, dict_dir=None, roberta_cache_path=None,
-                        fp16=False,
-                        inspector=None):
-        '''
-        Initialize model from checkpoint
-        '''
+class Logger():
 
-        # ===== load default args: some are dummy =====
-        parser = options.get_interactive_generation_parser()
-        default_args = cls.default_args(checkpoint, fp16=fp16)    # model path set here
-        args = options.parse_args_and_arch(parser, input_args=default_args)
-        utils.import_user_module(args)
-        # when `input_args` is fed in, it overrides the command line input args
-        # only one required positional argument for the argparser: data
-        if args.max_tokens is None and args.max_sentences is None:
-            args.max_tokens = 12000
+    def __init__(self, step_by_step=None, clear_print=None, pause_time=None,
+                 verbose=False):
 
-        # debug
-        # print(args)
-        # breakpoint()
+        self.step_by_step = step_by_step
+        self.clear_print = clear_print
+        self.pause_time = pause_time
+        self.verbose = verbose or self.step_by_step
 
-        # ===== load model (ensemble), further model args, and the fairseq task =====
-        if dict_dir is not None:
-            args.model_overrides = f'{{"data": "{dict_dir}"}}'
-            # otherwise, the default dict folder is read from the model args
-        use_cuda = torch.cuda.is_available() and not args.cpu
-        models, model_args, task = load_models_and_task(args, use_cuda, task=None)
-        # task loads in the dictionaries:
-        # task.src_dict
-        # task.tgt_dict
+        if step_by_step:
 
-        # # for back compatibility
-        # if not hasattr(model_args, 'shift_pointer_value'):
-        #     model_args.shift_pointer_value = 1
+            # Set traps for system signals to die graceful when Ctrl-C used
 
-        # ===== load pretrained Roberta model for source embeddings =====
-        # need "pretrained_embed" and "bert_layers"
-        if model_args.pretrained_embed_dim == 768:
-            pretrained_embed = 'roberta.base'
-        elif model_args.pretrained_embed_dim == 1024:
-            pretrained_embed = 'roberta.large'
-        else:
-            raise ValueError
+            def ordered_exit(signum, frame):
+                """Mesage user when killing by signal"""
+                print("\nStopped by user\n")
+                exit(0)
 
-        model_folder = os.path.dirname(checkpoint.split(':')[0])
-        config_data_path = None
-        for dfile in os.listdir(model_folder):
-            if dfile.startswith('config.sh'):
-                config_data_path = os.path.join(model_folder, dfile)
-                break
-        assert config_data_path is not None, \
-            'data configuration file not found'
+            signal.signal(signal.SIGINT, ordered_exit)
+            signal.signal(signal.SIGTERM, ordered_exit)
 
-        config_data_dict = read_config_variables(config_data_path)
-        bert_layers = list(map(int, config_data_dict['BERT_LAYERS'].split()))
-        roberta = load_roberta(name=pretrained_embed,
-                               roberta_cache_path=roberta_cache_path,
-                               roberta_use_gpu=use_cuda)
-        embeddings = PretrainedEmbeddings(name=pretrained_embed,
-                                          bert_layers=bert_layers,
-                                          model=roberta)
+    def update(self, sent_idx, state_machine):
 
-        print("Finished loading models")
-
-        # ===== load other args =====
-        # TODO adapt to the new path organization, or allow feeding from outside
-        machine_type = args.machine_type
-        checkpoint_dirname = os.path.dirname(checkpoint.split(':')[0])
-        machine_rules = os.path.join(checkpoint_dirname, 'train.rules.json')
-        assert os.path.isfile(machine_rules), f"Missing {machine_rules}"
-        args.machine_rules = machine_rules
-
-        entities_with_preds = config_data_dict['ENTITIES_WITH_PREDS'].split(',')
-        entity_rules = os.path.join(checkpoint_dirname, 'entity_rules.json')
-
-        return cls(models,task, task.src_dict, task.tgt_dict, machine_rules, machine_type,
-                   use_cuda, args, model_args, to_amr=True, entities_with_preds=entities_with_preds,
-                   entity_rules=entity_rules,
-                   embeddings=embeddings, inspector=inspector)
-
-    def get_bert_features_batched(self, sentences, batch_size):
-        bert_data = []
-        num_batches = math.ceil(len(sentences)/batch_size)
-        for i in tqdm(range(0, num_batches), desc='roberta'):
-            batch = sentences[i * batch_size: i * batch_size + batch_size]
-            batch_data = self.embeddings.extract_batch(batch)
-            for i in range(0, len(batch)):
-                bert_data.append((
-                    copy.deepcopy(batch_data["word_features"][i]),
-                    copy.deepcopy(batch_data["wordpieces_roberta"][i]),
-                    copy.deepcopy(
-                        batch_data["word2piece_scattered_indices"][i]
-                    )
-                ))
-        print(len(bert_data))
-        assert len(bert_data) == len(sentences)
-        return bert_data
-
-    def get_token_ids(self, sentence):
-        return self.src_dict.encode_line(
-            line=sentence,
-            line_tokenizer=tokenize_line,
-            add_if_not_exist=False,
-            append_eos=False,
-            reverse_order=False
-        )
-
-    def convert_sentences_to_data(self, sentences, batch_size,
-                                  roberta_batch_size):
-
-        # extract RoBERTa features
-        roberta_features = \
-            self.get_bert_features_batched(sentences, roberta_batch_size)
-
-        # organize data into a fairseq batch
-        data = []
-        for index, sentence in enumerate(sentences):
-            ids = self.get_token_ids(sentence)
-            word_features, wordpieces_roberta, word2piece_scattered_indices =\
-                roberta_features[index]
-            data.append({
-                'id': index,
-                'source': ids,
-                'source_fix_emb': word_features,
-                'src_wordpieces': wordpieces_roberta,
-                'src_wp2w': word2piece_scattered_indices,
-                'src_tokens': tokenize_line(sentence)  # original source tokens
-            })
-        return data
-
-    def get_iterator(self, samples, batch_size):
-        batches = []
-        for i in range(0, math.ceil(len(samples)/batch_size)):
-            sample = samples[i * batch_size: i * batch_size + batch_size]
-            batch = collate(
-                sample, pad_idx=self.tgt_dict.pad(),
-                eos_idx=self.tgt_dict.eos(),
-                left_pad_source=True,
-                left_pad_target=False,
-                input_feeding=True,
-                collate_tgt_states=False
-            )
-            batches.append(batch)
-        return batches
-
-    def parse_batch(self, sample, to_amr=True):
-        # parse a batch of data
-        # following generate.py
-
-        hypos = self.task.inference_step(self.generator, self.models, sample, self.args, prefix_tokens=None)
-
-        assert self.args.nbest == 1, 'Currently we only support outputing the top predictions'
-
-        predictions = []
-
-        for i, sample_id in enumerate(sample['id'].tolist()):
-            src_tokens = sample['src_sents'][i]
-            target_tokens = None
-
-            for j, hypo in enumerate(hypos[i][:self.args.nbest]):
-                # args.nbest is default 1, i.e. saving only the top predictions
-                actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, self.tgt_dict)
-
-                if self.args.clean_arcs:    # this is 0 by default
-                    actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
-                                                                                          actions_pos,
-                                                                                          actions)
-
-                if to_amr:
-                    machine = AMRStateMachine(tokens=src_tokens, amr_graph=True,
-                                              spacy_lemmatizer=self.lemmatizer,
-                                              entities_with_preds=self.entities_with_preds,
-                                              entity_rules=self.entity_rules)
-                    # CLOSE action is internally managed
-                    machine.apply_actions(actions if actions[-1] == 'CLOSE' else actions + ['CLOSE'], inspector=self.inspector)
-
-
+        if self.verbose:
+            if self.clear_print:
+                # clean screen each time
+                os.system('clear')
+            print(f'sentence {sent_idx}\n')
+            print(state_machine)
+            # step by step mode
+            if self.step_by_step:
+                if self.pause_time:
+                    time.sleep(self.pause_time)
                 else:
-                    machine = None
-
-                predictions.append({
-                    'actions_nopos': actions_nopos,
-                    'actions_pos': actions_pos,
-                    'actions': actions,
-                    'reference': target_tokens,
-                    'src_tokens': src_tokens,
-                    'sample_id': sample_id,
-                    'machine': machine
-                })
-
-        return predictions
-
-    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10):
-        """parse a list of sentences.
-
-        Args:
-            batch (List[List[str]]): list of tokenized sentences.
-            batch_size (int, optional): batch size. Defaults to 128.
-            roberta_batch_size (int, optional): RoBerta batch size. Defaults to 10.
-        """
-        # max batch_size
-        if len(batch) < batch_size:
-            batch_size = len(batch)
-        print("Running on batch size: " + str(batch_size))
-
-        sentences = []
-        # The model expects <ROOT> token at the end of the input sentence
-        for tokens in batch:
-            if tokens[-1] != "<ROOT>":
-                tokens.append("<ROOT>")
-            sentences.append(" ".join(tokens))
-
-        data = self.convert_sentences_to_data(sentences, batch_size,
-                                              roberta_batch_size)
-        data_iterator = self.get_iterator(data, batch_size)
-
-        # Loop over batches of sentences
-        amr_annotations = {}
-        for sample in tqdm(data_iterator, desc='decoding'):
-            # move to device
-            sample = utils.move_to_cuda(sample) if self.use_cuda else sample
-
-            if 'net_input' not in sample:
-                raise Exception("Did not expect empty sample")
-                continue
-
-            # parse for this data batch
-            predictions = self.parse_batch(sample, to_amr=self.to_amr)
-
-            # collect all annotations
-            if not self.to_amr:
-                continue
-
-            for pred_dict in predictions:
-                sample_id = pred_dict['sample_id']
-                machine = pred_dict['machine']
-                try:
-                    amr_annotations[sample_id] = machine.get_annotations()
-                except InvalidAMRError as exception:
-                    print(f'\nFailed at sentence {sample_id}\n')
-                    raise exception
-
-                # sanity check annotations
-                dupes = get_duplicate_edges(machine.amr)
-                if any(dupes):
-                    msg = yellow_font('WARNING:')
-                    message = f'{msg} duplicated edges in sent {sample_id}'
-                    print(message, end=' ')
-                    print(dict(dupes))
-                    print(' '.join(pred_dict['src_tokens']))
-
-        # return the AMRs in order
-        results = []
-        for i in range(0, len(batch)):
-            results.append(amr_annotations[i])
-
-        return results, predictions
+                    input('Press any key to continue')
 
 
-def simple_inspector(machine):
-    '''
-    print the first machine
-    '''
-    os.system('clear')
-    print(machine)
-    input("")
+def get_embeddings(model, sentences, batch_size):
+    embeddings = {}
+    data = [(sent_id, sentence) for sent_id, sentence in enumerate(sentences)]
+    for i in range(0, math.ceil(len(data)/batch_size)):
+        batch = data[i * batch_size: i * batch_size + batch_size]
+        batch_indices = [item[0] for item in batch]
+        batch_sentences = [item[1] for item in batch]
+        batch_embeddings = extract_features_aligned_to_words_batched(model, sentences=batch_sentences, use_all_layers=True, return_all_hiddens=True)
+        for index, features in zip(batch_indices, batch_embeddings):
+            data_features = []
+            for tok in features:
+                if str(tok) not in ['<s>', '</s>']:
+                    data_features.append(tok.vector)
+            data_features = torch.stack(data_features).detach().cpu().numpy()
+            embeddings[index] = data_features
+    return embeddings
 
 
-def breakpoint_inspector(machine):
-    '''
-    call set_trace() on the first machine
-    '''
-    os.system('clear')
-    print(machine)
-    set_trace()
+def worker(rank, model, handler, results, master_addr, master_port, cores):
+    if cores > 1:
+        torch.set_num_threads(1)
+    print_log("Global: ", "Threads :" + str(torch.get_num_threads()))
+    print_log("Dist: ", "starting rank:" + str(rank))
+    os.environ['MASTER_ADDR'] = master_addr
+    os.environ['MASTER_PORT'] = str(master_port)
+
+    if cores > 1:
+        dist.init_process_group(world_size=cores, backend='gloo', rank=rank)
+        dist_module = torch.nn.parallel.DistributedDataParallelCPU(model)
+        dist_model = dist_module.module
+    else:
+        dist_model = model
+
+    data = handler.get_sentences_for_rank(rank)
+    print_log("Data", f'Length of data is {len(data)} for rank {rank} ')
+    for _, item in tqdm(enumerate(data)):
+        sent_id = item[0]
+        sentence = item[1]
+        tokens = sentence.split()
+        sent_rep = utils.vectorize_words(dist_model, tokens, training=False, gpu=dist_model.use_gpu)
+        bert_emb = handler.get_embeddings(sent_id)
+        amr = dist_model.parse_sentence(tokens, sent_rep, bert_emb)
+        results[sent_id] = amr
+
+    print("Dist: ", "Finished worker for rank: " + str(rank))
+
+
+def parse(sentences, parser, args):
+
+    cores = args.num_cores
+
+    start = time.time()
+    embeddings = get_embeddings(parser.roberta, sentences, args.batch_size)
+    end = time.time()
+    print_log('parser', f'Time taken to get embeddings: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we got all the embeddings
+    assert (len(embeddings) == len(sentences))
+
+    # Create the distributed data handler
+    handler = DataHandler(sentences, embeddings, cores)
+
+    manager = multiprocessing.Manager()
+    results = manager.dict()
+
+    master_addr = socket.gethostname()
+    master_port = '64646'
+
+    arguments = (parser.model, handler, results, master_addr, master_port, cores)
+    start = time.time()
+
+    # Spawn multiple processes if user wants to run on multiple cores
+    if cores > 1:
+        mp.spawn(worker, nprocs=cores, args=arguments)
+    else:
+        worker(*(tuple([0]) + arguments))
+    end = time.time()
+    print_log('parser', f'Time taken to parse chunk: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we have processed all the sentences in the chunk
+    assert (len(sentences) == len(results))
+
+    amrs = []
+    for i in range(0, len(sentences)):
+        amrs.append(results[i])
+
+    return amrs
 
 
 def main():
 
-    # argument handling
-    args = argument_parsing()
+    # Argument handling
+    args = argument_parser()
 
-    # set inspector to use on action loop
-    inspector = None
-    if args.set_trace:
-        inspector = breakpoint_inspector
-    if args.step_by_step:
-        inspector = simple_inspector
+    # Get data
+    sentences = read_sentences(args.in_sentences, add_root_token=args.add_root_token)
 
-    # load parser
-    start = time.time()
-    parser = AMRParser.from_checkpoint(args.in_checkpoint, inspector=inspector)
-    end = time.time()
-    time_secs = timedelta(seconds=float(end-start))
-    print(f'Total time taken to load parser: {time_secs}')
+    # Initialize logger/printer
+    logger = Logger(
+        step_by_step=args.step_by_step,
+        clear_print=args.clear_print,
+        pause_time=args.pause_time,
+        verbose=args.verbose
+    )
 
-    # TODO: max batch sizes could be computed from max sentence length
-    if args.service:
-
-        # set orderd exit
-        signal.signal(signal.SIGINT, ordered_exit)
-        signal.signal(signal.SIGTERM, ordered_exit)
-
-        while True:
-            sentence = input("Write sentence:\n")
-            os.system('clear')
-            if not sentence.strip():
-                continue
-            result = parser.parse_sentences(
-                [sentence.split()],
-                batch_size=args.batch_size,
-                roberta_batch_size=args.roberta_batch_size,
-            )
-            #
-            os.system('clear')
-            print('\n')
-            print(''.join(result[0]))
-
+    if args.num_cores > 1:
+        model_use_gpu = False
     else:
+        model_use_gpu = args.use_gpu
 
-        # Parse sentences
-        result = parser.parse_sentences(
-            read_tokenized_sentences(args.in_tokenized_sentences),
-            batch_size=args.batch_size,
-            roberta_batch_size=args.roberta_batch_size
-        )
+    # Load the parser
+    parser = AMRParser(
+                model_path=args.in_model,
+                oracle_stats_path=args.action_rules_from_stats,
+                config_path=args.model_config_path,
+                model_use_gpu=model_use_gpu,
+                roberta_use_gpu=args.use_gpu,
+                logger=logger)
 
-        with open(args.out_amr, 'w') as fid:
-            fid.write(''.join(result[0]))
+    amrs = []
+    num_chunks = math.ceil(len(sentences)/args.parser_chunk_size)
+    print_log('parser', f'Total number of chunks: {num_chunks}')
 
+    start = time.time()
+    for i in range(0, num_chunks):
+        print_log('parser', f'Parsing chunk number: {i+1}')
+        current_chunk = sentences[i*args.parser_chunk_size: i*args.parser_chunk_size+args.parser_chunk_size]
+        current_amrs = parse(current_chunk, parser, args)
+        amrs.extend(current_amrs)
 
-if __name__ == '__main__':
-    main()
+    end = time.time()
+    print_log('parser', f'Total time taken to parse sentences: {timedelta(seconds=float(end-start))}')
+
+    # Make sure we have processed all the sentences
+    assert (len(sentences) == len(amrs))
+
+    if args.out_amr:
+        # Get output AMR writer
+        amr_write = writer(args.out_amr)
+
+        # store output AMR
+        for amr in amrs:
+            amr_write(amr.toJAMRString())
+
+        # close output AMR writer
+        amr_write()

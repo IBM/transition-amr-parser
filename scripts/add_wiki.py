@@ -8,10 +8,7 @@ import os
 famr = open(sys.argv[1])
 fwiki = open(sys.argv[2])
 # FIXME: External dependency
-if os.path.exists("/dccstor/multi-parse/amr/trn.wikis"):
-    ftrn = open("/dccstor/multi-parse/amr/trn.wikis")
-else:
-    ftrn = open("amr_corpus/amr2.0/wiki/trn.wikis")
+ftrn = open("/dccstor/multi-parse/amr/trn.wikis")
 
 wiki_ht = {}
 for line in ftrn:

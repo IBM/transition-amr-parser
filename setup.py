@@ -1,36 +1,30 @@
+import os
 from setuptools import setup, find_packages
 
-VERSION = '0.4.2'
+VERSION = '0.2.0'
+
+package_data = {
+    'transition_amr_parser': [
+        'config.json',
+        'entity_rules.json',
+        'train.rules.json'
+     ]
+}
 
 # this is what usually goes on requirements.txt
 install_requires = [
-    # NOTE: For PPCs we need to relax these two to 1.2 and 2.0.16
-    'torch<=1.2,<=1.3',
-    'spacy<=2.0.16',
-    #'spacy==2.2.3',
-    'fairseq==0.8.0',
-    'h5py',
-    'tqdm',
-    # for scoring
-    'smatch==1.0.4',
-    # for debugging
-    'ipdb',
-    'line_profiler',
-    'pyinstrument',
-    'packaging',
-    # unclear why these are missing
-    'dataclasses',
-    'hydra-core',
-    'omegaconf'
+    'torch==1.1.0',
+    'h5py==2.10.0',
+    'spacy==2.2.3',
+    'tqdm==4.39.0',
+    'fairseq==0.8.0'
 ]
 
-# You need to pip install the requirements.txt first
 setup(
     name='transition_amr_parser',
-    # python_requires='>=3.7',
     version=VERSION,
     description="Trasition-based AMR parser tools",
-    py_modules=['transition_amr_parser', 'fairseq_ext'],
+    py_modules=['transition_amr_parser'],
     entry_points={
         'console_scripts': [
             'amr-learn = transition_amr_parser.learn:main',
@@ -42,4 +36,5 @@ setup(
     },
     packages=find_packages(),
     install_requires=install_requires,
+    package_data=package_data,
 )

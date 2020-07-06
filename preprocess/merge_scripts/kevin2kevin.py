@@ -11,7 +11,7 @@ def kevin2kevin ( aline ) :
     lvls = []
     lvls.append("1")
     aline = aline.strip()
-    in_qouts = False
+    
     for (i,c) in enumerate(aline):
         if c == '(':
             #lvls[-1] = str(int(lvls[-1]) + 1)
@@ -26,9 +26,7 @@ def kevin2kevin ( aline ) :
             if len(toks)==2 and len(toks[1]) <=2 and toks[1] != '-' and toks[1][0].isalpha():
                 continue
             lvls[-1] = str(int(lvls[-1]) + 1)
-        if c == "\"":
-            in_qouts = not in_qouts
-        if c == ')' and not in_qouts:
+        if c == ')':
             lvls.pop()
             lvls.pop()
         if c == '~' and aline[i+1] == 'e':
@@ -50,6 +48,10 @@ def kevin2kevin ( aline ) :
             if not is_label:
                 alns.append( idx + "-" + node)
     return alns
+
+#print "\n\n"
+#print kevin2kevin(sys.argv[1])
+#exit()
 
 fin = open(sys.argv[1])
 for line in fin:

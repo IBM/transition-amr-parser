@@ -17,10 +17,10 @@ def read_amr(file_path):
     return ref_amr_lines
 
 
-def get_amr(tokens, actions, entity_rules):
+def get_amr(tokens, actions):
 
     # play state machine to get AMR
-    state_machine = AMRStateMachine(tokens, entity_rules=entity_rules)
+    state_machine = AMRStateMachine(tokens)
     for action in actions:
         # FIXME: It is unclear that this will be allways the right option
         # manual exploration of dev yielded 4 cases and it works for the 4
@@ -57,10 +57,8 @@ class GoldMiner():
     Computes smatch with respect to a reference
     """
 
-    def __init__(self, ref_amr_path, out_actions_path, entity_rules=None):
+    def __init__(self, ref_amr_path, out_actions_path):
 
-        # set entity_rules to be used
-        self.entity_rules = entity_rules
         # read reference sentences 
         self.ref_amr_lines = read_amr(ref_amr_path)
         self.oracle_smatch_counts_cache = {}
@@ -83,7 +81,7 @@ class GoldMiner():
             # compute smatch
             oracle_smatch_counts = get_smatch_counts(
                 self.ref_amr_lines[sample_id],
-                get_amr(tokens, oracle_actions, self.entity_rules),
+                get_amr(tokens, oracle_actions),
                 self.restart_num
             )
             oracle_smatch = smatch.compute_f(*oracle_smatch_counts)[2]
@@ -240,9 +238,6 @@ def score_amr_pair(ref_amr_line, rec_amr_line, restart_num, justinstance=False,
     # parse lines
     amr1 = AMR.parse_AMR_line(ref_amr_line)
     amr2 = AMR.parse_AMR_line(rec_amr_line)
-
-    if amr2 is None:
-        return 0, 0, len(amr1.get_triples()[0])
 
     # Fix prefix
     prefix1 = "a"

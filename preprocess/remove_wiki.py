@@ -1,18 +1,20 @@
 import re
-import sys
 
 
-if __name__ == '__main__':
+type = ['train','dev','test']
 
-    # argument handling
-    amr_file, new_amr_file = sys.argv[1:]
+for t in type:
+    amr_file = t +'.txt'
+    new_amr_file = t +'.no_wiki.txt'
 
-    with open(amr_file, encoding='utf-8') as fid:
-        amrs = fid.read()
+
+    amrs = open(amr_file, 'r', encoding='utf8').read()
+
     amrs = re.sub(':wiki ".+?"( )?','', amrs)
     amrs = re.sub(':wiki -( )?','', amrs)
     l = amrs.count('# ::snt')
-    with open(new_amr_file, 'w+', encoding='utf-8') as f:
+    with open(new_amr_file, 'w+', encoding='utf8') as f:
         f.write(amrs)
     print(new_amr_file)
     print(l)
+

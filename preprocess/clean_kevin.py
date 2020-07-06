@@ -1,10 +1,12 @@
 import re
-import sys
 
-if __name__ == '__main__':
 
-    amr_file, links_file = sys.argv[1:]
-    new_amr_file = amr_file
+type = ['train','dev','test']
+
+for t in type:
+    amr_file = t +'.kevin.txt'
+    new_amr_file = t +'.kevin.txt'
+    links_file = t+'.bad_amrs.txt'
     with open(links_file, 'r', encoding='utf8') as f:
         links = [line.split('\t') for line in f.readlines() if line.strip()]
 

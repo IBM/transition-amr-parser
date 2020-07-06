@@ -1,5 +1,4 @@
 import json
-import re
 import argparse
 from collections import Counter, defaultdict
 
@@ -7,7 +6,6 @@ from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
 from transition_amr_parser.io import writer, read_propbank, read_amr
-from transition_amr_parser.amr import get_duplicate_edges
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer,
@@ -34,10 +32,6 @@ from transition_amr_parser.state_machine import (
 """
 
 use_addnode_rules = True
-
-
-def yellow_font(string):
-    return "\033[93m%s\033[0m" % string
 
 
 def argument_parser():
@@ -120,24 +114,13 @@ def argument_parser():
         action='store_true',
         help="Use copy action from Spacy lemmas"
     )
-    # skip empty amrs
-    parser.add_argument(
-        "--skip-empty",
-        action='store_true',
-        help="Skip empty AMRs (otherwise it will raise and error)"
-    )
     # copy lemma action
     parser.add_argument(
         "--addnode-count-cutoff",
         help="forbid all addnode actions appearing less times than count",
         type=int
     )
-    # path to entity rules generated from the train file
-    parser.add_argument(
-        "--entity-rules",
-        type=str,
-        help="entity rules"
-    )
+ 
     #
     args = parser.parse_args()
 
@@ -234,17 +217,16 @@ def is_most_common(node_counts, node, rank=0):
 
 
 def alert_inconsistencies(gold_amrs):
+
+    def yellow_font(string):
+        return "\033[93m%s\033[0m" % string
+
     num_sentences = len(gold_amrs)
+
     sentence_count = Counter()
     amr_by_amrkey_by_sentence = defaultdict(dict)
     amr_counts_by_sentence = defaultdict(lambda: Counter())
-    collect_duplicates = []
     for amr in gold_amrs:
-
-        # collect duplicate arcs 
-        dupes = get_duplicate_edges(amr)
-        if dupes:
-            collect_duplicates.extend(dupes)
 
         # hash of sentence
         skey = " ".join(amr.tokens)
@@ -298,17 +280,6 @@ def alert_inconsistencies(gold_amrs):
         )
         print(yellow_font(alert_str))
 
-    if collect_duplicates:
-        dupes_by_arc = defaultdict(int)
-        for item in collect_duplicates:
-            if re.match('^[0-9\.]+$', item[0][0]):
-                dupes_by_arc[item[0][1]] += item[1]
-            else:
-                dupes_by_arc[item[0][0]] += item[1]
-        num_dup = sum(dupes_by_arc.values())        
-        print(yellow_font(f'AMR contains {num_dup} duplicate edges'))
-        print(dict(dupes_by_arc))
-
 
 def read_multitask_words(multitask_list):
     multitask_words = []
@@ -351,7 +322,7 @@ def get_multitask_actions(max_symbols, tokenized_corpus, add_root=False):
 
 class AMR_Oracle:
 
-    def __init__(self, entity_rules, verbose=False):
+    def __init__(self, verbose=False):
         self.amrs = []
         self.gold_amrs = []
         self.transitions = []
@@ -369,7 +340,7 @@ class AMR_Oracle:
         self.swapped_words = {}
 
         self.possibleEntityTypes = Counter()
-        self.entity_rules = entity_rules
+
         # DEBUG
         # self.copy_rules = False
 
@@ -387,7 +358,7 @@ class AMR_Oracle:
                 raise IOError(f'Action file formatted incorrectly: {sent}')
             tokens = s[0].split('\t')
             actions = s[1].split('\t')
-            transitions.append(AMRStateMachine(tokens, entity_rules = self.entity_rules))
+            transitions.append(AMRStateMachine(tokens))
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
@@ -401,6 +372,8 @@ class AMR_Oracle:
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
+        # print about inconsistencies in annotations
+        alert_inconsistencies(self.gold_amrs)
 
         # open all files (if paths provided) and get writers to them
         oracle_write = writer(out_oracle)
@@ -426,11 +399,6 @@ class AMR_Oracle:
         if copy_lemma_action:
             spacy_lemmatizer = get_spacy_lemmatizer()
 
-        # Store invalid actions
-        actions_not_in_whitelist = []
-        actions_in_blacklist = []
-        dangling_nodes = []
-
         # Loop over golf AMRs
         for sent_idx, gold_amr in tqdm(
             enumerate(self.gold_amrs),
@@ -449,8 +417,7 @@ class AMR_Oracle:
                 gold_amr.tokens,
                 verbose=self.verbose,
                 add_unaligned=add_unaligned,
-                spacy_lemmatizer=spacy_lemmatizer,
-                entity_rules = self.entity_rules
+                spacy_lemmatizer=spacy_lemmatizer
             )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
@@ -463,12 +430,6 @@ class AMR_Oracle:
 
                 elif self.tryEntity(tr, tr.amr, gold_amr):
                     action = f'ADDNODE({self.entity_type})'
-
-                elif self.tryDependent(tr, tr.amr, gold_amr):
-                    edge = self.new_edge[1:] \
-                        if self.new_edge.startswith(':') else self.new_edge
-                    action = f'DEPENDENT({self.new_node},{edge})'
-                    self.dep_id = None
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
                     # if --copy-lemma-action check if lemma or first sense
@@ -483,6 +444,12 @@ class AMR_Oracle:
                             action = f'PRED({self.new_node})'
                     else:
                         action = f'PRED({self.new_node})'
+
+                elif self.tryDependent(tr, tr.amr, gold_amr):
+                    edge = self.new_edge[1:] \
+                        if self.new_edge.startswith(':') else self.new_edge
+                    action = f'DEPENDENT({self.new_node},{edge})'
+                    self.dep_id = None
 
                 elif self.tryIntroduce(tr, tr.amr, gold_amr):
                     action = 'INTRODUCE'
@@ -518,13 +485,6 @@ class AMR_Oracle:
                 token, merged_tokens = tr.get_top_of_stack()
                 action_label = action.split('(')[0]
 
-                # invalid actions
-                valid, not_valid = tr.get_valid_actions()
-                if action not in valid and action_label not in valid:
-                    actions_not_in_whitelist.append((sent_idx, token, action))
-                if action in not_valid:
-                    actions_in_blacklist.append((sent_idx, token, action))
-
                 # check action has not invalid chars and normalize
                 # TODO: --no-whitespace-in-actions being deprecated
                 if no_whitespace_in_actions and action_label == 'PRED':
@@ -546,12 +506,6 @@ class AMR_Oracle:
                 gold_amr=gold_amr,
                 use_addnonde_rules=use_addnode_rules
             )
-
-            # store dangling nodes
-            for e in tr.amr.edges:
-                if e[1] == ':rel':
-                    de = f'{e[1]} {tr.amr.nodes[e[2]]}'
-                    dangling_nodes.append((sent_idx, de))
 
             # update files
             if out_oracle:
@@ -649,29 +603,6 @@ class AMR_Oracle:
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(self.stats))
 
-        # Inform about invalid actions
-        if actions_not_in_whitelist:
-            fa_count = Counter(
-                [a[2].split('(')[0] for a in actions_not_in_whitelist]
-            )
-            print(yellow_font(
-                "Not whitelisted actions used e.g. arcs for unconfirmed words"
-            ))
-            print(fa_count)
-        if actions_in_blacklist:
-            fa_count = Counter(
-                [a[2].split('(')[0] for a in actions_in_blacklist]
-            )
-            msg = "Blacklisted actions used e.g. duplicated edges"
-            print(yellow_font(msg))
-            print(fa_count)
-
-        # Inform about disconnected nodes 
-        if dangling_nodes:
-            num_nodes = len(dangling_nodes)
-            message = f'There were {num_nodes} disconnected nodes (:rel)'
-            print(yellow_font(message))
-
     def tryConfirm(self, transitions, amr, gold_amr):
         """
         Check if the next action is CONFIRM
@@ -679,6 +610,7 @@ class AMR_Oracle:
         If the gold node label is different from the assigned label,
         return the gold label.
         """
+
         if not transitions.stack:
             return False
 
@@ -688,11 +620,8 @@ class AMR_Oracle:
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
 
         # TODO: What is the logic here?
-        if len(tok_alignment) == 0 :
+        if 'DEPENDENT' not in transitions.actions[-1] and len(tok_alignment) != 1:
             return False
-        if len(tok_alignment) > 1:
-            if any(gold_amr.nodes[n] == 'name' for n in tok_alignment):
-                return False
 
         # TODO: What is the logic here?
         if stack0 in transitions.entities:
@@ -700,11 +629,8 @@ class AMR_Oracle:
 
         if len(tok_alignment) == 1:
             gold_id = tok_alignment[0]
-        elif 'DEPENDENT' in transitions.actions[-1]:
-            gold_id = gold_amr.findSubGraph(tok_alignment).root #for DPENDENT, pred is on the root
         else:
-            gold_id = tok_alignment[-1] #ADDNODE can have pred on leaf, assuming [-1] is the leaf
-
+            gold_id = gold_amr.findSubGraph(tok_alignment).root
         isPred = stack0 not in transitions.is_confirmed
 
         if isPred:
@@ -1000,19 +926,6 @@ class AMR_Oracle:
 
         # FIXME: state altering code should be outside of tryACTION
         final_nodes = [n for n in tok_alignment if not any(s == n for s, r, t in edges)]
-        # Fixes :rel
-        gold_src = 0
-        for s, r, t in gold_amr.edges:
-            if s in final_nodes:
-                gold_src += 1
-        pred_src = 0
-        for s, r, t in amr.edges:
-            if s == stack0:
-                pred_src += 1
-
-        if pred_src < gold_src:
-            return False
-
         new_nodes = [gold_amr.nodes[n] for n in tok_alignment if n not in final_nodes]
         self.entity_type = ','.join(new_nodes)
         self.possibleEntityTypes[self.entity_type] += 1
@@ -1043,15 +956,8 @@ class AMR_Oracle:
         else:
             target = y_alignment[0]
 
-        sources = [nid for nid in x_alignment]
-        if len(x_alignment) > 1:
-            if x in self.transitions[-1].entities: 
-                sources = [source]
-            else:
-                sources.remove(source)
-
         for s, r, t in gold_amr.edges:
-            if s in sources and target == t:
+            if source == s and target == t:
                 # check if already assigned
                 if (x, r, y) not in amr.edges:
                     return True, r
@@ -1122,46 +1028,22 @@ def process_multitask_words(tokenized_corpus, multitask_max_words,
     return multitask_words
 
 
-def print_corpus_info(amrs):
-
-    # print some info
-    print(f'{len(amrs)} sentences')
-    node_label_count = Counter([
-        n for amr in amrs for n in amr.nodes.values()
-    ])
-    node_tokens = sum(node_label_count.values())
-    print(f'{len(node_label_count)}/{node_tokens} node types/tokens')
-    edge_label_count = Counter([t[1] for amr in amrs for t in amr.edges])
-    edge_tokens = sum(edge_label_count.values())
-    print(f'{len(edge_label_count)}/{edge_tokens} edge types/tokens')
-    word_label_count = Counter([w for amr in amrs for w in amr.tokens])
-    word_tokens = sum(word_label_count.values())
-    print(f'{len(word_label_count)}/{word_tokens} word types/tokens')
-
 def main():
 
     # Argument handling
     args = argument_parser()
 
     # Load AMR (replace some unicode characters)
-    print(f'Read {args.in_amr}')
     corpus = read_amr(args.in_amr, unicode_fixes=True)
-    amrs = corpus.amrs
-    # Remove empty AMRS
-    if args.skip_empty:
-        amrs = [amr for amr in amrs if amr.tokens]
-    # print general info and about inconsistencies in AMR annotations
-    print_corpus_info(amrs)
-    alert_inconsistencies(amrs)
 
-    # Load propbank (if provided)
+    # Load propbank
     propbank_args = None
     if args.in_propbank_args:
         propbank_args = read_propbank(args.in_propbank_args)
 
     # read/write multi-task (labeled shift) action 
     multitask_words = process_multitask_words(
-        [list(amr.tokens) for amr in amrs],
+        [list(amr.tokens) for amr in corpus.amrs],
         args.multitask_max_words,
         args.in_multitask_words,
         args.out_multitask_words,
@@ -1169,12 +1051,12 @@ def main():
     )
 
     # TODO: At the end, an oracle is just a parser with oracle info. This could
-    # be turner into a loop similar to parser.py (or directly use that and a
+    # be turner into a loop similar to parser.py (ore directly use that and a
     # AMROracleParser())
     print_log("amr", "Processing oracle")
-    oracle = AMR_Oracle(args.entity_rules, verbose=args.verbose)
+    oracle = AMR_Oracle(verbose=args.verbose)
     oracle.runOracle(
-        amrs,
+        corpus.amrs,
         propbank_args,
         out_oracle=args.out_oracle,
         out_amr=args.out_amr,
@@ -1210,7 +1092,3 @@ def main():
             sum(entity_rule_totals.values())
         print_log('Totals:', f'{perc:.2f}')
         print_log('Totals:', 'Failed Entity Predictions:')
-
-
-if __name__ == '__main__':
-    main()

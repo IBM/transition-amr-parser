@@ -2,11 +2,13 @@ set -o errexit
 set -o pipefail
 set -o nounset 
 
-# Delete previous runs is exist
-rm -Rf DATA/wiki25/*
+# oracle tests
+bash tests/state_machine/o3+W.sh dev
+# this can take 30-40min due to smatch
+# bash tests/state_machine/o3+W.sh train  
 
-# simulate completed corpora extraction and alignment
-bash tests/create_wiki25_mockup.sh
+# stack-LSTM tests
+bash tests/stack-LSTM/decode.sh
 
-# Run local test
-bash run/run_experiment.sh configs/wiki25.sh  
+# stack-Transformer tests
+# bash tests/stack-transformer/decode.sh

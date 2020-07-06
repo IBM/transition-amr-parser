@@ -1,7 +1,7 @@
 import os
 from tqdm import tqdm
 import argparse
-from transition_amr_parser.amr_state_machine import (
+from transition_amr_parser.state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer
 )
@@ -15,12 +15,10 @@ from transition_amr_parser.io import (
 )
 from collections import Counter, defaultdict
 from smatch import compute_f
-from copy import deepcopy
 
 
 def yellow_font(string):
     return "\033[93m%s\033[0m" % string
-
 
 def argument_parser():
 
@@ -75,11 +73,6 @@ def argument_parser():
         help="Output rule stats from mined actions",
         type=str,
     )
-    parser.add_argument(
-        "--entity-rules",
-        help="entity rules",
-        type=str
-    )
     args = parser.parse_args()
 
     return args
@@ -102,7 +95,7 @@ def print_score_action_stats(scored_actions):
 
 
 def fix_actions_split_by_spaces(actions):
-
+               
     # Fix actions split by spaces
     new_actions = []
     num_fixed = 0
@@ -124,7 +117,7 @@ def fix_actions_split_by_spaces(actions):
                 num_fixed += 1
             else:
                 new_sent_actions.append(sent_actions[index])
-            # increase index
+            # increase index    
             index += 1
         new_actions.append(new_sent_actions)
 
@@ -139,14 +132,14 @@ def fix_actions_split_by_spaces(actions):
 def merge_actions(actions, scored_actions):
     created_actions = []
     for index, actions in enumerate(actions):
-        if scored_actions[index][6] is not None:
+        if scored_actions[index][6] is not None: 
             created_actions.append(scored_actions[index][7])
         else:
             created_actions.append(actions)
-    return created_actions
+    return created_actions 
 
 
-def merge_rules(sentences, actions, rule_stats, entity_rules=None):
+def merge_rules(sentences, actions, rule_stats):
 
     # generate rules to restrict action space by stack content
     actions_by_stack_rules = rule_stats['possible_predicates']
@@ -164,8 +157,7 @@ def merge_rules(sentences, actions, rule_stats, entity_rules=None):
         state_machine = AMRStateMachine(
             tokens,
             actions_by_stack_rules=actions_by_stack_rules,
-            spacy_lemmatizer=spacy_lemmatizer,
-            entity_rules=entity_rules
+            spacy_lemmatizer=spacy_lemmatizer
         )
 
         for action in sentence_actions:
@@ -175,7 +167,7 @@ def merge_rules(sentences, actions, rule_stats, entity_rules=None):
             position, mpositions = \
                 state_machine.get_top_of_stack(positions=True)
             if action.startswith('PRED'):
-                node = action[5:-1]
+                node = action[4:-1]
                 possible_predicates[tokens[position]].update([node])
                 if mpositions:
                     mtokens = ','.join([tokens[p] for p in mpositions])
@@ -200,37 +192,14 @@ def merge_rules(sentences, actions, rule_stats, entity_rules=None):
             # execute action
             state_machine.applyAction(action)
 
+    # TODO: compare with old stats
     out_rule_stats = rule_stats
-    new_possible_predicates = merge_both_rules(possible_predicates, actions_by_stack_rules)
-    out_rule_stats['possible_predicates'] = new_possible_predicates
+    out_rule_stats['possible_predicates'] = {
+        key: dict(value) for key, value in possible_predicates.items()
+    }
 
     return out_rule_stats
 
-def merge_both_rules(new_action_rules, old_action_rules):
-    keys_old_rules = list(old_action_rules.keys())
-    keys_new_rules = list(new_action_rules.keys())
-
-    keys_common = list(set(keys_old_rules)&set(keys_new_rules))
-    merged_action_rules = dict()
-    for key in keys_old_rules:
-        if key not in keys_common:
-            merged_action_rules[key] = deepcopy(old_action_rules[key])
-
-    for key in keys_new_rules:
-        if key not in keys_common:
-            merged_action_rules[key] = deepcopy(new_action_rules[key])
-
-    for key in keys_common:
-        if list(new_action_rules[key].keys()) == list(old_action_rules[key].keys()):
-            merged_action_rules[key] = deepcopy(old_action_rules[key])
-        else:
-            merged_action_rules[key] = deepcopy(old_action_rules[key])
-            for predicate in new_action_rules[key].keys():
-                if predicate not in merged_action_rules[key]:
-                    merged_action_rules[key][predicate] = new_action_rules[key][predicate]
-
-    
-    return deepcopy(merged_action_rules)
 
 def main():
 
@@ -242,13 +211,13 @@ def main():
     if args.in_amr:
         corpus = read_amr(args.in_amr, unicode_fixes=True)
         amrs = corpus.amrs
-    # Load tokens
+    # Load tokens    
     if args.in_tokens:
         sentences = read_tokenized_sentences(args.in_tokens, separator='\t')
     # Load actions i.e. oracle
     if args.in_actions:
         actions = read_tokenized_sentences(args.in_actions, separator='\t')
-    # Load scored actions i.e. mined oracle
+    # Load scored actions i.e. mined oracle     
     if args.in_scored_actions:
         scored_actions = read_action_scores(args.in_scored_actions)
         # measure performance
@@ -272,13 +241,13 @@ def main():
         # actions
         actions = merge_actions(actions, scored_actions)
 
-    # fix actions split by whitespace arguments
+    # fix actions split by whitespace arguments 
     if args.fix_actions:
         actions = fix_actions_split_by_spaces(actions)
 
     # merge rules
     if args.merge_mined:
-        out_rule_stats = merge_rules(sentences, actions, rule_stats, entity_rules=args.entity_rules)
+        out_rule_stats = merge_rules(sentences, actions, rule_stats)
         print(f'Merging {args.out_rule_stats} and {args.in_rule_stats}')
 
     # Write

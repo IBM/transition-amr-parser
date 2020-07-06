@@ -29,35 +29,45 @@ def check_cuda_torch_binary_vs_bare_metal():
 if __name__ == '__main__':
 
     # Pytorch and CUDA
-    print()
-    print(f'pytorch {torch.__version__}')
-    if torch.cuda.is_available():
-        print(f'cuda {torch.version.cuda}')
-        # happens when CUDA missconfigured
-        assert torch.cuda.device_count(), "0 GPUs found"
-        try:
-            import apex
-            print("Apex installed")
-        except ImportError:
-            print("Apex not installed")
-        check_cuda_torch_binary_vs_bare_metal()
-        if torch.cuda.get_device_capability(0)[0] < 7:
-            print("GPU wont support --fp")
+    assert torch.cuda.is_available(), "No CUDA available"
+    print(f'pytorch {torch.__version__}') 
+    print(f'cuda {torch.version.cuda}') 
+    # happens for torch 1.2.0
+    assert torch.cuda.device_count(), "0 GPUs found"
+    try:
+        import apex
+        print("Apex installed")
+    except ImportError:
+        print("Apex not installed")
+    check_cuda_torch_binary_vs_bare_metal()
+    if torch.cuda.get_device_capability(0)[0] < 7:
+        print("GPU wont support --fp")
 
-        # sanity check try to use CUDA
-        import torch
-        torch.zeros((100, 100)).cuda()
+    try:
+        import torch_scatter
+        print("pytorch-scatter installed")
+    except ImportError:    
+        print("pytorch-scatter not installed")
 
-    else:
-        print("\033[93mNo CUDA available\033[0m")
+    try:
+        import torch_scatter.scatter_cuda
+        print("torch_scatter.scatter_cuda works")
+    except ImportError:    
+        print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
+        pass
 
     # fairseq
-    from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
-    import fairseq
-    print(f'fairseq {fairseq.__version__}')
-    # spacy
-    import spacy
-    print(f'spacy {spacy.__version__}')
+    try:
+        from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
+        print("transition_amr_parser.roberta_utils works")
+    except ImportError:    
+        print("fairseq installation failed")
+        pass
 
-    # If we get here we passed
-    print(f'[\033[92mOK\033[0m] correctly installed\n')
+    try:
+        # scipy
+        import scipy
+        print('scipy installed')
+    except ImportError:    
+        print("scipy installation failed")
+        pass
