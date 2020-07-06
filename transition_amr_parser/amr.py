@@ -35,6 +35,8 @@ def find_subgraph_edges(total_edges, split_node_id):
 class InvalidAMRError(Exception):
     pass
 
+# TODO change method names; change alignment token indexes to be from 0 instead of from 1 (be careful as these require
+# to change many files)
 class AMR:
 
     def __init__(self, tokens=None, root='', nodes=None, edges=None, alignments=None, score=0.0):
@@ -87,7 +89,8 @@ class AMR:
         # edges
         for s, r, t in self.edges:
             r = r.replace(':', '')
-            output += f'# ::edge\t{self.nodes[s] if s in self.nodes else "None"}\t{r}\t{self.nodes[t] if t in self.nodes else "None"}\t{s}\t{t}\t\n'
+            output += f'# ::edge\t{self.nodes[s] if s in self.nodes else "None"}\t{r}\t' \
+                      f'{self.nodes[t] if t in self.nodes else "None"}\t{s}\t{t}\t\n'
         return output
 
     def split(self, split_node_id):
@@ -162,11 +165,13 @@ class AMR:
 
     def alignmentsToken2Node(self, token_id):
         if token_id not in self.token2node_memo:
-            self.token2node_memo[token_id] = sorted([node_id for node_id in self.alignments if token_id in self.alignments[node_id]])
+            self.token2node_memo[token_id] = sorted([node_id for node_id in self.alignments
+                                                     if token_id in self.alignments[node_id]])
         return self.token2node_memo[token_id]
 
     def copy(self):
-        return AMR(self.tokens.copy(), self.root, self.nodes.copy(), self.edges.copy(), self.alignments.copy(), self.score)
+        return AMR(self.tokens.copy(), self.root, self.nodes.copy(), self.edges.copy(), self.alignments.copy(),
+                   self.score)
 
     """
     Outputs all edges such that source and target are in node_ids
@@ -222,7 +227,8 @@ class AMR:
                 if children:
                     children = f'\n{tab}'+children
                 if n not in completed:
-                    if (concept[0].isalpha() and concept not in ['imperative', 'expressive', 'interrogative']) or targets:
+                    if (concept[0].isalpha() and concept not in ['imperative', 'expressive', 'interrogative']) \
+                      or targets:
                         amr_string = amr_string.replace(f'[[{n}]]', f'({id} / {concept}{children})', 1)
                     else:
                         amr_string = amr_string.replace(f'[[{n}]]', f'{concept}')
@@ -234,7 +240,6 @@ class AMR:
 
         if allow_incomplete:
             pass
-
         else:
             if len(completed) < len(self.nodes):
                 raise InvalidAMRError("Tried to print an uncompleted AMR")
