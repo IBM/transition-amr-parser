@@ -163,13 +163,15 @@ class AMRParser():
         src_dict,        # fairseq dict
         tgt_dict,        # fairseq dict
         use_cuda,        #
-        embeddings=None  # pytorch RoBERTa model (if dealing with token input)
+        embeddings=None, # pytorch RoBERTa model (if dealing with token input)
+        inspector=None   # function to call after each step
     ):
 
         # member variables
         self.src_dict = src_dict
         self.tgt_dict = tgt_dict
         self.embeddings = embeddings
+        self.inspector = inspector
         self.model = model
         self.use_cuda = use_cuda
 
@@ -182,7 +184,8 @@ class AMRParser():
         )
 
     @classmethod
-    def from_checkpoint(self, checkpoint, roberta_cache_path=None):
+    def from_checkpoint(self, checkpoint, roberta_cache_path=None, 
+                        inspector=None):
         '''
         Initialize model from checkpoint
         '''
@@ -248,7 +251,7 @@ class AMRParser():
         machine_type = prepro_args['--machine-type'][0]
 
         return self(model, machine_rules, machine_type, src_dict, tgt_dict,
-                    use_cuda, embeddings=embeddings)
+                    use_cuda, embeddings=embeddings, inspector=inspector)
 
     def get_bert_features_batched(self, sentences, batch_size):
         bert_data = []
@@ -339,10 +342,9 @@ class AMRParser():
         time_step = 0
         while any(not m.is_closed for m in self.state_machine_batch.machines):
 
-            # DEBUG
-            # os.system('clear')
-            # print(self.state_machine_batch.machines[2])
-            # import pdb;pdb.set_trace()
+            # inspect parsing on the fly
+            if self.inspector:
+                self.inspector(self.state_machine_batch)
 
             # Get target masks from machine state
             logits_indices, logits_mask = \
