@@ -1,4 +1,6 @@
 import time
+import os
+import signal
 import argparse
 from datetime import timedelta
 from fairseq.tokenizer import tokenize_line
@@ -15,8 +17,12 @@ def argument_parsing():
     parser.add_argument(
         '-i', '--in-tokenized-sentences',
         type=str,
-        required=True,
         help='File with one __tokenized__ sentence per line'
+    )
+    parser.add_argument(
+        '--service',
+        action='store_true',
+        help='Prompt user for sentences'
     )
     parser.add_argument(
         '-c', '--in-checkpoint',
@@ -27,7 +33,6 @@ def argument_parsing():
     parser.add_argument(
         '-o', '--out-amr',
         type=str,
-        required=True,
         help='File to store AMR in PENNMAN format'
     )
     parser.add_argument(
@@ -42,7 +47,57 @@ def argument_parsing():
         default=128,
         help='Batch size for decoding (excluding roberta)'
     )
+    # step by step parameters
+    parser.add_argument(
+        "--step-by-step",
+        help="pause after each action",
+        action='store_true',
+        default=False
+    )
     return parser.parse_args()
+
+
+def ordered_exit(signum, frame):
+    print("\nStopped by user\n")
+    exit(0)
+
+
+def parse_sentences(parser, in_tokenized_sentences, batch_size, 
+                    roberta_batch_size, out_amr):
+
+    # read tokenized sentences
+    sentences = read_sentences(in_tokenized_sentences)
+    split_sentences = []
+    for sentence in sentences:
+        split_sentences.append(tokenize_line(sentence))
+    print(len(split_sentences))
+    
+    # parse
+    start = time.time()
+    result = parser.parse_sentences(
+        split_sentences,
+        batch_size=batch_size,
+        roberta_batch_size=roberta_batch_size,
+    )
+    end = time.time()
+    print(len(result))
+    time_secs = timedelta(seconds=float(end-start))
+    print(f'Total time taken to parse sentences: {time_secs}')
+    
+    # write annotations
+    if out_amr:
+        with open(out_amr, 'w') as fid:
+            for i in range(0, len(sentences)):
+                fid.write(result[i])
+
+
+def simple_inspector(machine):
+    '''
+    print the first machine
+    '''
+    os.system('clear')
+    print(machine.machines[0])
+    input("")
 
 
 def main():
@@ -50,35 +105,39 @@ def main():
     # argument handling
     args = argument_parsing()
 
-    # read tokenized sentences
-    sentences = read_sentences(args.in_tokenized_sentences)
-    split_sentences = []
-    for sentence in sentences:
-        split_sentences.append(tokenize_line(sentence))
-    print(len(split_sentences))
+    inspector = None
+    if args.step_by_step:
+        inspector = simple_inspector
 
     # load parser
     start = time.time()
-    parser = AMRParser.from_checkpoint(args.in_checkpoint)
+    parser = AMRParser.from_checkpoint(args.in_checkpoint, inspector=inspector)
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to load parser: {time_secs}')
 
     # TODO: max batch sizes could be computed from max sentence length
+    if args.service:
 
-    # parse
-    start = time.time()
-    result = parser.parse_sentences(
-        split_sentences,
-        batch_size=args.batch_size,
-        roberta_batch_size=args.roberta_batch_size,
-    )
-    end = time.time()
-    print(len(result))
-    time_secs = timedelta(seconds=float(end-start))
-    print(f'Total time taken to parse sentences: {time_secs}')
+        # set orderd exit
+        signal.signal(signal.SIGINT, ordered_exit)
+        signal.signal(signal.SIGTERM, ordered_exit)
 
-    # write annotations
-    with open(args.out_amr, 'w') as fid:
-        for i in range(0, len(sentences)):
-            fid.write(result[i])
+        while True:
+            sentence = input("Write sentence:\n")
+            os.system('clear')
+            if not sentence.strip():
+                continue
+            result = parser.parse_sentences(
+                [sentence.split()],
+                batch_size=args.batch_size,
+                roberta_batch_size=args.roberta_batch_size,
+            )
+            # 
+            print(result[0])
+
+    else:
+
+        # Parse sentences
+        parse_sentences(parser, args.in_tokenized_sentences, args.batch_size, 
+                        args.roberta_batch_size, args.out_amr)
