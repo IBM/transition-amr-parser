@@ -13,7 +13,7 @@ set -o nounset
 DATA=DATA/AMR/
 ORACLE_TAG=o5+Word100
 PREPRO_TAG="RoBERTa-large-top24"
-TRAIN_TAG=stnp6x6-2
+TRAIN_TAG=stnp6x6
 # reference file
 AMR_DEV_FILE=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned
 
@@ -32,8 +32,8 @@ mkdir -p DATA.tests/
 # TODO: Remove extra arguments, read only folder checkpoint and deduce aregs
 # from it
 # run decoding
-# kernprof -l scripts/stack-transformer/parse.py \
-python scripts/stack-transformer/parse.py \
+# kernprof -l transition_amr_parser/parse.py \
+amr-parse \
     --in-tokenized-sentences $input_file \
     --in-checkpoint $checkpoints_dir/checkpoint_top3-average_SMATCH.pt \
     --roberta-batch-size 10 \
