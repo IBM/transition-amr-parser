@@ -182,7 +182,7 @@ class AMRParser():
         )
 
     @classmethod
-    def from_checkpoint(self, checkpoint):
+    def from_checkpoint(self, checkpoint, roberta_cache_path=None):
         '''
         Initialize model from checkpoint
         '''
@@ -206,7 +206,7 @@ class AMRParser():
         args.source_lang = 'en'
         args.target_lang = 'actions'
         args.path = checkpoint
-        args.roberta_cache_path = None
+        args.roberta_cache_path = roberta_cache_path
         dim = train_args['--pretrained-embed-dim'][0]
         args.model_overrides = \
             "{'pretrained_embed_dim':%s, 'task': 'translation'}" % dim
