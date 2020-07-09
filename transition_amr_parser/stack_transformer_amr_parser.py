@@ -331,7 +331,8 @@ class AMRParser():
         self.state_machine_batch.reset(
             src_tokens,
             src_lengths,
-            target_actions.shape[1]
+            target_actions.shape[1],
+            orig_tokens=sample['net_input']['orig_tokens']
         )
 
         # Reset model. This is to clean up the key/value cache in the decoder
