@@ -10,7 +10,7 @@ for checkpoint_config in ${@:1};do
 
     # Sanity checks
     [ "$(basename $checkpoint_config)" != "config.sh" ] && \
-        echo "Expected config under $checkpoint_config" && \
+        echo "$checkpoint_config should path to config.sh" && \
         exit 1
 
     # load config
