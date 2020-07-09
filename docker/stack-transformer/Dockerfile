@@ -15,7 +15,7 @@ ADD . /amr_parser
 WORKDIR /amr_parser
 
 # Model Location
-ENV MODEL_DIR "models/"
+ENV MODEL_DIR "models"
 
 # GRPC Port (so that it can be set during run time)
 ENV GRPC_PORT "50051"
@@ -41,4 +41,4 @@ RUN python3 -m spacy download en
 RUN python3 -m grpc_tools.protoc -I./service/stack-transformer/  --python_out=./service/stack-transformer/ --grpc_python_out=./service/stack-transformer/ ./service/stack-transformer/amr.proto
 
 # start the server
-CMD python3 -u service/stack-transformer/amr_server.py ${MODEL_DIR} --source-lang en --target-lang actions --path ${MODEL_DIR}model.pt --machine-type AMR --model-overrides "{'pretrained_embed_dim':1024, 'task': 'translation'}" --machine-rules ${MODEL_DIR}train.rules.json --pretrained-embed roberta.large --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 --batch-size 64 --roberta-batch-size 10 --roberta-cache-path ${ROBERTA_CACHE_PATH} --port ${GRPC_PORT}
+CMD python3 -u service/stack-transformer/amr_server.py --in-model ${MODEL_DIR}/model.pt --batch-size 64 --roberta-batch-size 10 --roberta-cache-path ${ROBERTA_CACHE_PATH} --port ${GRPC_PORT}

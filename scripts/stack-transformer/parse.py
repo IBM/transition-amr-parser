@@ -1,58 +1,82 @@
 import time
+import argparse
 from datetime import timedelta
-
-from fairseq import options, utils
 from fairseq.tokenizer import tokenize_line
-
 from transition_amr_parser.io import read_sentences
 from transition_amr_parser.stack_transformer_amr_parser import AMRParser
 
 
-def add_standalone_arguments(parser):
-    parser.add_argument(
-        "--roberta_batch_size",
-        help="Batch size to compute roberta embeddings",
-        default=20,
-        type=int
+def argument_parsing():
+
+    # Argument hanlding
+    parser = argparse.ArgumentParser(
+        description='Call parser from the command line'
     )
     parser.add_argument(
-        "--roberta-cache-path",
-        help="Path to the roberta large model",
-        type=str
+        '-i', '--in-tokenized-sentences',
+        type=str,
+        required=True,
+        help='File with one __tokenized__ sentence per line'
     )
     parser.add_argument(
-        "--out-amr",
-        help="Path to the file where AMR will be tored",
-        type=str
+        '-c', '--in-checkpoint',
+        type=str,
+        required=True,
+        help='one fairseq model checkpoint (or various, separated by :)'
     )
-    # for pretrained external embeddings
-    parser.add_argument("--pretrained-embed", default='roberta.base',
-                        help="Type of pretrained embedding")
-    # NOTE: Previous default "17 18 19 20 21 22 23 24"
-    parser.add_argument('--bert-layers', nargs='+', type=int,
-                        help='RoBERTa layers to extract (default last)')
+    parser.add_argument(
+        '-o', '--out-amr',
+        type=str,
+        required=True,
+        help='File to store AMR in PENNMAN format'
+    )
+    parser.add_argument(
+        '--roberta-batch-size',
+        type=int,
+        default=10,
+        help='Batch size for roberta computation (watch for OOM)'
+    )
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=128,
+        help='Batch size for decoding (excluding roberta)'
+    )
+    return parser.parse_args()
 
 
-def main(args):
+def main():
 
-    # TODO: Consider getting rid of this and manually loading needed stuff if
-    # the overhead is big. LEave otheriwse
-    utils.import_user_module(args)
+    # argument handling
+    args = argument_parsing()
 
-    sentences = read_sentences(args.input)
+    # read tokenized sentences
+    sentences = read_sentences(args.in_tokenized_sentences)
     split_sentences = []
     for sentence in sentences:
         split_sentences.append(tokenize_line(sentence))
     print(len(split_sentences))
+
+    # load parser
     start = time.time()
-    parser = AMRParser(args)
+    parser = AMRParser.from_checkpoint(args.in_checkpoint)
     end = time.time()
-    print(f'Total time taken to load parser: {timedelta(seconds=float(end-start))}')
+    time_secs = timedelta(seconds=float(end-start))
+    print(f'Total time taken to load parser: {time_secs}')
+
+    # TODO: max batch sizes could be computed from max sentence length
+
+    # parse
     start = time.time()
-    result = parser.parse_sentences(split_sentences)
+    result = parser.parse_sentences(
+        split_sentences,
+        batch_size=args.batch_size,
+        roberta_batch_size=args.roberta_batch_size,
+    )
     end = time.time()
     print(len(result))
-    print(f'Total time taken to parse sentences: {timedelta(seconds=float(end-start))}')
+    time_secs = timedelta(seconds=float(end-start))
+    print(f'Total time taken to parse sentences: {time_secs}')
 
     # write annotations
     with open(args.out_amr, 'w') as fid:
@@ -60,15 +84,5 @@ def main(args):
             fid.write(result[i])
 
 
-# TODO: Get rid of options parser from fairseq and task loading if it
-# represents a big overhead
-def cli_main():
-    parser = options.get_interactive_generation_parser()
-    options.add_optimization_args(parser)
-    add_standalone_arguments(parser)
-    args = options.parse_args_and_arch(parser)
-    main(args)
-
-
 if __name__ == '__main__':
-    cli_main()
+    main()
