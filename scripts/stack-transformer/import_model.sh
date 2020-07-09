@@ -27,7 +27,10 @@ LOCAL_FOLDER=DATA/AMR/
     # --seed-average && \
 
 # name of folder where checlpoints are
-model_folder=$EXTERNAL_FOLDER/models/$model_folder_name/
+#model_folder=$EXTERNAL_FOLDER/models/$model_folder_name/
+model_folder=$model_folder_name
+# This assumes oracle/features/model structure is respected
+source_folder=$(dirname $(dirname $model_folder))
 
 # Load config
 [ ! -f "$model_folder/config.sh" ] && \
@@ -37,9 +40,9 @@ model_folder=$EXTERNAL_FOLDER/models/$model_folder_name/
 . "$model_folder/config.sh"
 
 # Check of model exists in remote
-source_oracle_folder="$EXTERNAL_FOLDER/oracles/${ORACLE_TAG}/"
-source_features_folder="$EXTERNAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/"
-source_checkpoints_dir_root="$EXTERNAL_FOLDER/models/$model_folder_name"
+source_oracle_folder="$source_folder/oracles/${ORACLE_TAG}/"
+source_features_folder="$source_folder/features/${ORACLE_TAG}_${PREPRO_TAG}/"
+source_checkpoints_dir_root=$model_folder_name
 
 target_oracle_folder="$LOCAL_FOLDER/oracles/${ORACLE_TAG}/"
 target_features_folder="$LOCAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/"
