@@ -610,6 +610,7 @@ class AMR_Oracle:
         If the gold node label is different from the assigned label,
         return the gold label.
         """
+        entities_with_preds = ['thing','person']
 
         if not transitions.stack:
             return False
@@ -620,7 +621,7 @@ class AMR_Oracle:
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
 
         # TODO: What is the logic here?
-        if 'DEPENDENT' not in transitions.actions[-1] and len(tok_alignment) != 1:
+        if 'DEPENDENT' not in transitions.actions[-1] and not any(gold_amr.nodes[n] in entities_with_preds for n in tok_alignment) and len(tok_alignment) != 1:
             return False
 
         # TODO: What is the logic here?
@@ -629,8 +630,15 @@ class AMR_Oracle:
 
         if len(tok_alignment) == 1:
             gold_id = tok_alignment[0]
-        else:
+        elif 'DEPENDENT' in transitions.actions[-1]:
             gold_id = gold_amr.findSubGraph(tok_alignment).root
+        else:
+            if len(tok_alignment) != 2:
+                return False
+            for n in tok_alignment:
+                if gold_amr.nodes[n] not in entities_with_preds:
+                    gold_id = n
+
         isPred = stack0 not in transitions.is_confirmed
 
         if isPred:
@@ -926,6 +934,19 @@ class AMR_Oracle:
 
         # FIXME: state altering code should be outside of tryACTION
         final_nodes = [n for n in tok_alignment if not any(s == n for s, r, t in edges)]
+        # Fixes :rel
+        gold_src = 0
+        for s, r, t in gold_amr.edges:
+            if s in final_nodes:
+                gold_src += 1
+        pred_src = 0
+        for s, r, t in amr.edges:
+            if s == stack0:
+                pred_src += 1
+
+        if pred_src < gold_src:
+            return False
+
         new_nodes = [gold_amr.nodes[n] for n in tok_alignment if n not in final_nodes]
         self.entity_type = ','.join(new_nodes)
         self.possibleEntityTypes[self.entity_type] += 1
@@ -956,8 +977,16 @@ class AMR_Oracle:
         else:
             target = y_alignment[0]
 
+        entities_with_preds = ["(thing)","(person)"]
+        sources = [nid for nid in x_alignment]
+        if len(x_alignment) > 1:
+            if x in self.transitions[-1].entities: 
+                sources = [source]
+            else:
+                sources.remove(source)
+
         for s, r, t in gold_amr.edges:
-            if source == s and target == t:
+            if s in sources and target == t:
                 # check if already assigned
                 if (x, r, y) not in amr.edges:
                     return True, r
