@@ -134,6 +134,8 @@ def main():
                 roberta_batch_size=args.roberta_batch_size,
             )
             # 
+            os.system('clear')
+            print('\n')
             print(result[0])
 
     else:
