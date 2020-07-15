@@ -177,7 +177,6 @@ class AMRStateMachine:
             else:
                 setattr(result, k, deepcopy(v, memo))
             # print(k, time.time() - start)
-        # import ipdb; ipdb.set_trace(context=30)
         return result
 
     def get_buffer_stack_copy(self): 
@@ -801,12 +800,15 @@ class AMRStateMachine:
 
     def ENTITY(self, entity_type):
         """ENTITY : create a named entity"""
-
         head = self.stack[-1]
         child_id = self.new_id
         self.new_id += 1
 
         if self.amr_graph:
+            # Fixes :rel
+            for (i,(s,l,t)) in enumerate(self.amr.edges):
+                if s == head:
+                    self.amr.edges[i] = (child_id,l,t)
             self.amr.nodes[child_id] = self.amr.nodes[head]
             self.amr.nodes[head] = f'({entity_type})'
             self.amr.edges.append((head, 'entity', child_id))
@@ -1025,7 +1027,8 @@ class AMRStateMachine:
         # connect graph
         if len(disconnected) > 0:
             for n in disconnected:
-                self.amr.edges.append((self.amr.root, default_rel, n))
+                if n not in descendents[self.amr.root]:
+                    self.amr.edges.append((self.amr.root, default_rel, n))
 
     def postprocessing_training(self, gold_amr):
 
@@ -1060,7 +1063,6 @@ class AMRStateMachine:
 
     def postprocessing(self, gold_amr):
         global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
-
         if not entity_rules_json:
             with open(entities_path, 'r', encoding='utf8') as f:
                 entity_rules_json = json.load(f)
@@ -1262,6 +1264,19 @@ class AMRStateMachine:
                     if concept in new_concepts:
                         idx = new_concepts.index(concept)
                         new_concepts[idx] = r + ' ' + new_concepts[idx]
+
+                # Fixes :rel
+                leaf = None
+                srcs = [None]
+                for s, r, t in edges:
+                    srcs.append(s)
+                    if leaf in srcs and t not in srcs:
+                        leaf = t
+                if leaf != None:
+                    for (i,e) in enumerate(self.amr.edges):
+                        if e[0] == child_id:
+                            self.amr.edges[i] = (id_map[leaf],e[1],e[2])
+
                 if gold_amr and set(gold_concepts) == set(new_concepts):
                     entity_rule_stats['fixed'] += 1
                 else:
@@ -1291,6 +1306,7 @@ class AMRStateMachine:
                     self.amr.nodes[id_map[n]] = node_map[node_label] if node_label in node_map else node_label
                     self.alignments[id_map[n]] = model_entity_alignments
                     new_concepts.append(self.amr.nodes[id_map[n]])
+
                 for s, r, t in edges:
                     node_label = self.amr.nodes[id_map[t]]
                     if 'date-entity' not in entity_type and (node_label.isdigit() or node_label in ['many', 'few', 'some', 'multiple', 'none']):
@@ -1300,6 +1316,19 @@ class AMRStateMachine:
                     if concept in new_concepts:
                         idx = new_concepts.index(concept)
                         new_concepts[idx] = r + ' ' + new_concepts[idx]
+
+                # Fixes :rel
+                leaf = None
+                srcs = [None]
+                for s, r, t in edges:
+                    srcs.append(s)
+                    if leaf in srcs and t not in srcs:
+                        leaf = t
+                if leaf != None:
+                    for (i,e) in enumerate(self.amr.edges):
+                        if e[0] == child_id:
+                            self.amr.edges[i] = (id_map[leaf],e[1],e[2])
+
                 if gold_amr and set(gold_concepts) == set(new_concepts):
                     entity_rule_stats['var'] += 1
                 else:
@@ -1334,6 +1363,19 @@ class AMRStateMachine:
                         if concept in new_concepts:
                             idx = new_concepts.index(concept)
                             new_concepts[idx] = r + ' ' + new_concepts[idx]
+
+                    # Fixes rel:
+                    leaf = None
+                    srcs = [None]
+                    for s, r, t in edges:
+                        srcs.append(s)
+                        if leaf in srcs and t not in srcs:
+                            leaf = t
+                    if leaf != None:
+                        for (i,e) in enumerate(self.amr.edges):
+                            if e[0] == child_id:
+                                self.amr.edges[i] = (id_map[leaf],e[1],e[2])
+
                 else:
                     nodes = entity_type.split(',')
                     nodes.remove('name')
@@ -1389,11 +1431,25 @@ class AMRStateMachine:
                 self.alignments[new_id] = model_entity_alignments
                 self.new_id += 1
                 if idx > 0:
+                    # Fixes rel:
+                    for (i,e) in enumerate(self.amr.edges):
+                        if e[0] == prev_id:
+                            self.amr.edges[i] = (new_id,e[1],e[2])
+
                     self.amr.edges.append((prev_id, default_rel, new_id))
                     new_concepts.append(default_rel+' ' + node)
                 else:
                     new_concepts.append(node)
+                idx += 1
                 prev_id = new_id
+
+            for (i,e) in enumerate(self.amr.edges):
+                if e[0] == child_id:
+                    if (prev_id,e[1],e[2]) not in self.amr.edges:
+                        self.amr.edges[i] = (prev_id,e[1],e[2])
+                    else:
+                        del self.amr.edges[i]
+
             for tok in entity_tokens:
                 tok = tok.replace('"', '')
                 if tok in ['(', ')', '']:
