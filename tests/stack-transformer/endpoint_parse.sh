@@ -8,38 +8,25 @@ set -o nounset
     echo "Please call this as bash tests/stack-transformer/endpoint_parse.sh" && \
     exit 1
 
-# set data to be used
-# DATA=/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/
-DATA=DATA/AMR/
-ORACLE_TAG=o5+Word100
-PREPRO_TAG="RoBERTa-large-top24"
-TRAIN_TAG=stnp6x6
-# reference file
-AMR_DEV_FILE=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned
+# QALD
+gold_amr=/dccstor/ysuklee1/AMR/treebank/QB20200305/qald_dev2_pass3.jaln
+checkpoint=/dccstor/ykt-parse/revanth/analysis/deployed_models/QALD_TACL_Tahira_fix/model.pt
+dev_tokenized_sentences=/dccstor/ykt-parse/revanth/oracles/qbqaldlargefinetune_o5+Word100/dev.en
 
-input_file=${DATA}/oracles/$ORACLE_TAG/dev.en
-
-# Set model to be used
-# features_folder=${DATA}/features/qaldlarge_extracted/
-# checkpoints_dir=${DATA}/models/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/
-features_folder=${DATA}/features/${ORACLE_TAG}_${PREPRO_TAG}
-checkpoints_dir=${DATA}/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}-seed42/
+# LDC
+#gold_amr=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/dev.txt.removedWiki.noempty.JAMRaligned
 
 # folder where we write data
 rm -f DATA.tests/endpoint.amr DATA.tests/endpoint.smatch
 mkdir -p DATA.tests/
 
-# TODO: Remove extra arguments, read only folder checkpoint and deduce aregs
-# from it
-# run decoding
 # kernprof -l transition_amr_parser/parse.py \
 amr-parse \
-    --in-tokenized-sentences $input_file \
-    --in-checkpoint $checkpoints_dir/checkpoint_top3-average_SMATCH.pt \
+    --in-tokenized-sentences $dev_tokenized_sentences \
+    --in-checkpoint $checkpoint \
     --roberta-batch-size 10 \
     --batch-size 128 \
     --out-amr DATA.tests/endpoint.amr
-
 # python -m line_profiler parse.py.lprof
  
 # FIXME: removed for debugging
@@ -47,7 +34,7 @@ amr-parse \
 
 smatch.py \
      --significant 4  \
-     -f $AMR_DEV_FILE \
+     -f $gold_amr \
      DATA.tests/endpoint.amr \
      -r 10 \
      > DATA.tests/endpoint.smatch
