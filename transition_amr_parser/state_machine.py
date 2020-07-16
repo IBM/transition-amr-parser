@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from copy import deepcopy
 
 import spacy
@@ -86,6 +86,46 @@ def get_spacy_lemmatizer():
         lemmatizer = spacy.load('en', disable=['parser', 'ner'])
     lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
     return lemmatizer
+
+
+def get_graph_str(amr, alignments):
+
+    # nodes
+    graph_str = ''
+    nodes = []
+    for stack0, token_pos in alignments.items():
+        if stack0 in amr.nodes:
+            nodes.append(stack0)
+    
+    # directed edges
+    child2parents = defaultdict(list)        
+    parent2child = defaultdict(list)        
+    edge_labels = {}
+    for parent, label, child in amr.edges:
+        child2parents[child].append(parent)
+        parent2child[parent].append(child)
+        edge_labels[(parent, child)] = label
+    
+    # root nodes
+    root_nodes = [node for node in nodes if node not in child2parents]
+    
+    # transverse depth first and print graph
+    pad = '    '
+    for node in root_nodes:
+        graph_str += f'{amr.nodes[node]}\n'
+        path = [node]
+        while path:
+            if len(parent2child[path[-1]]):
+                new_node = parent2child[path[-1]].pop()
+                depth = len(path) 
+                edge = blue_font(edge_labels[(path[-1], new_node)])
+                graph_str += f'{pad*depth} {edge} {amr.nodes[new_node]}\n'
+                path.append(new_node)
+            else:
+                # leaf found
+                path.pop()
+
+    return graph_str
 
 
 class AMRStateMachine:
@@ -255,23 +295,15 @@ class AMRStateMachine:
                 tokens = " ".join(self.tokens[p] for p in token_pos)
             else:
                 tokens = self.tokens[token_pos]
-            node_items.append(f'({tokens}, {node})')
-        nodes_str = " ".join(node_items)
+            node_items.append(f'{tokens} | {node}')
+        nodes_str = "  ".join(node_items)
         # update display str
-        display_str += "%s\n%s\n\n" % (green_font("# Predicates:"), nodes_str)
+        display_str += "%s\n%s\n\n" % (green_font("# Alignments:"), nodes_str)
 
-        # Edges
+        # Graph 
+        display_str += green_font("# Graph:\n")
         if self.amr_graph:
-            edges_str = []
-            for items in self.amr.edges:
-                i, label, j = items
-                edges_str.append(
-                    "%s %s %s" %
-                    (self.amr.nodes[i], blue_font(label), self.amr.nodes[j])
-                )
-            edges_str = ", ".join(edges_str)
-            # update display str
-            display_str += "%s\n%s\n" % (green_font("# Edges:"), edges_str)
+            display_str += get_graph_str(self.amr, self.alignments)
 
         return display_str
 
