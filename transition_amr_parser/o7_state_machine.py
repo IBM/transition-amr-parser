@@ -102,27 +102,73 @@ def get_spacy_lemmatizer():
 
 
 class AMRStateMachine:
-    def __init__(self, tokens, verbose=False, add_unaligned=0,
+    """AMR state machine. For a token sequence, run a series of actions and build an AMR graph as a result.
+
+    Args:
+        tokens (List[str]): a sequence of tokens. Default: None
+        tokseq_len (int): token sequence length; only used under `canonical_mode`. Default: None
+        canonical_mode (bool): whether to 1) run the state machine with canonical actions, and 2) without generating
+            the AMR graph along the way, and 3) under this mode we can only provide the token sequence length
+            (including the ending "<ROOT>" token) instead of feeding the actual token sequence.
+            This will run the machine with minimum operations, by ignoring the detailed labels
+            associated with each action and only keep the internal token cursor and canonical action history states.
+            This is used during action sequence generation (e.g. beam search from a model) to do sanity check for next
+            actions to restrict the action space. Default: False
+
+    Note:
+        - currently, token sequence should always have "<ROOT>" as the last token; although we add it if not existing,
+          we recommend providing it from the input to be better orgainized, and
+        - under the `canonical_mode`, when inputting the token sequence length, it should be the length including the
+          ending "<ROOT>" token.
+    """
+    # canonical actions without the detailed node/edge labels and action properties (e.g. arc pointer value)
+    canonical_actions = ['REDUCE',
+                         'MERGE',
+                         'ENTITY', 'PRED', 'COPY_LEMMA', 'COPY_SENSE01',    # add new node
+                         'DEPENDENT',
+                         'LA', 'RA',
+                         'SHIFT',
+                         'LA(root)',    # specific on the "<ROOT>" node
+                         'CLOSE']
+
+    def __init__(self, tokens=None, tokseq_len=None, verbose=False, add_unaligned=0,
                  actions_by_stack_rules=None, amr_graph=True,
+                 canonical_mode=False,
                  spacy_lemmatizer=None):
         # TODO verbose not used, actions_by_stack_rules not used
-        # word tokens of sentence
-        self.tokens = tokens.copy()
 
-        # build and store amr graph (needed e.g. for oracle)
-        self.amr_graph = amr_graph
+        # check for canonical mode
+        assert tokens is not None or (canonical_mode and tokseq_len is not None)
+        if canonical_mode:
+            amr_graph = False
+            # spacy_lemmatizer = None
 
-        # spacy lemmatizer
-        self.spacy_lemmatizer = spacy_lemmatizer
-        self.lemmas = None
+        self.canonical_mode = canonical_mode
+        self.actions_canonical = []    # used in canonical mode
+        self.actions_nodemask = []     # used in canonical mode
 
-        # add unaligned to the token sequence
-        if add_unaligned and '<unaligned>' not in self.tokens:
-            for i in range(add_unaligned):
-                self.tokens.append('<unaligned>')
-        # add root to the token sequence
-        if '<ROOT>' not in self.tokens:
-            self.tokens.append("<ROOT>")
+        if tokens is not None:
+            # word tokens of sentence
+            self.tokens = tokens.copy()
+
+            # spacy lemmatizer
+            # TODO change this to be created inside, by having spacy_lemmatizer as a bool flag.
+            # ASK Ramon if there is a special reason
+            self.spacy_lemmatizer = spacy_lemmatizer
+            self.lemmas = None
+
+            # add unaligned to the token sequence
+            if add_unaligned and '<unaligned>' not in self.tokens:
+                for i in range(add_unaligned):
+                    self.tokens.append('<unaligned>')
+            # add root to the token sequence
+            if '<ROOT>' not in self.tokens:
+                self.tokens.append("<ROOT>")
+
+            self.tokseq_len = len(self.tokens)    # this includes the '<ROOT>', which is not treated specially
+        else:
+            self.tokens = None
+            self.tokseq_len = tokseq_len
 
         # machine is active
         self.time_step = 0
@@ -131,7 +177,9 @@ class AMRStateMachine:
 
         # init current processing position in the token sequence
         self.tok_cursor = 0
-        self.tokseq_len = len(self.tokens)    # this includes the '<ROOT>', which is not treated specially
+
+        # build and store amr graph (needed e.g. for oracle)
+        self.amr_graph = amr_graph
 
         # init amr
         self.tokid_to_nodeid = [0] * self.tokseq_len
@@ -155,7 +203,7 @@ class AMRStateMachine:
         self.nodeid_to_tokid = {n: i for i, n in enumerate(self.tokid_to_nodeid)}
 
         # initial node ids are the token indices, and new nodes are given ids counting from there
-        self.new_id = len(self.tokens)
+        self.new_id = self.tokseq_len
 
         # action sequence and parser AMR target output
         self.actions = []
@@ -169,6 +217,27 @@ class AMRStateMachine:
         self.is_confirmed.add(self.root_id)
         self.merged_tokens = {}                    # keys are token ids of the last merged token
         self.entities = []                         # node ids
+
+    def __deepcopy__(self, memo):
+        """
+        Manual deep copy of the machine
+
+        avoid deep copying spacy lemmatizer
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        # DEBUG: usew this to detect very heavy constants that can be referred
+        # import time
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            # start = time.time()
+            if k in ['spacy_lemmatizer', 'actions_by_stack_rules']:
+                setattr(result, k, v)
+            else:
+                setattr(result, k, deepcopy(v, memo))
+            # print(k, time.time() - start)
+        # import ipdb; ipdb.set_trace(context=30)
+        return result
 
     @property
     def current_node_id(self):
@@ -211,11 +280,15 @@ class AMRStateMachine:
             # contains 'RA'
 
             # arcs have format 'LA(pos,label)' and 'RA(pos,label)'
+            # for pointer peeled format, we have 'LA(label)' and 'RA(label)', where we return the pointer as -1
             # root arc is 'LA(pos,root)' if '<ROOT>' token at the end
 
             items = action.split('(')
             arc_name = items[0]
             arc_args = items[1][:-1].split(',')
+            if len(arc_args) == 1:
+                # no pos provided
+                return arc_name, (-1, arc_args[0])
             arc_pos = int(arc_args[0])
             arc_label = arc_args[1]
             return arc_name, (arc_pos, arc_label)
@@ -229,13 +302,196 @@ class AMRStateMachine:
             else:
                 props = [arg_string]
 
-            # To keep original name to keep learner happy
-            if action_label == 'DEPENDENT':
-                action_label = action
+            # TODO check if closing this (for functionality consistency) would cause any problem
+            # # To keep original name to keep learner happy
+            # if action_label == 'DEPENDENT':
+            #     action_label = action
 
             return action_label, props
 
+    @classmethod
+    def canonical_action_form(cls, action):
+        """Get the canonical form of an action with labels/properties."""
+        if action in cls.canonical_actions:
+            return action
+        action, properties = cls.read_action(action)
+        if action.startswith('LA'):
+            if properties[1] == 'root':
+                action = 'LA(root)'
+        # assert action in cls.canonical_actions
+        return action
+
+    @classmethod
+    def canonical_action_to_dict(cls, vocab):
+        """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
+
+        CLOSE is mapped to eos </s> token.
+        """
+        canonical_act_ids = dict()
+        vocab_act_count = 0
+        for i in range(len(vocab)):
+            # NOTE can not direct use "for act in vocab" -> this will never stop since no stopping iter implemented
+            act = vocab[i]
+            cano_act = cls.canonical_action_form(act) if i != vocab.eos() else 'CLOSE'
+            if cano_act in cls.canonical_actions:
+                vocab_act_count += 1
+                canonical_act_ids.setdefault(cano_act, []).append(i)
+        # print for debugging
+        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
+        return canonical_act_ids
+
+    def get_valid_canonical_actions(self):
+        """Get valid actions at the current step, based on input tokens and the action history up to now.
+
+        We only return the prefix of the action (action labels, or canonical actions), which could be mapped to detailed
+        actions.
+        """
+        if self.canonical_mode:
+            past_actions = self.actions_canonical
+            actions_nodemask = self.actions_nodemask
+        else:
+            past_actions = self.actions
+            actions_nodemask = map(lambda x: 0 if x is None else 1, self.actions_to_nodes)
+
+        gen_node_actions = ['ENTITY', 'PRED', 'COPY_LEMMA', 'COPY_SENSE01']
+        gen_arc_actions = ['LA', 'RA']
+        pre_node_actions = ['REDUCE'] + gen_node_actions + ['MERGE']    # dependent on the remaining number of tokens
+        post_node_actions = ['DEPENDENT', 'SHIFT', 'LA', 'RA']
+        post_merge_actions = gen_node_actions + ['MERGE']
+        post_arc_actions = gen_arc_actions + ['SHIFT']
+        cursor_moving_actions = ['REDUCE', 'MERGE', 'SHIFT']
+        close_actions = ['CLOSE']
+        root_token_actions = ['LA(root)', 'SHIFT']
+
+        if self.tok_cursor == 0:
+            # at the beginning
+            if past_actions == []:
+                # the first action
+                if self.tokseq_len == 1:
+                    raise ValueError('<ROOT> is always included, thus the token sequence length is at least 2.')
+                    # cano_actions = ['REDUCE'] + new_node_actions
+                else:
+                    cano_actions = pre_node_actions
+            else:
+                # has previous action
+                prev_action = self.canonical_action_form(past_actions[-1])
+                assert prev_action not in cursor_moving_actions, 'impossible at the first tokens position'
+                if self.tokseq_len == 1:
+                    raise ValueError('<ROOT> is always included, thus the token sequence length is at least 2.')
+                else:
+                    if prev_action in gen_node_actions + ['DEPENDENT']:
+                        cano_actions = post_node_actions
+                    elif prev_action in gen_arc_actions:
+                        cano_actions = post_arc_actions
+                    elif prev_action in ['MERGE']:
+                        cano_actions = post_merge_actions
+                    elif prev_action in ['REDUCE', 'SHIFT']:
+                        cano_actions = pre_node_actions
+                    else:
+                        raise ValueError('unallowed previous action sequence.')
+        elif self.tok_cursor == self.tokseq_len - 1:    # at least 1, since self.tokseq_len is at least 2
+            assert past_actions, 'impossible to move to the last token position with empty action sequence'
+            # currently pointing to the '<ROOT>' token
+            prev_action = self.canonical_action_form(past_actions[-1])
+            if prev_action == 'LA(root)':
+                cano_actions = ['SHIFT']
+            elif prev_action == 'SHIFT':
+                # need to know if it's SHIFT at the last position or SHIFT from previous position
+                # the last SHIFT could only have preceding actions being LA(root), SHIFT, REDUCE, which
+                # are all not possible on previous SHIFT, since if not on the last <ROOT> node, there must be
+                # some action to add a node before a SHIFT action (between SHIFT SHIFT or REDUCE SHIFT).
+                prev_prev_action = self.canonical_action_form(past_actions[-2])
+                if prev_prev_action in ['SHIFT', 'REDUCE']:
+                    shift_on_last = True
+                elif prev_prev_action == 'LA(root)':
+                    shift_on_last = True
+                else:
+                    shift_on_last = False
+                if shift_on_last:
+                    cano_actions = close_actions
+                else:
+                    # just reached the last <ROOT> token via SHIFT
+                    cano_actions = root_token_actions
+            else:
+                # just reached the last <ROOT> token via all the other actions
+                cano_actions = root_token_actions
+        else:
+            # not the first token, not the last root token
+            # the token sequence length is at least 3 here, and 0 < self.tok_cursor < self.tokseq_len - 1
+            prev_action = self.canonical_action_form(past_actions[-1])
+            if prev_action in gen_node_actions + ['DEPENDENT']:
+                cano_actions = post_node_actions
+            elif prev_action in gen_arc_actions:
+                cano_actions = post_arc_actions
+            elif prev_action in ['MERGE']:
+                cano_actions = post_merge_actions
+            elif prev_action in ['REDUCE', 'SHIFT']:
+                cano_actions = pre_node_actions
+            else:
+                raise ValueError('unallowed previous action sequence.')
+
+        # modify for special cases for MERGE
+        if self.tok_cursor + 1 == self.tokseq_len - 1:
+            # next token is the '<ROOT>' token
+            if 'MERGE' in cano_actions:
+                # NOTE the cano_actions list should not have duplicated entries
+                cano_actions.remove('MERGE')
+
+        # modify for arc actions based on the number of previous generated nodes
+        num_prev_nodes = sum(actions_nodemask)
+        if num_prev_nodes < 2:
+            # for LA and RA there must have been at least 2 nodes generated (current one included)
+            cano_actions = list(filter(lambda x: x not in gen_arc_actions, cano_actions))
+        if num_prev_nodes < 1:
+            # for LA(root) there must have been at least 1 node generated (root node is by default there)
+            if 'LA(root)' in cano_actions:
+                # NOTE the cano_actions list should not have duplicated entries
+                cano_actions.remove('LA(root)')
+                # cano_actions = list(filter(lambda x: x != 'LA(root)', cano_actions))
+
+        return cano_actions
+
+    def apply_canonical_action(self, action):
+        assert self.canonical_mode
+        assert action in self.canonical_actions
+
+        # check ending
+        if self.is_postprocessed:
+            assert self.is_closed, '"is_closed" flag must be raised before "is_postprocessed" flag'
+            print('AMR state machine: completed --- no more actions can be applied.')
+            return
+        else:
+            if self.is_closed:
+                assert action == 'CLOSE', 'AMR state machine: token sequence finished --- only CLOSE action ' \
+                                          'can be applied for AMR postprocessing'
+
+        # apply action: only move token cursor, and record the executed action
+        if action in ['SHIFT', 'REDUCE', 'MERGE']:
+            self._shift()
+            self.actions_nodemask.append(0)
+        elif action in ['PRED', 'COPY_LEMMA', 'COPY_SENSE01', 'ENTITY']:
+            self.actions_nodemask.append(1)
+        elif action in ['DEPENDENT']:
+            self.actions_nodemask.append(0)    # TODO arc to dependent node is disallowed now. discuss
+        elif action in ['LA', 'RA', 'LA(root)']:
+            self.actions_nodemask.append(0)
+        elif action == 'CLOSE':
+            self._close()
+            self.is_postprocessed = True    # do nothing for postprocessing in canonical mode
+            self.actions_nodemask.append(0)
+        else:
+            raise Exception(f'Unrecognized canonical action: {action}')
+
+        self.actions_canonical.append(action)
+
+        # Increase time step
+        self.time_step += 1
+
+        return
+
     def apply_action(self, action):
+        assert not self.canonical_mode, 'Should not be in the canonical mode to apply detailed actions with labels'
+
         # read in action and properties
         action_label, properties = self.read_action(action)
 
@@ -246,7 +502,7 @@ class AMRStateMachine:
             return
         else:
             if self.is_closed:
-                assert action_label == 'CLOSE', 'AMR state machine: token sequence finished --- only CLOSE action' \
+                assert action_label == 'CLOSE', 'AMR state machine: token sequence finished --- only CLOSE action ' \
                                                 'can be applied for AMR postprocessing'
 
         # apply action
@@ -307,6 +563,8 @@ class AMRStateMachine:
 
     def _postprocessing(self, training=False, gold_amr=None):
         # TODO this part of postprocessing code untouched and unorganized; minimally modified previous code
+        if self.is_postprocessed:
+            return
         if self.amr_graph:
             if training:
                 self.postprocessing_training(gold_amr)
@@ -316,7 +574,8 @@ class AMRStateMachine:
             # do not do multiple close, cuz of this
             self.convert_state_machine_alignments_to_amr_alignments()
             self.connectGraph()
-        pass
+        self.is_postprocessed = True
+        return
 
     def REDUCE(self):
         """REDUCE : delete token when there is no alignment"""
@@ -512,7 +771,7 @@ class AMRStateMachine:
 
     def RA(self, pos, label):
         """RA : add an arc from a previous node (linked with a previous action) to the current node"""
-        edge_label = label if label.startswith(':') else (':'+label if label != 'root' else 'root')
+        edge_label = label if label.startswith(':') else (':' + label if label != 'root' else 'root')
         if self.amr_graph:
             if edge_label == 'root':
                 # note: in principle, '<ROOT>' token can be at any position
@@ -528,7 +787,7 @@ class AMRStateMachine:
 
     def postprocessing_training(self, gold_amr):
 
-#         import pdb; pdb.set_trace()
+        #         import pdb; pdb.set_trace()
 
         for entity_id in self.entities:
 
@@ -582,7 +841,7 @@ class AMRStateMachine:
                     for s, r, t in gold_entity_subgraph.edges:
                         if t == n:
                             edge = r
-                            gold_concepts.append(edge+' '+node)
+                            gold_concepts.append(edge + ' ' + node)
             # -------------------------------------------
 
             new_concepts = []
@@ -658,7 +917,7 @@ class AMRStateMachine:
                                 entity_tokens[idx] = 'today'
                             elif tok.lower() == 'last':
                                 entity_tokens[idx] = 'yesterday'
-                        idx = j-1
+                        idx = j - 1
                         if idx >= 0 and entity_tokens[idx].lower() == 'one':
                             assigned_edges[idx] = ':quant'
                         continue
@@ -671,7 +930,8 @@ class AMRStateMachine:
                         continue
 
                     months = entity_rules_json['normalize']['months']
-                    if tok.lower() in months or len(tok.lower()) == 4 and tok.lower().endswith('.') and tok.lower()[:3] in months:
+                    if tok.lower() in months or len(tok.lower()) == 4 and tok.lower().endswith(
+                            '.') and tok.lower()[:3] in months:
                         if ':month' in assigned_edges:
                             idx = assigned_edges.index(':month')
                             if entity_tokens[idx].isdigit():
@@ -680,11 +940,12 @@ class AMRStateMachine:
                         continue
                     ntok = self.normalize_token(tok)
                     if ntok.isdigit():
-                        if j+1 < len(entity_tokens) and entity_tokens[j+1].lower() == 'century':
+                        if j + 1 < len(entity_tokens) and entity_tokens[j + 1].lower() == 'century':
                             assigned_edges[j] = ':century'
                             continue
                         if 1 <= int(ntok) <= 12 and ':month' not in assigned_edges:
-                            if not (tok.endswith('th') or tok.endswith('st') or tok.endswith('nd') or tok.endswith('nd')):
+                            if not (tok.endswith('th') or tok.endswith('st')
+                                    or tok.endswith('nd') or tok.endswith('nd')):
                                 assigned_edges[j] = ':month'
                                 continue
                         if 1 <= int(ntok) <= 31 and ':day' not in assigned_edges:
@@ -712,7 +973,8 @@ class AMRStateMachine:
                 self.amr.nodes[entity_id] = 'date-entity'
                 new_concepts.append('date-entity')
                 for tok, rel in zip(entity_tokens, assigned_edges):
-                    if tok.lower() in ['-comma-',  'of', 'the', 'in', 'at', 'on', 'century', '-', '/', '', '(', ')', '"']:
+                    if tok.lower() in ['-comma-', 'of', 'the', 'in', 'at',
+                                       'on', 'century', '-', '/', '', '(', ')', '"']:
                         continue
                     tok = tok.replace('"', '')
                     if rel in [':year', ':decade']:
@@ -730,17 +992,17 @@ class AMRStateMachine:
                         self.amr.nodes[self.new_id] = tok.lower()
                     self.amr.edges.append((entity_id, rel, self.new_id))
                     self.alignments[self.new_id] = model_entity_alignments
-                    new_concepts.append(rel+' '+self.amr.nodes[self.new_id])
+                    new_concepts.append(rel + ' ' + self.amr.nodes[self.new_id])
                     self.new_id += 1
                 if gold_amr and set(gold_concepts) == set(new_concepts):
                     entity_rule_stats['date-entity'] += 1
                 entity_rule_totals['date-entity'] += 1
                 continue
 
-            rule = entity_type+'\t'+','.join(entity_tokens).lower()
+            rule = entity_type + '\t' + ','.join(entity_tokens).lower()
             # check if singular is in fixed rules
             if rule not in entity_rules_json['fixed'] and len(entity_tokens) == 1 and entity_tokens[0].endswith('s'):
-                rule = entity_type+'\t'+entity_tokens[0][:-1]
+                rule = entity_type + '\t' + entity_tokens[0][:-1]
 
             # fixed rules
             if rule in entity_rules_json['fixed']:
@@ -770,7 +1032,7 @@ class AMRStateMachine:
                 entity_rule_totals['fixed'] += 1
                 continue
 
-            rule = entity_type+'\t'+str(len(entity_tokens))
+            rule = entity_type + '\t' + str(len(entity_tokens))
 
             # variable rules
             if rule in entity_rules_json['var']:
@@ -794,7 +1056,9 @@ class AMRStateMachine:
                     new_concepts.append(self.amr.nodes[id_map[n]])
                 for s, r, t in edges:
                     node_label = self.amr.nodes[id_map[t]]
-                    if 'date-entity' not in entity_type and (node_label.isdigit() or node_label in ['many', 'few', 'some', 'multiple', 'none']):
+                    if 'date-entity' not in entity_type and (node_label.isdigit()
+                                                             or node_label in
+                                                             ['many', 'few', 'some', 'multiple', 'none']):
                         r = ':quant'
                     self.amr.edges.append((id_map[s], r, id_map[t]))
                     concept = self.amr.nodes[id_map[t]]
@@ -851,26 +1115,26 @@ class AMRStateMachine:
                         if j == 0:
                             new_concepts.append(node)
                         self.new_id += 1
-                        if j == len(nodes)-1:
+                        if j == len(nodes) - 1:
                             rel = ':name'
                             self.amr.edges.append((new_id, rel, name_id))
-                            new_concepts.append(':name '+'name')
+                            new_concepts.append(':name ' + 'name')
                         else:
                             rel = default_rel
                             self.amr.edges.append((new_id, rel, self.new_id))
-                            new_concepts.append(default_rel+' ' + self.amr.nodes[new_id])
+                            new_concepts.append(default_rel + ' ' + self.amr.nodes[new_id])
 
                 op_idx = 1
                 for tok in entity_tokens:
                     tok = tok.replace('"', '')
                     if tok in ['(', ')', '']:
                         continue
-                    new_tok = '"' + tok[0].upper()+tok[1:] + '"'
+                    new_tok = '"' + tok[0].upper() + tok[1:] + '"'
                     self.amr.nodes[self.new_id] = new_tok
                     self.alignments[self.new_id] = model_entity_alignments
                     rel = f':op{op_idx}'
                     self.amr.edges.append((name_id, rel, self.new_id))
-                    new_concepts.append(rel+' ' + new_tok)
+                    new_concepts.append(rel + ' ' + new_tok)
                     self.new_id += 1
                     op_idx += 1
                 if gold_amr and set(gold_concepts) == set(new_concepts):
@@ -891,7 +1155,7 @@ class AMRStateMachine:
                 self.new_id += 1
                 if idx > 0:
                     self.amr.edges.append((prev_id, default_rel, new_id))
-                    new_concepts.append(default_rel+' ' + node)
+                    new_concepts.append(default_rel + ' ' + node)
                 else:
                     new_concepts.append(node)
                 prev_id = new_id
@@ -902,7 +1166,7 @@ class AMRStateMachine:
                 self.amr.nodes[self.new_id] = tok.lower()
                 self.alignments[new_id] = model_entity_alignments
                 self.amr.edges.append((prev_id, default_rel, self.new_id))
-                new_concepts.append(default_rel+' ' + tok.lower())
+                new_concepts.append(default_rel + ' ' + tok.lower())
                 self.new_id += 1
             if gold_amr and set(gold_concepts) == set(new_concepts):
                 entity_rule_stats['unknown'] += 1
@@ -958,13 +1222,13 @@ class AMRStateMachine:
             # delete (reduce) the nodes that were never confirmed or attached
             to_del = []
             for n in self.amr.nodes:
-                found=False
+                found = False
                 if n in self.is_confirmed:
-                    found=True
+                    found = True
                 else:
                     for s, r, t in self.amr.edges:
                         if n == s or n == t:
-                            found=True
+                            found = True
                 if not found:
                     to_del.append(n)
             for n in to_del:
@@ -984,13 +1248,14 @@ class AMRStateMachine:
                     self.amr.nodes[n] = 'None'
                 if ',' in self.amr.nodes[n]:
                     self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
-                if not self.amr.nodes[n][0].isalpha() and not self.amr.nodes[n][0].isdigit() and not self.amr.nodes[n][0] in ['-', '+']:
+                if not self.amr.nodes[n][0].isalpha() and not self.amr.nodes[n][0].isdigit(
+                ) and not self.amr.nodes[n][0] in ['-', '+']:
                     self.amr.nodes[n] = '"' + self.amr.nodes[n].replace('"', '') + '"'
             # clean edges
             for j, e in enumerate(self.amr.edges):
                 s, r, t = e
                 if not r.startswith(':'):
-                    r = ':'+r
+                    r = ':' + r
                 e = (s, r, t)
                 self.amr.edges[j] = e
             # handle missing nodes (this shouldn't happen but a bad sequence of actions can produce it)

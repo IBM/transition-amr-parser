@@ -23,17 +23,9 @@ max_epoch=10
 # ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the
 # AMR back
-rm -Rf DATA.tests/oracles/$experiment_tag/  # not as var for security
 mkdir -p $ORACLE_FOLDER
-# entity rules
-#entity_rules=transition_amr_parser/entity_rules.json
-entity_rules=$ORACLE_FOLDER/entity_rules.json
-python scripts/extract_rules.py $amr_file $entity_rules
-
-# oracle
-amr-oracle \
-    --in-amr $amr_file \
-    --entity-rules $entity_rules \
+python transition_amr_parser/o3_data_oracle.py \
+    --in-amr DATA/wiki25.jkaln \
     --out-sentences $ORACLE_FOLDER/train.en \
     --out-actions $ORACLE_FOLDER/train.actions \
     --out-rule-stats $ORACLE_FOLDER/train.rules.json \
@@ -43,6 +35,16 @@ cp $ORACLE_FOLDER/train.en $ORACLE_FOLDER/dev.en
 cp $ORACLE_FOLDER/train.actions $ORACLE_FOLDER/dev.actions
 cp $ORACLE_FOLDER/train.en $ORACLE_FOLDER/test.en
 cp $ORACLE_FOLDER/train.actions $ORACLE_FOLDER/test.actions
+
+# PREPROCESSING
+# Extract sentence featrures and action sequence and store them in fairseq
+# format
+rm -Rf $FEATURES_FOLDER  # not as var for security
+mkdir -p $FEATURES_FOLDER
+fairseq-preprocess \
+    --source-lang en \
+    --target-lang actions \
+    --trainpref $ORACLE_FOLDER/train \
 
 # PREPROCESSING
 # Extract sentence featrures and action sequence and store them in fairseq
@@ -62,10 +64,10 @@ fairseq-preprocess \
     --machine-rules $ORACLE_FOLDER/train.rules.json 
  
 # TRAINING
-rm -Rf DATA.tests/models/$experiment_tag/
-model_arch=stack_transformer_6x6_nopos 
+rm -Rf MODEL_FOLDER
 fairseq-train \
     $FEATURES_FOLDER \
+    --user-dir ../../transition_amr_parser \
     --max-epoch $max_epoch \
     --burnthrough 5 \
     --arch $model_arch \
@@ -87,10 +89,10 @@ fairseq-train \
     --log-format json \
     --fp16 \
     --seed 42 \
-    --save-dir $MODEL_FOLDER 
+    --save-dir $MODEL_FOLDER
 
 # DECODING
-rm -Rf DATA.tests/models/$experiment_tag/beam1
+rm -Rf $RESULTS_FOLDER
 mkdir -p $RESULTS_FOLDER
 # --nbest 3 \
 fairseq-generate \
@@ -106,8 +108,7 @@ fairseq-generate \
     --results-path $RESULTS_FOLDER/valid \
 
 # Create the AMR from the model obtained actions
-amr-fake-parse \
-	--entity-rules $entity_rules \
+python transition_amr_parser/o3_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/dev.en \
     --in-actions $RESULTS_FOLDER/valid.actions \
     --out-amr $RESULTS_FOLDER/valid.amr \
@@ -122,7 +123,7 @@ smatch.py \
 
 cat $RESULTS_FOLDER/valid.smatch
 
-if [ "$(cat $RESULTS_FOLDER/valid.smatch)" != "F-score: 0.1866" ];then 
+if [ "$(cat $RESULTS_FOLDER/valid.smatch)" != "F-score: 0.1592" ];then
         echo -e "[\033[91mFAILED\033[0m] overfitting test"
         exit 1
 else

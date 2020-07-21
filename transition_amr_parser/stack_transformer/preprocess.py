@@ -50,7 +50,7 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
         actions_by_stack_rules = train_rule_stats['possible_predicates']
     else:
         actions_by_stack_rules = None
-        
+
     action_indexer = get_action_indexer(target_vocab.symbols)
 
     # initialize indices for each of variables
@@ -68,14 +68,14 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
         )
 
     if mask_predicates:
-        # mask of target predictions 
+        # mask of target predictions
         masks_path = dataset_dest_file(args, output_prefix, 'target_masks', "bin")
         indexed_target_masks = indexed_dataset.make_builder(
             masks_path,
             impl=args.dataset_impl,
         )
 
-        # active indices 
+        # active indices
         active_logits_path = dataset_dest_file(args, output_prefix, 'active_logits', "bin")
         indexed_active_logits = indexed_dataset.make_builder(
             active_logits_path,
@@ -126,9 +126,9 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
 
                     # if action is missing add it and count it
                     if gold_action in target_vocab.symbols:
-                        gold_action_index = target_vocab.symbols.index(gold_action) 
+                        gold_action_index = target_vocab.symbols.index(gold_action)
                     else:
-                        gold_action_index = target_vocab.symbols.index('<unk>') 
+                        gold_action_index = target_vocab.symbols.index('<unk>')
                     if gold_action_index not in valid_action_idx:
                         valid_action_idx.add(gold_action_index)
                         missing_actions.update([gold_action])
@@ -141,7 +141,7 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
                     logits_mask[action_idx, list(valid_action_idx)] = 1
                     active_logits |= valid_action_idx
 
-                # stack and buffer 
+                # stack and buffer
                 memory, memory_pos = get_word_states(
                     state_machine,
                     sent_tokens,
@@ -173,7 +173,7 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
                     torch.Tensor(logits_mask).view(-1)
                 )
 
-                # active indices 
+                # active indices
                 indexed_active_logits.add_item(torch.Tensor(
                     active_logits
                 ))
@@ -194,12 +194,12 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
         target_mask_idx = dataset_dest_file(args, output_prefix, 'target_masks', "idx")
         indexed_target_masks.finalize(target_mask_idx)
 
-        # active indices 
+        # active indices
         active_logits_idx = dataset_dest_file(args, output_prefix, 'active_logits', "idx")
         indexed_active_logits.finalize(active_logits_idx)
 
     # inform about mssing actions
-    if missing_actions: 
+    if missing_actions:
         print(yellow_font("There were missing actions"))
         print(missing_actions)
 
@@ -292,19 +292,19 @@ def make_state_machine(args, src_dict, tgt_dict, tokenize=None):
 
     if args.trainpref:
         make_binary_bert_features(args, args.trainpref, "train", src_dict.eos_index, src_dict.pad_index, tokenize)
-        make_masks(args, tgt_dict, args.trainpref, "train", tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, tokenize=tokenize)
+        # make_masks(args, tgt_dict, args.trainpref, "train", tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, tokenize=tokenize)
 
     if args.validpref:
         for k, validpref in enumerate(args.validpref.split(",")):
             outprefix = "valid{}".format(k) if k > 0 else "valid"
             make_binary_bert_features(args, validpref, outprefix, src_dict.eos_index, src_dict.pad_index, tokenize)
-            make_masks(args, tgt_dict, validpref, outprefix, tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, allow_unk=True, tokenize=tokenize)
+            # make_masks(args, tgt_dict, validpref, outprefix, tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, allow_unk=True, tokenize=tokenize)
 
     if args.testpref:
         for k, testpref in enumerate(args.testpref.split(",")):
             outprefix = "test{}".format(k) if k > 0 else "test"
             make_binary_bert_features(args, testpref, outprefix, src_dict.eos_index, src_dict.pad_index, tokenize)
-            make_masks(args, tgt_dict, testpref, outprefix, tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, allow_unk=True, tokenize=tokenize)
+            # make_masks(args, tgt_dict, testpref, outprefix, tgt_dict.eos_index, tgt_dict.pad_index, mask_predicates=True, allow_unk=True, tokenize=tokenize)
 
 
 def get_scatter_indices(word2piece, reverse=False):
