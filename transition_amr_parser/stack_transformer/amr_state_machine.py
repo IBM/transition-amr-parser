@@ -8,11 +8,8 @@ from collections import defaultdict, Counter
 
 import math
 import numpy as np
-from transition_amr_parser.state_machine import (
-    AMRStateMachine,
-    DepParsingStateMachine,
-    get_spacy_lemmatizer
-)
+
+from transition_amr_parser.o3_state_machine import AMRStateMachine, get_spacy_lemmatizer
 from transition_amr_parser.io import read_rule_stats
 
 # from fairseq.debug_tools import timeit, timeit_average, timeit_average

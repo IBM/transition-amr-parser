@@ -528,7 +528,7 @@ class AMR_Oracle:
             # Tokens and actions
             # extra tag to be reduced at start
             tokens = tr.amr.tokens
-            actions = tr.actions
+            actions = tr.actions[:-1]    # do not write CLOSE action at the end; CLOSE action is internally managed
 
             # Update action count
             self.stats['action_vocabulary'].update(actions)

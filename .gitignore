@@ -11,6 +11,8 @@ set_environment.sh
 # data
 DATA*
 *oracles/
+EXP*
+checkpoints*
 
 #
 preprocess/jamr
