@@ -171,10 +171,10 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
 def get_bio_from_machine(state_machine, raw_action):
     annotations = {}
     if (
-        raw_action.startswith('PRED') or 
+        raw_action.startswith('PRED') or
         raw_action.startswith('ADDNODE') or
         raw_action in ['COPY_SENSE01', 'COPY_LEMMA']
-    ):   
+    ):
         if raw_action == 'COPY_SENSE01':
             lemma, _ = state_machine.get_top_of_stack(lemma=True)
             raw_action = f'PRED({lemma}-01)'
@@ -185,7 +185,7 @@ def get_bio_from_machine(state_machine, raw_action):
         tokens = tuple(tokens) if tokens else [token]
         for token in tokens:
             if token in annotations:
-                raise Exception('Overlapping annotations')                
+                raise Exception('Overlapping annotations')
             annotations[token] = raw_action
     return annotations
 
@@ -205,7 +205,7 @@ def get_bio_tags(state_machine, bio_alignments):
             tag = 'O'
         bio_tags.append((token, tag))
 
-    return bio_tags 
+    return bio_tags
 
 
 class FakeAMRParser():
@@ -214,7 +214,7 @@ class FakeAMRParser():
     actions
     """
 
-    def __init__(self, logger=None, machine_type='AMR', 
+    def __init__(self, logger=None, machine_type='AMR',
                  from_sent_act_pairs=None, actions_by_stack_rules=None,
                  no_whitespace_in_actions=False):
 
@@ -297,8 +297,9 @@ class FakeAMRParser():
 
 #             # Update state machine
 #             state_machine.applyAction(raw_action)
-       
-        state_machine.apply_actions(actions)
+
+        # CLOSE action is internally managed
+        state_machine.apply_actions(actions if actions[-1] == 'CLOSE' else actions + ['CLOSE'])
 
         # build bio tags
 #         bio_tags = get_bio_tags(state_machine, bio_alignments)
@@ -405,7 +406,7 @@ def main():
         # NOTE: To simulate the real endpoint, input provided as a string of
         # whitespace separated tokens
         machine, bio_tags = parsing_model.parse_sentence(" ".join(tokens))
-        
+
 #         if sent_idx == 5:
 #             import pdb; pdb.set_trace()
 

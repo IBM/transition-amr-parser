@@ -11,7 +11,7 @@ set -o nounset
 
 # Configuration 
 MAX_WORDS=100
-ORACLE_TAG=o7+Word${MAX_WORDS}
+ORACLE_TAG=o7+Word${MAX_WORDS}_noclose
 ORACLE_FOLDER=oracles/${ORACLE_TAG}
 
 LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira
