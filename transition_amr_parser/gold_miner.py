@@ -17,10 +17,10 @@ def read_amr(file_path):
     return ref_amr_lines
 
 
-def get_amr(tokens, actions):
+def get_amr(tokens, actions, entity_rules):
 
     # play state machine to get AMR
-    state_machine = AMRStateMachine(tokens)
+    state_machine = AMRStateMachine(tokens, entity_rules=entity_rules)
     for action in actions:
         # FIXME: It is unclear that this will be allways the right option
         # manual exploration of dev yielded 4 cases and it works for the 4
@@ -57,8 +57,10 @@ class GoldMiner():
     Computes smatch with respect to a reference
     """
 
-    def __init__(self, ref_amr_path, out_actions_path):
+    def __init__(self, ref_amr_path, out_actions_path, entity_rules=None):
 
+        # set entity_rules to be used
+        self.entity_rules = entity_rules
         # read reference sentences 
         self.ref_amr_lines = read_amr(ref_amr_path)
         self.oracle_smatch_counts_cache = {}
@@ -81,7 +83,7 @@ class GoldMiner():
             # compute smatch
             oracle_smatch_counts = get_smatch_counts(
                 self.ref_amr_lines[sample_id],
-                get_amr(tokens, oracle_actions),
+                get_amr(tokens, oracle_actions, self.entity_rules),
                 self.restart_num
             )
             oracle_smatch = smatch.compute_f(*oracle_smatch_counts)[2]

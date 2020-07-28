@@ -120,7 +120,12 @@ def argument_parser():
         help="forbid all addnode actions appearing less times than count",
         type=int
     )
- 
+    # path to entity rules generated from the train file
+    parser.add_argument(
+        "--entity-rules",
+        type=str,
+        help="entity rules"
+    )
     #
     args = parser.parse_args()
 
@@ -322,7 +327,7 @@ def get_multitask_actions(max_symbols, tokenized_corpus, add_root=False):
 
 class AMR_Oracle:
 
-    def __init__(self, verbose=False):
+    def __init__(self, entity_rules, verbose=False):
         self.amrs = []
         self.gold_amrs = []
         self.transitions = []
@@ -340,7 +345,7 @@ class AMR_Oracle:
         self.swapped_words = {}
 
         self.possibleEntityTypes = Counter()
-
+        self.entity_rules = entity_rules
         # DEBUG
         # self.copy_rules = False
 
@@ -358,7 +363,7 @@ class AMR_Oracle:
                 raise IOError(f'Action file formatted incorrectly: {sent}')
             tokens = s[0].split('\t')
             actions = s[1].split('\t')
-            transitions.append(AMRStateMachine(tokens))
+            transitions.append(AMRStateMachine(tokens, entity_rules = self.entity_rules))
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
@@ -417,7 +422,8 @@ class AMR_Oracle:
                 gold_amr.tokens,
                 verbose=self.verbose,
                 add_unaligned=add_unaligned,
-                spacy_lemmatizer=spacy_lemmatizer
+                spacy_lemmatizer=spacy_lemmatizer,
+                entity_rules = self.entity_rules
             )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
@@ -1083,7 +1089,7 @@ def main():
     # be turner into a loop similar to parser.py (ore directly use that and a
     # AMROracleParser())
     print_log("amr", "Processing oracle")
-    oracle = AMR_Oracle(verbose=args.verbose)
+    oracle = AMR_Oracle(args.entity_rules, verbose=args.verbose)
     oracle.runOracle(
         corpus.amrs,
         propbank_args,

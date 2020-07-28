@@ -73,6 +73,11 @@ def argument_parser():
         help="Output rule stats from mined actions",
         type=str,
     )
+    parser.add_argument(
+        "--entity-rules",
+        help="entity rules",
+        type=str
+    )
     args = parser.parse_args()
 
     return args
@@ -139,7 +144,7 @@ def merge_actions(actions, scored_actions):
     return created_actions 
 
 
-def merge_rules(sentences, actions, rule_stats):
+def merge_rules(sentences, actions, rule_stats, entity_rules=None):
 
     # generate rules to restrict action space by stack content
     actions_by_stack_rules = rule_stats['possible_predicates']
@@ -157,7 +162,8 @@ def merge_rules(sentences, actions, rule_stats):
         state_machine = AMRStateMachine(
             tokens,
             actions_by_stack_rules=actions_by_stack_rules,
-            spacy_lemmatizer=spacy_lemmatizer
+            spacy_lemmatizer=spacy_lemmatizer,
+            entity_rules=entity_rules
         )
 
         for action in sentence_actions:
@@ -247,7 +253,7 @@ def main():
 
     # merge rules
     if args.merge_mined:
-        out_rule_stats = merge_rules(sentences, actions, rule_stats)
+        out_rule_stats = merge_rules(sentences, actions, rule_stats, entity_rules=args.entity_rules)
         print(f'Merging {args.out_rule_stats} and {args.in_rule_stats}')
 
     # Write
