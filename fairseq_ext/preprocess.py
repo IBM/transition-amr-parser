@@ -8,21 +8,17 @@
 """
 Data pre-processing: build vocabularies and binarize training data.
 """
-
+import os
+import shutil
 from collections import Counter
-from itertools import zip_longest
 
+import numpy as np
 from fairseq import options, tasks, utils
 from fairseq.data import indexed_dataset
 from fairseq.binarizer import Binarizer
 from multiprocessing import Pool
 
-import os
-import shutil
-
-import numpy as np
 from fairseq.tokenizer import tokenize_line
-from fairseq_ext.binarize import binarize_file
 # TODO refactor this part
 from transition_amr_parser.stack_transformer.preprocess import make_state_machine
 
@@ -78,8 +74,6 @@ def main(args):
         )
 
     # build dictionary and save
-    # TODO refactor to reduce the redundancy, and to better/clearly manage the names
-    args.target_lang = 'actions_nopos'
 
     if not args.srcdict and os.path.exists(dict_path(args.source_lang)):
         raise FileExistsError(dict_path(args.source_lang))
@@ -112,15 +106,13 @@ def main(args):
                 tgt_dict = task.load_dictionary(args.tgtdict)
             else:
                 assert args.trainpref, "--trainpref must be set if --tgtdict is not specified"
-                tgt_dict = build_dictionary([train_path(args.target_lang)], tgt=True)
+                tgt_dict = build_dictionary([train_path(args.target_lang_nopos)], tgt=True)
         else:
             tgt_dict = None
 
     src_dict.save(dict_path(args.source_lang))
     if target and tgt_dict is not None:
-        tgt_dict.save(dict_path(args.target_lang))
-
-    args.target_lang = 'actions'
+        tgt_dict.save(dict_path(args.target_lang_nopos))
 
     # save binarized preprocessed files
 
@@ -160,7 +152,7 @@ def main(args):
             pool.close()
 
         ds = indexed_dataset.make_builder(dataset_dest_file(args, output_prefix, lang, "bin"),
-                                          impl=args.dataset_impl, vocab_size=len(vocab))
+                                          impl=args.dataset_impl, vocab_size=len(vocab), dtype=np.int64)
         merge_result(
             Binarizer.binarize(
                 input_file, vocab, lambda t: ds.add_item(t),
@@ -191,8 +183,8 @@ def main(args):
             )
         )
 
-    def make_dataset(vocab, input_prefix, output_prefix, lang, num_workers=1):
-        if args.dataset_impl == "raw":
+    def make_dataset(vocab, input_prefix, output_prefix, lang, num_workers=1, dataset_impl=args.dataset_impl):
+        if dataset_impl == "raw":
             # Copy original text file to destination folder
             output_text_file = dest_path(
                 output_prefix + ".{}-{}".format(args.source_lang, args.target_lang),
@@ -202,19 +194,24 @@ def main(args):
         else:
             make_binary_dataset(vocab, input_prefix, output_prefix, lang, num_workers)
 
-    def make_all(lang, vocab):
+    def make_all(lang, vocab, dataset_impl=args.dataset_impl):
         if args.trainpref:
-            make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.workers)
+            make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.workers, dataset_impl=dataset_impl)
         if args.validpref:
             for k, validpref in enumerate(args.validpref.split(",")):
                 outprefix = "valid{}".format(k) if k > 0 else "valid"
-                make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers)
+                make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
         if args.testpref:
             for k, testpref in enumerate(args.testpref.split(",")):
                 outprefix = "test{}".format(k) if k > 0 else "test"
-                make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers)
+                make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
 
-    make_all(args.source_lang, src_dict)
+    # NOTE we do not encode the source sentences with dictionary, as the source embeddings are directly provided
+    # from RoBERTa, thus the source dictionary here is of no use
+    make_all(args.source_lang, src_dict, dataset_impl='raw')
+    make_all(args.source_lang, src_dict, dataset_impl='mmap')
+    # above: just leave for the sake of model to run without too much change
+    # NOTE there are <unk> in valid and test set for target actions
     if target:
         make_all(args.target_lang_nopos, tgt_dict)
 
@@ -222,65 +219,28 @@ def main(args):
     # assume one training file, one validation file, and one test file
     for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
                             [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
-        out_pref = dest_path(split + f'.{args.source_lang}-actions', 'actions_pos')
-        binarize_file(pos_file, out_pref, impl=args.dataset_impl, dtype=np.int64, tokenize=tokenize)
+        out_pref = os.path.join(args.destdir, split)
+        task.binarize_actions_pointer_file(pos_file, out_pref)
 
     # save RoBERTa embeddings
-    # Make preprocessing data for the state machine
     # TODO refactor this code
     make_state_machine(args, src_dict, tgt_dict, tokenize=tokenize)
 
-
-
+    # save action states information to assist training with auxiliary info
+    # assume one training file, one validation file, and one test file
+    task_obj = task(args, tgt_dict=tgt_dict)
+    for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
+        en_file = prefix + '.en'
+        actions_file = prefix + '.actions'
+        out_file_pref = os.path.join(args.destdir, split)
+        task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
 
     print("| Wrote preprocessed data to {}".format(args.destdir))
-
-    if args.alignfile:
-        assert args.trainpref, "--trainpref must be set if --alignfile is specified"
-        src_file_name = train_path(args.source_lang)
-        tgt_file_name = train_path(args.target_lang)
-        freq_map = {}
-        with open(args.alignfile, "r", encoding='utf-8') as align_file:
-            with open(src_file_name, "r", encoding='utf-8') as src_file:
-                with open(tgt_file_name, "r", encoding='utf-8') as tgt_file:
-                    for a, s, t in zip_longest(align_file, src_file, tgt_file):
-                        si = src_dict.encode_line(s, add_if_not_exist=False)
-                        ti = tgt_dict.encode_line(t, add_if_not_exist=False)
-                        ai = list(map(lambda x: tuple(x.split("-")), a.split()))
-                        for sai, tai in ai:
-                            srcidx = si[int(sai)]
-                            tgtidx = ti[int(tai)]
-                            if srcidx != src_dict.unk() and tgtidx != tgt_dict.unk():
-                                assert srcidx != src_dict.pad()
-                                assert srcidx != src_dict.eos()
-                                assert tgtidx != tgt_dict.pad()
-                                assert tgtidx != tgt_dict.eos()
-
-                                if srcidx not in freq_map:
-                                    freq_map[srcidx] = {}
-                                if tgtidx not in freq_map[srcidx]:
-                                    freq_map[srcidx][tgtidx] = 1
-                                else:
-                                    freq_map[srcidx][tgtidx] += 1
-
-        align_dict = {}
-        for srcidx in freq_map.keys():
-            align_dict[srcidx] = max(freq_map[srcidx], key=freq_map[srcidx].get)
-
-        with open(
-                os.path.join(
-                    args.destdir,
-                    "alignment.{}-{}.txt".format(args.source_lang, args.target_lang),
-                ),
-                "w", encoding='utf-8'
-        ) as f:
-            for k, v in align_dict.items():
-                print("{} {}".format(src_dict[k], tgt_dict[v]), file=f)
 
 
 def binarize(args, filename, vocab, output_prefix, lang, offset, end, append_eos=False, tokenize=tokenize_line):
     ds = indexed_dataset.make_builder(dataset_dest_file(args, output_prefix, lang, "bin"),
-                                      impl=args.dataset_impl, vocab_size=len(vocab))
+                                      impl=args.dataset_impl, vocab_size=len(vocab), dtype=np.int64)
 
     def consumer(tensor):
         ds.add_item(tensor)
@@ -302,10 +262,6 @@ def dataset_dest_prefix(args, output_prefix, lang):
 def dataset_dest_file(args, output_prefix, lang, extension):
     base = dataset_dest_prefix(args, output_prefix, lang)
     return "{}.{}".format(base, extension)
-
-
-def get_offsets(input_file, num_workers):
-    return Binarizer.find_offsets(input_file, num_workers)
 
 
 def cli_main():

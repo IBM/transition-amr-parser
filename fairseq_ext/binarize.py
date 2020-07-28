@@ -4,6 +4,7 @@ from fairseq.data.indexed_dataset import __best_fitting_dtype, MMapIndexedDatase
 from fairseq.tokenizer import tokenize_line
 
 
+# TODO move this file into data folder
 def make_builder(out_file, impl, vocab_size=None, dtype=None):
     if impl == 'mmap':
         if dtype is None:
