@@ -110,6 +110,14 @@ def main(args):
         task=task,
     )
 
+    # import pdb; pdb.set_trace()
+    # print(_model_args)
+
+    # ========== for previous model trained when new arguments were not there ==========
+    if not hasattr(_model_args, 'shift_pointer_value'):
+        _model_args.shift_pointer_value = 1
+    # ==================================================================================
+
     # Optimize ensemble for generation
     for model in models:
         model.make_generation_fast_(
@@ -142,7 +150,7 @@ def main(args):
 
     # Initialize generator
     gen_timer = StopwatchMeter()
-    generator = task.build_generator(args)
+    generator = task.build_generator(args, _model_args)
 
     # Generate and compute BLEU score
     if args.sacrebleu:

@@ -13,6 +13,7 @@ DATA*
 *oracles/
 EXP*
 checkpoints*
+amr_corpus*
 
 #
 preprocess/jamr

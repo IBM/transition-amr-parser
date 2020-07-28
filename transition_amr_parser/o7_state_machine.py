@@ -394,7 +394,7 @@ class AMRStateMachine:
             # currently pointing to the '<ROOT>' token
             prev_action = self.canonical_action_form(past_actions[-1])
             if prev_action == 'LA(root)':
-                cano_actions = ['SHIFT']
+                cano_actions = ['SHIFT']  # , 'LA(root)']  # TODO this is only for training; change it back for decoding
             elif prev_action == 'SHIFT':
                 # need to know if it's SHIFT at the last position or SHIFT from previous position
                 # the last SHIFT could only have preceding actions being LA(root), SHIFT, REDUCE, which

@@ -52,36 +52,36 @@ max_epoch=100
 # exit 0
 
 
-# # TRAINING
-# rm -Rf $MODEL_FOLDER
-# # python -m ipdb fairseq_ext/train.py \
-# python fairseq_ext/train.py \
-#     $FEATURES_FOLDER \
-#     --user-dir ../fairseq_ext \
-#     --task amr_pointer \
-#     --max-epoch $max_epoch \
-#     --arch transformer_pointer \
-#     --optimizer adam \
-#     --adam-betas '(0.9,0.98)' \
-#     --clip-norm 0.0 \
-#     --lr-scheduler inverse_sqrt \
-#     --warmup-init-lr 1e-07 \
-#     --warmup-updates 1 \
-#     --pretrained-embed-dim 768 \
-#     --lr 0.025 \
-#     --min-lr 1e-09 \
-#     --dropout 0.0 \
-#     --weight-decay 0.0 \
-#     --criterion label_smoothed_cross_entropy_pointer \
-#     --label-smoothing 0.01 \
-#     --loss-coef 1 \
-#     --keep-last-epochs 1 \
-#     --max-tokens 3584 \
-#     --log-format json \
-#     --seed 42 \
-#     --save-dir $MODEL_FOLDER
+# TRAINING
+rm -Rf $MODEL_FOLDER
+# python -m ipdb fairseq_ext/train.py \
+python fairseq_ext/train.py \
+    $FEATURES_FOLDER \
+    --user-dir ../fairseq_ext \
+    --task amr_pointer \
+    --max-epoch $max_epoch \
+    --arch transformer_pointer \
+    --optimizer adam \
+    --adam-betas '(0.9,0.98)' \
+    --clip-norm 0.0 \
+    --lr-scheduler inverse_sqrt \
+    --warmup-init-lr 1e-07 \
+    --warmup-updates 1 \
+    --pretrained-embed-dim 768 \
+    --lr 0.025 \
+    --min-lr 1e-09 \
+    --dropout 0.0 \
+    --weight-decay 0.0 \
+    --criterion label_smoothed_cross_entropy_pointer \
+    --label-smoothing 0.01 \
+    --loss-coef 1 \
+    --keep-last-epochs 1 \
+    --max-tokens 3584 \
+    --log-format json \
+    --seed 42 \
+    --save-dir $MODEL_FOLDER
 
-# exit 0
+exit 0
 
 # # DECODING
 # rm -Rf $RESULTS_FOLDER

@@ -8,148 +8,112 @@
 import itertools
 import os
 
+import numpy as np
 import torch
 
 from fairseq import options, utils, tokenizer
 from fairseq.data import (
-    ConcatDataset,
     data_utils,
-    indexed_dataset,
     Dictionary
 )
-
 from fairseq.tasks import FairseqTask, register_task
+
 from fairseq_ext.data.language_pair_dataset import LanguagePairDataset
+from fairseq_ext.data.amr_action_pointer_dataset import AMRActionPointerDataset
 from fairseq_ext.data.data_utils import load_indexed_dataset
+from fairseq_ext.amr_spec.action_info_binarize import (
+    ActionStatesBinarizer,
+    binarize_actstates_tofile_workers,
+    load_actstates_fromfile
+)
+from fairseq_ext.binarize import binarize_file
 
 
-def load_langpair_dataset(
-    data_path, split,
-    src, src_dict,
-    tgt, tgt_dict,
-    combine, dataset_impl, upsample_primary,
-    left_pad_source, left_pad_target, max_source_positions, max_target_positions,
-    state_machine=True
-):
-    def split_exists(split, src, tgt, lang, data_path):
-        filename = os.path.join(data_path, '{}.{}-{}.{}'.format(split, src, tgt, lang))
-        return indexed_dataset.dataset_exists(filename, impl=dataset_impl)
+def load_amr_action_pointer_dataset(data_path, split, src, tgt, src_dict, tgt_dict, tokenize, dataset_impl,
+                                    max_source_positions, max_target_positions, shuffle,
+                                    append_eos_to_target, collate_tgt_states):
+    src_tokens = None
+    src_dataset = None
+    src_fixed_embeddings = None
+    src_wordpieces = None
+    src_wp2w = None
+    tgt_dataset = None
+    tgt_pos = None
+    tgt_vocab_masks = None
+    tgt_actnode_masks = None
+    tgt_src_cursors = None
 
-    src_datasets = []
-    src_fixed_embeddings = []
-    src_wordpieces = []
-    src_wp2w = []
-    tgt_datasets = []
-    tgt_pos = []
-    # memory_datasets = []
-    # memory_pos_datasets = []
-    # target_mask_datasets = []
-    # active_logits_datasets = []
+    assert src == 'en'
+    assert tgt == 'actions'
+    tgt_nopos = tgt + '_nopos'
+    tgt_pos = tgt + '_pos'
 
-    for k in itertools.count():
-        # k = 0, 1, 2, 3, etc.
-        split_k = split + (str(k) if k > 0 else '')
+    filename_prefix = os.path.join(data_path, f'{split}.{src}-{tgt}.')
 
-        # infer langcode
-        if split_exists(split_k, src, tgt, src, data_path):
-            prefix = os.path.join(data_path, '{}.{}-{}.'.format(split_k, src, tgt))
-        elif split_exists(split_k, tgt, src, src, data_path):
-            prefix = os.path.join(data_path, '{}.{}-{}.'.format(split_k, tgt, src))
-        else:
-            if k > 0:
-                break
-            else:
-                # when k == 0 and no data exists
-                raise FileNotFoundError('Dataset not found: {} ({})'.format(split, data_path))
+    # src: en tokens
+    with open(filename_prefix + src, 'r', encoding='utf-8') as f:
+        src_tokens = []
+        src_sizes = []
+        for line in f:
+            if line.strip():
+                line = tokenize(line)
+                src_tokens.append(line)
+                src_sizes.append(len(line))
 
-        # source
-        src_file = (prefix + src, src_dict, dataset_impl)
-        src_datasets.append(load_indexed_dataset(*src_file))
+    # src: numerical values encoded by a dictionary, although not directly used if we use RoBERTa embeddings
+    # NOTE this is still used to get padding masks; maybe refactor later
+    src_dataset = load_indexed_dataset(filename_prefix + src, src_dict, dataset_impl='mmap')
+    # NOTE if not specifying dataset_impl and the raw file also exists, then 'raw' will take precedence when
+    #      dataset_impl is None
 
-        # pre-trained embeddings
-        fixed_embeddings_file = (prefix + 'en.bert', None, dataset_impl)
-        src_fixed_embeddings.append(
-            load_indexed_dataset(*fixed_embeddings_file)
-        )
+    # src: pre-trained embeddings
+    src_fixed_embeddings = load_indexed_dataset(filename_prefix + 'en.bert', None, dataset_impl)
 
-        # wordpieces
-        wordpieces_file = (prefix + 'en.wordpieces', None, dataset_impl)
-        src_wordpieces.append(load_indexed_dataset(*wordpieces_file))
+    # src: wordpieces
+    src_wordpieces = load_indexed_dataset(filename_prefix + 'en.wordpieces', None, dataset_impl)
 
-        # wordpieces to word map
-        wp2w_file = (prefix + 'en.wp2w', None, dataset_impl)
-        src_wp2w.append(load_indexed_dataset(*wp2w_file))
+    # src: wordpieces to word map
+    src_wp2w = load_indexed_dataset(filename_prefix + 'en.wp2w', None, dataset_impl)
 
-        # actions
-        tgt_file = prefix + tgt + '_nopos', tgt_dict, dataset_impl
-        tgt_datasets.append(load_indexed_dataset(*tgt_file))
+    # tgt: actions (encoded by a vocabulary)
+    tgt_dataset = load_indexed_dataset(filename_prefix + tgt_nopos, tgt_dict, dataset_impl)
 
-        # actions pointers
-        tgt_pos_file = prefix + tgt + '_pos', None, dataset_impl
-        tgt_pos.append(load_indexed_dataset(*tgt_pos_file))
+    # tgt: actions pointers
+    tgt_pos = load_indexed_dataset(filename_prefix + tgt_pos, tgt_dict, dataset_impl)
 
-        # # state machine states (buffer/stack) and positions
-        # memory_file = prefix + 'memory', None, dataset_impl
-        # memory_datasets.append(load_indexed_dataset(*memory_file))
-        # memory_pos_file = prefix + 'memory_pos', None, dataset_impl
-        # memory_pos_datasets.append(load_indexed_dataset(*memory_pos_file))
+    # tgt: actions states information
+    try:
+        tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors = load_actstates_fromfile(filename_prefix + tgt,
+                                                                                      tgt_dict, dataset_impl)
+    except:
+        assert not collate_tgt_states, ('the target actions states information does not exist --- '
+                                        'collate_tgt_states must be 0')
 
-        # # logit masks
-        # target_mask_file = prefix + 'target_masks', None, dataset_impl
-        # target_mask_datasets.append(load_indexed_dataset(*target_mask_file))
-
-        # # active logits
-        # active_logits_file = prefix + 'active_logits', None, dataset_impl
-        # active_logits_datasets.append(load_indexed_dataset(*active_logits_file))
-
-        print('| {} {} {}-{} {} examples'.format(data_path, split_k, src, tgt, len(src_datasets[-1])))
-
-        # TODO combine is only used here; when False, the iteration when k > 0 is not used anyway
-        # what's the logic here
-        if not combine:
-            break
-
-    assert len(src_datasets) == len(tgt_datasets)
-
-    if len(src_datasets) == 1:
-        src_dataset, tgt_dataset = src_datasets[0], tgt_datasets[0]
-        src_fixed_embeddings = src_fixed_embeddings[0]
-        src_wordpieces = src_wordpieces[0]
-        src_wp2w = src_wp2w[0]
-        tgt_pos = tgt_pos[0]
-        # memory_dataset = memory_datasets[0]
-        # memory_pos_dataset = memory_pos_datasets[0]
-        # target_mask_datasets = target_mask_datasets[0]
-        # active_logits_datasets = active_logits_datasets[0]
-    else:
-        # not implemented for stack-transformer
-        raise NotImplementedError()
-        sample_ratios = [1] * len(src_datasets)
-        sample_ratios[0] = upsample_primary
-        src_dataset = ConcatDataset(src_datasets, sample_ratios)
-        tgt_dataset = ConcatDataset(tgt_datasets, sample_ratios)
-
-    return LanguagePairDataset(
-        src_dataset, src_dataset.sizes, src_dict,
-        src_fixed_embeddings, src_fixed_embeddings.sizes,
-        src_wordpieces, src_wordpieces.sizes,
-        src_wp2w, src_wp2w.sizes,
-        tgt_dataset, tgt_dataset.sizes, tgt_dict,
-        tgt_pos, tgt_pos.sizes,
-        # memory_dataset, memory_dataset.sizes,
-        # memory_pos_dataset, memory_pos_dataset.sizes,
-        # target_mask_datasets, target_mask_datasets.sizes,
-        # active_logits_datasets, active_logits_datasets.sizes,
-        left_pad_source=left_pad_source,
-        left_pad_target=left_pad_target,
-        max_source_positions=max_source_positions,
-        max_target_positions=max_target_positions,
-        state_machine=state_machine
-    )
+    # build dataset
+    dataset = AMRActionPointerDataset(src_tokens=src_tokens, src=src_dataset, src_sizes=src_sizes,
+                                      src_dict=src_dict,
+                                      src_fix_emb=src_fixed_embeddings, src_fix_emb_sizes=src_fixed_embeddings.sizes,
+                                      src_wordpieces=src_wordpieces, src_wordpieces_sizes=src_wordpieces.sizes,
+                                      src_wp2w=src_wp2w, src_wp2w_sizes=src_wp2w.sizes,
+                                      tgt=tgt_dataset, tgt_sizes=tgt_dataset.sizes,
+                                      tgt_dict=tgt_dict,
+                                      tgt_pos=tgt_pos, tgt_pos_sizes=tgt_pos.sizes,
+                                      tgt_vocab_masks=tgt_vocab_masks,
+                                      tgt_actnode_masks=tgt_actnode_masks,
+                                      tgt_src_cursors=tgt_src_cursors,
+                                      left_pad_source=True,
+                                      left_pad_target=False,
+                                      max_source_positions=max_source_positions,
+                                      max_target_positions=max_target_positions,
+                                      shuffle=shuffle,
+                                      append_eos_to_target=append_eos_to_target,
+                                      collate_tgt_states=collate_tgt_states
+                                      )
+    return dataset
 
 
-@register_task('amr_pointer')
-class AMRPointerParsingTask(FairseqTask):
+@ register_task('amr_action_pointer')
+class AMRActionPointerParsingTask(FairseqTask):
     """
     Translate from one (source) language to another (target) language.
     Args:
@@ -167,7 +131,7 @@ class AMRPointerParsingTask(FairseqTask):
 
     word_sep = '\t'
 
-    @staticmethod
+    @ staticmethod
     def add_args(parser):
         """Add task-specific arguments to the parser."""
         # fmt: off
@@ -192,13 +156,20 @@ class AMRPointerParsingTask(FairseqTask):
         parser.add_argument('--upsample-primary', default=1, type=int,
                             help='amount to upsample primary dataset')
         # fmt: on
+        # customized additional arguments
+        parser.add_argument('--append-eos-to-target', default=0, type=int,
+                            help='whether to append eos to target')
+        parser.add_argument('--collate-tgt-states', default=1, type=int,
+                            help='whether to collate target actions states information')
 
-    def __init__(self, args, src_dict, tgt_dict):
+    def __init__(self, args, src_dict=None, tgt_dict=None):
         super().__init__(args)
-        self.src_dict = src_dict
+        self.src_dict = src_dict    # src_dict is not necessary if we use RoBERTa embeddings for source
         self.tgt_dict = tgt_dict
+        self.action_state_binarizer = None
+        assert self.args.source_lang == 'en' and self.args.target_lang == 'actions'
 
-    @classmethod
+    @ classmethod
     def setup_task(cls, args, **kwargs):
         """Setup the task (e.g., load dictionaries).
         Args:
@@ -222,23 +193,26 @@ class AMRPointerParsingTask(FairseqTask):
             raise Exception('Could not infer language pair, please provide it explicitly')
 
         # load dictionaries
+        assert args.target_lang == 'actions', 'target extension must be "actions"'
+        args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
+        args.target_lang_pos = 'actions_pos'
         src_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.source_lang)))
-        tgt_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.target_lang + '_nopos')))
+        tgt_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.target_lang_nopos)))
         # TODO target dictionary 'actions_nopos' is hard coded now; change it later
         assert src_dict.pad() == tgt_dict.pad()
         assert src_dict.eos() == tgt_dict.eos()
         assert src_dict.unk() == tgt_dict.unk()
         print('| [{}] dictionary: {} types'.format(args.source_lang, len(src_dict)))
-        print('| [{}] dictionary: {} types'.format(args.target_lang + '_nopos', len(tgt_dict)))
+        print('| [{}] dictionary: {} types'.format(args.target_lang_nopos, len(tgt_dict)))
 
         return cls(args, src_dict, tgt_dict)
 
-    @classmethod
+    @ classmethod
     def tokenize(cls, line):
         line = line.strip()
         return line.split(cls.word_sep)
 
-    @classmethod
+    @ classmethod
     def build_dictionary(cls, filenames, workers=1, threshold=-1, nwords=-1, padding_factor=8,
                          tokenize=tokenizer.tokenize_line):
         """Build the dictionary
@@ -261,7 +235,7 @@ class AMRPointerParsingTask(FairseqTask):
         d.finalize(threshold=threshold, nwords=nwords, padding_factor=padding_factor)
         return d
 
-    @classmethod
+    @ classmethod
     def split_actions_pointer(cls, actions_filename):
         """Split actions file into two files, one without the arc pointers and one only pointer values.
 
@@ -303,7 +277,31 @@ class AMRPointerParsingTask(FairseqTask):
         for actions_filename in actions_filenames:
             cls.split_actions_pointer(actions_filename)
 
-    def load_dataset(self, split, epoch=0, combine=False, state_machine=True, **kwargs):
+    @classmethod
+    def binarize_actions_pointer_file(cls, pos_file, out_file_pref):
+        """Save the action pointer values in a file to binary values in mmap format."""
+        out_file_pref = out_file_pref + '.en-actions.actions_pos'
+        binarize_file(pos_file, out_file_pref, impl='mmap', dtype=np.int64, tokenize=cls.tokenize)
+
+    def build_actions_states_info(self, en_file, actions_file, out_file_pref, num_workers=1):
+        """Preprocess to get the actions states information and save to binary files.
+
+        Args:
+            en_file (str): English sentence file path.
+            actions_file (str): actions file path.
+            out_file_pref (str): output file prefix.
+            num_workers (int, optional): number of workers for multiprocessing. Defaults to 1.
+        """
+        out_file_pref = out_file_pref + '.en-actions.actions'
+        if self.action_state_binarizer is None:
+            # for reuse (e.g. train/valid/test data preprocessing) to avoid building the canonical action to
+            # dictionary id mapping repeatedly
+            self.action_state_binarizer = ActionStatesBinarizer(self.tgt_dict)
+        binarize_actstates_tofile_workers(en_file, actions_file, out_file_pref,
+                                          action_state_binarizer=self.action_state_binarizer,
+                                          impl='mmap', tokenize=self.tokenize, num_workers=num_workers)
+
+    def load_dataset(self, split, epoch=0, **kwargs):
         """Load a given dataset split.
         Args:
             split (str): name of the split (e.g., train, valid, test)
@@ -315,21 +313,21 @@ class AMRPointerParsingTask(FairseqTask):
         # infer langcode
         src, tgt = self.args.source_lang, self.args.target_lang
 
-        self.datasets[split] = load_langpair_dataset(
-            data_path, split, src, self.src_dict, tgt, self.tgt_dict,
-            combine=combine, dataset_impl=self.args.dataset_impl,
-            upsample_primary=self.args.upsample_primary,
-            left_pad_source=self.args.left_pad_source,
-            left_pad_target=self.args.left_pad_target,
-            max_source_positions=self.args.max_source_positions,
-            max_target_positions=self.args.max_target_positions,
-            state_machine=state_machine
-        )
+        self.datasets[split] = load_amr_action_pointer_dataset(data_path, split, src, tgt, self.src_dict, self.tgt_dict,
+                                                               self.tokenize,
+                                                               dataset_impl=self.args.dataset_impl,
+                                                               max_source_positions=self.args.max_source_positions,
+                                                               max_target_positions=self.args.max_target_positions,
+                                                               shuffle=True,
+                                                               append_eos_to_target=self.args.append_eos_to_target,
+                                                               collate_tgt_states=self.args.collate_tgt_states
+                                                               )
 
     def build_dataset_for_inference(self, src_tokens, src_lengths):
+        # TODO this is legacy not used as of now
         return LanguagePairDataset(src_tokens, src_lengths, self.source_dictionary)
 
-    def build_generator(self, args):
+    def build_generator(self, args, model_args):
         if getattr(args, 'score_reference', False):
             from fairseq.sequence_scorer import SequenceScorer
             return SequenceScorer(self.target_dictionary)
@@ -353,6 +351,7 @@ class AMRPointerParsingTask(FairseqTask):
                 diverse_beam_strength=getattr(args, 'diverse_beam_strength', 0.5),
                 match_source_len=getattr(args, 'match_source_len', False),
                 no_repeat_ngram_size=getattr(args, 'no_repeat_ngram_size', 0),
+                shift_pointer_value=getattr(model_args, 'shift_pointer_value', 0)
             )
 
     def train_step(self, sample, model, criterion, optimizer, ignore_grad=False):
@@ -376,6 +375,9 @@ class AMRPointerParsingTask(FairseqTask):
                 - logging outputs to display while training
         """
         model.train()
+
+        # import pdb; pdb.set_trace()
+
         with torch.autograd.detect_anomaly():
             loss, sample_size, logging_output = criterion(model, sample)
             # if torch.isnan(loss):
@@ -400,6 +402,25 @@ class AMRPointerParsingTask(FairseqTask):
 
         return loss, sample_size, logging_output
 
+    def valid_step(self, sample, model, criterion):
+        model.eval()
+        # import pdb; pdb.set_trace()
+
+        # # for debugging: check the target vocab mask
+        # # NOTE for validation and testing, <unk> will cause inf loss when apply the target vocab mask!!!
+        # true_tgt_mask = sample['net_input']['tgt_vocab_masks'].view(-1, 9000).gather(
+        #     dim=-1,
+        #     index=sample['target'].view(-1, 1)
+        #     )
+        # true_mask_sum = true_tgt_mask.sum()[sample['target'].view(-1, 1).ne(self.tgt_dict.pad())].sum()
+        # non_pad_num = sample['target'].ne(self.tgt_dict.pad()).sum()
+        # if tru_mask_sum != non_pad_num:
+        #     import pdb; pdb.set_trace()
+
+        with torch.no_grad():
+            loss, sample_size, logging_output = criterion(model, sample)
+        return loss, sample_size, logging_output
+
     def inference_step(self, generator, models, sample, prefix_tokens=None, run_amr_sm=True, modify_arcact_score=True):
         with torch.no_grad():
             return generator.generate(models, sample, prefix_tokens=prefix_tokens,
@@ -410,12 +431,12 @@ class AMRPointerParsingTask(FairseqTask):
         """Return the max sentence length allowed by the task."""
         return (self.args.max_source_positions, self.args.max_target_positions)
 
-    @property
+    @ property
     def source_dictionary(self):
         """Return the source :class:`~fairseq.data.Dictionary`."""
         return self.src_dict
 
-    @property
+    @ property
     def target_dictionary(self):
         """Return the target :class:`~fairseq.data.Dictionary`."""
         return self.tgt_dict

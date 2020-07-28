@@ -78,6 +78,7 @@ class LabelSmoothedCrossEntropyPointerCriterion(FairseqCriterion):
         super().__init__(args, task)
         self.eps = args.label_smoothing
         self.loss_coef = getattr(args, 'loss_coef', 1)
+        self.shift_pointer_value = args.shift_pointer_value
 
     @staticmethod
     def add_args(parser):
@@ -87,6 +88,9 @@ class LabelSmoothedCrossEntropyPointerCriterion(FairseqCriterion):
                             help='epsilon for label smoothing, 0 means no label smoothing')
         parser.add_argument('--loss-coef', default=1., type=float, metavar='C',
                             help='lambda for combining the pointer position loss, 0 means no pointer loss')
+        parser.add_argument('--shift-pointer-value', default=1, type=int,
+                            help='whether to shift the pointer value one to the right, to tie with the target input '
+                                 'positions which are shifted by one')
         # fmt: on
 
     def forward(self, model, sample, reduce=True):
@@ -130,6 +134,10 @@ class LabelSmoothedCrossEntropyPointerCriterion(FairseqCriterion):
 
     def compute_pointer_loss(self, net_output, sample, reduce=True):
         target_pos = sample['tgt_pos'].view(-1, 1)
+        # shift the pointer value 1 to the right as it's for the input with the first token </s>
+        # while keeping the pointer positions unchanged as it's for the output
+        if self.shift_pointer_value:
+            target_pos[target_pos >= 0] += 1
         target_pos[target_pos < 0] = -1    # use the same value -1 to mask out tgt tokens that do not have pos or padded
         # NOTE in above 0 is a valid pos value
         loss_all, nll_loss_all = [], []
@@ -162,6 +170,10 @@ class LabelSmoothedCrossEntropyPointerCriterion(FairseqCriterion):
         return {
             'loss': sum(log.get('loss', 0) for log in logging_outputs) / sample_size / math.log(2) if sample_size > 0 else 0.,
             'nll_loss': sum(log.get('nll_loss', 0) for log in logging_outputs) / ntokens / math.log(2) if ntokens > 0 else 0.,
+            'loss_seq': sum(log.get('loss_seq', 0) for log in logging_outputs) / sample_size / math.log(2) if sample_size > 0 else 0.,
+            'nll_loss_seq': sum(log.get('nll_loss_seq', 0) for log in logging_outputs) / ntokens / math.log(2) if ntokens > 0 else 0.,
+            'loss_pos': sum(log.get('loss_pos', 0) for log in logging_outputs) / sample_size / math.log(2) if sample_size > 0 else 0.,
+            'nll_loss_pos': sum(log.get('nll_loss_pos', 0) for log in logging_outputs) / ntokens / math.log(2) if ntokens > 0 else 0.,
             'ntokens': ntokens,
             'nsentences': nsentences,
             'sample_size': sample_size,
