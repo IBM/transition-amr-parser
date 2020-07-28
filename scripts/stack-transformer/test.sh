@@ -60,7 +60,11 @@ if [ "$TASK_TAG" == "dep-parsing" ];then
 elif [ "$TASK_TAG" == "AMR" ];then
 
     # Create the AMR from the model obtained actions
+    if [ "$ENTITY_RULES" == "" ]; then
+        ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
+    fi
     amr-fake-parse \
+	--entity-rules $ENTITY_RULES
         --in-sentences $ORACLE_FOLDER/dev.en \
         --in-actions $results_folder/valid.actions \
         --out-amr $results_folder/valid.amr \

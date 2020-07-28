@@ -314,7 +314,8 @@ def main():
     create_normalization_rules()
 
     print('[entity rules] Writing rules')
-    with open('../entity_rules.json', 'w+', encoding='utf8') as f:
+    frules_out = sys.argv[2]
+    with open(frules_out, 'w+', encoding='utf8') as f:
         JSON.dump(entity_rules_json, f, sort_keys=True)
     print('[entity rules] Fixed:', len(entity_rules_json['fixed']))
     print('[entity rules] Variable:', len(entity_rules_json['var']))

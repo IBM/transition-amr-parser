@@ -29,8 +29,15 @@ elif [ "$TASK_TAG" == "AMR" ];then
     if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
     
         # Train
+	if [ "$ENTITY_RULES" == "" ]; then
+	    python scripts/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
+	else
+	    cp $ENTITY_RULES $ORACLE_FOLDER/entity_rules.json
+	fi
+
         amr-oracle \
             --in-amr $AMR_TRAIN_FILE \
+            --entity-rules $ORACLE_FOLDER/entity_rules.json \
             --out-sentences $ORACLE_FOLDER/train.en \
             --out-actions $ORACLE_FOLDER/train.actions \
             --out-rule-stats $ORACLE_FOLDER/train.rules.json \
@@ -39,6 +46,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
         # Dev and test
         amr-oracle \
             --in-amr $AMR_DEV_FILE \
+	    --entity-rules $ORACLE_FOLDER/entity_rules.json \
             --out-sentences $ORACLE_FOLDER/dev.en \
             --out-actions $ORACLE_FOLDER/dev.actions \
             --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
@@ -46,6 +54,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
     
         amr-oracle \
             --in-amr $AMR_TEST_FILE \
+	    --entity-rules $ORACLE_FOLDER/entity_rules.json \
             --out-sentences $ORACLE_FOLDER/test.en \
             --out-actions $ORACLE_FOLDER/test.actions \
             --out-rule-stats $ORACLE_FOLDER/test.rules.json \
@@ -106,4 +115,4 @@ fi
 # PREPROCESSING
 # extract data
 echo "fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS"
-fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS 
+fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS --entity-rules $ORACLE_FOLDER/entity_rules.json
