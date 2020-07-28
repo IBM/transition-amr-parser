@@ -29,10 +29,10 @@ elif [ "$TASK_TAG" == "AMR" ];then
     if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
     
         # Train
-	if [ "$ENTITY_RULES" == "" ]; then
-	    python scripts/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
-	else
+	if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ]; then
 	    cp $ENTITY_RULES $ORACLE_FOLDER/entity_rules.json
+	else
+	    python scripts/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
 	fi
 
         amr-oracle \
@@ -115,4 +115,4 @@ fi
 # PREPROCESSING
 # extract data
 echo "fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS"
-fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS --entity-rules $ORACLE_FOLDER/entity_rules.json
+fairseq-preprocess --entity-rules $ORACLE_FOLDER/entity_rules.json $FAIRSEQ_PREPROCESS_ARGS
