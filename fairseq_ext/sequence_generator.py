@@ -37,6 +37,7 @@ class SequenceGenerator(object):
         diverse_beam_strength=0.5,
         match_source_len=False,
         no_repeat_ngram_size=0,
+        shift_pointer_value=0
     ):
         """Generates translations of a given source sentence.
 
@@ -92,6 +93,7 @@ class SequenceGenerator(object):
         self.temperature = temperature
         self.match_source_len = match_source_len
         self.no_repeat_ngram_size = no_repeat_ngram_size
+        self.shift_pointer_value = shift_pointer_value
 
         assert sampling_topk < 0 or sampling, '--sampling-topk requires --sampling'
         assert sampling_topp < 0 or sampling, '--sampling-topp requires --sampling'
@@ -378,18 +380,6 @@ class SequenceGenerator(object):
                 model.reorder_incremental_state(reorder_state)
                 encoder_outs = model.reorder_encoder_out(encoder_outs, reorder_state)
 
-            # lprobs, avg_attn_scores = model.forward_decoder(
-            #     tokens[:, :step + 1], encoder_outs, temperature=self.temperature,
-            # )
-            avg_attn_scores = None    # this for the cross attention on the source tokens
-
-            lprobs, avg_attn_tgt_scores = model.forward_decoder(
-                tokens[:, :step + 1], encoder_outs, temperature=self.temperature,
-            )
-
-            # lprobs[:, self.pad] = -math.inf  # never select pad
-            # lprobs[:, self.unk] -= self.unk_penalty  # apply unk penalty
-
             # ========== use the AMR state machine (if turned on) to restrict the next action space ==========
 
             # restrict the action space for next candidate tokens
@@ -406,9 +396,27 @@ class SequenceGenerator(object):
                 allowed_mask[:, self.unk] = 0
                 # explicitly mask out the pad and unk tokens (bos should be masked out probably as well)
 
-            lprobs[~allowed_mask] = -math.inf
-
             # ====================================================================
+
+            # ========== get the actions states auxiliary information needed for the model to run in real-time ========
+
+            actions_states = {'tgt_vocab_masks': allowed_mask.unsqueeze(1)}
+
+            # lprobs, avg_attn_scores = model.forward_decoder(
+            #     tokens[:, :step + 1], encoder_outs, temperature=self.temperature,
+            # )
+            avg_attn_scores = None    # this for the cross attention on the source tokens
+
+            lprobs, avg_attn_tgt_scores = model.forward_decoder(
+                tokens[:, :step + 1], encoder_outs, temperature=self.temperature, **actions_states
+            )
+
+            # lprobs[:, self.pad] = -math.inf  # never select pad
+            # lprobs[:, self.unk] -= self.unk_penalty  # apply unk penalty
+
+            lprobs[~allowed_mask] = -math.inf    # may not need if the model takes the mask to output already
+
+            # =========================================================================================================
 
             if self.no_repeat_ngram_size > 0:
                 # for each beam and batch sentence, generate a list of previous ngrams
@@ -457,11 +465,25 @@ class SequenceGenerator(object):
                 if amr_state_machines is not None:
                     # get the previous action-to-node mask: 1 if an action generates a node, 0 otherwise
                     for i, sm in enumerate(amr_state_machines):
-                        tgt_actions_nodemask[i, :-1] = tgt_actions_nodemask.new(sm.actions_nodemask)
+                        # NOTE the 0-th target token is the eos </s> token
+                        actions_nodemask = sm.actions_nodemask.copy()
+                        # mask out the last node generating action, as it will never be selected by the pointer, except
+                        # the LA(root) action (as root does not need to be generated as a node)
+                        # ---> do not do this now
+                        # if 1 in actions_nodemask:
+                        #     last_node_act_idx = len(actions_nodemask) - 1 - actions_nodemask[::-1].index(1)
+                        #     actions_nodemask[last_node_act_idx] = 0
+                        if self.shift_pointer_value:
+                            tgt_actions_nodemask[i, 1:] = tgt_actions_nodemask.new(actions_nodemask)
+                        else:
+                            tgt_actions_nodemask[i, :-1] = tgt_actions_nodemask.new(actions_nodemask)
                 else:
-                    # only mask out the current action
-                    tgt_actions_nodemask[:, :-1] = 1
-                    # NOTE we need the run the state machine; here just leave a warning instead of stopping the program
+                    if self.shift_pointer_value:
+                        # only mask out the current action, and the first position, which is the eos (</s>) token
+                        tgt_actions_nodemask[:, 1:-1] = 1
+                    else:
+                        tgt_actions_nodemask[:, :-1] = 1
+                    # NOTE we need to run the state machine; here just leave a warning instead of stopping the program
                     # for debugging convenience under different setups, even if the generated pointers are not valid
                     import warnings
                     warnings.warn('actions to node mask not provided; the pointer values may not be valid.')
@@ -471,6 +493,14 @@ class SequenceGenerator(object):
             pointer_probs[~tgt_actions_nodemask] = 0
 
             pointer_max, pointer_argmax = pointer_probs.max(dim=1)
+            """
+            NOTE the pointer distribution is from the target input side self-attention, which is shifted to the right
+            by 1, and the first token is always </s> which will always be masked out, thus the "pointer_argmax"
+            is always >= 1 whenever it is valid (specified by "tgt_actions_nodemask_any" mask below).
+            we have to shift the pointer values back to match the target output side index (starting from 0)
+            """
+            if self.shift_pointer_value:
+                pointer_argmax = pointer_argmax - 1
 
             tgt_actions_nodemask_any = tgt_actions_nodemask.sum(dim=1) > 0
             # max will be log pointer probs, except that rows with all 0 action-to-node mask will be 0
@@ -794,7 +824,7 @@ class EnsembleModel(torch.nn.Module):
         return [model.encoder(**encoder_input) for model in self.models]
 
     @torch.no_grad()
-    def forward_decoder(self, tokens, encoder_outs, temperature=1.):
+    def forward_decoder(self, tokens, encoder_outs, temperature=1., **kwargs):
         if len(self.models) == 1:
             return self._decode_one(
                 tokens,
@@ -803,6 +833,7 @@ class EnsembleModel(torch.nn.Module):
                 self.incremental_states,
                 log_probs=True,
                 temperature=temperature,
+                **kwargs
             )
 
         log_probs = []
@@ -815,6 +846,7 @@ class EnsembleModel(torch.nn.Module):
                 self.incremental_states,
                 log_probs=True,
                 temperature=temperature,
+                **kwargs
             )
             log_probs.append(probs)
             if attn is not None:
@@ -829,12 +861,13 @@ class EnsembleModel(torch.nn.Module):
 
     def _decode_one(
         self, tokens, model, encoder_out, incremental_states, log_probs,
-        temperature=1.,
+        temperature=1., **kwargs
     ):
         if self.incremental_states is not None:
-            decoder_out = list(model.decoder(tokens, encoder_out, incremental_state=self.incremental_states[model]))
+            decoder_out = list(model.decoder(tokens, encoder_out, incremental_state=self.incremental_states[model],
+                                             **kwargs))
         else:
-            decoder_out = list(model.decoder(tokens, encoder_out))
+            decoder_out = list(model.decoder(tokens, encoder_out, **kwargs))
         decoder_out[0] = decoder_out[0][:, -1:, :]
         if temperature != 1.:
             decoder_out[0].div_(temperature)

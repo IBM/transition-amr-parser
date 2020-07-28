@@ -7,12 +7,14 @@ set -o nounset
 
 ##### CONFIG
 dir=$(dirname $0)
-if [ -z "$1" ]; then
-    config="config.sh"
-else
+# if [ ! -z "${1+x}" ]; then
+if [ ! -z "$1" ]; then
     config=$1
+    . $dir/$config    # we should always call from one level up
 fi
-. $dir/$config    # we should always call from one level up
+# NOTE: when the first configuration argument is not provided, this script must
+#       be called from other scripts
+
 
 ##### script specific config
 if [ -z "$2" ]; then
@@ -40,11 +42,13 @@ fi
 # data_split_amr=test    # TODO make the names consistent
 # reference_amr=$AMR_TEST_FILE
 
-model_epoch=_last
-beam_size=10
+model_epoch=${model_epoch:-_last}
+beam_size=${beam_size:-5}
+batch_size=${batch_size:-128}
 
 RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
-results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}.nopos-score
+# results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}.nopos-score
+results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}
 model=$MODEL_FOLDER/checkpoint${model_epoch}.pt
 
 
@@ -56,12 +60,12 @@ mkdir -p $RESULTS_FOLDER
 python fairseq_ext/generate.py \
     $DATA_FOLDER  \
     --user-dir ../fairseq_ext \
-    --task amr_pointer \
+    --task amr_action_pointer \
     --gen-subset $data_split \
     --machine-type AMR  \
     --machine-rules $ORACLE_FOLDER/train.rules.json \
     --beam $beam_size \
-    --batch-size 128 \
+    --batch-size $batch_size \
     --remove-bpe \
     --path $model  \
     --quiet \

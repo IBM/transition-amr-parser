@@ -1,3 +1,6 @@
+import time
+import math
+
 from fairseq.tokenizer import tokenize_line
 
 
@@ -60,3 +63,19 @@ def post_process_action_pointer_prediction(hypo, tgt_dict):
     assert len(actions_nopos) == len(actions_pos)
     actions = [join_action_pointer(act, pos) for act, pos in zip(actions_nopos, actions_pos)]
     return actions_nopos, actions_pos, actions
+
+
+def time_since(start):
+    now = time.time()
+    s = now - start
+    m = math.floor(s / 60)
+    s -= m * 60
+    h = math.floor(m / 60)
+    m -= h * 60
+    if h == 0:
+        if m == 0:
+            return '%ds' % s
+        else:
+            return '%dm %ds' % (m, s)
+    else:
+        return '%dh %dm %ds' % (h, m, s)

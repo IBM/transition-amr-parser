@@ -802,6 +802,13 @@ class AMR_Oracle:
                 continue
             arc_name, arc_label = arc
             arc_pos = act_id
+            # if (transitions.tokens ==
+            #     ['here', ',', 'you', 'can', 'come', 'up', 'close', 'with', 'the', 'stars', 'in', 'your', 'mind', '.', '<ROOT>']) \
+            #     or (transitions.tokens ==
+            #     ['Promotion', 'of', 'Hong', 'Kong', 'Disneyland', 'has', 'long', 'since', 'begun', '.', '<ROOT>']) \
+            # and arc_label == 'root':
+            #     import pdb; pdb.set_trace()
+
             arcs.append(f'{arc_name}({arc_pos},{arc_label})')
         # TODO the return value to be better managed
         return arcs
