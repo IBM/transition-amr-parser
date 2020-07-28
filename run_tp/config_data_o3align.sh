@@ -5,6 +5,12 @@ set -o pipefail
 # . set_environment.sh
 set -o nounset
 
+# set root directory
+if [ -z "$1" ]; then
+    ROOTDIR=EXP
+else
+    ROOTDIR=$1
+fi
 
 ##### Paths to used data
 # note that training data is a LDC2016 preprocessed using Tahira's scripts
@@ -27,11 +33,9 @@ AMR_TEST_FILE=$LDC2017_AMR_CORPUS/test.txt
 
 
 ##### CONFIG
-EXPDIR=exp0
-
-ORACLE_FOLDER=EXP/$EXPDIR/oracle
-DATA_FOLDER=EXP/$EXPDIR/databin
-MODEL_FOLDER=EXP/$EXPDIR/models
+DATADIR=data/o3align_roberta-base-last_act-noeos-states-2LAroot
+ORACLE_FOLDER=$ROOTDIR/$DATADIR/oracle
+DATA_FOLDER=$ROOTDIR/$DATADIR/processed
 
 PRETRAINED_EMBED=roberta.base
 PRETRAINED_EMBED_DIM=768

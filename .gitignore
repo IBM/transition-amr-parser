@@ -9,6 +9,7 @@ DATA*
 *oracles/
 EXP*
 checkpoints*
+amr_corpus*
 
 # external tools
 smatch/
