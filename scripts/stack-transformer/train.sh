@@ -23,8 +23,17 @@ if [ -f "$ORACLE_FOLDER/train.rules.json" ];then
     cp $ORACLE_FOLDER/train.rules.json $checkpoints_dir
 fi
 
+# Copy entity_rules.json from oracle, created using train file
+if [ "$ENTITY_RULES" == "" ]; then
+    if [ ! -f "$ORACLE_FOLDER/entity_rules.json" ];then
+	cp $ORACLE_FOLDER/entity_rules.json $checkpoints_dir
+    fi
+else
+    cp $ENTITY_RULES $checkpoints_dir
+fi
+
 # Copy also dictionaries (we will need this for standalone)
-cp $feature_folder/dict.*.txt $checkpoints_dir/
+cp $features_folder/dict.*.txt $checkpoints_dir/
 
 echo "fairseq-train $FAIRSEQ_TRAIN_ARGS --seed $seed --save-dir $checkpoints_dir"
 fairseq-train $FAIRSEQ_TRAIN_ARGS \
