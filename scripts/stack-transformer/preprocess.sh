@@ -10,6 +10,9 @@ config=$1
 # Load config
 . "$config"
 
+dir=$(dirname $0)
+parentdir="$(dirname "$dir")"
+
 # stage-1: Preprocess
 
 # ORACLE
@@ -32,7 +35,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
 	if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ]; then
 	    cp $ENTITY_RULES $ORACLE_FOLDER/entity_rules.json
 	else
-	    python scripts/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
+	    python $parentdir/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
 	fi
 
         amr-oracle \
