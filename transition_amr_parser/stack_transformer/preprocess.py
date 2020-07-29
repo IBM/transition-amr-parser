@@ -84,7 +84,7 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
 
     # Returns function that generates initialized state machines given
     # sentence 
-    get_new_state_machine = machine_generator(actions_by_stack_rules)
+    get_new_state_machine = machine_generator(actions_by_stack_rules, entity_rules=args.entity_rules)
 
     num_sents = 0
     missing_actions = Counter()

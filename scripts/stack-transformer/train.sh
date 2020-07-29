@@ -11,6 +11,9 @@ seed=$2
 # Load config
 . "$config"
 
+dir=$(dirname $0)
+parentdir="$(dirname "$dir")"
+
 # this is given by calling script to iterate over seeds
 checkpoints_dir="${CHECKPOINTS_DIR_ROOT}-seed${seed}/"
 
@@ -21,6 +24,17 @@ checkpoints_dir="${CHECKPOINTS_DIR_ROOT}-seed${seed}/"
 if [ -f "$ORACLE_FOLDER/train.rules.json" ];then
     echo "cp $ORACLE_FOLDER/train.rules.json $checkpoints_dir"
     cp $ORACLE_FOLDER/train.rules.json $checkpoints_dir
+fi
+
+# Copy entity_rules.json from oracle, created using train file
+if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ]; then
+    cp $ENTITY_RULES $checkpoints_dir
+else
+    if [ -f "$ORACLE_FOLDER/entity_rules.json" ];then
+	cp $ORACLE_FOLDER/entity_rules.json $checkpoints_dir
+    else
+	python $parentdir/extract_rules.py $AMR_TRAIN_FILE $checkpoints_dir/entity_rules.json
+    fi
 fi
 
 # Copy also dictionaries (we will need this for standalone)

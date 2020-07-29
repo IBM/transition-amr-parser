@@ -31,8 +31,8 @@ entity_rule_totals = Counter()
 entity_rule_fails = Counter()
 
 # get path of provided entity_rules
-repo_root = os.path.realpath(f'{os.path.dirname(__file__)}')
-entities_path = f'{repo_root}/entity_rules.json'
+# repo_root = os.path.realpath(f'{os.path.dirname(__file__)}')
+# entities_path = f'{repo_root}/entity_rules.json'
 
 default_rel = ':rel'
 
@@ -132,11 +132,13 @@ class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
                  actions_by_stack_rules=None, amr_graph=True,
-                 spacy_lemmatizer=None):
+                 spacy_lemmatizer=None, entity_rules=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
         """
+
+        self.entity_rules_path = entity_rules
 
         # word tokens of sentence
         self.tokens = tokens.copy()
@@ -1096,8 +1098,9 @@ class AMRStateMachine:
     def postprocessing(self, gold_amr):
         global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
         if not entity_rules_json:
-            with open(entities_path, 'r', encoding='utf8') as f:
-                entity_rules_json = json.load(f)
+            if self.entity_rules_path:
+                with open(self.entity_rules_path, 'r', encoding='utf8') as f:
+                    entity_rules_json = json.load(f)
 
         for entity_id in self.entities:
 
