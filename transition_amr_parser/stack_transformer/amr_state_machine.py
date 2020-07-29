@@ -412,7 +412,7 @@ class StateMachineBatch():
     Batch of state machines
     """
 
-    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None):
+    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None, entity_rules=None):
 
         # Get all actions indexed by prefix
         self.action_indexer = get_action_indexer(tgt_dict.symbols)
@@ -423,7 +423,8 @@ class StateMachineBatch():
             rule_stats = read_rule_stats(machine_rules)
             # self.state_machine = StateMachine(folder)
             self.get_new_state_machine = machine_generator(
-                rule_stats['possible_predicates']
+                rule_stats['possible_predicates'],
+                entity_rules = entity_rules
             )
         else:
             assert machine_type != 'AMR', \
@@ -662,7 +663,7 @@ def update_machine(step, tokens, scores, state_machine):
     state_machine.update_masks()
 
 
-def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
+def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rules=None):
     """Return function that itself returns initialized state machines"""
 
     # initialize spacy lemmatizer
@@ -673,6 +674,7 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
 
         nonlocal actions_by_stack_rules
         nonlocal spacy_lemmatizer
+        nonlocal entity_rules
 
         # automatic determination of machine if no flag provided
         if sent_tokens[0] in ['<NER>', '<AMR>', 'SRL']:
@@ -689,7 +691,8 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
             return AMRStateMachine(
                 sent_tokens,
                 actions_by_stack_rules=actions_by_stack_rules,
-                spacy_lemmatizer=spacy_lemmatizer
+                spacy_lemmatizer=spacy_lemmatizer,
+                entity_rules=entity_rules
             )
         elif machine_type == 'dep-parsing':
             assert sent_tokens[-1] == 'ROOT'

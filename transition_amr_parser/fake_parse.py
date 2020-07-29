@@ -36,6 +36,11 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
+        "--entity-rules",
+        help="entity rules",
+        type=str
+    )
+    parser.add_argument(
         "--out-amr",
         help="parsing model",
         type=str
@@ -216,7 +221,7 @@ class FakeAMRParser():
 
     def __init__(self, logger=None, machine_type='AMR', 
                  from_sent_act_pairs=None, actions_by_stack_rules=None,
-                 no_whitespace_in_actions=False):
+                 no_whitespace_in_actions=False, entity_rules=None):
 
         assert not no_whitespace_in_actions, \
             '--no-whitespace-in-actions deprected'
@@ -231,7 +236,7 @@ class FakeAMRParser():
         self.actions_by_stack_rules = actions_by_stack_rules
         self.no_whitespace_in_actions = no_whitespace_in_actions
         self.machine_type = machine_type
-
+        self.entity_rules = entity_rules
         # initialize here for speed
         self.spacy_lemmatizer = get_spacy_lemmatizer()
 
@@ -256,7 +261,8 @@ class FakeAMRParser():
             state_machine = AMRStateMachine(
                 tokens,
                 actions_by_stack_rules=self.actions_by_stack_rules,
-                spacy_lemmatizer=self.spacy_lemmatizer
+                spacy_lemmatizer=self.spacy_lemmatizer,
+                entity_rules=self.entity_rules
             )
         elif self.machine_type == 'dep-parsing':
             state_machine = DepParsingStateMachine(tokens)
@@ -382,7 +388,8 @@ def main():
         machine_type=args.machine_type,
         logger=logger,
         actions_by_stack_rules=actions_by_stack_rules,
-        no_whitespace_in_actions=args.no_whitespace_in_actions
+        no_whitespace_in_actions=args.no_whitespace_in_actions,
+        entity_rules=args.entity_rules
     )
 
     # Get output AMR writer
