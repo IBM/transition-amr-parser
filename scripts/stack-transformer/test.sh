@@ -40,9 +40,21 @@ test_command=fairseq-generate
 # decode 
 echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
     --results-path $results_folder/valid"
+
+if [ "$TASK_TAG" == "AMR" ] ; then
+    if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ] ; then
+	echo "using given entity rules"
+    else
+	echo "reading entity rules from oracle"
+	ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
+    fi
+fi
+
+
 $test_command $FAIRSEQ_GENERATE_ARGS \
     --path $checkpoint \
-    --results-path $results_folder/valid
+    --results-path $results_folder/valid \
+    --entity-rules $ENTITY_RULES
 
 model_folder=$(dirname $checkpoint)
 
@@ -60,11 +72,8 @@ if [ "$TASK_TAG" == "dep-parsing" ];then
 elif [ "$TASK_TAG" == "AMR" ];then
 
     # Create the AMR from the model obtained actions
-    if [ "$ENTITY_RULES" == "" ]; then
-        ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
-    fi
     amr-fake-parse \
-	--entity-rules $ENTITY_RULES
+	--entity-rules $ENTITY_RULES \
         --in-sentences $ORACLE_FOLDER/dev.en \
         --in-actions $results_folder/valid.actions \
         --out-amr $results_folder/valid.amr \

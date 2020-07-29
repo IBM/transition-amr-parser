@@ -23,6 +23,16 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     # activate config
     . "$config"
 
+    if [ "$TASK_TAG" == "AMR" ] ; then
+	if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ] ; then
+            echo "using given entity rules"
+	else
+            echo "reading entity rules from oracle"
+            ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
+	fi
+    fi
+
+
     # skip if decoding ran already once
     if [ -f "${std_name}.actions" ];then
         echo -e "Skipping $std_name"
@@ -36,7 +46,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
     fi
 
     echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}"
-    fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}
+    fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name} --entity-rules $ENTITY_RULES
     
     # Create oracle data
     # Create oracle data
@@ -57,7 +67,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
 	fi
         # will come to bite us in the future
         amr-fake-parse \
-	    --entity-rules $ENTITY_RULES
+	    --entity-rules $ENTITY_RULES \
             --in-sentences $ORACLE_FOLDER/dev.en \
             --in-actions ${std_name}.actions \
             --out-amr ${std_name}.amr 
