@@ -1098,8 +1098,9 @@ class AMRStateMachine:
     def postprocessing(self, gold_amr):
         global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
         if not entity_rules_json:
-            with open(self.entity_rules_path, 'r', encoding='utf8') as f:
-                entity_rules_json = json.load(f)
+            if self.entity_rules_path:
+                with open(self.entity_rules_path, 'r', encoding='utf8') as f:
+                    entity_rules_json = json.load(f)
 
         for entity_id in self.entities:
 
