@@ -24,7 +24,7 @@ if [ -f "$ORACLE_FOLDER/train.rules.json" ];then
 fi
 
 # Copy also dictionaries (we will need this for standalone)
-cp $feature_folder/dict.*.txt $checkpoints_dir/
+cp $features_folder/dict.*.txt $checkpoints_dir/
 
 echo "fairseq-train $FAIRSEQ_TRAIN_ARGS --seed $seed --save-dir $checkpoints_dir"
 fairseq-train $FAIRSEQ_TRAIN_ARGS \
