@@ -202,7 +202,7 @@ def collect_results(args, results_regex, score_name):
             # any top score checkpoints missing
             'deleted_checkpoints': deleted_checkpoints,
             # other
-            'max_epochs': max(stdout_numbers),
+            'max_epochs': max(stdout_numbers) if stdout_numbers else -1,
             'num_missing_epochs': len(missing_epochs),
             'num': 1,
             'ensemble': False
