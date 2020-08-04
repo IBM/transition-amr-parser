@@ -17,8 +17,15 @@ max_epoch=10
 # Given sentence and aligned AMR, provide action sequence that generates the
 # AMR back
 mkdir -p $ORACLE_FOLDER
+# entity rules
+#entity_rules=transition_amr_parser/entity_rules.json
+entity_rules=$ORACLE_FOLDER/entity_rules.json
+python scripts/extract_rules.py DATA/wiki25.jkaln $entity_rules
+
+# oracle
 amr-oracle \
     --in-amr DATA/wiki25.jkaln \
+    --entity-rules $entity_rules \
     --out-sentences $ORACLE_FOLDER/train.en \
     --out-actions $ORACLE_FOLDER/train.actions \
     --out-rule-stats $ORACLE_FOLDER/train.rules.json \
@@ -43,6 +50,7 @@ fairseq-preprocess \
     --destdir $FEATURES_FOLDER \
     --workers 1 \
     --machine-type AMR \
+    --entity-rules $entity_rules \
     --machine-rules $ORACLE_FOLDER/train.rules.json 
  
 # TRAINING
@@ -79,6 +87,7 @@ fairseq-generate \
     $FEATURES_FOLDER  \
     --gen-subset valid \
     --machine-type AMR  \
+    --entity-rules $entity_rules \
     --machine-rules $ORACLE_FOLDER/train.rules.json \
     --beam 1 \
     --batch-size 15 \
@@ -88,6 +97,7 @@ fairseq-generate \
 
 # Create the AMR from the model obtained actions
 amr-fake-parse \
+	--entity-rules $entity_rules \
     --in-sentences $ORACLE_FOLDER/dev.en \
     --in-actions $RESULTS_FOLDER/valid.actions \
     --out-amr $RESULTS_FOLDER/valid.amr \
