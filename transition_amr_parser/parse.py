@@ -54,7 +54,14 @@ def argument_parsing():
         action='store_true',
         default=False
     )
-    return parser.parse_args()
+
+    args = parser.parse_args()
+    
+    # sanity checks
+    assert bool(args.in_tokenized_sentences) or bool(args.service), \
+        "Must either specify --in-tokenized-sentences or set --service"
+
+    return args
 
 
 def ordered_exit(signum, frame):
