@@ -158,7 +158,7 @@ class AMRParser():
     def __init__(
         self,
         model,           # Pytorch model
-        machine_rules,   # path to train.rules.json
+        machine_rules,   # path to train.rules.json 
         machine_type,    # AMR, NER, etc
         src_dict,        # fairseq dict
         tgt_dict,        # fairseq dict
@@ -175,12 +175,19 @@ class AMRParser():
         self.model = model
         self.use_cuda = use_cuda
 
+        # automatically find entity rules
+        # TODO: replace machine rules by machine folder
+        model_folder = os.path.dirname(machine_rules)
+        entity_rules = f'{model_folder}/entity_rules.json'
+        assert os.path.exists(entity_rules), "Missing {entity_rules}"
+
         # uninitialized batch of state machines
         self.state_machine_batch = StateMachineBatch(
             src_dict,
             tgt_dict,
             machine_type,
-            machine_rules=machine_rules
+            machine_rules=machine_rules,
+            entity_rules=entity_rules
         )
 
     @classmethod
@@ -219,9 +226,11 @@ class AMRParser():
         src_dict_path = f'{model_folder}/dict.{args.source_lang}.txt'
         tgt_dict_path = f'{model_folder}/dict.{args.target_lang}.txt'
         assert os.path.isfile(src_dict_path), \
-            "Model trained with v0.3.0 or above?"
+            f"Missing {src_dict_path}.\nModel trained with v0.3.0 or above?"\
+            "\ncheck scripts/stack-transformer/update_model_to_v0.3.0.sh"
         assert os.path.isfile(tgt_dict_path), \
-            "Model trained with v0.3.0 or above?"
+            f"Missing {tgt_dict_path}.\nModel trained with v0.3.0 or above?"\
+            "\ncheck scripts/stack-transformer/update_model_to_v0.3.0.sh"
         src_dict = Dictionary.load(src_dict_path)
         tgt_dict = Dictionary.load(tgt_dict_path)
 
