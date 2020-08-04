@@ -35,13 +35,6 @@ for index in $(seq $NUM_SEEDS);do
     # copy config and store in model folder
     cp $config $checkpoints_dir/config.sh
 
-    # store the preprocessing and training parameters. We will need this to
-    # know which roberta config we used
-    python scripts/stack-transformer/save_fairseq_args.py \
-        --fairseq-preprocess-args "$FAIRSEQ_PREPROCESS_ARGS" \
-        --fairseq-train-args "$FAIRSEQ_TRAIN_ARGS" \
-        --out-fairseq-model-config $checkpoints_dir/config.json
-
 done
 
 # preprocessing

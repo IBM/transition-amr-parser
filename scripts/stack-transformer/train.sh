@@ -26,14 +26,21 @@ if [ -f "$ORACLE_FOLDER/train.rules.json" ];then
     cp $ORACLE_FOLDER/train.rules.json $checkpoints_dir
 fi
 
+# store the preprocessing and training parameters. We will need this to
+# know which roberta config we used
+python scripts/stack-transformer/save_fairseq_args.py \
+    --fairseq-preprocess-args "$FAIRSEQ_PREPROCESS_ARGS" \
+    --fairseq-train-args "$FAIRSEQ_TRAIN_ARGS" \
+    --out-fairseq-model-config $checkpoints_dir/config.json
+
 # Copy entity_rules.json from oracle, created using train file
 if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ]; then
     cp $ENTITY_RULES $checkpoints_dir
 else
     if [ -f "$ORACLE_FOLDER/entity_rules.json" ];then
-	cp $ORACLE_FOLDER/entity_rules.json $checkpoints_dir
+	    cp $ORACLE_FOLDER/entity_rules.json $checkpoints_dir
     else
-	python $parentdir/extract_rules.py $AMR_TRAIN_FILE $checkpoints_dir/entity_rules.json
+	    python $parentdir/extract_rules.py $AMR_TRAIN_FILE $checkpoints_dir/entity_rules.json
     fi
 fi
 
