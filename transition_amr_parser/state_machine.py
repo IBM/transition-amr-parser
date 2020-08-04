@@ -1096,11 +1096,11 @@ class AMRStateMachine:
                 self.amr.edges.append((new_s, r, new_t))
 
     def postprocessing(self, gold_amr):
+
         global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
-        if not entity_rules_json:
-            if self.entity_rules_path:
-                with open(self.entity_rules_path, 'r', encoding='utf8') as f:
-                    entity_rules_json = json.load(f)
+        assert self.entity_rules_path, "you need to provide entity_rules"
+        with open(self.entity_rules_path, 'r', encoding='utf8') as f:
+            entity_rules_json = json.load(f)
 
         for entity_id in self.entities:
 
