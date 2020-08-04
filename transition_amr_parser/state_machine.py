@@ -1097,6 +1097,8 @@ class AMRStateMachine:
 
     def postprocessing(self, gold_amr):
 
+        # FIXME: All of this below. 
+
         global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
         assert self.entity_rules_path, "you need to provide entity_rules"
         with open(self.entity_rules_path, 'r', encoding='utf8') as f:
@@ -1176,18 +1178,18 @@ class AMRStateMachine:
                 for j, tok in enumerate(entity_tokens):
                     if assigned_edges[j]:
                         continue
-                    if tok.lower() in date_entity_rules[':weekday']:
+                    if tok.lower() in date_entity_rules.get(':weekday', []):
                         assigned_edges[j] = ':weekday'
                         continue
-                    if tok in date_entity_rules[':timezone']:
+                    if tok in date_entity_rules.get(':timezone', []):
                         assigned_edges[j] = ':timezone'
                         continue
-                    if tok.lower() in date_entity_rules[':calendar']:
+                    if tok.lower() in date_entity_rules.get(':calendar', []):
                         assigned_edges[j] = ':calendar'
                         if tok.lower() == 'lunar':
                             entity_tokens[j] = 'moon'
                         continue
-                    if tok.lower() in date_entity_rules[':dayperiod']:
+                    if tok.lower() in date_entity_rules.get(':dayperiod', []):
                         assigned_edges[j] = ':dayperiod'
                         for idx, tok in enumerate(entity_tokens):
                             if tok.lower() == 'this':
@@ -1198,11 +1200,11 @@ class AMRStateMachine:
                         if idx >= 0 and entity_tokens[idx].lower() == 'one':
                             assigned_edges[idx] = ':quant'
                         continue
-                    if tok in date_entity_rules[':era'] or tok.lower() in date_entity_rules[':era'] \
-                            or ('"' in tok and tok.replace('"', '') in date_entity_rules[':era']):
+                    if tok in date_entity_rules.get(':era', []) or tok.lower() in date_entity_rules.get(':era', []) \
+                            or ('"' in tok and tok.replace('"', '') in date_entity_rules.get(':era', [])):
                         assigned_edges[j] = ':era'
                         continue
-                    if tok.lower() in date_entity_rules[':season']:
+                    if tok.lower() in date_entity_rules.get(':season', []):
                         assigned_edges[j] = ':season'
                         continue
 
