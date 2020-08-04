@@ -31,12 +31,12 @@ elif [ "$TASK_TAG" == "AMR" ];then
 
     if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
 
-	entity_rules=$ORACLE_FOLDER/entity_rules.json
-	if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ]; then
-	    entity_rules=$ENTITY_RULES
-	else
-	    python $parentdir/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
-	fi
+	    entity_rules=$ORACLE_FOLDER/entity_rules.json
+	    if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ]; then
+	        entity_rules=$ENTITY_RULES
+	    else
+	        python $parentdir/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
+	    fi
 
         # Train
         amr-oracle \
@@ -50,7 +50,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
         # Dev and test
         amr-oracle \
             --in-amr $AMR_DEV_FILE \
-	    --entity-rules $entity_rules \
+	        --entity-rules $entity_rules \
             --out-sentences $ORACLE_FOLDER/dev.en \
             --out-actions $ORACLE_FOLDER/dev.actions \
             --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
@@ -58,7 +58,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
     
         amr-oracle \
             --in-amr $AMR_TEST_FILE \
-	    --entity-rules $entity_rules \
+	        --entity-rules $entity_rules \
             --out-sentences $ORACLE_FOLDER/test.en \
             --out-actions $ORACLE_FOLDER/test.actions \
             --out-rule-stats $ORACLE_FOLDER/test.rules.json \
