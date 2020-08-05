@@ -3,16 +3,28 @@
 set -o errexit
 set -o pipefail
 # . set_environment.sh
-set -o nounset
+# set -o nounset
 
 
 ##### root folder to store everything
-rootdir=EXP
+ROOTDIR=/dccstor/jzhou1/work/EXP
 
 ##### load data config
-config_data=config_data_o3align.sh
+if [ -z "$1" ]; then
+    config_data=config_data_o3_roberta-base-last.sh
+else
+    config_data=$1
+fi
+
+if [ ! -z "$2" ]; then
+    ROOTDIR=$2
+fi
+
+# NOTE: this should be set after the "$1" check, otherwise it will throw error "unbound variable" if $1 is not set!!
+set -o nounset
+
 dir=$(dirname $0)
-. $dir/$config_data $rootdir   # we should always call from one level up
+. $dir/$config_data    # we should always call from one level up
 # now we have
 # $ORACLE_FOLDER
 # $DATA_FOLDER
@@ -22,6 +34,7 @@ dir=$(dirname $0)
 echo "[Data directories:]"
 echo $ORACLE_FOLDER
 echo $DATA_FOLDER
+echo $EMB_FOLDER
 
 
 ##### preprocess data (will do nothing if data exists)
@@ -37,7 +50,7 @@ AMR_TRAIN_FILE=$ORACLE_FOLDER/ref_train.amr
 AMR_DEV_FILE=$ORACLE_FOLDER/ref_dev.amr
 AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 
-cp $dir/$config_data $ROOTDIR/$DATADIR/config_data.sh
+cp $dir/$config_data $ROOTDIR/$ORACLEDIR/config_data.sh
 
 # exit 0
 

@@ -47,6 +47,8 @@ class ActionStatesBinarizer:
             line = safe_readline(f)
             g.seek(actions_offset)
             actions = safe_readline(g)
+            count = 0
+            start = time.time()
             while line:
                 if en_end > 0 and f.tell() > en_end:
                     assert actions_end > 0 and g.tell() > actions_end
@@ -71,8 +73,13 @@ class ActionStatesBinarizer:
 
                 consumer(vocab_mask, actions_nodemask, token_cursors)
 
+                count += 1
+                if count % 1000 == 0:
+                    print(f'\r processed {count} en-actions pairs (time: {time_since(start)})', end='')
+
                 line = f.readline()
                 actions = g.readline()
+            print('')
         # return any useful statistics
         return {}
 

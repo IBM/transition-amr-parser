@@ -259,7 +259,7 @@ def make_binary_bert_features(args, input_prefix, output_prefix, eos_idx, pad_id
             # udpate number of sents
             num_sents += 1
             if not num_sents % 100:
-                print("\r%d sentences" % num_sents, end = '')
+                print("\r%d sentences" % num_sents, end='')
         print("")
 
     # close indexed data files

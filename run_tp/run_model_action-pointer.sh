@@ -3,27 +3,39 @@
 set -o errexit
 set -o pipefail
 # . set_environment.sh
-set -o nounset
 
 
 ##### root folder to store everything
-rootdir=EXP
+ROOTDIR=/dccstor/jzhou1/work/EXP
 
 ##############################################################
 
-##### load data config
-config_data=config_data_o3align.sh
+##### load model config
+if [ -z "$1" ]; then
+    config_model=config_model_action-pointer.sh
+else
+    config_model=$1
+fi
+
+set -o nounset
+
 dir=$(dirname $0)
-. $dir/$config_data $rootdir   # we should always call from one level up
+. $dir/$config_model   # we should always call from one level up
 # now we have
 # $ORACLE_FOLDER
 # $DATA_FOLDER
+# $EMB_FOLDER
 # $PRETRAINED_EMBED
 # $PRETRAINED_EMBED_DIM
+
+##############################################################
+
+#### data
 
 echo "[Data directories:]"
 echo $ORACLE_FOLDER
 echo $DATA_FOLDER
+echo $EMB_FOLDER
 
 
 ##### preprocess data (will do nothing if data exists)
@@ -42,22 +54,13 @@ AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 # exit 0
 ###############################################################
 
-##### model configuration
-shift_pointer_value=1
-tgt_vocab_masks=0
-share_decoder_embed=1
-seed=42
-max_epoch=120
-
-expdir=exp_o3align_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}_tie${share_decoder_embed}    # action-pointer
-# expdir=exp_o3align_act-pos_vmask${tgt_vocab_masks}    # action-pointer
-# expdir=exp_o3align_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}    # action-pointer
-MODEL_FOLDER=EXP/$expdir/models_seed$seed
+##### train model (will do nothing if $MODEL_FOLDER exists)
 
 echo "[Training:]"
 . $dir/ac_train.sh
 
-cp $dir/$config_data EXP/$expdir/config_data.sh
+cp $dir/$config_data $ROOTDIR/$expdir/
+cp $dir/$config_model $MODEL_FOLDER/
 cp $0 $MODEL_FOLDER/
 cp $dir/ac_train.sh $MODEL_FOLDER/train.sh
 

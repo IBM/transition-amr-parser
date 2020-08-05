@@ -29,7 +29,7 @@ from fairseq_ext.amr_spec.action_info_binarize import (
 from fairseq_ext.binarize import binarize_file
 
 
-def load_amr_action_pointer_dataset(data_path, split, src, tgt, src_dict, tgt_dict, tokenize, dataset_impl,
+def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dict, tgt_dict, tokenize, dataset_impl,
                                     max_source_positions, max_target_positions, shuffle,
                                     append_eos_to_target, collate_tgt_states):
     src_tokens = None
@@ -49,9 +49,10 @@ def load_amr_action_pointer_dataset(data_path, split, src, tgt, src_dict, tgt_di
     tgt_pos = tgt + '_pos'
 
     filename_prefix = os.path.join(data_path, f'{split}.{src}-{tgt}.')
+    embfile_prefix = os.path.join(emb_dir, f'{split}.{src}-{tgt}.')
 
     # src: en tokens
-    with open(filename_prefix + src, 'r', encoding='utf-8') as f:
+    with open(embfile_prefix + src, 'r', encoding='utf-8') as f:
         src_tokens = []
         src_sizes = []
         for line in f:
@@ -67,13 +68,13 @@ def load_amr_action_pointer_dataset(data_path, split, src, tgt, src_dict, tgt_di
     #      dataset_impl is None
 
     # src: pre-trained embeddings
-    src_fixed_embeddings = load_indexed_dataset(filename_prefix + 'en.bert', None, dataset_impl)
+    src_fixed_embeddings = load_indexed_dataset(embfile_prefix + 'en.bert', None, dataset_impl)
 
     # src: wordpieces
-    src_wordpieces = load_indexed_dataset(filename_prefix + 'en.wordpieces', None, dataset_impl)
+    src_wordpieces = load_indexed_dataset(embfile_prefix + 'en.wordpieces', None, dataset_impl)
 
     # src: wordpieces to word map
-    src_wp2w = load_indexed_dataset(filename_prefix + 'en.wp2w', None, dataset_impl)
+    src_wp2w = load_indexed_dataset(embfile_prefix + 'en.wp2w', None, dataset_impl)
 
     # tgt: actions (encoded by a vocabulary)
     tgt_dataset = load_indexed_dataset(filename_prefix + tgt_nopos, tgt_dict, dataset_impl)
@@ -137,6 +138,7 @@ class AMRActionPointerParsingTask(FairseqTask):
         # fmt: off
         parser.add_argument('data', help='colon separated path to data directories list, \
                             will be iterated upon during epochs in round-robin manner')
+        parser.add_argument('--emb-dir', type=str, help='pre-trained src embeddings directory')
         parser.add_argument('-s', '--source-lang', default=None, metavar='SRC',
                             help='source language')
         parser.add_argument('-t', '--target-lang', default=None, metavar='TARGET',
@@ -313,7 +315,8 @@ class AMRActionPointerParsingTask(FairseqTask):
         # infer langcode
         src, tgt = self.args.source_lang, self.args.target_lang
 
-        self.datasets[split] = load_amr_action_pointer_dataset(data_path, split, src, tgt, self.src_dict, self.tgt_dict,
+        self.datasets[split] = load_amr_action_pointer_dataset(data_path, self.args.emb_dir, split,
+                                                               src, tgt, self.src_dict, self.tgt_dict,
                                                                self.tokenize,
                                                                dataset_impl=self.args.dataset_impl,
                                                                max_source_positions=self.args.max_source_positions,

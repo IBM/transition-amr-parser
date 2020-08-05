@@ -21,10 +21,7 @@ LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed
 
 ##### AMR original data
 
-# AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
-# the above data has errors in alignments
-
-AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
+AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
 AMR_DEV_FILE=$LDC2017_AMR_CORPUS/dev.txt
 AMR_TEST_FILE=$LDC2017_AMR_CORPUS/test.txt
 
@@ -36,13 +33,12 @@ AMR_TEST_FILE=$LDC2017_AMR_CORPUS/test.txt
 
 
 ##### CONFIG
-DATADIR=data/o3align_roberta-base-last_act-noeos-states
+DATADIR=data/o3align_roberta-base-last_act-noeos-states-2LAroot
 ORACLE_FOLDER=$ROOTDIR/$DATADIR/oracle
 DATA_FOLDER=$ROOTDIR/$DATADIR/processed
 
 PRETRAINED_EMBED=roberta.base
 PRETRAINED_EMBED_DIM=768
-BERT_LAYERS=12
 
 # PRETRAINED_EMBED=roberta.large
 # PRETRAINED_EMBED_DIM=1024

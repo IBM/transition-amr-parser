@@ -92,7 +92,8 @@ class MultiheadAttention(nn.Module):
 
     def forward(self, query, key, value, key_padding_mask=None, incremental_state=None,
                 need_weights=True, static_kv=False, attn_mask=None,
-                head_attention_masks=None, head_positions=None):
+                head_attention_masks=None, head_positions=None,
+                cross_attention_mask=None):
         """Input shape: Time x Batch x Channel
 
         Timesteps can be masked by supplying a T x T mask in the
@@ -185,7 +186,7 @@ class MultiheadAttention(nn.Module):
 
         if self.bias_k is not None:
             raise NotImplementedError(
-                "attention bias not implemented for stack-trasnformer"
+                "attention bias not implemented for stack-transformer"
             )
             assert self.bias_v is not None
             k = torch.cat([k, self.bias_k.repeat(1, bsz, 1)])
@@ -275,6 +276,13 @@ class MultiheadAttention(nn.Module):
         # attn_weights   (batch_size * num_heads, source_size, target_size)
         attn_weights = torch.bmm(q, k.transpose(1, 2))
 
+        # import pdb; pdb.set_trace()
+
+        # mask out cross attention
+        if cross_attention_mask is not None:
+            # attn_weights[~cross_attention_mask] = -float('inf')
+            attn_weights = attn_weights.masked_fill(~cross_attention_mask, float('-inf'))
+
         if head_positions is not None:
             # if buffer/stack positions provided, add them to attention computation
             # Note that batched inner product is here implemented as
@@ -358,9 +366,11 @@ class MultiheadAttention(nn.Module):
         if need_weights:
             # average attention weights over heads
             attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights = attn_weights.sum(dim=1) / self.num_heads
+            # attn_weights = attn_weights.sum(dim=1) / self.num_heads
         else:
             attn_weights = None
+
+        # import pdb; pdb.set_trace()
 
         return attn, attn_weights
 
