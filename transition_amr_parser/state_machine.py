@@ -297,7 +297,7 @@ class AMRStateMachine:
                 tokens = " ".join(self.tokens[p] for p in token_pos)
             else:
                 tokens = self.tokens[token_pos]
-            node_items.append(f'{tokens} | {node}')
+            node_items.append(f'{tokens}--{node}')
         nodes_str = "  ".join(node_items)
         # update display str
         display_str += "%s\n%s\n\n" % (green_font("# Alignments:"), nodes_str)
