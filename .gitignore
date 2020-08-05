@@ -41,6 +41,7 @@ __pycache__/
 transition_amr_parser.egg-info/
 # assumed used to store models
 models/
+!fairseq_ext/models
 # assumed where data stored
 data/
 
