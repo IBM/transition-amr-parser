@@ -11,14 +11,16 @@ set -o nounset
 
 # Configuration 
 MAX_WORDS=100
-ORACLE_TAG=o7+Word${MAX_WORDS}_noclose
+# ORACLE_TAG=o7+Word${MAX_WORDS}_noclose
+ORACLE_TAG=o7+Word${MAX_WORDS}
 ORACLE_FOLDER=oracles/${ORACLE_TAG}
 
 LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira
 LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed_TAP_v0.0.1
 
 # Select between train/dev
-train_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+# train_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+train_amr=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
 if [ "$test_set" == "dev" ];then
     # ATTENTION: To pass the tests the dev test must have alignments as those
     # obtained with the preprocessing described in README
@@ -28,16 +30,19 @@ if [ "$test_set" == "dev" ];then
     # limit actions by rules
     ref_smatch2=0.921
 elif [ "$test_set" == "train" ];then
-    reference_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+#     reference_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+    reference_amr=$train_amr
     ref_smatch=0.937
+elif [ "$test_set" == "test" ]; then
+    reference_amr=$LDC2017_AMR_CORPUS/test.txt
+    ref_smatch=0.941
 else
-    echo "Usupported set $test"
+    echo "Usupported set $test_set"
     exit 1
 fi
 
 # TRAIN
 [ ! -d $ORACLE_FOLDER/ ] && mkdir -p $ORACLE_FOLDER/
-
 
 # create oracle actions from AMR and the sentence for the train set. This also
 # accumulates necessary statistics in train.rules.json

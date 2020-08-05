@@ -217,7 +217,9 @@ def add_preprocess_args(parser):
     group.add_argument("--testpref", metavar="FP", default=None,
                        help="comma separated, test file prefixes")
     group.add_argument("--destdir", metavar="DIR", default="data-bin",
-                       help="destination dir")
+                       help="destination dir for target actions and states information")
+    group.add_argument("--embdir", metavar="DIR", default="data-bin",
+                       help="destination dir for pre-trained source embeddings")
     group.add_argument("--thresholdtgt", metavar="N", default=0, type=int,
                        help="map words appearing less than threshold times to unknown")
     group.add_argument("--thresholdsrc", metavar="N", default=0, type=int,

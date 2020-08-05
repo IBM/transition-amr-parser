@@ -6,11 +6,10 @@ set -o pipefail
 set -o nounset
 
 # set root directory
-if [ -z "$1" ]; then
-    ROOTDIR=EXP
-else
-    ROOTDIR=$1
+if [ -z ${ROOTDIR+x} ]; then
+    ROOTDIR=/dccstor/jzhou1/work/EXP
 fi
+
 
 ##### Paths to used data
 # note that training data is a LDC2016 preprocessed using Tahira's scripts
@@ -36,9 +35,12 @@ AMR_TEST_FILE=$LDC2017_AMR_CORPUS/test.txt
 
 
 ##### CONFIG
-DATADIR=data/o3align_roberta-base-last_act-noeos-states
-ORACLE_FOLDER=$ROOTDIR/$DATADIR/oracle
-DATA_FOLDER=$ROOTDIR/$DATADIR/processed
+ORACLEDIR=data/o3_act-states
+EMBDIR=data/en_embeddings
+
+ORACLE_FOLDER=$ROOTDIR/$ORACLEDIR/oracle            # oracle actions, etc.
+DATA_FOLDER=$ROOTDIR/$ORACLEDIR/processed           # preprocessed actions states information, etc.
+EMB_FOLDER=$ROOTDIR/$EMBDIR/roberta_base_last     # pre-stored pretrained en embeddings (not changing with oracle) 
 
 PRETRAINED_EMBED=roberta.base
 PRETRAINED_EMBED_DIM=768
@@ -46,3 +48,4 @@ BERT_LAYERS=12
 
 # PRETRAINED_EMBED=roberta.large
 # PRETRAINED_EMBED_DIM=1024
+# BERT_LAYERS=24

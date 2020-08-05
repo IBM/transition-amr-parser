@@ -26,7 +26,7 @@ MAX_WORDS=100
 # rm -Rf $ORACLE_FOLDER
 if [ -d $ORACLE_FOLDER ]; then
     
-    echo "Directory to oracle $ORACLE_FOLDER already exists --- do nothing."
+    echo "Directory to oracle: $ORACLE_FOLDER already exists --- do nothing."
 
 else
 

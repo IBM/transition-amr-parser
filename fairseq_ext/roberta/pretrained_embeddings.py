@@ -1,7 +1,6 @@
 import torch
-from transition_amr_parser.stack_transformer.amr_state_machine import (
-    yellow_font
-)
+
+from ..utils_font import yellow_font
 
 
 def get_average_embeddings(final_layer, word2piece):
@@ -146,7 +145,7 @@ class PretrainedEmbeddings():
                 assert worpieces_roberta.shape[0] == last_layer.shape[1]
 
                 # warn user about this
-                string ='\nMAX_POS overflow!! {worpieces_roberta.shape[0]}'
+                string = '\nMAX_POS overflow!! {worpieces_roberta.shape[0]}'
                 print(yellow_font(string))
 
             else:
@@ -168,7 +167,7 @@ class PretrainedEmbeddings():
         last_layer = last_layer.detach()
 
         # Ignore start and end symbols
-        last_layer= last_layer[0:1, 1:-1, :]
+        last_layer = last_layer[0:1, 1:-1, :]
 
         # average over wordpieces of same word
         word_features = get_average_embeddings(
