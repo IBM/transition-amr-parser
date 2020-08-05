@@ -146,6 +146,7 @@ class AMRStateMachine:
         self.canonical_mode = canonical_mode
         self.actions_canonical = []    # used in canonical mode
         self.actions_nodemask = []     # used in canonical mode
+        self.actions_tokcursor = []    # used in canonical mode
 
         if tokens is not None:
             # word tokens of sentence
@@ -465,6 +466,8 @@ class AMRStateMachine:
                 assert action == 'CLOSE', 'AMR state machine: token sequence finished --- only CLOSE action ' \
                                           'can be applied for AMR postprocessing'
 
+        self.actions_tokcursor.append(self.tok_cursor)
+        
         # apply action: only move token cursor, and record the executed action
         if action in ['SHIFT', 'REDUCE', 'MERGE']:
             self._shift()

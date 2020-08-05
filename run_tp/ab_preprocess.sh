@@ -21,13 +21,13 @@ fi
 # [ -d $DATA_FOLDER ] && echo "Directory to processed data $DATA_FOLDER already exists." && exit 0
 # rm -Rf $DATA_FOLDER
 
-if [ -d $DATA_FOLDER ]; then
-    
-    echo "Directory to processed data $DATA_FOLDER already exists --- do nothing."
+if [[ (-d $DATA_FOLDER) && (-d $EMB_FOLDER) ]]; then
+
+    echo "Directory to processed oracle data: $DATA_FOLDER"
+    echo "and source pre-trained embeddings: $EMB_FOLDER"
+    echo "already exists --- do nothing."
 
 else
-
-    mkdir -p $DATA_FOLDER
 
     python fairseq_ext/preprocess.py \
         --user-dir ../fairseq_ext \
@@ -38,8 +38,10 @@ else
         --validpref $ORACLE_FOLDER/dev \
         --testpref $ORACLE_FOLDER/test \
         --destdir $DATA_FOLDER \
+        --embdir $EMB_FOLDER \
         --workers 1 \
         --pretrained-embed $PRETRAINED_EMBED \
+        --bert-layers $BERT_LAYERS
     #     --machine-type AMR \
     #     --machine-rules $ORACLE_FOLDER/train.rules.json
 fi

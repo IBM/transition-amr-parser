@@ -13,14 +13,15 @@ import shutil
 from collections import Counter
 
 import numpy as np
-from fairseq import options, tasks, utils
+# from fairseq import options, tasks, utils
+from fairseq import tasks, utils
 from fairseq.data import indexed_dataset
 from fairseq.binarizer import Binarizer
 from multiprocessing import Pool
-
 from fairseq.tokenizer import tokenize_line
-# TODO refactor this part
-from transition_amr_parser.stack_transformer.preprocess import make_state_machine
+
+from fairseq_ext import options
+from fairseq_ext.roberta.binarize_embeddings import make_roberta_embeddings
 
 
 def main(args):
@@ -28,7 +29,32 @@ def main(args):
 
     print(args)
 
+    # to control what preprocessing needs to be run (as they take both time and storage so we avoid running repeatedly)
+    run_basic = True
+    # this includes:
+    # src: build src dictionary, copy the raw data to dir; build src binary data (need to refactor later if this is not needed)
+    # tgt: split target pointer values into a separate file; build tgt dictionary, binarize the actions and pointer values
+    run_act_states = True
+    # this includes:
+    # run the state machine in canonical mode to get states information to facilitate modeling;
+    # takes about 1 hour and 13G space
+    run_roberta_emb = True
+    # this includes:
+    # for src sentences, use pre-trained RoBERTa model to extract contextual embeddings for each word;
+    # takes about 10min for RoBERTa base and 30 mins for RoBERTa large and 2-3G space;
+    # this needs GPU and only needs to run once for the English sentences, which does not change for different oracles;
+    # thus the embeddings are stored separately from the oracles.
+
+    if os.path.exists(args.destdir):
+        print(f'binarized actions and states directory {args.destdir} already exists; not rerunning.')
+        run_basic = False
+        run_act_states = False
+    if os.path.exists(args.embdir):
+        print(f'pre-trained embedding directory {args.embdir} already exists; not rerunning.')
+        run_roberta_emb = False
+
     os.makedirs(args.destdir, exist_ok=True)
+    os.makedirs(args.embdir, exist_ok=True)
     target = not args.only_source
 
     task = tasks.get_task(args.task)
@@ -37,11 +63,12 @@ def main(args):
     # when building dictionary on the target actions sequences
     # split the action file into two files, one without arc pointer and one with only arc pointer values
     # and the dictionary is only built on the no pointer actions
-    assert args.target_lang == 'actions', 'target extension must be "actions"'
-    actions_files = [f'{pref}.{args.target_lang}' for pref in (args.trainpref, args.validpref, args.testpref)]
-    task.split_actions_pointer_files(actions_files)
-    args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
-    args.target_lang_pos = 'actions_pos'
+    if run_basic:
+        assert args.target_lang == 'actions', 'target extension must be "actions"'
+        actions_files = [f'{pref}.{args.target_lang}' for pref in (args.trainpref, args.validpref, args.testpref)]
+        task.split_actions_pointer_files(actions_files)
+        args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
+        args.target_lang_pos = 'actions_pos'
 
     # set tokenizer
     tokenize = task.tokenize if hasattr(task, 'tokenize') else tokenize_line
@@ -75,44 +102,45 @@ def main(args):
 
     # build dictionary and save
 
-    if not args.srcdict and os.path.exists(dict_path(args.source_lang)):
-        raise FileExistsError(dict_path(args.source_lang))
-    if target and not args.tgtdict and os.path.exists(dict_path(args.target_lang)):
-        raise FileExistsError(dict_path(args.target_lang))
+    if run_basic:
+        if not args.srcdict and os.path.exists(dict_path(args.source_lang)):
+            raise FileExistsError(dict_path(args.source_lang))
+        if target and not args.tgtdict and os.path.exists(dict_path(args.target_lang)):
+            raise FileExistsError(dict_path(args.target_lang))
 
-    if args.joined_dictionary:
-        assert not args.srcdict or not args.tgtdict, \
-            "cannot use both --srcdict and --tgtdict with --joined-dictionary"
+        if args.joined_dictionary:
+            assert not args.srcdict or not args.tgtdict, \
+                "cannot use both --srcdict and --tgtdict with --joined-dictionary"
 
-        if args.srcdict:
-            src_dict = task.load_dictionary(args.srcdict)
-        elif args.tgtdict:
-            src_dict = task.load_dictionary(args.tgtdict)
-        else:
-            assert args.trainpref, "--trainpref must be set if --srcdict is not specified"
-            src_dict = build_dictionary(
-                {train_path(lang) for lang in [args.source_lang, args.target_lang]}, src=True
-            )
-        tgt_dict = src_dict
-    else:
-        if args.srcdict:
-            src_dict = task.load_dictionary(args.srcdict)
-        else:
-            assert args.trainpref, "--trainpref must be set if --srcdict is not specified"
-            src_dict = build_dictionary([train_path(args.source_lang)], src=True)
-
-        if target:
-            if args.tgtdict:
-                tgt_dict = task.load_dictionary(args.tgtdict)
+            if args.srcdict:
+                src_dict = task.load_dictionary(args.srcdict)
+            elif args.tgtdict:
+                src_dict = task.load_dictionary(args.tgtdict)
             else:
-                assert args.trainpref, "--trainpref must be set if --tgtdict is not specified"
-                tgt_dict = build_dictionary([train_path(args.target_lang_nopos)], tgt=True)
+                assert args.trainpref, "--trainpref must be set if --srcdict is not specified"
+                src_dict = build_dictionary(
+                    {train_path(lang) for lang in [args.source_lang, args.target_lang]}, src=True
+                )
+            tgt_dict = src_dict
         else:
-            tgt_dict = None
+            if args.srcdict:
+                src_dict = task.load_dictionary(args.srcdict)
+            else:
+                assert args.trainpref, "--trainpref must be set if --srcdict is not specified"
+                src_dict = build_dictionary([train_path(args.source_lang)], src=True)
 
-    src_dict.save(dict_path(args.source_lang))
-    if target and tgt_dict is not None:
-        tgt_dict.save(dict_path(args.target_lang_nopos))
+            if target:
+                if args.tgtdict:
+                    tgt_dict = task.load_dictionary(args.tgtdict)
+                else:
+                    assert args.trainpref, "--trainpref must be set if --tgtdict is not specified"
+                    tgt_dict = build_dictionary([train_path(args.target_lang_nopos)], tgt=True)
+            else:
+                tgt_dict = None
+
+        src_dict.save(dict_path(args.source_lang))
+        if target and tgt_dict is not None:
+            tgt_dict.save(dict_path(args.target_lang_nopos))
 
     # save binarized preprocessed files
 
@@ -145,6 +173,7 @@ def main(args):
                         lang,
                         offsets[worker_id],
                         offsets[worker_id + 1],
+                        False,    # note here we shut off append eos
                         tokenize
                     ),
                     callback=merge_result
@@ -208,34 +237,40 @@ def main(args):
 
     # NOTE we do not encode the source sentences with dictionary, as the source embeddings are directly provided
     # from RoBERTa, thus the source dictionary here is of no use
-    make_all(args.source_lang, src_dict, dataset_impl='raw')
-    make_all(args.source_lang, src_dict, dataset_impl='mmap')
-    # above: just leave for the sake of model to run without too much change
-    # NOTE there are <unk> in valid and test set for target actions
-    if target:
-        make_all(args.target_lang_nopos, tgt_dict)
+    if run_basic:
+        make_all(args.source_lang, src_dict, dataset_impl='raw')
+        make_all(args.source_lang, src_dict, dataset_impl='mmap')
+        # above: just leave for the sake of model to run without too much change
+        # NOTE there are <unk> in valid and test set for target actions
+        if target:
+            make_all(args.target_lang_nopos, tgt_dict)
 
-    # TODO make naming convention clearer
-    # assume one training file, one validation file, and one test file
-    for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
-                            [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
-        out_pref = os.path.join(args.destdir, split)
-        task.binarize_actions_pointer_file(pos_file, out_pref)
+        # binarize pointer values and save to file
 
-    # save RoBERTa embeddings
-    # TODO refactor this code
-    make_state_machine(args, src_dict, tgt_dict, tokenize=tokenize)
+        # TODO make naming convention clearer
+        # assume one training file, one validation file, and one test file
+        for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
+                                [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
+            out_pref = os.path.join(args.destdir, split)
+            task.binarize_actions_pointer_file(pos_file, out_pref)
 
     # save action states information to assist training with auxiliary info
     # assume one training file, one validation file, and one test file
-    task_obj = task(args, tgt_dict=tgt_dict)
-    for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
-        en_file = prefix + '.en'
-        actions_file = prefix + '.actions'
-        out_file_pref = os.path.join(args.destdir, split)
-        task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
+    if run_act_states:
+        task_obj = task(args, tgt_dict=tgt_dict)
+        for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
+            en_file = prefix + '.en'
+            actions_file = prefix + '.actions'
+            out_file_pref = os.path.join(args.destdir, split)
+            task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
 
-    print("| Wrote preprocessed data to {}".format(args.destdir))
+    # save RoBERTa embeddings
+    # TODO refactor this code
+    if run_roberta_emb:
+        make_roberta_embeddings(args, tokenize=tokenize)
+
+    print("| Wrote preprocessed oracle data to {}".format(args.destdir))
+    print("| Wrote preprocessed embedding data to {}".format(args.embdir))
 
 
 def binarize(args, filename, vocab, output_prefix, lang, offset, end, append_eos=False, tokenize=tokenize_line):

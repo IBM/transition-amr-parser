@@ -169,33 +169,30 @@ class PretrainedEmbeddings():
         # select some layers for averaging
         self.bert_layers = bert_layers
 
-        if model is None:
-            if name in ['roberta.base', 'roberta.large']:
+        if name in ['roberta.base', 'roberta.large']:
 
-                # Extract
-                self.roberta = torch.hub.load('pytorch/fairseq', name)
-                self.roberta.eval()
-                if torch.cuda.is_available():
-                    self.roberta.cuda()
-                    print(f'Using {name} extraction in GPU') 
-                else:
-                    print('Using {name} extraction in cpu (slow, wont OOM)')
+            # Extract
+            self.roberta = torch.hub.load('pytorch/fairseq', name)
+            self.roberta.eval()
+            if torch.cuda.is_available():
+                self.roberta.cuda()
+                print(f'Using {name} extraction in GPU')
+            else:
+                print(f'Using {name} extraction in cpu (slow, wont OOM)')
 
-            else:    
-                raise Exception(
-                    f'Unknown --pretrained-embed {name}'
-                )
         else:
-            self.roberta = model
+            raise Exception(
+                f'Unknown --pretrained-embed {name}'
+            )
 
     def extract_features(self, worpieces):
         """Extract features from wordpieces"""
 
         if self.bert_layers is None:
-            # normal RoBERTa 
+            # normal RoBERTa
             return self.roberta.extract_features(worpieces)
         else:
-            # layer average RoBERTa 
+            # layer average RoBERTa
             features = self.roberta.extract_features(
                 worpieces,
                 return_all_hiddens=True
@@ -208,9 +205,9 @@ class PretrainedEmbeddings():
             return torch.div(feature_layers, len(self.bert_layers))
 
     def extract(self, sentence_string):
-        """        
+        """
         sentence_string (not tokenized)
-        """        
+        """
 
         # get words, wordpieces and mapping
         # FIXME: PTB oracle already tokenized
@@ -218,14 +215,14 @@ class PretrainedEmbeddings():
             sentence_string,
             self.roberta.bpe
         )
-        
+
         # NOTE: We need to re-extract BPE inside roberta. Token indices
         # will also be different. BOS/EOS added
         worpieces_roberta = self.roberta.encode(sentence_string)
-        
+
         # Extract roberta, remove BOS/EOS
         if torch.cuda.is_available():
-        
+
             # Hotfix for sequences above 512
             if worpieces_roberta.shape[0] > 512:
                 excess = worpieces_roberta.shape[0] - 512
@@ -240,22 +237,22 @@ class PretrainedEmbeddings():
                 # concatenate
                 shape = (last_layer, last_layer2[:, -excess:, :])
                 last_layer = torch.cat(shape, 1)
-        
+
                 assert worpieces_roberta.shape[0] == last_layer.shape[1]
-        
-                # warn user about this 
-                string ='\nMAX_POS overflow!! {worpieces_roberta.shape[0]}' 
+
+                # warn user about this
+                string ='\nMAX_POS overflow!! {worpieces_roberta.shape[0]}'
                 print(yellow_font(string))
-        
+
             else:
 
                 # Normal extraction
                 last_layer = self.extract_features(
                     worpieces_roberta.to(self.roberta.device)
                 )
-       
-        else:   
-        
+
+        else:
+
             # Copy code above
             raise NotImplementedError()
             last_layer = self.roberta.extract_features(
@@ -279,12 +276,12 @@ class PretrainedEmbeddings():
 #        from torch_scatter import scatter_mean
 #        word_features2 = scatter_mean(
 #            last_layer[0, :, :],
-#            get_scatter_indices(word2piece).to(roberta.device), 
+#            get_scatter_indices(word2piece).to(roberta.device),
 #            dim=0
 #        )
 #        # This works
 #        assert np.allclose(word_features.cpu(), word_features2.cpu())
-        
+
         return word_features, worpieces_roberta, word2piece
 
     def extract_batch(self, sentence_string_batch):

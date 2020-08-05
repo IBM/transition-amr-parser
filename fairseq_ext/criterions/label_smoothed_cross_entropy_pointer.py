@@ -142,7 +142,7 @@ class LabelSmoothedCrossEntropyPointerCriterion(FairseqCriterion):
         # NOTE in above 0 is a valid pos value
         loss_all, nll_loss_all = [], []
         for attn in net_output[1]['attn_all']:
-            attn = attn.view(-1, attn.size(-1))    # size (bsz, tgt_len * tgt_len)
+            attn = attn.contiguous().view(-1, attn.size(-1))    # size (bsz, tgt_len * tgt_len)
             # attn = attn.float()
             # this is for numerical stability; otherwise log backward will get nan
             attn = attn.float().clamp(min=1e-8)
