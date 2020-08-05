@@ -30,8 +30,11 @@ if [ "$test_set" == "dev" ];then
 elif [ "$test_set" == "train" ];then
     reference_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
     ref_smatch=0.937
+elif [ "$test_set" == "test" ]; then
+    reference_amr=$LDC2017_AMR_CORPUS/test.txt
+    ref_smatch=0.941
 else
-    echo "Usupported set $test"
+    echo "Usupported set $test_set"
     exit 1
 fi
 

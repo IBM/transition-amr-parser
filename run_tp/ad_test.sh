@@ -5,6 +5,7 @@ set -o pipefail
 # . set_environment.sh
 set -o nounset
 
+
 ##### CONFIG
 dir=$(dirname $0)
 # if [ ! -z "${1+x}" ]; then
@@ -59,6 +60,7 @@ mkdir -p $RESULTS_FOLDER
 # --quiet
 python fairseq_ext/generate.py \
     $DATA_FOLDER  \
+    --emb-dir $EMB_FOLDER \
     --user-dir ../fairseq_ext \
     --task amr_action_pointer \
     --gen-subset $data_split \

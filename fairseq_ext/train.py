@@ -14,6 +14,29 @@ import math
 import os
 import random
 
+# =========================================================================================
+# NOTE ERROR with the current environment, there is an error associated when using tensorboard:
+# "Segmentation fault      (core dumped)"
+# at the place where tensorboardX is imported
+# https://github.ibm.com/ramon-astudillo/fairseq/blob/ee812936bffa5fad0625d4e21f485183eeadf44c/fairseq/progress_bar.py#L234
+# To replicate the error:
+# open a Python console, and try
+# import torch
+# (then)
+# import tensorboardX
+# then the error will occur
+# However, if tensorboardX is import on top, then no error will occur
+# Some relevant discussion:
+# https://github.com/pytorch/pytorch/issues/30651
+# https://github.com/lanpa/tensorboardX/issues/178
+# related to libprotobuf or protobuf?
+# =========================================================================================
+# so a current workaround is to import tensorboardX on top before everything
+try:
+    import tensorboardX
+except ImportError:
+    pass
+# =========================================================================================
 import torch
 
 from fairseq import checkpoint_utils, distributed_utils, options, progress_bar, tasks, utils
@@ -156,7 +179,8 @@ def train(args, trainer, task, epoch_itr):
             break
 
         # for debugging
-        # break
+        # if i == 2:
+        #     break
 
     # log end-of-epoch stats
     stats = get_training_stats(trainer)

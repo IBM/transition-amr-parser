@@ -384,11 +384,13 @@ class SequenceGenerator(object):
 
             # restrict the action space for next candidate tokens
             allowed_mask = tokens.new_zeros(tokens.size(0), self.vocab_size, dtype=torch.uint8)
+            tok_cursors = tokens.new_zeros(tokens.size(0), dtype=torch.int64)
             if amr_state_machines is not None:
                 for i, sm in enumerate(amr_state_machines):
                     act_allowed = sm.get_valid_canonical_actions()
                     vocab_ids_allowed = set().union(*[set(canonical_act_ids[act]) for act in act_allowed])
                     allowed_mask[i, list(vocab_ids_allowed)] = 1
+                    tok_cursors[i] = sm.tok_cursor
                 # pad and unk tokens are never allowed from the state machine above
             else:
                 allowed_mask.fill_(1)
@@ -400,7 +402,8 @@ class SequenceGenerator(object):
 
             # ========== get the actions states auxiliary information needed for the model to run in real-time ========
 
-            actions_states = {'tgt_vocab_masks': allowed_mask.unsqueeze(1)}
+            actions_states = {'tgt_vocab_masks': allowed_mask.unsqueeze(1),
+                              'tgt_src_cursors': tok_cursors.unsqueeze(1)}
 
             # lprobs, avg_attn_scores = model.forward_decoder(
             #     tokens[:, :step + 1], encoder_outs, temperature=self.temperature,
@@ -669,7 +672,8 @@ class SequenceGenerator(object):
                 # indexing on the batch dimension
                 if attn_tgt is not None:
                     for s, v in attn_tgt.items():
-                        attn_tgt[s] = v.view(bsz, -1)[batch_idxs].view(new_bsz * beam_size, v.size(1))
+                        # NOTE must call contiguous() before view in some cases; or use reshape
+                        attn_tgt[s] = v.reshape(bsz, -1)[batch_idxs].contiguous().view(new_bsz * beam_size, v.size(1))
                     # TODO figure out how the above .resize_as_() works for buf when the sizes are actually different?
                     # (cont) DONE
                     # for s, v in attn_tgt_buf.items():

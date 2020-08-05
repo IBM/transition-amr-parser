@@ -32,6 +32,7 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
     """
     assert actions is not None
     if actions[-1] != 'CLOSE':
+        actions = actions.copy()
         actions.append('CLOSE')
 
     amr_state_machine = AMRStateMachine(tokens=tokens, tokseq_len=tokseq_len, canonical_mode=True)
@@ -124,9 +125,15 @@ if __name__ == '__main__':
         print('-' * 20)
         print(split + ' data')
         print('-' * 20)
+
         en_file = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/EXP/exp1/oracle/{split}.en'
         actions_file = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/EXP/exp1/oracle/{split}.actions'
         out_file_path = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/EXP/exp1/oracle/{split}.stats'
+
+        en_file = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/test_data/oracles/o7+Word100/{split}.en'
+        actions_file = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/test_data/oracles/o7+Word100/{split}.actions'
+        out_file_path = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/test_data/oracles/o7+Word100/{split}.stats'
+
         out_file = open(out_file_path, 'w')
         check_actions_file(en_file, actions_file, out_file)
         out_file.close()
