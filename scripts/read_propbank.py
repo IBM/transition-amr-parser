@@ -60,7 +60,6 @@ def read_frame(xml_file):
 if __name__ == '__main__':
     
     # Argument handling
-    #in_propank_folder = 'DATA/abstract_meaning_representation_amr_2.0/data/frames/propbank-frames-xml-2016-03-08/'
     in_propank_folder, out_json = sys.argv[1:] 
 
     # Read propbank into dict
