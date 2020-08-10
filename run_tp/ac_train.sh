@@ -32,13 +32,18 @@ seed=${seed:-42}
 # max_epoch=100
 # seed=42
 
+apply_tgt_input_src=${apply_tgt_input_src:-0}
+tgt_input_src_emb=${tgt_input_src_emb:-top}
+tgt_input_src_backprop=${tgt_input_src_backprop:-1}
+tgt_input_src_combine=${tgt_input_src_combine:-cat}
+
 
 ##### TRAINING
 # rm -Rf $MODEL_FOLDER
 
-if [ -d $MODEL_FOLDER ]; then
+if [ -f $MODEL_FOLDER/checkpoint_last.pt ]; then
     
-    echo "Directory to processed data $MODEL_FOLDER already exists --- do nothing."
+    echo "Model checkpoint $MODEL_FOLDER/checkpoint_last.pt already exists --- do nothing."
 
 else
 
@@ -53,13 +58,21 @@ else
         --shift-pointer-value $shift_pointer_value \
         --apply-tgt-vocab-masks $tgt_vocab_masks \
         --share-decoder-input-output-embed $share_decoder_embed \
+        \
         --apply-tgt-src-align $apply_tgt_src_align \
+        --tgt-src-align-layers $tgt_src_align_layers \
+        --tgt-src-align-heads $tgt_src_align_heads \
         --tgt-src-align-focus $tgt_src_align_focus \
         \
         --pointer-dist-decoder-selfattn-layers $pointer_dist_decoder_selfattn_layers \
         --pointer-dist-decoder-selfattn-heads $pointer_dist_decoder_selfattn_heads \
         --pointer-dist-decoder-selfattn-avg $pointer_dist_decoder_selfattn_avg \
         --pointer-dist-decoder-selfattn-infer $pointer_dist_decoder_selfattn_infer \
+        \
+        --apply-tgt-input-src $apply_tgt_input_src \
+        --tgt-input-src-emb $tgt_input_src_emb \
+        --tgt-input-src-backprop $tgt_input_src_backprop \
+        --tgt-input-src-combine $tgt_input_src_combine \
         \
         --max-epoch $max_epoch \
         --arch transformer_tgt_pointer \

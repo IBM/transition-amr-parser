@@ -29,7 +29,7 @@ dir=$(dirname $0)
 ###############################################################
 
 ##### model configuration
-shift_pointer_value=1
+shift_pointer_value=0
 tgt_vocab_masks=0
 share_decoder_embed=0
 apply_tgt_src_align=1
@@ -38,7 +38,7 @@ tgt_src_align_head=1
 tgt_src_align_focus='p0n0'    # 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
 
 pointer_dist_decoder_selfattn_layers="3 4 5"
-pointer_dist_decoder_selfattn_heads=1
+pointer_dist_decoder_selfattn_heads=2
 pointer_dist_decoder_selfattn_avg=0
 pointer_dist_decoder_selfattn_infer=5
 

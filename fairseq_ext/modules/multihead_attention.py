@@ -280,8 +280,8 @@ class MultiheadAttention(nn.Module):
 
         # mask out cross attention
         if cross_attention_mask is not None:
-            # attn_weights[~cross_attention_mask] = -float('inf')
-            attn_weights = attn_weights.masked_fill(~cross_attention_mask, float('-inf'))
+            # attn_weights[~cross_attention_mask[0]] = -float('inf')
+            attn_weights = attn_weights.masked_fill(~cross_attention_mask[0], float('-inf'))
 
         if head_positions is not None:
             # if buffer/stack positions provided, add them to attention computation
@@ -332,6 +332,20 @@ class MultiheadAttention(nn.Module):
             attn_weights, dim=-1, onnx_trace=self.onnx_trace,
         ).type_as(attn_weights)
         attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
+
+        # if torch.isnan(attn_weights).any():
+        #     import pdb; pdb.set_trace()
+        
+        # NOTE after softmax, we need to mask out the rows that are all masked out, which are full rows of
+        # '-inf' before softmax -> 'nan' after softmax
+        if cross_attention_mask is not None:
+            # attn_weights[cross_attention_mask.sum(dim=2) == 0] *= 0
+            # post_mask = cross_attention_mask.new_ones(*cross_attention_mask.size()[:2], 1).float()
+            # post_mask[cross_attention_mask.sum(dim=2) == 0] = 0.0
+            attn_weights = attn_weights * cross_attention_mask[1]
+
+        # if torch.isnan(attn_weights).any():
+        #     import pdb; pdb.set_trace()
 
         # post mask for empty buffer/stack
         if head_attention_masks is not None:
