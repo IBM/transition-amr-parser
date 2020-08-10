@@ -23,6 +23,13 @@ dir=$(dirname $0)
 # set -o nounset
 
 ##### run the job directly (e.g. in interactive mode)
-/bin/bash $dir/run_model_action-pointer.sh $config_model # &> $MODEL_FOLDER/run.log
 
-# bash_x86_12h_v100 $dir/run_model_action-pointer.sh $config_model &> $MODEL_FOLDER/run.log
+# this is necessary for output redirected to file
+mkdir -p $MODEL_FOLDER
+
+/bin/bash $dir/run_model_action-pointer.sh $config_model #|& tee $MODEL_FOLDER/run.log
+
+# bash_x86_12h_v100 $dir/run_model_action-pointer.sh $config_model |& tee $MODEL_FOLDER/run.log
+
+
+

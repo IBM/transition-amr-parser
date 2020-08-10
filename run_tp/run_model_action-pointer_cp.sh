@@ -74,7 +74,7 @@ model_epoch=_last
 batch_size=128
 
 echo "[Decoding and computing smatch:]"
-for beam_size in 1 5 10
+for beam_size in 5 10
 do
     . $dir/ad_test.sh "" dev
     . $dir/ad_test.sh "" test
