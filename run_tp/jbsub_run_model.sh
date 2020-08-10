@@ -25,8 +25,11 @@ dir=$(dirname $0)
 
 ##### submit the job to ccc
 jbsub_tag=log
-train_queue=x86_6h
-gpu_type=k80
+train_queue=x86_12h
+gpu_type=v100
+
+mkdir -p $MODEL_FOLDER
+
 jbsub_info=$(jbsub \
              -cores 1+1 \
              -mem 50g \

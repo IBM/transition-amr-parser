@@ -32,7 +32,7 @@ from transition_amr_parser.stack_transformer.stack_state_machine import (
 from torch_scatter import scatter_mean
 
 from ..modules.transformer_layer import TransformerEncoderLayer, TransformerDecoderLayer
-from .attention_masks import get_cross_attention_mask
+from .attention_masks import get_cross_attention_mask, get_cross_attention_mask_heads
 
 
 DEFAULT_MAX_SOURCE_POSITIONS = 1024
@@ -144,24 +144,49 @@ class TransformerTgtPointerModel(FairseqEncoderDecoderModel):
                             help='Pretrained embeddings size',
                             default=768)
         # additional
-        parser.add_argument('--apply-tgt-vocab-masks', type=int, default=0,
+        # NOTE do not set default values here; if set, make sure they are consistent with the arch registry
+        #      since when loading model (e.g. saved pre some argument additions), the default values will be used first
+        #      then the arch registry
+        parser.add_argument('--apply-tgt-vocab-masks', type=int,
                             help='whether to apply target (actions) vocabulary mask for output')
-        parser.add_argument('--apply-tgt-actnode-masks', type=int, default=0,
+        parser.add_argument('--apply-tgt-actnode-masks', type=int,
                             help='whether to apply target (actions) node mask for pointer')
-        parser.add_argument('--apply-tgt-src-align', type=int, default=0,
+        parser.add_argument('--apply-tgt-src-align', type=int,
                             help='whether to apply target source alignment to guide the cross attention')
-        parser.add_argument('--tgt-src-align-focus', type=str, default='p0n0')
-
+        parser.add_argument('--apply-tgt-input-src', type=int,
+                            help='whether to apply target input to include source token embeddings for better '
+                                 'representations of the graph nodes')
+        # additional: tgt src alignment masks for decoder cross-attention
+        parser.add_argument('--tgt-src-align-layers', nargs='*', type=int,
+                            help='target source alignment in decoder cross-attention: which layers to use')
+        parser.add_argument('--tgt-src-align-heads', type=int,
+                            help='target source alignment in decoder cross-attention: how many heads per layer to use')
+        parser.add_argument('--tgt-src-align-focus', nargs='*', type=str,
+                            help='target source alignment in decoder cross-attention: what to focus per head')
         # additional: pointer distribution from decoder self-attentions
         parser.add_argument('--pointer-dist-decoder-selfattn-layers', nargs='*', type=int,
                             help='pointer distribution from decoder self-attention: which layers to use')
-        parser.add_argument('--pointer-dist-decoder-selfattn-heads', type=int, default=1,
+        parser.add_argument('--pointer-dist-decoder-selfattn-heads', type=int,
                             help='pointer distribution from decoder self-attention: how many heads per layer to use')
-        parser.add_argument('--pointer-dist-decoder-selfattn-avg', type=int, default=0,
+        parser.add_argument('--pointer-dist-decoder-selfattn-avg', type=int,
                             help='pointer distribution from decoder self-attention: whether to use the average '
-                                 'self-attention each layer (arithmetic mean); otherwise, geometric mean is used')
+                                 'self-attention each layer (arithmetic mean); if set to 0, geometric mean is used; '
+                                 'if set to -1, no average is used and all the pointer distributions are used to '
+                                 'compute the loss')
         parser.add_argument('--pointer-dist-decoder-selfattn-infer', type=int,
                             help='pointer distribution from decoder self-attention: at inference, which layer to use')
+        # additional: combine source token embeddings into action embeddings for decoder input for node representation
+        parser.add_argument('--tgt-input-src-emb', type=str, choices=['raw', 'bot', 'top'],
+                            help='target input to include aligned source tokens: where to take the source embeddings; '
+                                 '"raw": raw RoBERTa embeddings from the very beginning; '
+                                 '"bot": bottom source embeddings before the encoder; '
+                                 '"top": top source embeddings after the encoder')
+        parser.add_argument('--tgt-input-src-backprop', type=int,
+                            help='target input to include aligned source tokens: whether to back prop through the '
+                                 'source embeddings')
+        parser.add_argument('--tgt-input-src-combine', type=str, choices=['cat', 'add'],
+                            help='target input to include aligned source tokens: how to combine the source token '
+                                 'embeddings and the action embeddings')
         # fmt: on
 
     @classmethod
@@ -170,6 +195,9 @@ class TransformerTgtPointerModel(FairseqEncoderDecoderModel):
 
         # make sure all arguments are present in older models
         base_architecture(args)
+
+        # user specific: make sure all arguments are present in older models during development
+        transformer_pointer(args)
 
         if not hasattr(args, 'max_source_positions'):
             args.max_source_positions = DEFAULT_MAX_SOURCE_POSITIONS
@@ -357,6 +385,10 @@ class TransformerEncoder(FairseqEncoder):
             bert_embeddings = source_fix_emb
 
         x = self.subspace(bert_embeddings)
+
+        if self.args.apply_tgt_input_src and self.args.tgt_input_src_emb == 'bot':
+            src_embs = x    # size (B, T, C)
+
         x = F.dropout(x, p=self.dropout, training=self.training)
 
         # B x T x C -> T x B x C
@@ -374,9 +406,22 @@ class TransformerEncoder(FairseqEncoder):
         if self.layer_norm:
             x = self.layer_norm(x)
 
+        if self.args.apply_tgt_input_src:
+            if self.args.tgt_input_src_emb == 'top':
+                src_embs = x.transpose(0, 1)
+            elif self.args.tgt_input_src_emb == 'raw':
+                src_embs = bert_embeddings
+            elif self.args.tgt_input_src_emb == 'bot':
+                pass    # already dealt with above
+            else:
+                raise NotImplementedError
+        else:
+            src_embs = None
+
         return {
             'encoder_out': x,  # T x B x C
             'encoder_padding_mask': encoder_padding_mask,  # B x T
+            'src_embs': src_embs,  # B x T x C
         }
 
     def reorder_encoder_out(self, encoder_out, new_order):
@@ -396,6 +441,8 @@ class TransformerEncoder(FairseqEncoder):
         if encoder_out['encoder_padding_mask'] is not None:
             encoder_out['encoder_padding_mask'] = \
                 encoder_out['encoder_padding_mask'].index_select(0, new_order)
+        if encoder_out['src_embs'] is not None:
+            encoder_out['src_embs'] = encoder_out['src_embs'].index_select(0, new_order)
         return encoder_out
 
     def max_positions(self):
@@ -504,6 +551,12 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         # copying the arguments for the separate model in decoding to use
         self.args = args
 
+        # target input to include source token embeddings
+        if self.args.apply_tgt_input_src:
+            assert self.args.tgt_input_src_emb != 'raw', 'Not implemented yet'
+            if self.args.tgt_input_src_combine == 'cat':
+                self.combine_src_embs = Linear(input_embed_dim + args.encoder_embed_dim, input_embed_dim, bias=False)
+
     def forward(self, prev_output_tokens, encoder_out, memory=None, memory_pos=None,
                 incremental_state=None, logits_mask=None, logits_indices=None,
                 tgt_vocab_masks=None, tgt_actnode_masks=None, tgt_src_cursors=None,
@@ -574,6 +627,35 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         # embed tokens and positions
         x = self.embed_scale * self.embed_tokens(prev_output_tokens)
 
+        # ========== combine the corresponding source token embeddings with the action embeddings as input ==========
+        if self.args.apply_tgt_input_src:
+            # 1) take out the source embeddings
+            src_embs = encoder_out['src_embs']    # size (batch_size, src_max_len, encoder_emb_dim)
+            if not self.args.tgt_input_src_backprop:
+                src_embs = src_embs.detach()
+
+            # 2) align the source embeddings to the tgt input actions
+            assert tgt_src_cursors is not None
+            tgt_src_index = tgt_src_cursors.clone()    # size (bsz, tgt_max_len)
+            if encoder_out['encoder_padding_mask'] is not None:
+                src_num_pads = encoder_out['encoder_padding_mask'].sum(dim=1, keepdim=True)
+                tgt_src_index = tgt_src_index + src_num_pads    # NOTE this is key to left padding!
+
+            tgt_src_index = tgt_src_index.unsqueeze(-1).repeat(1, 1, src_embs.size(-1))
+            # or
+            # tgt_src_index = tgt_src_index.unsqueeze(-1).expand(-1, -1, src_embs.size(-1))
+            src_embs = torch.gather(src_embs, 1, tgt_src_index)
+            # size (bsz, tgt_max_len, src_embs.size(-1))
+
+            # 3) combine the action embeddings with the aligned source token embeddings
+            if self.args.tgt_input_src_combine == 'cat':
+                x = self.combine_src_embs(torch.cat([src_embs, x], dim=-1))
+            elif self.args.tgt_input_src_combine == 'add':
+                x = src_embs + x
+            else:
+                raise NotImplementedError
+        # ===========================================================================================================
+
         if self.project_in_dim is not None:
             x = self.project_in_dim(x)
 
@@ -590,15 +672,14 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         if self.args.apply_tgt_src_align:
             assert tgt_src_cursors is not None
-            cross_attention_mask = get_cross_attention_mask(tgt_src_cursors,
-                                                            encoder_out['encoder_out'].size(0),
-                                                            encoder_out['encoder_padding_mask'],
-                                                            self.args.tgt_src_align_focus,
-                                                            self.layers[0].encoder_attn.num_heads)
+            cross_attention_mask = get_cross_attention_mask_heads(tgt_src_cursors,
+                                                                  encoder_out['encoder_out'].size(0),
+                                                                  encoder_out['encoder_padding_mask'],
+                                                                  self.args.tgt_src_align_focus,
+                                                                  self.args.tgt_src_align_heads,
+                                                                  self.layers[0].encoder_attn.num_heads)
         else:
             cross_attention_mask = None
-
-        # import pdb; pdb.set_trace()
 
         # decoder layers
         for layer_index, layer in enumerate(self.layers):
@@ -639,15 +720,26 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             # attn is tgt self-attention of size (bsz, num_heads, tgt_len, tgt_len) with future masks
             if self.args.pointer_dist_decoder_selfattn_heads == 1:
                 attn = attn[:, 0, :, :]
+                attn_all.append(attn)
             else:
                 attn = attn[:, :self.args.pointer_dist_decoder_selfattn_heads, :, :]
-                if self.args.pointer_dist_decoder_selfattn_avg:
+                if self.args.pointer_dist_decoder_selfattn_avg == 1:
                     # arithmetic mean
                     attn = attn.sum(dim=1) / self.args.pointer_dist_decoder_selfattn_heads
+                    attn_all.append(attn)
+                elif self.args.pointer_dist_decoder_selfattn_avg == 0:
+                    # geometric mean
+                    attn = attn.prod(dim=1).pow(1 / self.args.pointer_dist_decoder_selfattn_heads)
+                    # TODO there is an nan bug when backward for the above power
+                    attn_all.append(attn)
+                elif self.args.pointer_dist_decoder_selfattn_avg == -1:
+                    # no mean
+                    pointer_dists = list(map(lambda x: x.squeeze(1),
+                                             torch.chunk(attn, self.args.pointer_dist_decoder_selfattn_heads, dim=1)))
+                    attn = attn.prod(dim=1).pow(1 / self.args.pointer_dist_decoder_selfattn_heads)
+                    attn_all.extend(pointer_dists)
                 else:
-                    attn = attn.prod(dim=1).pow(self.args.pointer_dist_decoder_selfattn_heads)
-
-            attn_all.append(attn)
+                    raise ValueError
 
         # for decoding: which pointer distribution to use
         attn = attn_all[self.args.pointer_dist_decoder_selfattn_layers.index(
@@ -1052,13 +1144,36 @@ def transformer_pointer(args):
     args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 512)
     args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
     args.decoder_layers = getattr(args, 'decoder_layers', 6)
-    # args.apply_tgt_vocab_masks = getattr(args, 'apply_tgt_vocab_masks', 0)
-    # args.apply_tgt_actnode_masks = getattr(args, 'apply_tgt_actnode_masks', 0)
-    # args.apply_tgt_src_align = getattr(args, 'apply_tgt_src_align', 0)
+    # additional control of whether to use various action states information in the model
+    args.apply_tgt_vocab_masks = getattr(args, 'apply_tgt_vocab_masks', 0)
+    args.apply_tgt_actnode_masks = getattr(args, 'apply_tgt_actnode_masks', 0)
+    args.apply_tgt_src_align = getattr(args, 'apply_tgt_src_align', 1)
+    args.apply_tgt_input_src = getattr(args, 'apply_tgt_input_src', 0)
+    # target source alignment masks for decoder cross-attention
+    args.tgt_src_align_layers = getattr(args, 'tgt_src_align_layers', list(range(args.decoder_layers)))
+    args.tgt_src_align_heads = getattr(args, 'tgt_src_align_heads', 1)
+    args.tgt_src_align_focus = getattr(args, 'tgt_src_align_focus', ['p0c1n0'])
+    # pointer distribution from decoder self-attention
     args.pointer_dist_decoder_selfattn_layers = getattr(args, 'pointer_dist_decoder_selfattn_layers',
                                                         list(range(args.decoder_layers)))
-    args.pointer_dist_decoder_selfattn_heads = getattr(args, 'pointer_dist_decoder_selfattn_heads', 1)
-    args.pointer_dist_decoder_selfattn_avg = getattr(args, 'pointer_dist_decoder_selfattn_avg', 0)
+    args.pointer_dist_decoder_selfattn_heads = getattr(args, 'pointer_dist_decoder_selfattn_heads',
+                                                       args.decoder_attention_heads)
+    args.pointer_dist_decoder_selfattn_avg = getattr(args, 'pointer_dist_decoder_selfattn_avg', 1)
     args.pointer_dist_decoder_selfattn_infer = getattr(args, 'pointer_dist_decoder_selfattn_infer',
                                                        args.pointer_dist_decoder_selfattn_layers[-1])
+    # combine source token embeddings into action embeddings for decoder input for node representation
+    args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
+    args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
+    args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+
+    # process some of the args for compatibility issue with legacy versions
+    if isinstance(args.tgt_src_align_focus, str):
+        assert len(args.tgt_src_align_focus) == 4, 'legacy version has "p-n-" format'
+        args.tgt_src_align_focus = [args.tgt_src_align_focus[:2] + 'c1' + args.tgt_src_align_focus[-2:]]
+    elif isinstance(args.tgt_src_align_focus, list):
+        if len(args.tgt_src_align_focus) == 1 and len(args.tgt_src_align_focus[0]) == 4:
+            args.tgt_src_align_focus[0] = args.tgt_src_align_focus[0][:2] + 'c1' + args.tgt_src_align_focus[0][-2:]
+    else:
+        raise TypeError
+
     base_architecture(args)

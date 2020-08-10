@@ -10,6 +10,7 @@ DATA*
 EXP*
 checkpoints*
 amr_corpus*
+!EXPR
 
 # external tools
 smatch/

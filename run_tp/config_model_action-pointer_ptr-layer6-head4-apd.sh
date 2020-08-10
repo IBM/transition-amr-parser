@@ -29,22 +29,29 @@ dir=$(dirname $0)
 ###############################################################
 
 ##### model configuration
-shift_pointer_value=1
+shift_pointer_value=0
 tgt_vocab_masks=0
 share_decoder_embed=0
-apply_tgt_src_align=1
-tgt_src_align_layer='all'
-tgt_src_align_head=1
-tgt_src_align_focus='p0n0'    # 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
 
-pointer_dist_decoder_selfattn_layers="3 4 5"
-pointer_dist_decoder_selfattn_heads=1
-pointer_dist_decoder_selfattn_avg=0
+apply_tgt_src_align=1
+tgt_src_align_layers="0 1 2 3 4 5"
+tgt_src_align_heads=1
+tgt_src_align_focus='p0c1n0'    
+# previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
+# current version: 'p0c1n1', 'p1c1n1', 'p*c1n0', 'p0c0n*', etc.
+#                  'p' - previous (prior to alignment), a number or '*' for all previous src tokens
+#                  'c' - current (alignment position, 1 for each tgt token), either 0 or 1
+#                  'n' - next (post alignment), a number or '*' for all the remaining src tokens
+
+pointer_dist_decoder_selfattn_layers="5"
+pointer_dist_decoder_selfattn_heads=4
+pointer_dist_decoder_selfattn_avg="-1"
 pointer_dist_decoder_selfattn_infer=5
 
 seed=42
 max_epoch=120
 
+cam_lay="all"
 
 if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
     lay="all"
@@ -58,10 +65,12 @@ else
     echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 0
 fi
 
-expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}_cattnmask-layer${tgt_src_align_layer}-head${tgt_src_align_head}-focus${tgt_src_align_focus}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
+expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}_cattnmask-layer${cam_lay}-head${tgt_src_align_heads}-focus${tgt_src_align_focus}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
 
 if [[ $pointer_dist_decoder_selfattn_avg == 1 ]]; then
     expdir=${expdir}-avg
+elif [[ $pointer_dist_decoder_selfattn_avg == "-1" ]]; then
+    expdir=${expdir}-apd
 fi
 
 
