@@ -45,7 +45,25 @@ pointer_dist_decoder_selfattn_infer=5
 seed=42
 max_epoch=120
 
-expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}_cattnmask-layer${tgt_src_align_layer}-head${tgt_src_align_head}-focus${tgt_src_align_focus}_ptr-layerall-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
+
+if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
+    lay="all"
+elif [[ $pointer_dist_decoder_selfattn_layers == "3 4 5" ]]; then
+    lay="456"
+elif [[ $pointer_dist_decoder_selfattn_layers == "4 5" ]]; then
+    lay="56"
+elif [[ $pointer_dist_decoder_selfattn_layers == "5" ]]; then
+    lay="6"
+else
+    echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 0
+fi
+
+expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}_cattnmask-layer${tgt_src_align_layer}-head${tgt_src_align_head}-focus${tgt_src_align_focus}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
+
+if [[ $pointer_dist_decoder_selfattn_avg == 1 ]]; then
+    expdir=${expdir}-avg
+fi
+
 
 MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
 

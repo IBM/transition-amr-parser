@@ -752,7 +752,10 @@ class SequenceGenerator(object):
                 for sm, act_id in zip(amr_state_machines, tokens_buf[:, step + 1]):
                     # eos changed to CLOSE action
                     act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
-                    sm.apply_canonical_action(sm.canonical_action_form(act))
+                    try:
+                        sm.apply_canonical_action(sm.canonical_action_form(act))
+                    except:
+                        import pdb; pdb.set_trace()
 
             # reorder target pointer values and scores
             tgt_pointers[:, :step + 2] = torch.index_select(tgt_pointers[:, :step + 2], dim=0, index=active_bbsz_idx)
