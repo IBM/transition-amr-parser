@@ -437,6 +437,12 @@ class AMR_Oracle:
                 elif self.tryEntity(tr, tr.amr, gold_amr):
                     action = f'ADDNODE({self.entity_type})'
 
+                elif self.tryDependent(tr, tr.amr, gold_amr):
+                    edge = self.new_edge[1:] \
+                        if self.new_edge.startswith(':') else self.new_edge
+                    action = f'DEPENDENT({self.new_node},{edge})'
+                    self.dep_id = None
+
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
                     # if --copy-lemma-action check if lemma or first sense
                     # equal node name. Use corresponding action
@@ -450,12 +456,6 @@ class AMR_Oracle:
                             action = f'PRED({self.new_node})'
                     else:
                         action = f'PRED({self.new_node})'
-
-                elif self.tryDependent(tr, tr.amr, gold_amr):
-                    edge = self.new_edge[1:] \
-                        if self.new_edge.startswith(':') else self.new_edge
-                    action = f'DEPENDENT({self.new_node},{edge})'
-                    self.dep_id = None
 
                 elif self.tryIntroduce(tr, tr.amr, gold_amr):
                     action = 'INTRODUCE'
@@ -616,8 +616,6 @@ class AMR_Oracle:
         If the gold node label is different from the assigned label,
         return the gold label.
         """
-        entities_with_preds = ['thing','person']
-
         if not transitions.stack:
             return False
 
@@ -627,8 +625,11 @@ class AMR_Oracle:
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
 
         # TODO: What is the logic here?
-        if 'DEPENDENT' not in transitions.actions[-1] and not any(gold_amr.nodes[n] in entities_with_preds for n in tok_alignment) and len(tok_alignment) != 1:
+        if len(tok_alignment) == 0 :
             return False
+        if len(tok_alignment) > 1:
+            if any(gold_amr.nodes[n] == 'name' for n in tok_alignment):
+                return False
 
         # TODO: What is the logic here?
         if stack0 in transitions.entities:
@@ -637,13 +638,9 @@ class AMR_Oracle:
         if len(tok_alignment) == 1:
             gold_id = tok_alignment[0]
         elif 'DEPENDENT' in transitions.actions[-1]:
-            gold_id = gold_amr.findSubGraph(tok_alignment).root
+            gold_id = gold_amr.findSubGraph(tok_alignment).root #for DPENDENT, pred is on the root
         else:
-            if len(tok_alignment) != 2:
-                return False
-            for n in tok_alignment:
-                if gold_amr.nodes[n] not in entities_with_preds:
-                    gold_id = n
+            gold_id = tok_alignment[-1] #ADDNODE can have pred on leaf, assuming [-1] is the leaf
 
         isPred = stack0 not in transitions.is_confirmed
 
@@ -983,7 +980,6 @@ class AMR_Oracle:
         else:
             target = y_alignment[0]
 
-        entities_with_preds = ["(thing)","(person)"]
         sources = [nid for nid in x_alignment]
         if len(x_alignment) > 1:
             if x in self.transitions[-1].entities: 
