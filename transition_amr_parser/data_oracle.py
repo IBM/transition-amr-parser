@@ -1127,3 +1127,7 @@ def main():
             sum(entity_rule_totals.values())
         print_log('Totals:', f'{perc:.2f}')
         print_log('Totals:', 'Failed Entity Predictions:')
+
+
+if __name__ == '__main__':
+    main()
