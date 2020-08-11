@@ -11,6 +11,9 @@ MAX_WORDS=100
 ORACLE_TAG=o3+Word${MAX_WORDS}
 ORACLE_FOLDER=DATA.tests/AMR/oracles/${ORACLE_TAG}/
 
+# Clean-up test
+rm -Rf $ORACLE_FOLDER
+
 # Select between train/dev
 train_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
 if [ "$test_set" == "dev" ];then
@@ -32,12 +35,16 @@ fi
 # TRAIN
 [ ! -d $ORACLE_FOLDER/ ] && mkdir -p $ORACLE_FOLDER/
 
+# Extract entity rules for the entire set
+python scripts/extract_rules.py $train_amr $ORACLE_FOLDER/entity_rules.json
 
 # create oracle actions from AMR and the sentence for the train set. This also
 # accumulates necessary statistics in train.rules.json
 if [ ! -f "$ORACLE_FOLDER/train.rules.json" ];then
     amr-oracle \
         --in-amr $train_amr \
+        --entity-rules $ORACLE_FOLDER/entity_rules.json \
+        --out-rule-stats $ORACLE_FOLDER/train.rules.json \
         --out-sentences $ORACLE_FOLDER/train.en \
         --out-actions $ORACLE_FOLDER/train.actions \
         --out-rule-stats $ORACLE_FOLDER/train.rules.json \
@@ -50,6 +57,7 @@ fi
 if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json" ];then
     amr-oracle \
         --in-amr $reference_amr \
+        --entity-rules $ORACLE_FOLDER/entity_rules.json \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
         --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
@@ -61,6 +69,7 @@ fi
 amr-fake-parse \
     --in-sentences $ORACLE_FOLDER/${test_set}.en \
     --in-actions $ORACLE_FOLDER/${test_set}.actions \
+    --entity-rules $ORACLE_FOLDER/entity_rules.json \
     --out-amr $ORACLE_FOLDER/oracle_${test_set}.amr
 
 # evaluate reconstruction performance
@@ -83,6 +92,7 @@ if [ "$test_set" == "dev" ];then
     amr-fake-parse \
         --in-sentences $ORACLE_FOLDER/${test_set}.en \
         --in-actions $ORACLE_FOLDER/${test_set}.actions \
+        --entity-rules $ORACLE_FOLDER/entity_rules.json \
         --action-rules-from-stats $ORACLE_FOLDER/train.rules.json \
         --out-amr $ORACLE_FOLDER/oracle_${test_set}.rules.amr
     
