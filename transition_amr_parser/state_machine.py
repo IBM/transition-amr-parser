@@ -1101,8 +1101,9 @@ class AMRStateMachine:
 
         global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
         assert self.entity_rules_path, "you need to provide entity_rules"
-        with open(self.entity_rules_path, 'r', encoding='utf8') as f:
-            entity_rules_json = json.load(f)
+        if not entity_rules_json:
+            with open(self.entity_rules_path, 'r', encoding='utf8') as f:
+                entity_rules_json = json.load(f)
 
         for entity_id in self.entities:
 
