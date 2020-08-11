@@ -35,7 +35,8 @@ def get_filtered_labeled_token(labeled_token):
         # labeled tokens for each task
         wsd_labeled_token = labeled_token
         mcr_labeled_token = f'{token} O'
-
+        ner_labeled_token = f'{token} O'
+        
     elif pred_regex.match(labeled_token):                
         # node with lemma (ignored)
         token, lemma = pred_regex.match(labeled_token).groups()
@@ -43,6 +44,7 @@ def get_filtered_labeled_token(labeled_token):
         # labeled tokens for each task
         wsd_labeled_token = f'{token} O'
         mcr_labeled_token = f'{token} O'
+        ner_labeled_token = f'{token} O'
 
     elif addnode_regex.match(labeled_token):
         # subgraph from addnode
@@ -51,17 +53,22 @@ def get_filtered_labeled_token(labeled_token):
         # labeled tokens for each task
         wsd_labeled_token = f'{token} O'
         mcr_labeled_token = labeled_token
+        if ',name' in addnode:
+            ner_labeled_token = labeled_token
+        else:    
+            ner_labeled_token = f'{token} O'
  
     elif blank_regex.match(labeled_token):    
         # labeled tokens for each task
         wsd_labeled_token = labeled_token
         mcr_labeled_token = labeled_token
+        ner_labeled_token = labeled_token
 
     else:
         import ipdb; ipdb.set_trace(context=30)
         print()
 
-    return wsd_labeled_token, mcr_labeled_token 
+    return wsd_labeled_token, mcr_labeled_token, ner_labeled_token
 
 
 if __name__ == '__main__':
@@ -82,12 +89,13 @@ if __name__ == '__main__':
     # Word senses PRED(*-<number>)
     wsd_write = writer(f'{out_basename}.wsd', add_return=True)
     # All ADDNODE actions (subgraph)
-    # TODO: Find a proper filtering of reification and other macros
     macros_write = writer(f'{out_basename}.mcr', add_return=True)
+    ner_write = writer(f'{out_basename}.ner', add_return=True)
 
     # Filtered sentences
     filtered_wsd = []
     filtered_mcr = []
+    filtered_ner = []
 
     sentence_index = 0
     for sent in tqdm(sentences):
@@ -95,15 +103,17 @@ if __name__ == '__main__':
         # labeled tokens for the subtasks
         wsd_sentence = []
         mcr_sentence = []
+        ner_sentence = []
         for labeled_token in sent:
 
             # Given <token label> , filter out labels not satisfying regex
-            wsd_labeled_token, mcr_labeled_token = \
+            wsd_labeled_token, mcr_labeled_token, ner_labeled_token = \
                 get_filtered_labeled_token(labeled_token)
 
             # Append labeled token
             wsd_sentence.append(wsd_labeled_token)
             mcr_sentence.append(mcr_labeled_token)
+            ner_sentence.append(ner_labeled_token)
 
         # write to disk, but filter out sentences that have no annotations 
         # (due to the filtering above)
@@ -115,11 +125,16 @@ if __name__ == '__main__':
             macros_write('\n'.join(mcr_sentence) + '\n')
         else:
             filtered_mcr.append(sentence_index)
+        if any([w.split()[-1] != 'O' for w in ner_sentence]):
+            ner_write('\n'.join(ner_sentence) + '\n')
+        else:
+            filtered_ner.append(sentence_index)
         sentence_index += 1
 
     # Close writers
     wsd_write()
     macros_write()
+    ner_write()
 
     # warn of filtered sentences
     if filtered_wsd:
@@ -131,4 +146,9 @@ if __name__ == '__main__':
         num_sents = len(sentences)
         num_labeled = num_sents - len(filtered_mcr)
         message = f'{num_labeled}/{num_sents} MCR sentences with labels'
+        print(yellow_font(message))
+    if filtered_ner:
+        num_sents = len(sentences)
+        num_labeled = num_sents - len(filtered_ner)
+        message = f'{num_labeled}/{num_sents} NER sentences with labels'
         print(yellow_font(message))
