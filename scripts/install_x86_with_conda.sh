@@ -24,7 +24,7 @@ cd ..
 # transition_amr_parser
 # install not previously installed dependencies with conda or pip when not
 # possible
-pip install spacy h5py
+pip install spacy h5py ipdb
 # without the dependencies (scripts/stack-transformer/ccc_x86_fairseq.yml)
 cp setup.py _setup.py.saved
 sed '/install_requires=install_requires,/d' -i setup.py
@@ -50,7 +50,3 @@ cd smatch
 git checkout f728c3d3f4a71b44678224d6934c1e67c4d37b89
 cd ..
 pip install smatch/
-
-# for debugging
-conda install -y line_profiler
-pip install ipdb
