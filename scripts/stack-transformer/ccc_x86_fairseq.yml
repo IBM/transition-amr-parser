@@ -12,5 +12,6 @@ dependencies:
   - sacrebleu
   - tqdm
   - requests
+  - line_profiler
 # For transition_amr_parser
   - h5py
