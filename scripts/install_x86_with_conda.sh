@@ -24,12 +24,8 @@ cd ..
 # transition_amr_parser
 # install not previously installed dependencies with conda or pip when not
 # possible
-pip install spacy h5py ipdb
-# without the dependencies (scripts/stack-transformer/ccc_x86_fairseq.yml)
-cp setup.py _setup.py.saved
-sed '/install_requires=install_requires,/d' -i setup.py
+pip install spacy ipdb
 pip install --editable . 
-mv _setup.py.saved setup.py 
 
 # install pytorch scatter
 rm -Rf  pytorch_scatter.x86
