@@ -11,19 +11,17 @@ set -o nounset
 # conda create -y -p ./tmp_debug
 # conda activate ./tmp_debug
 
+# pre-install modules with conda 
+conda env update -f scripts/stack-transformer/ccc_x86_fairseq.yml
+
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
-conda env update -f scripts/stack-transformer/ccc_x86_fairseq.yml
 cd fairseq
-# TODO: Copy parsing data
-# TODO: Copy transition_based_parsing task
 git checkout v0.3.0/decouple-fairseq
 pip install --editable .
 cd ..
 
 # transition_amr_parser
-# install not previously installed dependencies with conda or pip when not
-# possible
 pip install spacy ipdb
 pip install --editable . 
 
