@@ -4,14 +4,19 @@ channels:
   - powerai
 dependencies:
   - python=3.6.9
-  - pytorch=1.1.0
   - apex=0.1.0
-  - cffi
-  - fastBPE
-  - regex
-  - sacrebleu
-  - tqdm
   - requests
   - line_profiler
-# For transition_amr_parser
+# fairseq
+  - cffi
+  - fastBPE
+  # numpy (pip)
+  - regex
+  - sacrebleu
+  # torch (below)
+  # tqdm (below)
+# transition_amr_parser
+  - pytorch=1.1.0
   - h5py
+  - tqdm
+  # spacy (pip)
