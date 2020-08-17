@@ -6,7 +6,7 @@ set -o pipefail
 set -o nounset 
 
 # use this environment for debugging (comment line above)
-# eval "$(${CONDA_DIR}/bin/conda shell.bash hook)"
+# eval "$(/path/to/miniconda3/bin/conda shell.bash hook)"
 # rm -Rf ./tmp_debug
 # conda create -y -p ./tmp_debug
 # conda activate ./tmp_debug
