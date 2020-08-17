@@ -10,9 +10,6 @@ config=$1
 # Load config
 . "$config"
 
-dir=$(dirname $0)
-parentdir="$(dirname "$dir")"
-
 # stage-1: Preprocess
 
 # ORACLE
@@ -29,14 +26,23 @@ if [ "$TASK_TAG" == "dep-parsing" ];then
 
 elif [ "$TASK_TAG" == "AMR" ];then
 
-    if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
+    # Use custom entity rules or create them
+    if [ "${ENTITY_RULES}" != "" ]; then
+        entity_rules=$ENTITY_RULES
 
-	    entity_rules=$ORACLE_FOLDER/entity_rules.json
-	    if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ]; then
-	        entity_rules=$ENTITY_RULES
-	    else
-	        python $parentdir/extract_rules.py $AMR_TRAIN_FILE $ORACLE_FOLDER/entity_rules.json
-	    fi
+        # Exit with error if they do not exist
+        [ ! -f "$ENTITY_RULES" ] && echo "Missing $ENTITY_RULES" & exit 1
+
+    else
+        entity_rules=$ORACLE_FOLDER/entity_rules.json
+        if [ ! -f "$entity_rules" ];then
+            python scripts/extract_rules.py \
+                $AMR_TRAIN_FILE \
+                $ORACLE_FOLDER/entity_rules.json
+        fi
+    fi
+
+    if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
 
         # Train
         amr-oracle \
