@@ -4,7 +4,6 @@ channels:
   - powerai
 dependencies:
   - python=3.6.9
-  - apex=0.1.0
   - requests
   - line_profiler
 # fairseq
@@ -17,6 +16,7 @@ dependencies:
   # tqdm (below)
 # transition_amr_parser
   - pytorch=1.1.0
+  - apex=0.1.0
   - h5py
   - tqdm
   # spacy (pip)
