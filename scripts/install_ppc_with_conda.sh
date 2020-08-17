@@ -2,7 +2,7 @@ set -o errexit
 set -o pipefail 
 # See README for instructions on how to define this. You can comment this if
 # you are ok with instal on your active python version
-#. set_environment.sh
+. set_environment.sh
 set -o nounset 
 
 # use this environment for debugging (comment line above)

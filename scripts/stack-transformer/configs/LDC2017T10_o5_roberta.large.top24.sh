@@ -25,6 +25,8 @@ WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
 AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
 WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
 AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
+# Leave empty to create entity rules from the corpus
+ENTITY_RULES=""
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
