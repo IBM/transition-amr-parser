@@ -11,21 +11,20 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2014_AMR_CORPUS=/dccstor/multi-parse/transformer-amr/AMR_1.0
+LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
 # NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2014_AMR_CORPUS/AMR_1.0_train_jkaln_pseudo.txt
-AMR_DEV_FILE=$LDC2014_AMR_CORPUS/AMR_1.0_dev_jaln.txt
-AMR_TEST_FILE=$LDC2014_AMR_CORPUS/AMR_1.0_test_jaln.txt
+AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/psuedo.txt
+AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
+AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 # WIKI files
 # NOTE: If left empty no wiki will be added
-WIKI_DEV=""
-AMR_DEV_FILE_WIKI=""
-WIKI_TEST=""
-AMR_TEST_FILE_WIKI=""
-# Entity rules
+WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
+AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
+WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
+AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
 # Leave empty to create entity rules from the corpus
 ENTITY_RULES=""
 
@@ -35,7 +34,7 @@ ENTITY_RULES=""
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=amr1+o5+Word${MAX_WORDS}
+ORACLE_TAG=o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -65,8 +64,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --testpref $ORACLE_FOLDER/test
     --destdir $features_folder
     --workers 1 
-    --pretrained-embed roberta.large
-    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+    --pretrained-embed roberta.base
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
 "
@@ -74,7 +72,7 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6_save_all
+TRAIN_TAG=stnp6x6
 base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
@@ -103,7 +101,7 @@ FAIRSEQ_TRAIN_ARGS="
     --weight-decay 0.0
     --criterion label_smoothed_cross_entropy
     --label-smoothing 0.01
-    --keep-last-epochs $MAX_EPOCH
+    --keep-last-epochs 40
     --max-tokens 3584
     --log-format json
     --fp16
@@ -118,7 +116,7 @@ TEST_TAG="beam${beam_size}"
 CHECKPOINT=checkpoint_best.pt
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 TEST_GPU_TYPE=v100
-TEST_QUEUE=x86_12h
+TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
     $features_folder 
     --gen-subset valid
