@@ -74,7 +74,7 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6_save_all
+TRAIN_TAG=stnp6x6
 base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
@@ -103,7 +103,7 @@ FAIRSEQ_TRAIN_ARGS="
     --weight-decay 0.0
     --criterion label_smoothed_cross_entropy
     --label-smoothing 0.01
-    --keep-last-epochs $MAX_EPOCH
+    --keep-last-epochs 40
     --max-tokens 3584
     --log-format json
     --fp16
