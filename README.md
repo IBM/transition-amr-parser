@@ -5,6 +5,7 @@ Pytorch implementation of a transition-based parser for Abstract Meaning Represe
 
 ## Using the Parser
 
+- to use the existing GRPC service check [services](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Parsing-Services)
 - to install through the Watson-NLP artifactory, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-the-python-package-through-Artifactory)
 - to install the parser manually, see [Manual Install](#manual-install)
 
@@ -14,29 +15,23 @@ To use from the command line with a trained model do
 
 ```bash
 amr-parse \
-  --in-sentences /path/to/dev.tokens \
-  --in-model /path/to/model.params  \
-  --out-amr /path/to/dev.amr \
-  --batch-size 12 \
-  --parser-chunk-size 128 \
-  --num-cores 10 \
-  --use-gpu \
-  --add-root-token  
+  --in-tokenized-sentences $input_file \
+  --in-checkpoint $in_checkpoint \
+  --out-amr file.amr
 ```
 
-The argument `--in-sentences` expects white space tokenized sentences (one per line). `--batch-size` refers to RoBERTa batch size. `--num-cores` refers to cpu cores. `--parser-chunk-size` is the batch size for cpu parallelization (RoBERTa not included). The parser expects `<ROOT>` as last token, use `--add-root-token` to do this automatically.
+Here `$input_file` contains one sentence per line (or various in multi-sentence
+settings). `$in_checkpoint` is the pytorch checkpoint of a trained model.
+`file.amr` will contain the PENNMAN notation AMR with additional alignment
+information as comments.
 
 To use from other Python code with a trained model do
 
 ```python
-from transition_amr_parser import AMRParser
-
-model_path = '/path/to/model.params'
-parser = AMRParser(model_path)
-
-tokens = "He wants her to believe in him .".split()
-parse = parser.parse_sentence(tokens)
-print(parse.toJAMRString())
+from transition_amr_parser.stack_transformer_amr_parser import AMRParser
+parser = AMRParser.from_checkpoint(in_checkpoint) 
+annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
+print(annotations.toJAMRString())
 ```
 
 ## Manual Install

@@ -3,15 +3,19 @@ channels:
   - powerai
   - defaults
 dependencies:
-  - cudatoolkit=10.1.168=533.g8d035fd
-  - pytorch=1.1.0=py36_18202.gc0fb6ff
-  - apex=0.1.0
+  - requests
+  - line_profiler
+# fairseq
   - cffi
   - fastBPE
+  - numpy
   - regex
   - sacrebleu
-  - tqdm
-  - requests
-# For transition_amr_parser
-  - spacy   
+  # torch (below)
+  # tqdm (below)
+# transition_amr_parser
+  - pytorch=1.1.0
+  - apex=0.1.0
   - h5py
+  - tqdm
+  - spacy   

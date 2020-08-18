@@ -120,7 +120,12 @@ def argument_parser():
         help="forbid all addnode actions appearing less times than count",
         type=int
     )
- 
+    # path to entity rules generated from the train file
+    parser.add_argument(
+        "--entity-rules",
+        type=str,
+        help="entity rules"
+    )
     #
     args = parser.parse_args()
 
@@ -322,7 +327,7 @@ def get_multitask_actions(max_symbols, tokenized_corpus, add_root=False):
 
 class AMR_Oracle:
 
-    def __init__(self, verbose=False):
+    def __init__(self, entity_rules, verbose=False):
         self.amrs = []
         self.gold_amrs = []
         self.transitions = []
@@ -340,7 +345,7 @@ class AMR_Oracle:
         self.swapped_words = {}
 
         self.possibleEntityTypes = Counter()
-
+        self.entity_rules = entity_rules
         # DEBUG
         # self.copy_rules = False
 
@@ -358,7 +363,7 @@ class AMR_Oracle:
                 raise IOError(f'Action file formatted incorrectly: {sent}')
             tokens = s[0].split('\t')
             actions = s[1].split('\t')
-            transitions.append(AMRStateMachine(tokens))
+            transitions.append(AMRStateMachine(tokens, entity_rules = self.entity_rules))
             transitions[-1].applyActions(actions)
         self.transitions = transitions
 
@@ -417,7 +422,8 @@ class AMR_Oracle:
                 gold_amr.tokens,
                 verbose=self.verbose,
                 add_unaligned=add_unaligned,
-                spacy_lemmatizer=spacy_lemmatizer
+                spacy_lemmatizer=spacy_lemmatizer,
+                entity_rules = self.entity_rules
             )
             self.transitions.append(tr)
             self.amrs.append(tr.amr)
@@ -430,6 +436,12 @@ class AMR_Oracle:
 
                 elif self.tryEntity(tr, tr.amr, gold_amr):
                     action = f'ADDNODE({self.entity_type})'
+
+                elif self.tryDependent(tr, tr.amr, gold_amr):
+                    edge = self.new_edge[1:] \
+                        if self.new_edge.startswith(':') else self.new_edge
+                    action = f'DEPENDENT({self.new_node},{edge})'
+                    self.dep_id = None
 
                 elif self.tryConfirm(tr, tr.amr, gold_amr):
                     # if --copy-lemma-action check if lemma or first sense
@@ -444,12 +456,6 @@ class AMR_Oracle:
                             action = f'PRED({self.new_node})'
                     else:
                         action = f'PRED({self.new_node})'
-
-                elif self.tryDependent(tr, tr.amr, gold_amr):
-                    edge = self.new_edge[1:] \
-                        if self.new_edge.startswith(':') else self.new_edge
-                    action = f'DEPENDENT({self.new_node},{edge})'
-                    self.dep_id = None
 
                 elif self.tryIntroduce(tr, tr.amr, gold_amr):
                     action = 'INTRODUCE'
@@ -610,7 +616,6 @@ class AMR_Oracle:
         If the gold node label is different from the assigned label,
         return the gold label.
         """
-
         if not transitions.stack:
             return False
 
@@ -620,8 +625,11 @@ class AMR_Oracle:
         tok_alignment = gold_amr.alignmentsToken2Node(stack0)
 
         # TODO: What is the logic here?
-        if 'DEPENDENT' not in transitions.actions[-1] and len(tok_alignment) != 1:
+        if len(tok_alignment) == 0 :
             return False
+        if len(tok_alignment) > 1:
+            if any(gold_amr.nodes[n] == 'name' for n in tok_alignment):
+                return False
 
         # TODO: What is the logic here?
         if stack0 in transitions.entities:
@@ -629,8 +637,11 @@ class AMR_Oracle:
 
         if len(tok_alignment) == 1:
             gold_id = tok_alignment[0]
+        elif 'DEPENDENT' in transitions.actions[-1]:
+            gold_id = gold_amr.findSubGraph(tok_alignment).root #for DPENDENT, pred is on the root
         else:
-            gold_id = gold_amr.findSubGraph(tok_alignment).root
+            gold_id = tok_alignment[-1] #ADDNODE can have pred on leaf, assuming [-1] is the leaf
+
         isPred = stack0 not in transitions.is_confirmed
 
         if isPred:
@@ -926,6 +937,19 @@ class AMR_Oracle:
 
         # FIXME: state altering code should be outside of tryACTION
         final_nodes = [n for n in tok_alignment if not any(s == n for s, r, t in edges)]
+        # Fixes :rel
+        gold_src = 0
+        for s, r, t in gold_amr.edges:
+            if s in final_nodes:
+                gold_src += 1
+        pred_src = 0
+        for s, r, t in amr.edges:
+            if s == stack0:
+                pred_src += 1
+
+        if pred_src < gold_src:
+            return False
+
         new_nodes = [gold_amr.nodes[n] for n in tok_alignment if n not in final_nodes]
         self.entity_type = ','.join(new_nodes)
         self.possibleEntityTypes[self.entity_type] += 1
@@ -956,8 +980,15 @@ class AMR_Oracle:
         else:
             target = y_alignment[0]
 
+        sources = [nid for nid in x_alignment]
+        if len(x_alignment) > 1:
+            if x in self.transitions[-1].entities: 
+                sources = [source]
+            else:
+                sources.remove(source)
+
         for s, r, t in gold_amr.edges:
-            if source == s and target == t:
+            if s in sources and target == t:
                 # check if already assigned
                 if (x, r, y) not in amr.edges:
                     return True, r
@@ -1054,7 +1085,7 @@ def main():
     # be turner into a loop similar to parser.py (ore directly use that and a
     # AMROracleParser())
     print_log("amr", "Processing oracle")
-    oracle = AMR_Oracle(verbose=args.verbose)
+    oracle = AMR_Oracle(args.entity_rules, verbose=args.verbose)
     oracle.runOracle(
         corpus.amrs,
         propbank_args,
@@ -1092,3 +1123,7 @@ def main():
             sum(entity_rule_totals.values())
         print_log('Totals:', f'{perc:.2f}')
         print_log('Totals:', 'Failed Entity Predictions:')
+
+
+if __name__ == '__main__':
+    main()
