@@ -66,8 +66,8 @@ if __name__ == '__main__':
 
     try:
         # scipy
-        import scipy
-        print('scipy installed')
+        import spacy
+        print('spacy installed')
     except ImportError:    
-        print("scipy installation failed")
+        print("spacy installation failed")
         pass

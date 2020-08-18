@@ -4,13 +4,15 @@ set -o pipefail
 . set_environment.sh
 set -o nounset 
 
-ORACLE_FOLDER=/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/oracles/o3+Word100/
+ORACLE_FOLDER=DATA/AMR/oracles/o5+Word100/
+# ORACLE_FOLDER=/dccstor/ykt-parse/SHARED/MODELS/AMR/transition-amr-parser/oracles/o3+Word100/
 
 # Parse a sentence step by step for debug
 amr-fake-parse \
     --in-sentences ${ORACLE_FOLDER}/train.en \
     --in-actions ${ORACLE_FOLDER}/train.actions \
-    --offset 3 \
+    --entity-rules ${ORACLE_FOLDER}/entity_rules.json \
+    --offset 1 \
     --step-by-step \
     --clear-print
 

@@ -6,30 +6,26 @@ set -o pipefail
 set -o nounset 
 
 # use this environment for debugging (comment line above)
-# eval "$(${CONDA_DIR}/bin/conda shell.bash hook)"
+# eval "$(/path/to/miniconda3/bin/conda shell.bash hook)"
 # rm -Rf ./tmp_debug
 # conda create -y -p ./tmp_debug
 # conda activate ./tmp_debug
 
+# pre-install modules with conda 
+conda env update -f scripts/stack-transformer/ccc_x86_fairseq.yml
+
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
-conda env update -f scripts/stack-transformer/ccc_x86_fairseq.yml
 cd fairseq
-# TODO: Copy parsing data
-# TODO: Copy transition_based_parsing task
 git checkout v0.3.0/decouple-fairseq
 pip install --editable .
 cd ..
 
 # transition_amr_parser
-# install not previously installed dependencies with conda or pip when not
-# possible
-pip install spacy h5py
-# without the dependencies (scripts/stack-transformer/ccc_x86_fairseq.yml)
-cp setup.py _setup.py.saved
-sed '/install_requires=install_requires,/d' -i setup.py
+# pip install typing-extensions # prevents installer from complaining (works
+                                # anyway)
+pip install spacy ipdb  
 pip install --editable . 
-mv _setup.py.saved setup.py 
 
 # install pytorch scatter
 rm -Rf  pytorch_scatter.x86
@@ -50,7 +46,3 @@ cd smatch
 git checkout f728c3d3f4a71b44678224d6934c1e67c4d37b89
 cd ..
 pip install smatch/
-
-# for debugging
-conda install -y line_profiler
-pip install ipdb

@@ -64,8 +64,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --testpref $ORACLE_FOLDER/test
     --destdir $features_folder
     --workers 1 
-    --pretrained-embed roberta.large
-    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+    --pretrained-embed roberta.base
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
 "

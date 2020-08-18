@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from copy import deepcopy
 
 import spacy
@@ -31,8 +31,8 @@ entity_rule_totals = Counter()
 entity_rule_fails = Counter()
 
 # get path of provided entity_rules
-repo_root = os.path.realpath(f'{os.path.dirname(__file__)}')
-entities_path = f'{repo_root}/entity_rules.json'
+# repo_root = os.path.realpath(f'{os.path.dirname(__file__)}')
+# entities_path = f'{repo_root}/entity_rules.json'
 
 default_rel = ':rel'
 
@@ -88,15 +88,57 @@ def get_spacy_lemmatizer():
     return lemmatizer
 
 
+def get_graph_str(amr, alignments):
+
+    # nodes
+    graph_str = ''
+    nodes = []
+    for stack0, token_pos in alignments.items():
+        if stack0 in amr.nodes:
+            nodes.append(stack0)
+    
+    # directed edges
+    child2parents = defaultdict(list)        
+    parent2child = defaultdict(list)        
+    edge_labels = {}
+    for parent, label, child in amr.edges:
+        child2parents[child].append(parent)
+        parent2child[parent].append(child)
+        edge_labels[(parent, child)] = label
+    
+    # root nodes
+    root_nodes = [node for node in nodes if node not in child2parents]
+    
+    # transverse depth first and print graph
+    pad = '    '
+    for node in root_nodes:
+        graph_str += f'{amr.nodes[node]}\n'
+        path = [node]
+        while path:
+            if len(parent2child[path[-1]]):
+                new_node = parent2child[path[-1]].pop()
+                depth = len(path) 
+                edge = blue_font(edge_labels[(path[-1], new_node)])
+                graph_str += f'{pad*depth} {edge} {amr.nodes[new_node]}\n'
+                path.append(new_node)
+            else:
+                # leaf found
+                path.pop()
+
+    return graph_str
+
+
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
                  actions_by_stack_rules=None, amr_graph=True,
-                 spacy_lemmatizer=None):
+                 spacy_lemmatizer=None, entity_rules=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
         """
+
+        self.entity_rules_path = entity_rules
 
         # word tokens of sentence
         self.tokens = tokens.copy()
@@ -177,7 +219,6 @@ class AMRStateMachine:
             else:
                 setattr(result, k, deepcopy(v, memo))
             # print(k, time.time() - start)
-        # import ipdb; ipdb.set_trace(context=30)
         return result
 
     def get_buffer_stack_copy(self): 
@@ -249,28 +290,22 @@ class AMRStateMachine:
         # nodes_str = " ".join([x for x in self.predicates if x != '_'])
         node_items = []
         for stack0, token_pos in self.alignments.items():
+            if stack0 not in self.amr.nodes:
+                continue
             node = self.amr.nodes[stack0]
             if isinstance(token_pos, tuple):
                 tokens = " ".join(self.tokens[p] for p in token_pos)
             else:
                 tokens = self.tokens[token_pos]
-            node_items.append(f'({tokens}, {node})')
-        nodes_str = " ".join(node_items)
+            node_items.append(f'{tokens}--{node}')
+        nodes_str = "  ".join(node_items)
         # update display str
-        display_str += "%s\n%s\n\n" % (green_font("# Predicates:"), nodes_str)
+        display_str += "%s\n%s\n\n" % (green_font("# Alignments:"), nodes_str)
 
-        # Edges
+        # Graph 
+        display_str += green_font("# Graph:\n")
         if self.amr_graph:
-            edges_str = []
-            for items in self.amr.edges:
-                i, label, j = items
-                edges_str.append(
-                    "%s %s %s" %
-                    (self.amr.nodes[i], blue_font(label), self.amr.nodes[j])
-                )
-            edges_str = ", ".join(edges_str)
-            # update display str
-            display_str += "%s\n%s\n" % (green_font("# Edges:"), edges_str)
+            display_str += get_graph_str(self.amr, self.alignments)
 
         return display_str
 
@@ -799,12 +834,15 @@ class AMRStateMachine:
 
     def ENTITY(self, entity_type):
         """ENTITY : create a named entity"""
-
         head = self.stack[-1]
         child_id = self.new_id
         self.new_id += 1
 
         if self.amr_graph:
+            # Fixes :rel
+            for (i,(s,l,t)) in enumerate(self.amr.edges):
+                if s == head:
+                    self.amr.edges[i] = (child_id,l,t)
             self.amr.nodes[child_id] = self.amr.nodes[head]
             self.amr.nodes[head] = f'({entity_type})'
             self.amr.edges.append((head, 'entity', child_id))
@@ -1023,7 +1061,8 @@ class AMRStateMachine:
         # connect graph
         if len(disconnected) > 0:
             for n in disconnected:
-                self.amr.edges.append((self.amr.root, default_rel, n))
+                if n not in descendents[self.amr.root]:
+                    self.amr.edges.append((self.amr.root, default_rel, n))
 
     def postprocessing_training(self, gold_amr):
 
@@ -1057,10 +1096,13 @@ class AMRStateMachine:
                 self.amr.edges.append((new_s, r, new_t))
 
     def postprocessing(self, gold_amr):
-        global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
 
+        # FIXME: All of this below. 
+
+        global entity_rules_json, entity_rule_stats, entity_rule_totals, entity_rule_fails
+        assert self.entity_rules_path, "you need to provide entity_rules"
         if not entity_rules_json:
-            with open(entities_path, 'r', encoding='utf8') as f:
+            with open(self.entity_rules_path, 'r', encoding='utf8') as f:
                 entity_rules_json = json.load(f)
 
         for entity_id in self.entities:
@@ -1137,18 +1179,18 @@ class AMRStateMachine:
                 for j, tok in enumerate(entity_tokens):
                     if assigned_edges[j]:
                         continue
-                    if tok.lower() in date_entity_rules[':weekday']:
+                    if tok.lower() in date_entity_rules.get(':weekday', []):
                         assigned_edges[j] = ':weekday'
                         continue
-                    if tok in date_entity_rules[':timezone']:
+                    if tok in date_entity_rules.get(':timezone', []):
                         assigned_edges[j] = ':timezone'
                         continue
-                    if tok.lower() in date_entity_rules[':calendar']:
+                    if tok.lower() in date_entity_rules.get(':calendar', []):
                         assigned_edges[j] = ':calendar'
                         if tok.lower() == 'lunar':
                             entity_tokens[j] = 'moon'
                         continue
-                    if tok.lower() in date_entity_rules[':dayperiod']:
+                    if tok.lower() in date_entity_rules.get(':dayperiod', []):
                         assigned_edges[j] = ':dayperiod'
                         for idx, tok in enumerate(entity_tokens):
                             if tok.lower() == 'this':
@@ -1159,11 +1201,11 @@ class AMRStateMachine:
                         if idx >= 0 and entity_tokens[idx].lower() == 'one':
                             assigned_edges[idx] = ':quant'
                         continue
-                    if tok in date_entity_rules[':era'] or tok.lower() in date_entity_rules[':era'] \
-                            or ('"' in tok and tok.replace('"', '') in date_entity_rules[':era']):
+                    if tok in date_entity_rules.get(':era', []) or tok.lower() in date_entity_rules.get(':era', []) \
+                            or ('"' in tok and tok.replace('"', '') in date_entity_rules.get(':era', [])):
                         assigned_edges[j] = ':era'
                         continue
-                    if tok.lower() in date_entity_rules[':season']:
+                    if tok.lower() in date_entity_rules.get(':season', []):
                         assigned_edges[j] = ':season'
                         continue
 
@@ -1260,6 +1302,19 @@ class AMRStateMachine:
                     if concept in new_concepts:
                         idx = new_concepts.index(concept)
                         new_concepts[idx] = r + ' ' + new_concepts[idx]
+
+                # Fixes :rel
+                leaf = None
+                srcs = [None]
+                for s, r, t in edges:
+                    srcs.append(s)
+                    if leaf in srcs and t not in srcs:
+                        leaf = t
+                if leaf != None:
+                    for (i,e) in enumerate(self.amr.edges):
+                        if e[0] == child_id:
+                            self.amr.edges[i] = (id_map[leaf],e[1],e[2])
+
                 if gold_amr and set(gold_concepts) == set(new_concepts):
                     entity_rule_stats['fixed'] += 1
                 else:
@@ -1289,6 +1344,7 @@ class AMRStateMachine:
                     self.amr.nodes[id_map[n]] = node_map[node_label] if node_label in node_map else node_label
                     self.alignments[id_map[n]] = model_entity_alignments
                     new_concepts.append(self.amr.nodes[id_map[n]])
+
                 for s, r, t in edges:
                     node_label = self.amr.nodes[id_map[t]]
                     if 'date-entity' not in entity_type and (node_label.isdigit() or node_label in ['many', 'few', 'some', 'multiple', 'none']):
@@ -1298,6 +1354,19 @@ class AMRStateMachine:
                     if concept in new_concepts:
                         idx = new_concepts.index(concept)
                         new_concepts[idx] = r + ' ' + new_concepts[idx]
+
+                # Fixes :rel
+                leaf = None
+                srcs = [None]
+                for s, r, t in edges:
+                    srcs.append(s)
+                    if leaf in srcs and t not in srcs:
+                        leaf = t
+                if leaf != None:
+                    for (i,e) in enumerate(self.amr.edges):
+                        if e[0] == child_id:
+                            self.amr.edges[i] = (id_map[leaf],e[1],e[2])
+
                 if gold_amr and set(gold_concepts) == set(new_concepts):
                     entity_rule_stats['var'] += 1
                 else:
@@ -1332,6 +1401,19 @@ class AMRStateMachine:
                         if concept in new_concepts:
                             idx = new_concepts.index(concept)
                             new_concepts[idx] = r + ' ' + new_concepts[idx]
+
+                    # Fixes rel:
+                    leaf = None
+                    srcs = [None]
+                    for s, r, t in edges:
+                        srcs.append(s)
+                        if leaf in srcs and t not in srcs:
+                            leaf = t
+                    if leaf != None:
+                        for (i,e) in enumerate(self.amr.edges):
+                            if e[0] == child_id:
+                                self.amr.edges[i] = (id_map[leaf],e[1],e[2])
+
                 else:
                     nodes = entity_type.split(',')
                     nodes.remove('name')
@@ -1387,11 +1469,25 @@ class AMRStateMachine:
                 self.alignments[new_id] = model_entity_alignments
                 self.new_id += 1
                 if idx > 0:
+                    # Fixes rel:
+                    for (i,e) in enumerate(self.amr.edges):
+                        if e[0] == prev_id:
+                            self.amr.edges[i] = (new_id,e[1],e[2])
+
                     self.amr.edges.append((prev_id, default_rel, new_id))
                     new_concepts.append(default_rel+' ' + node)
                 else:
                     new_concepts.append(node)
+                idx += 1
                 prev_id = new_id
+
+            for (i,e) in enumerate(self.amr.edges):
+                if e[0] == child_id:
+                    if (prev_id,e[1],e[2]) not in self.amr.edges:
+                        self.amr.edges[i] = (prev_id,e[1],e[2])
+                    else:
+                        del self.amr.edges[i]
+
             for tok in entity_tokens:
                 tok = tok.replace('"', '')
                 if tok in ['(', ')', '']:
