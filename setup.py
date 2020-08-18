@@ -12,12 +12,13 @@ package_data = {
 }
 
 # this is what usually goes on requirements.txt
+# Note that we use a concda installer for this 
+# scripts/stack-transformer/ccc_x86_fairseq.yml
 install_requires = [
     'torch==1.1.0',
-    'h5py==2.10.0',
+    'h5py',
     'spacy==2.2.3',
-    'tqdm==4.39.0',
-    'fairseq==0.8.0'
+    'tqdm'
 ]
 
 setup(

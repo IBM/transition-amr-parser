@@ -8,7 +8,7 @@ from collections import defaultdict, Counter
 
 import math
 import numpy as np
-from transition_amr_parser.state_machine import ( 
+from transition_amr_parser.state_machine import (
     AMRStateMachine,
     DepParsingStateMachine,
     get_spacy_lemmatizer
@@ -29,10 +29,10 @@ FONT_COLOR = {
 # BG FONT_COLORORS
 BACKGROUND_COLOR = {
     'black': 40,  'red': 41, 'green': 42, 'yellow': 43, 'blue': 44,
-     'magenta': 45, 'cyan': 46, 'light gray': 47, 'dark gray': 100,
-     'light red': 101, 'light green': 102, 'light yellow': 103,
-     'light blue': 104, 'light magenta': 105, 'light cyan': 106,
-     'white': 107
+    'magenta': 45, 'cyan': 46, 'light gray': 47, 'dark gray': 100,
+    'light red': 101, 'light green': 102, 'light yellow': 103,
+    'light blue': 104, 'light magenta': 105, 'light cyan': 106,
+    'white': 107
 }
 
 
@@ -264,7 +264,6 @@ def main():
     spacy_lemmatizer = get_spacy_lemmatizer()
 
     sent_idx = -1
-    corpus_states = []
     stats = {
         'missing_pred_count': Counter(),
         'missing_action_count': Counter(),
@@ -413,7 +412,8 @@ class StateMachineBatch():
     Batch of state machines
     """
 
-    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None):
+    def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None, 
+                 entity_rules=None):
 
         # Get all actions indexed by prefix
         self.action_indexer = get_action_indexer(tgt_dict.symbols)
@@ -424,7 +424,8 @@ class StateMachineBatch():
             rule_stats = read_rule_stats(machine_rules)
             # self.state_machine = StateMachine(folder)
             self.get_new_state_machine = machine_generator(
-                rule_stats['possible_predicates']
+                rule_stats['possible_predicates'],
+                entity_rules=entity_rules
             )
         else:
             assert machine_type != 'AMR', \
@@ -437,7 +438,7 @@ class StateMachineBatch():
         self.tgt_dict = tgt_dict
         self.machine_type = machine_type
 
-    def reset(self, src_tokens, src_lengths, max_tgt_len):
+    def reset(self, src_tokens, src_lengths, max_tgt_len, orig_tokens=None):
         '''
         Reset state of state machine and start with new sentence
         '''
@@ -454,8 +455,12 @@ class StateMachineBatch():
 
             # Get tokens and sentence length
             sent_len = src_lengths[batch_idx]
-            word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
-            tokens = [self.src_dict[x] for x in word_idx]
+            if orig_tokens is None:
+                word_idx = src_tokens[batch_idx, -sent_len:].cpu().numpy()
+                tokens = [self.src_dict[x] for x in word_idx]
+            else:
+                tokens = orig_tokens[batch_idx]
+                assert len(tokens) == sent_len
 
             # intialize state machine batch for size 1
             self.machines.append(self.get_new_state_machine(
@@ -470,7 +475,9 @@ class StateMachineBatch():
         # form (batch_size * beam_size, src_len, tgt_len)
         dummy = src_tokens.unsqueeze(2).repeat(1, 1, max_tgt_len)
         self.memory = (torch.ones_like(dummy) * self.tgt_dict.pad()).float()
-        self.memory_pos = (torch.ones_like(dummy) * self.tgt_dict.pad()).float()
+        self.memory_pos = (
+            torch.ones_like(dummy) * self.tgt_dict.pad()
+        ).float()
         self.update_masks()
 
     def get_active_logits(self):
@@ -510,8 +517,8 @@ class StateMachineBatch():
         # sanity check
         batch_size = len(action_batch)
         assert batch_size == len(self.machines)
-        #batch_size, num_actions = log_probabilities.shape
-        #assert batch_size == len(self.machines)
+        # batch_size, num_actions = log_probabilities.shape
+        # assert batch_size == len(self.machines)
         # FIXME: Decode adds extra symbols? This seem to be appended but this
         # is a dangerous behaviour
         # if num_actions != len(self.tgt_dict.symbols):
@@ -530,10 +537,6 @@ class StateMachineBatch():
         self.update_masks()
 
     def update_masks(self, add_padding=0):
-
-        # Get masks from states
-        # buffer words
-        device = self.memory.device
 
         # basis is all padded
         if add_padding:
@@ -559,7 +562,8 @@ class StateMachineBatch():
             if machine_buffer:
 
                 indices = np.array(machine_buffer) - 1 + pad
-                indices[indices == -1 - 1 + pad] = len(machine.tokens) - 1 + pad
+                indices[indices == -1 - 1 + pad] = \
+                    len(machine.tokens) - 1 + pad
 
                 # update masks
                 buffer_pos = np.arange(len(machine_buffer))
@@ -583,15 +587,16 @@ class StateMachineBatch():
                 # FIXME: This is a BUG in preprocessing by which
                 # shifted ROOT is considered deleted
                 # update masks
-                self.memory[sent_index, indices[root_in_stack_idx], self.step_index] = 5
+                self.memory[
+                    sent_index,
+                    indices[root_in_stack_idx],
+                    self.step_index
+                ] = 5
                 self.memory_pos[sent_index, indices, self.step_index] = \
                     torch.tensor(positions, device=self.memory.device).float()
 
     def reoder_machine(self, reorder_state):
         """Reorder/eliminate machines during decoding"""
-
-        # DEBUG
-        # self.encoder_padding_mask = self.encoder_padding_mask[reorder_state, :]
 
         new_machines = []
         new_left_pad = []
@@ -628,7 +633,7 @@ def update_machine(step, tokens, scores, state_machine):
 
             # machine is closed
             if scores[index, step] != float("-inf"):
-                import ipdb; ipdb.set_trace(context=30)
+                raise Exception("Machine closed at score not -Inf!")
             machine.applyAction('</s>')
 
         elif (
@@ -659,7 +664,7 @@ def update_machine(step, tokens, scores, state_machine):
     state_machine.update_masks()
 
 
-def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
+def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rules=None):
     """Return function that itself returns initialized state machines"""
 
     # initialize spacy lemmatizer
@@ -670,6 +675,7 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
 
         nonlocal actions_by_stack_rules
         nonlocal spacy_lemmatizer
+        nonlocal entity_rules
 
         # automatic determination of machine if no flag provided
         if sent_tokens[0] in ['<NER>', '<AMR>', 'SRL']:
@@ -686,7 +692,8 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
             return AMRStateMachine(
                 sent_tokens,
                 actions_by_stack_rules=actions_by_stack_rules,
-                spacy_lemmatizer=spacy_lemmatizer
+                spacy_lemmatizer=spacy_lemmatizer,
+                entity_rules=entity_rules
             )
         elif machine_type == 'dep-parsing':
             assert sent_tokens[-1] == 'ROOT'
@@ -703,14 +710,16 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None):
     return get_new_state_machine
 
 
-def fix_shift_multi_task(lprobs, state_machine_batch, tgt_dict, logits_indices):
+def fix_shift_multi_task(lprobs, state_machine_batch, tgt_dict,
+                         logits_indices):
 
     # fix for multi-task mode: If we guess right SHIFT, rename it to
     # SHIFT({top_of_buffer}), if action exists
     for machine_idx, i in enumerate(lprobs.argmax(dim=1).tolist()):
 
         # Get copy of buffer
-        machine_buffer, _ = state_machine_batch.machines[machine_idx].get_buffer_stack_copy()
+        machine_buffer, _ = state_machine_batch.machines[machine_idx] \
+            .get_buffer_stack_copy()
 
         action = tgt_dict.symbols[i]
         machine = state_machine_batch.machines[machine_idx]

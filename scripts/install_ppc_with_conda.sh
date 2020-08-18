@@ -5,36 +5,28 @@ set -o pipefail
 . set_environment.sh
 set -o nounset 
 
-# install python version to be used
-conda install python=3.6.9=h2bede3c_0 -y -c powerai
-
 # use this environment for debugging (comment line above)
-# eval "$(${CONDA_DIR}/bin/conda shell.bash hook)"
+# eval "$(/path/to/ppc64/miniconda3/bin/conda shell.bash hook)"
 # rm -Rf ./tmp_debug
 # conda create -y -p ./tmp_debug
 # conda activate ./tmp_debug
 
-# Ensure modern GCC                                                                                                                                                                     
-export GCC_DIR=/opt/share/gcc-5.4.0/ppc64le/
-export PATH=/opt/share/cuda-9.0/ppc64le/bin:$GCC_DIR/bin:$PATH
-export LD_LIBRARY_PATH=$GCC_DIR/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$GCC_DIR/lib64:$LD_LIBRARY_PATH
+# install python version to be used
+conda install python=3.6.9 -y -c powerai
+
+# pre-install modules with conda 
+conda env update -f scripts/stack-transformer/ccc_ppc_fairseq.yml
+
 # fairseq
 [ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
-conda env update -f scripts/stack-transformer/ccc_ppc_fairseq.yml
 cd fairseq
 git checkout v0.3.0/decouple-fairseq
 pip install --editable .
 cd ..
 
 # transition_amr_parser
-# install not previously installed dependencies with conda 
-conda env update -f scripts/ppc_conda.yml
-# without the dependencies (included in scripts/stack-transformer/ccc_ppc_fairseq.yml)
-cp setup.py _setup.py.saved
-sed '/install_requires=install_requires,/d' -i setup.py
-pip install --editable . 
-mv _setup.py.saved setup.py 
+pip install ipdb
+pip install --no-deps --editable . 
 
 # install pytorch scatter
 rm -Rf pytorch_scatter.ppc
@@ -55,7 +47,3 @@ cd smatch
 git checkout f728c3d3f4a71b44678224d6934c1e67c4d37b89
 cd ..
 pip install smatch/
-
-# for debugging
-conda install -y line_profiler
-pip install ipdb

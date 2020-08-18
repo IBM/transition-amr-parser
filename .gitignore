@@ -15,7 +15,7 @@ set_environment.sh
 DATA*
 
 # external tools
-smatch/
+smatch*
 amr-evaluation/
 pytorch_scatter*
 fairseq/

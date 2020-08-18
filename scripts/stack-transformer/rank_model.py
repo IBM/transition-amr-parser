@@ -128,6 +128,8 @@ def collect_results(args, results_regex, score_name):
         # data in {epoch_folder}/../
         # assume containing folder is the model folder
         model_folder = epoch_folder.replace('epoch_tests', '')
+        if not os.path.isdir(model_folder):
+            continue
         model_files = os.listdir(model_folder)
         # list all checkpoints
         checkpoints = list(filter(checkpoint_re.match, model_files))
@@ -205,7 +207,7 @@ def collect_results(args, results_regex, score_name):
             # any top score checkpoints missing
             'deleted_checkpoints': deleted_checkpoints,
             # other
-            'max_epochs': max(stdout_numbers),
+            'max_epochs': max(stdout_numbers) if stdout_numbers else -1,
             'num_missing_epochs': len(missing_epochs),
             'num': 1,
             'ensemble': False
