@@ -51,7 +51,7 @@ ORACLE_DEV_ARGS="
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
-PREPRO_TAG="RoBERTa-large-top24"
+PREPRO_TAG="RoBERTa-base"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_6h
@@ -94,7 +94,7 @@ FAIRSEQ_TRAIN_ARGS="
     --lr-scheduler inverse_sqrt
     --warmup-init-lr 1e-07
     --warmup-updates 4000
-    --pretrained-embed-dim 1024
+    --pretrained-embed-dim 768
     --lr 0.0005
     --min-lr 1e-09
     --dropout 0.3
