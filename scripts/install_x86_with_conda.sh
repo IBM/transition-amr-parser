@@ -22,7 +22,9 @@ pip install --editable .
 cd ..
 
 # transition_amr_parser
-pip install spacy ipdb
+# pip install typing-extensions # prevents installer from complaining (works
+                                # anyway)
+pip install spacy ipdb  
 pip install --editable . 
 
 # install pytorch scatter
