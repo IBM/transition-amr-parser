@@ -1,18 +1,22 @@
 import os
 import glob
-import subprocess
 import re
 import argparse
 from math import sqrt, ceil
 from collections import defaultdict
 
-checkpoint_re = re.compile('checkpoint([0-9]+)\.pt')
-las_re = re.compile('dec-checkpoint([0-9]+)\.las')
-smatch_re = re.compile('dec-checkpoint([0-9]+)\.smatch')
-smatch_re_wiki = re.compile('dec-checkpoint([0-9]+)\.wiki\.smatch')
-smatch_results_re = re.compile('^F-score: ([0-9\.]+)')
-las_results_re = re.compile('UAS: ([0-9\.]+) % LAS: ([0-9\.]+) %')
+# checkpoints/folder regex
+checkpoint_re = re.compile(r'checkpoint([0-9]+)\.pt')
 model_folder_re = re.compile('(.*)-seed([0-9]+)')
+
+# results file name regex
+las_re = re.compile(r'dec-checkpoint([0-9]+)\.las')
+smatch_re = re.compile(r'dec-checkpoint([0-9]+)\.smatch')
+smatch_re_wiki = re.compile(r'dec-checkpoint([0-9]+)\.wiki\.smatch')
+
+# results file content regex
+smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
+las_results_re = re.compile(r'UAS: ([0-9\.]+) % LAS: ([0-9\.]+) %')
 
 
 def argument_parsing():
@@ -26,13 +30,15 @@ def argument_parsing():
         '--checkpoints',
         type=str,
         default='DATA/AMR/models/',
-        help='Folder containing model folders (containing themselves checkpoints, config.sh etc)'
+        help='Folder containing model folders (containing themselves '
+             'checkpoints, config.sh etc)'
     )
     parser.add_argument(
         '--min-epoch-delta',
         type=int,
         default=10,
-        help='Minimum for the difference between best valid epoch and max epochs'
+        help='Minimum for the difference between best valid epoch and max'
+             ' epochs'
     )
     # jbinfo args
     parser.add_argument(
@@ -81,7 +87,8 @@ def std(items):
     if (len(items) - 1) == 0:
         return 0.0
     else:
-        return sqrt(float(sum([(x - mu)**2 for x in items])) / (len(items) - 1))
+        var = float(sum([(x - mu)**2 for x in items])) / (len(items) - 1)
+        return sqrt(var)
 
 
 def get_score_from_log(file_path, score_name):
@@ -109,16 +116,14 @@ def collect_results(args, results_regex, score_name):
 
     # Find folders of the form /path/to/epoch_folders
     epoch_folders = [
-        x[0] 
-        for x in os.walk(args.checkpoints) 
+        x[0]
+        for x in os.walk(args.checkpoints)
         if 'epoch_tests' in x[0]
     ]
 
     # loop ove those folders
     items = []
     for epoch_folder in epoch_folders:
-
-        item = {}
 
         # data in {epoch_folder}/../
         # assume containing folder is the model folder
@@ -144,10 +149,10 @@ def collect_results(args, results_regex, score_name):
         if not scores:
             continue
 
-        # get top 3 scores and epochs    
+        # get top 3 scores and epochs
         if score_name == 'las':
             sort_idx = 1
-        else:    
+        else:
             sort_idx = 0
         models = sorted(scores.items(), key=lambda x: x[1][sort_idx])
         if len(models) >= 3:
@@ -168,7 +173,7 @@ def collect_results(args, results_regex, score_name):
             if number < models[-1][0]:
                 top3_prev[idx] = m
                 idx += 1
-            if idx == 2:    
+            if idx == 2:
                 break
 
         # Find if checkpoints have been deleted
@@ -191,7 +196,7 @@ def collect_results(args, results_regex, score_name):
             f'third_best_{score_name}': third_best_score[1],
             f'second_best_before_{score_name}': top3_prev[1][1],
             f'third_best_before_{score_name}': top3_prev[0][1],
-            # top score epochs 
+            # top score epochs
             f'best_{score_name}_epoch': int(best_score[0]),
             f'second_best_{score_name}_epoch': int(second_best_score[0]),
             f'third_best_{score_name}_epoch': int(third_best_score[0]),
@@ -209,12 +214,12 @@ def collect_results(args, results_regex, score_name):
     return items
 
 
-def get_extra_results(args):
+def get_extra_results(args, score_name):
 
     # Find folders of the form /path/to/epoch_folders
     epoch_folders = [
-        x[0] 
-        for x in os.walk(args.checkpoints) 
+        x[0]
+        for x in os.walk(args.checkpoints)
         if 'epoch_tests' in x[0]
     ]
 
@@ -222,22 +227,24 @@ def get_extra_results(args):
     items = []
     for epoch_folder in epoch_folders:
 
-        item = {}
-
         # data in {epoch_folder}/../
         # assume containing folder is the model folder
         model_folder = epoch_folder.replace('epoch_tests', '')
 
         # Extra results
-        for extra_exp in glob.glob(f'{model_folder}/*/{args.set}*.{score_name}'):
-    
+        for extra_exp in glob.glob(
+            f'{model_folder}/*/{args.set}*.{score_name}'
+        ):
+
             # look for extra experiments
-            exp_tag = os.path.basename(os.path.dirname(extra_exp)) 
-    
+            exp_tag = os.path.basename(os.path.dirname(extra_exp))
+
             if exp_tag == 'epoch_tests':
                 continue
-    
-            if os.path.isfile(f'{model_folder}/{exp_tag}/{args.set}.{score_name}'):
+
+            if os.path.isfile(
+                f'{model_folder}/{exp_tag}/{args.set}.{score_name}'
+            ):
                 exp_smatch = get_score_from_log(
                     f'{model_folder}/{exp_tag}/{args.set}.{score_name}',
                     score_name
@@ -249,7 +256,7 @@ def get_extra_results(args):
                     f'{model_folder}/{exp_tag}/{args.set}.wiki.{score_name}',
                     score_name
                 )
-            else:    
+            else:
                 exp_smatch = None
 
             if exp_smatch is not None:
@@ -268,7 +275,7 @@ def get_extra_results(args):
     return items
 
 
-def seed_average(items):
+def seed_average(items, score_name):
     """
     Aggregate stats for different seeds of same model
     """
@@ -300,8 +307,9 @@ def seed_average(items):
                             [x[field][t] for x in cluster_items]
                         ))
                     return results
-                else:    
+                else:
                     return fun([x[field] for x in cluster_items])
+
         def fany(field):
             return results_map(field, any)
 
@@ -318,7 +326,8 @@ def seed_average(items):
             'folder': key,
             f'best_{score_name}': average(f'best_{score_name}'),
             f'best_{score_name}_std': stdev(f'best_{score_name}'),
-            f'best_{score_name}_epoch': ceil(average(f'best_{score_name}_epoch')),
+            f'best_{score_name}_epoch':
+                ceil(average(f'best_{score_name}_epoch')),
             'max_epochs': ceil(average('max_epochs')),
             'num_missing_epochs': maximum('num_missing_epochs'),
             'num': len(cluster_items),
@@ -333,9 +342,9 @@ def seed_average(items):
     return merged_items
 
 
-def print_table(args, items, pattern, score_name, min_epoch_delta, 
+def print_table(args, items, pattern, score_name, min_epoch_delta,
                 split_name=True):
-   
+
     # add shortname as folder removing checkpoints root, get max length of
     # name for padding print
     # scale of the read results
@@ -345,12 +354,14 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
     elif score_name == 'smatch':
         sort_idx = 0
         scale = 100
-    
+
     print(f'\n{pattern}')
     # Header
     if split_name:
         centering = ['<', '<', '<', '<', '^', '^']
-        row = ['data/oracle', 'features', 'model', 'extra', 'seeds', 'best epoch']
+        row = [
+            'data/oracle', 'features', 'model', 'extra', 'seeds', 'best epoch'
+        ]
     else:
         centering = ['<', '^', '^']
         row = ['name', 'seed', 'best epoch']
@@ -364,19 +375,19 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
     centering.append('<')
     row.append('')
     # style for rows
-    rows = [row]    
+    rows = [row]
 
     # Loop over table rows
     for item in sorted(items, key=lambda x: x[f'best_{score_name}'][sort_idx]):
 
         row = []
 
-        # name 
+        # name
         shortname = item['folder'].replace(args.checkpoints, '')
         shortname = shortname[1:] if shortname[0] == '/' else shortname
         shortname = shortname[:-1] if shortname[-1] == '/' else shortname
         if split_name:
-            # Remove slash at start of end 
+            # Remove slash at start of end
             shortname = shortname[1:] if shortname[0] == '/' else shortname
             shortname = shortname[:-1] if shortname[-1] == '/' else shortname
             # ignore _ on first field
@@ -390,7 +401,7 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
                 pieces[-1] += ' '.join(item['extra_exp'].split('_'))
 
             row.extend(pieces)
-        else:    
+        else:
             if 'extra_exp' in item:
                 shortname += ' '
                 shortname += item['extra_exp']
@@ -403,7 +414,6 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
         epoch_delta = item['max_epochs'] - item[f'best_{score_name}_epoch']
         convergence_epoch = '{:d}'.format(item[f'best_{score_name}_epoch'])
         # check if some checkpoint was deleted by
-        folder = item['folder']
         if item['deleted_checkpoints']:
             convergence_epoch = red(f'{convergence_epoch}')
         elif epoch_delta < min_epoch_delta:
@@ -411,7 +421,7 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
         row.append('{:s}/{:d}'.format(convergence_epoch, item['max_epochs']))
 
         if score_name == 'las':
-            
+
             # first score
             cell_str = '{:2.1f}'.format(
                 scale * item[f'best_{score_name}'][0]
@@ -443,11 +453,11 @@ def print_table(args, items, pattern, score_name, min_epoch_delta,
                     scale * item[f'best_{score_name}_std'][0]
                 )
             row.append(cell_str)
- 
+
         # missing epochs for test
         if 'num_missing_epochs' in item and item['num_missing_epochs'] > 0:
             row.append(yellow(' {:d}!'.format(item['num_missing_epochs'])))
-        else:    
+        else:
             row.append('')
 
         # collect
@@ -461,8 +471,11 @@ def ptable(rows, centering):
 
     num_columns = len(rows[0])
     # bash scape chars (used for formatting, have length 0 on display)
-    BASH_SCAPE = re.compile('\\x1b\[\d+m|\\x1b\[0m')
-    column_widths = [max([len(BASH_SCAPE.sub('', row[i])) for row in rows]) for i in range(num_columns)]
+    BASH_SCAPE = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
+    column_widths = [
+        max([len(BASH_SCAPE.sub('', row[i])) for row in rows])
+        for i in range(num_columns)
+    ]
 
     table_str = []
     col_sep = ' '
@@ -474,11 +487,14 @@ def ptable(rows, centering):
             if i == 0:
                 # Header has all cells centered
                 align = '^'
-            else:    
+            else:
                 align = centering[j]
-            row_str.append('{:{align}{width}} '.format(cell, align=align, width=column_widths[j] + delta))
+            row_str.append(
+                '{:{align}{width}} '.format(
+                    cell, align=align, width=column_widths[j] + delta)
+            )
         table_str.append(col_sep.join(row_str))
-            
+
     row_sep = '\n'
     print(row_sep.join(table_str))
     print("")
@@ -487,14 +503,15 @@ def ptable(rows, centering):
 def link_top_models(items, score_name):
 
     for item in items:
-    
+
         if f'third_best_{score_name}_epoch' not in item:
             continue
 
         model_folder = os.path.realpath(item['folder'])
         # TODO: Decide if we want this disabled or not
-        # for rank in ['best', 'second_best', 'third_best', 'second_best_before', 'third_best_before']: 
-        for rank in ['best', 'second_best', 'third_best']: 
+        # for rank in ['best', 'second_best', 'third_best',
+        # 'second_best_before', 'third_best_before']:
+        for rank in ['best', 'second_best', 'third_best']:
             epoch = item[f'{rank}_{score_name}_epoch']
 
             # skip if no model found
@@ -509,7 +526,7 @@ def link_top_models(items, score_name):
             # remove it
             if (
                 os.path.islink(target_best) and
-                os.path.basename(os.path.realpath(target_best)) != 
+                os.path.basename(os.path.realpath(target_best)) !=
                     source_best
             ):
                 os.remove(target_best)
@@ -517,7 +534,7 @@ def link_top_models(items, score_name):
                 os.symlink(source_best, target_best)
 
 
-if __name__ == '__main__':
+def main():
 
     # ARGUMENT HANDLING
     args = argument_parsing()
@@ -532,7 +549,7 @@ if __name__ == '__main__':
         items = []
         if args.set == 'valid':
             items = collect_results(args, result_regex, score_name)
-        items.extend(get_extra_results(args))
+        items.extend(get_extra_results(args), score_name)
 
         if items == []:
             continue
@@ -544,8 +561,11 @@ if __name__ == '__main__':
         if items != [] and not args.no_print:
             # average over seeds
             if args.seed_average:
-                folders = [x['folder'] for x in items]
-                items = seed_average(items)
-            print_table(args, items, result_regex.pattern, score_name, 
-                        args.min_epoch_delta, 
+                items = seed_average(items, score_name)
+            print_table(args, items, result_regex.pattern, score_name,
+                        args.min_epoch_delta,
                         split_name=not args.no_split_name)
+
+
+if __name__ == '__main__':
+    main()
