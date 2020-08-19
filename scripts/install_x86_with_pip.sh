@@ -21,4 +21,4 @@ pip install --no-deps --editable .
 cd smatch.v1.0.4
 git checkout v1.0.4
 cd ..
-pip install smatch.v1.0.4
+pip install smatch.v1.0.4/
