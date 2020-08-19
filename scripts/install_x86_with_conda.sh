@@ -40,9 +40,9 @@ export LD_LIBRARY_PATH=$GCC_DIR/lib64:$LD_LIBRARY_PATH
 python setup.py develop
 cd ..
 
-# smatch
-[ ! -d smatch ] && git clone git@github.ibm.com:mnlp/smatch.git
-cd smatch
-git checkout f728c3d3f4a71b44678224d6934c1e67c4d37b89
+# smatch v1.0.4
+[ ! -d smatch.v1.0.4 ] && git clone https://github.com/snowblink14/smatch.git smatch.v1.0.4
+cd smatch.v1.0.4
+git checkout v1.0.4
 cd ..
-pip install smatch/
+pip install smatch.v1.0.4
