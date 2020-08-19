@@ -1,4 +1,7 @@
 # Set variables and environment for a give experiment
+#
+# Variables intended to be use outside of this script are CAPITALIZED
+#
 set -o errexit
 set -o pipefail
 set -o nounset
@@ -13,7 +16,7 @@ data_root=DATA/$TASK_TAG/
 
 # Dependency-parsing oracle
 # NOTE: This is precomputed
-ORACLE_TAG=PTB_SD_3_3_0+Word100
+ORACLE_TAG=PTB_SD_3_3_0
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 
 # PREPROCESSING
@@ -31,6 +34,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --testpref $ORACLE_FOLDER/test
     --destdir $features_folder
     --workers 1
+    --pretrained-embed roberta.base
     --tokenize-by-whitespace
     --machine-type $TASK_TAG
 "
@@ -38,7 +42,7 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG="stnp6x6-2"
+TRAIN_TAG=stnp6x6
 base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
@@ -92,6 +96,5 @@ FAIRSEQ_GENERATE_ARGS="
     --batch-size 128
     --remove-bpe
 "
-# --original-tokens $ORACLE_FOLDER/dev.en
 # TODO: It would be cleaner to use the checkpoint path for --machine-rules but
 # this can be externally provided on dcc/test.sh
