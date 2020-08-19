@@ -41,11 +41,11 @@ source_folder=$(dirname $(dirname $model_folder))
 
 # Check of model exists in remote
 source_oracle_folder="$source_folder/oracles/${ORACLE_TAG}/"
-source_features_folder="$source_folder/features/${ORACLE_TAG}_${PREPRO_TAG}/"
+source_FEATURES_FOLDER="$source_folder/features/${ORACLE_TAG}_${PREPRO_TAG}/"
 source_checkpoints_dir_root=$model_folder_name
 
 target_oracle_folder="$LOCAL_FOLDER/oracles/${ORACLE_TAG}/"
-target_features_folder="$LOCAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/"
+target_FEATURES_FOLDER="$LOCAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/"
 target_checkpoints_dir_root="$LOCAL_FOLDER/models/$model_folder_name"
 
 # Make folders if needed
@@ -70,18 +70,18 @@ else
 fi
 
 # FEATURES
-if [ -e "$target_features_folder" ];then
-    echo "Skiping existing: $target_features_folder"
-elif [ ! -d "$source_features_folder" ];then
-    echo "Something is wrong, missing $source_features_folder"
+if [ -e "$target_FEATURES_FOLDER" ];then
+    echo "Skiping existing: $target_FEATURES_FOLDER"
+elif [ ! -d "$source_FEATURES_FOLDER" ];then
+    echo "Something is wrong, missing $source_FEATURES_FOLDER"
     exit 1
 else
     if [ "$flag" == "--copy-model" ];then
-        echo "cp -R $source_features_folder $LOCAL_FOLDER/features/"
-        cp -R $source_features_folder $LOCAL_FOLDER/features/
+        echo "cp -R $source_FEATURES_FOLDER $LOCAL_FOLDER/features/"
+        cp -R $source_FEATURES_FOLDER $LOCAL_FOLDER/features/
     else
-        echo "ln -s $source_features_folder $LOCAL_FOLDER/features/"
-        ln -s $source_features_folder $LOCAL_FOLDER/features/
+        echo "ln -s $source_FEATURES_FOLDER $LOCAL_FOLDER/features/"
+        ln -s $source_FEATURES_FOLDER $LOCAL_FOLDER/features/
     fi
 fi
 

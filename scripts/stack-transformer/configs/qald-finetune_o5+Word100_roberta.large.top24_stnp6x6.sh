@@ -63,7 +63,7 @@ PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_24h
-features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
+FEATURES_FOLDER=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
 # TODO: Get this paths refred to the SHARED folder
 # ${AMR_MODELS}/features/qaldlarge_extracted/
 srcdict="$data_root/features/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24/dict.en.txt"
@@ -74,7 +74,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --trainpref $ORACLE_FOLDER/train
     --validpref $ORACLE_FOLDER/dev
     --testpref $ORACLE_FOLDER/test
-    --destdir $features_folder
+    --destdir $FEATURES_FOLDER
     --workers 1 
     --pretrained-embed roberta.large
     --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
@@ -103,7 +103,7 @@ CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}
 # NOTE: We start from a pretrained model
 pretrained="$data_root/models/ldcqbqaldlarge_o5+Word100_RoBERTa-large-top24_stnp6x6-seed44/checkpoint_best_SMATCH.pt"
 FAIRSEQ_TRAIN_ARGS="
-    $features_folder
+    $FEATURES_FOLDER
     --restore-file $pretrained
     --max-epoch $MAX_EPOCH
     --arch $base_model
@@ -137,7 +137,7 @@ CHECKPOINT=checkpoint_best.pt
 TEST_GPU_TYPE=v100
 TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
-    $features_folder 
+    $FEATURES_FOLDER 
     --gen-subset valid
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json
