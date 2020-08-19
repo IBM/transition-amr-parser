@@ -7,7 +7,7 @@ set -o nounset
 
 # 
 echo "Linking valid in place of test"
-for test_file in $(ls $features_folder/test* | grep -v '\.saved$');do
+for test_file in $(ls $FEATURES_FOLDER/test* | grep -v '\.saved$');do
     mv $test_file ${test_file}.saved
     dev_file=$(echo $test_file | sed 's@test@valid@')
     ln -s $(realpath $dev_file) $test_file
