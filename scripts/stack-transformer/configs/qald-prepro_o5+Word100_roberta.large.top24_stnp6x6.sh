@@ -8,23 +8,25 @@ set -o nounset
 
 TASK_TAG=AMR
 
+# Global paths
+AMR_CORPORA=/dccstor/ykt-parse/SHARED/CORPORA/AMR/
+
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/
-
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
-# NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt 
-AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
-AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
+AMR_TRAIN_FILE=$AMR_CORPORA/QB20200305/ldcQB.pseudo.aln
+AMR_DEV_FILE=$AMR_CORPORA/QB20200305/qald_dev2_pass3.jaln
+AMR_TEST_FILE=$AMR_CORPORA/QB20200305/blindtest.jkaln
 # WIKI files
 # NOTE: If left empty no wiki will be added
-WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
-AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
-WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
-AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
+WIKI_DEV=""
+AMR_DEV_FILE_WIKI="" 
+WIKI_TEST=""
+AMR_TEST_FILE_WIKI=""
+# Leave empty to create entity rules from the corpus
+ENTITY_RULES=""
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
@@ -32,29 +34,24 @@ AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ADDNODE_CUTOFF=1
-ORACLE_TAG=o3+Word${MAX_WORDS}+ADDNC${ADDNODE_CUTOFF}
+ORACLE_TAG=ldcqbqaldlarge_o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
     --out-multitask-words $ORACLE_FOLDER/train.multitask_words 
     --copy-lemma-action
-    --addnode-count-cutoff $ADDNODE_CUTOFF
 "
 ORACLE_DEV_ARGS="
     --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
     --copy-lemma-action
 "
 
-# GPU
-# k80, v100 (3 times faster)
-
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
 PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
-PREPRO_QUEUE=x86_6h
+PREPRO_QUEUE=x86_24h
 features_folder=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
 FAIRSEQ_PREPROCESS_ARGS="
     --source-lang en

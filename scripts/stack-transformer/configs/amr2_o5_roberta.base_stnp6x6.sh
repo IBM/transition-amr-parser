@@ -16,7 +16,7 @@ LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
 # NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/psuedo.txt
+AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/psuedo.txt
 AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
 AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 # WIKI files
@@ -33,21 +33,14 @@ ENTITY_RULES=""
 # --multitask-max-words --out-multitask-words --in-multitask-words
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
-MAX_WORDS=100
-ORACLE_TAG=o5+Word${MAX_WORDS}
+ORACLE_TAG=amr2_o5
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
-    --multitask-max-words $MAX_WORDS 
-    --out-multitask-words $ORACLE_FOLDER/train.multitask_words 
     --copy-lemma-action
 "
 ORACLE_DEV_ARGS="
-    --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
     --copy-lemma-action
 "
-
-# GPU
-# k80, v100 (3 times faster)
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
@@ -63,7 +56,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --validpref $ORACLE_FOLDER/dev
     --testpref $ORACLE_FOLDER/test
     --destdir $features_folder
-    --workers 1 
+    --workers 1
     --pretrained-embed roberta.base
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
