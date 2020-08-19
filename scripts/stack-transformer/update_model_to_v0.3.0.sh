@@ -20,7 +20,7 @@ for checkpoint_config in ${@:1};do
     checkpoints_dir=$(dirname $checkpoint_config)
 
     # Copy dictinoaries
-    cp $features_folder/dict.*.txt $checkpoints_dir/
+    cp $FEATURES_FOLDER/dict.*.txt $checkpoints_dir/
 
     # store the preprocessing and training parameters. We will need this to
     # know which roberta config we used
