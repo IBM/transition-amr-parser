@@ -4,11 +4,11 @@ set -o pipefail
 [ -z "$1" ] && \
     echo -e "\nbash $0 <features folder>\n" && \
     exit 1
-features_folder=$1
+FEATURES_FOLDER=$1
 set -o nounset 
 
 python tests/stack-transformer/fairseq_data_iterator.py \
-    $features_folder  \
+    $FEATURES_FOLDER  \
     --gen-subset train \
     --max-tokens 3584 \
     --machine-type AMR \

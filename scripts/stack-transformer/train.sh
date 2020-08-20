@@ -45,7 +45,7 @@ else
 fi
 
 # Copy also dictionaries (we will need this for standalone)
-cp $features_folder/dict.*.txt $checkpoints_dir/
+cp $FEATURES_FOLDER/dict.*.txt $checkpoints_dir/
 
 echo "fairseq-train $FAIRSEQ_TRAIN_ARGS --seed $seed --save-dir $checkpoints_dir"
 fairseq-train $FAIRSEQ_TRAIN_ARGS \
