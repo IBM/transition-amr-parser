@@ -365,7 +365,7 @@ def get_basic_table_info(items, checkpoints, score_name, split_name):
 
     # check if split will work, other wise override split_name
     if split_name and any([
-        len(get_shortname(item, checkpoints).split()[0].split('_')) != 3 
+        len(get_shortname(item, checkpoints).split()[0].split('_')) != 4 
         for item in items
     ]):
         warn = yellow('WARNING:')
@@ -385,9 +385,9 @@ def get_basic_table_info(items, checkpoints, score_name, split_name):
 
     # Header
     if split_name:
-        centering = ['<', '<', '<', '<', '^', '^']
+        centering = ['<', '<', '<', '<', '<', '^', '^']
         row = [
-            'data/oracle', 'features', 'model', 'extra', 'seeds', 'best epoch'
+            'data', 'oracle', 'features', 'model', 'extra', 'seeds', 'best epoch'
         ]
     else:
         centering = ['<', '^', '^']
@@ -420,10 +420,8 @@ def get_name_rows(split_name, item, checkpoints):
     row = []
     shortname = get_shortname(item, checkpoints)
 
-    # highligh offending underscores
-    if split_name and len(shortname.split()[0].split('_')) != 3:
+    if split_name and len(shortname.split()[0].split('_')) != 4:
         split_name = False
-        # shortname = yellow('_').join(shortname.split('_'))
     
     if split_name:
     
