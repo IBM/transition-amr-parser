@@ -42,8 +42,8 @@ python setup.py develop
 cd ..
 
 # smatch v1.0.4
-[ ! -d smatch.v1.0.4 ] && git clone https://github.com/snowblink14/smatch.git smatch.v1.0.4
-cd smatch.v1.0.4
+[ ! -d smatch ] && git clone https://github.com/snowblink14/smatch.git smatch
+cd smatch
 git checkout v1.0.4
 cd ..
-pip install smatch.v1.0.4/
+pip install smatch/
