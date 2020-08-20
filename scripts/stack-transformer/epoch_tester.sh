@@ -62,10 +62,12 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
 
     elif [ "$TASK_TAG" == "AMR" ];then
 
-	if [ "$ENTITY_RULES" == "" ]; then
-	    ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
-	fi
-        # will come to bite us in the future
+        # TODO: Path fixed at the config, create if it does not exist
+	    if [ "$ENTITY_RULES" == "" ]; then
+	        ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
+	    fi
+
+        # bear in mind this has hardcoded dev here 
         amr-fake-parse \
 	    --entity-rules $ENTITY_RULES \
             --in-sentences $ORACLE_FOLDER/dev.en \

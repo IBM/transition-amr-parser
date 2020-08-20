@@ -25,10 +25,10 @@ model_folder_name=$(basename $model_folder)
 
 # Check of model exists in remote
 target_oracle_folder="$EXTERNAL_FOLDER/oracles/${ORACLE_TAG}/"
-target_features_folder="$EXTERNAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/"
+target_FEATURES_FOLDER="$EXTERNAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/"
 target_checkpoints_dir_root="$EXTERNAL_FOLDER/models/$model_folder_name"
 
-features_folder=$LOCAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/
+FEATURES_FOLDER=$LOCAL_FOLDER/features/${ORACLE_TAG}_${PREPRO_TAG}/
 
 # ORACLE
 if [ -d "$target_oracle_folder" ];then
@@ -38,11 +38,11 @@ else
 fi
 
 # FEATURES
-if [ -d "$target_features_folder" ];then
-    echo "Skiping existing: $target_features_folder"
+if [ -d "$target_FEATURES_FOLDER" ];then
+    echo "Skiping existing: $target_FEATURES_FOLDER"
 else
-    echo "cp -R $features_folder $EXTERNAL_FOLDER/features/"
-    cp -R $features_folder $EXTERNAL_FOLDER/features/
+    echo "cp -R $FEATURES_FOLDER $EXTERNAL_FOLDER/features/"
+    cp -R $FEATURES_FOLDER $EXTERNAL_FOLDER/features/
 fi
 
 # MODEL
