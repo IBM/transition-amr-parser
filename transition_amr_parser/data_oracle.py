@@ -234,6 +234,7 @@ def alert_inconsistencies(gold_amrs):
     for amr in gold_amrs:
 
         # hash of sentence
+        assert amr.tokens, "Tokens missing from amr file"
         skey = " ".join(amr.tokens)
 
         # count number of time sentence repeated
