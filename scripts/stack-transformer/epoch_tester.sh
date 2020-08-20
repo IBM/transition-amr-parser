@@ -161,12 +161,4 @@ if [ "$TASK_TAG" == "AMR" ];then
     # model linking (will also display table)
     python scripts/stack-transformer/rank_model.py --link-best
 
-    # create average enpoint   
-    python fairseq/scripts/average_checkpoints.py \
-        --input \
-            $model_folder/checkpoint_best_SMATCH.pt \
-            $model_folder/checkpoint_second_best_SMATCH.pt \
-            $model_folder/checkpoint_third_best_SMATCH.pt \
-        --output $model_folder/checkpoint_top3-average_SMATCH.pt
-
 fi

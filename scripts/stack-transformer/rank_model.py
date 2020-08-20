@@ -148,7 +148,6 @@ def get_scores_from_folder(epoch_folder, score_name):
 
         epoch_number, sname = results_regex.match(dfile).groups()
 
-        # if not the type of score we are looking for, skip
         if sname != score_name:
             continue
 
@@ -268,7 +267,7 @@ def get_extra_results(epoch_folders, sset, score_name):
 
         # Extra results
         for extra_exp in glob.glob(
-            f'{model_folder}/*/{sset}*.{score_name}'
+            f'{model_folder}/*/{sset}.{score_name}'
         ):
 
             # look for extra experiments
