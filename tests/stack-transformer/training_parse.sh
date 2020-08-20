@@ -11,10 +11,10 @@ AMR_DEV_FILE=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahir
 
 # Set model to be used
 # this does not work
-features_folder=${DATA}/features/qaldlarge_extracted/
+FEATURES_FOLDER=${DATA}/features/qaldlarge_extracted/
 checkpoints_dir=${DATA}/models/stack_transformer_6x6_nopos-qaldlarge_prepro_o3+Word100-stnp6x6-seed42/
 # this works
-# features_folder=${DATA}/features/o3+Word100_RoBERTa-large-top8/
+# FEATURES_FOLDER=${DATA}/features/o3+Word100_RoBERTa-large-top8/
 # checkpoints_dir=${DATA}/models/o3+Word100_RoBERTa-large-top8_stops6x6-seed42/
 
 # folder where we write data
@@ -22,7 +22,7 @@ mkdir -p TMP
 
 # run decoding
 fairseq-generate \
-    $features_folder \
+    $FEATURES_FOLDER \
     --gen-subset test \
     --machine-type AMR \
     --machine-rules $checkpoints_dir/train.rules.json \

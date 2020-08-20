@@ -29,10 +29,10 @@ done
 
 # preprocessing
 echo "stage-1: Preprocess"
-if [ ! -f "$features_folder/train.en-actions.actions.bin" ];then
+if [ ! -f "$FEATURES_FOLDER/train.en-actions.actions.bin" ];then
 
     mkdir -p "$ORACLE_FOLDER"
-    mkdir -p "$features_folder"
+    mkdir -p "$FEATURES_FOLDER"
 
     bash $tools_folder/preprocess.sh $checkpoints_dir/config.sh
 

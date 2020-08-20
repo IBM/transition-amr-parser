@@ -39,10 +39,10 @@ done
 
 # preprocessing
 echo "stage-1: Preprocess"
-if [ ! -f "$features_folder/train.en-actions.actions.bin" ];then
+if [ ! -f "$FEATURES_FOLDER/train.en-actions.actions.bin" ];then
 
     mkdir -p "$ORACLE_FOLDER"
-    mkdir -p "$features_folder"
+    mkdir -p "$FEATURES_FOLDER"
 
     # run preprocessing
     jbsub_tag="pr-${jbsub_basename}-$$"
@@ -51,8 +51,8 @@ if [ ! -f "$features_folder/train.en-actions.actions.bin" ];then
           -q "$PREPRO_QUEUE" \
           -require "$PREPRO_GPU_TYPE" \
           -name "$jbsub_tag" \
-          -out $features_folder/${jbsub_tag}-%J.stdout \
-          -err $features_folder/${jbsub_tag}-%J.stderr \
+          -out $FEATURES_FOLDER/${jbsub_tag}-%J.stdout \
+          -err $FEATURES_FOLDER/${jbsub_tag}-%J.stderr \
           /bin/bash $tools_folder/preprocess.sh $checkpoints_dir/config.sh
 
     # train will wait for this to start
