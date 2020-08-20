@@ -27,7 +27,7 @@ if [ "$TASK_TAG" == "dep-parsing" ];then
 elif [ "$TASK_TAG" == "AMR" ];then
 
     # Use custom entity rules or create them
-    if [ "${ENTITY_RULES}" != "" ]; then
+    if [ -n "${ENTITY_RULES:-}" ] && [ "${ENTITY_RULES}" != "" ]; then
         entity_rules=$ENTITY_RULES
 
         # Exit with error if they do not exist
