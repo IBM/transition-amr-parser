@@ -15,7 +15,8 @@ Current version is `0.3.0`. Initial commit developed by Miguel Ballesteros and A
 - to install through the Watson-NLP artifactory, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-the-python-package-through-Artifactory)
 - to install the parser locally, see below. If you have acess to the CCC there are installers for x86/PPC and pre-trained models available, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-in-CCC).
 
-Before using the parser, please refer the [Tokenizer](#tokenizer) section on what tokenizer to use.
+Note the the parser consumes word-tokenized text. It is not greatly affected by
+different tokenizers. We reccomend to use the 1NLP tokenizer.
 
 ## Manual Installation
 
@@ -84,9 +85,10 @@ amr-parse \
   --out-amr file.amr
 ```
 
-It will parse each line of `$input_file` separately. `$in_checkpoint` is the
-pytorch checkpoint of a trained model. The `file.amr` will contain the PENNMAN
-notation AMR with additional alignment information as comments.
+It will parse each line of `$input_file` separately (assumed tokenized).
+`$in_checkpoint` is the pytorch checkpoint of a trained model. The `file.amr`
+will contain the PENNMAN notation AMR with additional alignment information as
+comments.
 
 To use from other Python code with a trained model do
 
