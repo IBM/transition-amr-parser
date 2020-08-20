@@ -69,7 +69,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
 
         # bear in mind this has hardcoded dev here 
         amr-fake-parse \
-	        --entity-rules $ENTITY_RULES \
+	    --entity-rules $ENTITY_RULES \
             --in-sentences $ORACLE_FOLDER/dev.en \
             --in-actions ${std_name}.actions \
             --out-amr ${std_name}.amr 
