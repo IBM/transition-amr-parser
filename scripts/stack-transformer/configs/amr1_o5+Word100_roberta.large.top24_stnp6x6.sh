@@ -43,7 +43,7 @@ ORACLE_TRAIN_ARGS="
     --copy-lemma-action
 "
 ORACLE_DEV_ARGS="
-    --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
+    --in-multitask-words $ORACLE_FOLDER/train.multitask_words 
     --copy-lemma-action
 "
 
