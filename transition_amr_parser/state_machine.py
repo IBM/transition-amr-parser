@@ -40,26 +40,37 @@ default_rel = ':rel'
 def white_background(string):
     return "\033[107m%s\033[0m" % string
 
+
 def red_background(string):
     return "\033[101m%s\033[0m" % string
+
 
 def green_background(string):
     return "\033[102m%s\033[0m" % string
 
+
 def black_font(string):
     return "\033[30m%s\033[0m" % string
+
 
 def blue_font(string):
     return "\033[94m%s\033[0m" % string
 
+
 def green_font(string):
     return "\033[92m%s\033[0m" % string
+
+
+def yellow_font(string):
+    return "\033[93m%s\033[0m" % string
+
 
 def stack_style(string, confirmed=False):
     if confirmed:
         return black_font(green_background(string))
     else:
         return black_font(white_background(string))
+
 
 def reduced_style(string):
     return black_font(red_background(string))
@@ -980,6 +991,39 @@ class AMRStateMachine:
                 if t not in self.amr.nodes:
                     self.amr.nodes[t] = 'NA'
             self.connectGraph()
+
+            # Remove edge duplicates 
+            removable_edges = [':polarity', ':mode']
+            unique_edges = []
+            edge_children = []
+            repeated_edges = []
+            for triplet in self.amr.edges:
+                if triplet[1] not in removable_edges:
+                    unique_edges.append(triplet)
+                else:    
+                    edge_child = (
+                        triplet[0], triplet[1], self.amr.nodes[triplet[2]]
+                    )
+                    if edge_child not in edge_children:
+                        unique_edges.append(triplet)
+                        edge_children.append(edge_child)
+                    else:
+                        repeated_edges.append(triplet) 
+
+            # warn if duplicates found
+            if repeated_edges:
+                # Collect offending nodes and remove nodes that have no edge
+                duplicates = []
+                for triplet in repeated_edges:
+                    node_name = self.amr.nodes[triplet[2]]  
+                    if triplet[2] in self.amr.nodes:
+                        del self.amr.nodes[triplet[2]]
+                    duplicates.append(f'{triplet[1]} {node_name}')
+                # print warning
+                duplicates = ', '.join(duplicates)
+                warn_msg = yellow_font('WARNING:')
+                print(f'{warn_msg} Removed edge duplicates {duplicates}')
+            self.amr.edges = unique_edges
 
         self.actions.append('SHIFT')
         self.labels.append('_')
