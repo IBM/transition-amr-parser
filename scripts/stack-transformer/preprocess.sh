@@ -23,9 +23,12 @@ if [ "$TASK_TAG" == "dep-parsing" ];then
     echo "cp $PTB_ORACLE/$ORACLE_TAG/* $ORACLE_FOLDER"
     cp $PTB_ORACLE/$ORACLE_TAG/* $ORACLE_FOLDER
     chmod u+w -R $ORACLE_FOLDER
+    # dummy, will not be used
+    entity_rules=""
 
 elif [ "$TASK_TAG" == "AMR" ];then
 
+    # FIXME: See end of the file. This can be reduced to a single if exists
     # Use custom entity rules or create them
     if [ -n "${ENTITY_RULES:-}" ] && [ "${ENTITY_RULES}" != "" ]; then
         entity_rules=$ENTITY_RULES
@@ -125,4 +128,10 @@ fi
 # PREPROCESSING
 # extract data
 echo "fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS"
-fairseq-preprocess --entity-rules $entity_rules $FAIRSEQ_PREPROCESS_ARGS
+
+# FIXME: Hotfix. We need to specify this flag on the configs
+if [ "$TASK_TAG" == "AMR" ];then
+    fairseq-preprocess --entity-rules $entity_rules $FAIRSEQ_PREPROCESS_ARGS
+else    
+    fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS
+fi
