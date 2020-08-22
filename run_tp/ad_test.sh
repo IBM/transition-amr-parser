@@ -27,9 +27,13 @@ fi
 if [ $data_split_amr == "dev" ]; then
     data_split=valid
     reference_amr=$AMR_DEV_FILE
+    wiki=$WIKI_DEV
+    reference_amr_wiki=$AMR_DEV_FILE_WIKI
 elif [ $data_split_amr == "test" ]; then
     data_split=test
     reference_amr=$AMR_TEST_FILE
+    wiki=$WIKI_TEST
+    reference_amr_wiki=$AMR_TEST_FILE_WIKI
 else
     echo "$2 is invalid; must be dev or test"
 fi
@@ -83,12 +87,41 @@ python transition_amr_parser/o7_fake_parse.py \
 
 # exit 0
 
-#### Smatch evaluation without wiki
-python smatch/smatch.py \
-     --significant 4  \
-     -f $reference_amr \
-     $results_prefix.amr \
-     -r 10 \
-     > $results_prefix.smatch
+##### SMATCH evaluation
+if [[ "$wiki" == "" ]]; then
 
-cat $results_prefix.smatch
+    # Smatch evaluation without wiki
+    
+    echo "Computing SMATCH ---"
+    python smatch/smatch.py \
+         --significant 4  \
+         -f $reference_amr \
+         $results_prefix.amr \
+         -r 10 \
+         > $results_prefix.smatch
+
+    cat $results_prefix.smatch
+
+else
+
+    # Smatch evaluation with wiki
+
+    # add wiki
+    echo "Add wiki ---"
+    python scripts/add_wiki.py \
+        $results_prefix.amr $wiki \
+        > $results_prefix.wiki.amr
+
+    # compute score
+    echo "Computing SMATCH ---"
+    python smatch/smatch.py \
+         --significant 4  \
+         -f $reference_amr_wiki \
+         $results_prefix.wiki.amr \
+         -r 10 \
+         > $results_prefix.wiki.smatch
+
+    cat $results_prefix.wiki.smatch
+
+fi
+

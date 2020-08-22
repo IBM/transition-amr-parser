@@ -54,7 +54,7 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine=cat
 
-seed=42
+seed=${seed:-42}
 max_epoch=120
 
 cam_lay="all"

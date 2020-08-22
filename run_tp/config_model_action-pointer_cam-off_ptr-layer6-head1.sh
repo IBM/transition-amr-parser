@@ -76,7 +76,7 @@ if [[ $apply_tgt_src_align == 1 ]]; then
     expdir=${expdir}_cam-layer${cam_lay}-head${tgt_src_align_heads}-focus${tgt_src_align_focus}
 fi
 
-expdir=${expdir}_shiftpos${shift_pointer_value}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
+expdir=${expdir}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
 
 if [[ $pointer_dist_decoder_selfattn_avg == 1 ]]; then
     expdir=${expdir}-avg

@@ -152,11 +152,15 @@ class SequenceGenerator(object):
         if self.match_source_len:
             max_len = src_lengths.max().item()
         else:
-            max_len = min(
-                int(self.max_len_a * src_len + self.max_len_b),
-                # exclude the EOS marker
-                model.max_decoder_positions() - 1,
-            )
+            # max_len = min(
+            #     int(self.max_len_a * src_len + self.max_len_b),
+            #     # exclude the EOS marker
+            #     model.max_decoder_positions() - 1,    # model.max_decoder_positions() is 1024 by default
+            # )
+            max_len = min(src_len * 4,    # the max ratio for train, dev and test is around 3
+                          # exclude the EOS marker
+                          model.max_decoder_positions() - 1)
+            # model.max_decoder_positions() is 1024 by default; it also limits the max of model's positional embeddings
 
         # compute the encoder output for each beam
         encoder_outs = model.forward_encoder(encoder_input)
@@ -224,6 +228,12 @@ class SequenceGenerator(object):
             Check whether we've finished generation for a given sentence, by
             comparing the worst score among finalized hypotheses to the best
             possible score among unfinalized hypotheses.
+
+            Args:
+                sent (int): sentence id as in the original batch (fixed)
+                step (int): search step number
+                unfin_idx (int): sentence id as in the current batch (dynamic, as the current batch becomes smaller)
+                unfinalized_scores (torch.Tensor): candidate scores, size (current_batch_size, 2 * beam_size)
             """
             assert len(finalized[sent]) <= beam_size
             if len(finalized[sent]) == beam_size:
@@ -236,6 +246,16 @@ class SequenceGenerator(object):
                     best_unfinalized_score /= max_len ** self.len_penalty
                 if worst_finalized[sent]['score'] >= best_unfinalized_score:
                     return True
+
+            # ========== contrained beam search: we can end for a sentence without reaching beam_size ==========
+            # a new condition for contraint beam search: if all the unfinished beams are disallowed
+            # we finish no matter beam_size is reached or not
+            # NOTE this needs to be coupled with "unfinalized_scores" removing the just finalized <eos> beams by
+            #      setting their scores to -math.inf
+            if unfinalized_scores[unfin_idx].max() == -math.inf:
+                return True
+            # ==================================================================================================
+
             return False
 
         def finalize_hypos(step, bbsz_idx, eos_scores, unfinalized_scores=None):
@@ -370,23 +390,54 @@ class SequenceGenerator(object):
 
         reorder_state = None
         batch_idxs = None
+        # mask for valid beams after search selection: size (bsz * beam_size, )
+        valid_bbsz_mask = tokens.new_ones(bsz * beam_size, dtype=torch.uint8)
+        valid_bbsz_idx = valid_bbsz_mask.nonzero().squeeze(-1)
+        # index mapping from full bsz * beam_size vector to the valid-only vector with reduced size
+        bbsz_to_valid_idxs = None
         for step in range(max_len + 1):  # one extra step for EOS marker
             # reorder decoder internal states based on the prev choice of beams
             if reorder_state is not None:
+                # this is equivalent to "if step >= 1" since "reorder_state" will never be None after the 0-th step
+                # reorder_state is active_bbsz_idx
                 if batch_idxs is not None:
                     # update beam indices to take into account removed sentences
                     corr = batch_idxs - torch.arange(batch_idxs.numel()).type_as(batch_idxs)
                     reorder_state.view(-1, beam_size).add_(corr.unsqueeze(-1) * beam_size)
+
+                # take care of invalid beams: exclude them in bsz * beam_size
+                if not valid_bbsz_mask.all():
+                    # take out only valid beams
+                    reorder_state = reorder_state[valid_bbsz_mask]
+                if bbsz_to_valid_idxs is not None:
+                    # the states from last step are not full bsz * beam_size, but only those for valid beams are stored
+                    reorder_state = bbsz_to_valid_idxs[reorder_state]
+                    assert (reorder_state >= 0).all(), 'check: invalid beam is selected from last step'
+
+                # reorder/reduce the states
                 model.reorder_incremental_state(reorder_state)
                 encoder_outs = model.reorder_encoder_out(encoder_outs, reorder_state)
+
+                # get the new index mapping from full bsz * beam_size to valid size for next step reordering
+                if valid_bbsz_mask.all():
+                    bbsz_to_valid_idxs = None
+                else:
+                    bbsz_to_valid_idxs = tokens.new(tokens.size(0)).fill_(-1)
+                    bbsz_to_valid_idxs[valid_bbsz_mask] = torch.arange(valid_bbsz_mask.sum()).to(tokens.device)
+
+            # ========== take out the beams selected from last step that are valid ==========
+            tokens_valid = tokens[valid_bbsz_mask, :step + 1]
+            valid_bbsz_num = tokens_valid.size(0)    # this may be smaller than bsz * beam_size
+            # ===============================================================================
 
             # ========== use the AMR state machine (if turned on) to restrict the next action space ==========
 
             # restrict the action space for next candidate tokens
-            allowed_mask = tokens.new_zeros(tokens.size(0), self.vocab_size, dtype=torch.uint8)
-            tok_cursors = tokens.new_zeros(tokens.size(0), dtype=torch.int64)
+            allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.uint8)
+            tok_cursors = tokens.new_zeros(valid_bbsz_num, dtype=torch.int64)
             if amr_state_machines is not None:
-                for i, sm in enumerate(amr_state_machines):
+                for i, j in enumerate(valid_bbsz_idx):
+                    sm = amr_state_machines[j]
                     act_allowed = sm.get_valid_canonical_actions()
                     vocab_ids_allowed = set().union(*[set(canonical_act_ids[act]) for act in act_allowed])
                     allowed_mask[i, list(vocab_ids_allowed)] = 1
@@ -396,6 +447,7 @@ class SequenceGenerator(object):
                 allowed_mask.fill_(1)
                 allowed_mask[:, self.pad] = 0
                 allowed_mask[:, self.unk] = 0
+                allowed_mask[:, self.tgt_dict.bos()] = 0
                 # explicitly mask out the pad and unk tokens (bos should be masked out probably as well)
 
             # ====================================================================
@@ -411,16 +463,18 @@ class SequenceGenerator(object):
             avg_attn_scores = None    # this for the cross attention on the source tokens
 
             lprobs, avg_attn_tgt_scores = model.forward_decoder(
-                tokens[:, :step + 1], encoder_outs, temperature=self.temperature, **actions_states
+                tokens_valid, encoder_outs, temperature=self.temperature, **actions_states
             )
 
             # lprobs[:, self.pad] = -math.inf  # never select pad
             # lprobs[:, self.unk] -= self.unk_penalty  # apply unk penalty
 
-            lprobs[~allowed_mask] = -math.inf    # may not need if the model takes the mask to output already
+            lprobs[~allowed_mask] = -math.inf
+            # may not need if the model forward process includes masking softmax output already
 
             # =========================================================================================================
 
+            # NOTE this is currently operating on the full bsz * beam_size beams
             if self.no_repeat_ngram_size > 0:
                 # for each beam and batch sentence, generate a list of previous ngrams
                 gen_ngrams = [{} for bbsz_idx in range(bsz * beam_size)]
@@ -436,7 +490,10 @@ class SequenceGenerator(object):
                     attn = scores.new(bsz * beam_size, src_tokens.size(1), max_len + 2)
                     attn_buf = attn.clone()
                     nonpad_idxs = src_tokens.ne(self.pad)
-                attn[:, :, step + 1].copy_(avg_attn_scores)
+                if valid_bbsz_num == bsz * beam_size:
+                    attn[:, :, step + 1].copy_(avg_attn_scores)
+                else:
+                    attn[valid_bbsz_mask, :, step + 1].copy_(avg_attn_scores)
 
             # record target self-attention scores
             if avg_attn_tgt_scores is not None:
@@ -444,7 +501,11 @@ class SequenceGenerator(object):
                     attn_tgt = dict()
                     # attn_tgt_buf = dict()
                     nonpad_idxs_tgt = dict()
-                attn_tgt[step + 1] = avg_attn_tgt_scores
+                if valid_bbsz_num == bsz * beam_size:
+                    attn_tgt[step + 1] = avg_attn_tgt_scores
+                else:
+                    attn_tgt[step + 1] = scores.new(bsz * beam_size, avg_attn_tgt_scores.size(1)).fill_(-1)
+                    attn_tgt[step + 1][valid_bbsz_mask] = avg_attn_tgt_scores
                 # NOTE we blocked generating pad token so this might not be necessary
                 nonpad_idxs_tgt[step + 1] = tokens[:, :step + 1].ne(self.pad)
 
@@ -459,7 +520,7 @@ class SequenceGenerator(object):
             # 1) get a mask for valid previous actions that can generate nodes
             # mask for (previous + current) actions (generated tgt tokens) that are corresponding to AMR nodes
             # the mask includes the current action
-            tgt_actions_nodemask = tokens.new_zeros(tokens.size(0), step + 1).byte()
+            tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1).byte()
 
             if step == 0:
                 # do nothing to the mask, since we don't have any action history yet, no pointer is generated
@@ -467,7 +528,8 @@ class SequenceGenerator(object):
             else:
                 if amr_state_machines is not None:
                     # get the previous action-to-node mask: 1 if an action generates a node, 0 otherwise
-                    for i, sm in enumerate(amr_state_machines):
+                    for i, j in enumerate(valid_bbsz_idx):
+                        sm = amr_state_machines[j]
                         # NOTE the 0-th target token is the eos </s> token
                         actions_nodemask = sm.actions_nodemask.copy()
                         # mask out the last node generating action, as it will never be selected by the pointer, except
@@ -509,11 +571,17 @@ class SequenceGenerator(object):
             # max will be log pointer probs, except that rows with all 0 action-to-node mask will be 0
             # argmax will be pointer positions, except that rows with all 0 action-to-node mask will be set to -1
             pointer_max[tgt_actions_nodemask_any] = pointer_max[tgt_actions_nodemask_any].log()
-            scores_tgt_pointers[:, step] = pointer_max
-            # a different implementation for same results
-            # pointer_argmax[~tgt_actions_nodemask_any] = -1
-            # tgt_pointers[:, step + 1] = pointer_argmax
-            tgt_pointers[tgt_actions_nodemask_any, step + 1] = pointer_argmax[tgt_actions_nodemask_any]
+            if valid_bbsz_num == bsz * beam_size:
+                scores_tgt_pointers[:, step] = pointer_max
+                # a different implementation for same results
+                # pointer_argmax[~tgt_actions_nodemask_any] = -1
+                # tgt_pointers[:, step + 1] = pointer_argmax
+                tgt_pointers[tgt_actions_nodemask_any, step + 1] = pointer_argmax[tgt_actions_nodemask_any]
+            else:
+                scores_tgt_pointers[valid_bbsz_mask, step] = pointer_max
+                tgt_pointers_valid = tgt_pointers[valid_bbsz_mask, step + 1]
+                tgt_pointers_valid[tgt_actions_nodemask_any] = pointer_argmax[tgt_actions_nodemask_any]
+                tgt_pointers[valid_bbsz_mask, step + 1] = tgt_pointers_valid
 
             # 3) use the pointer log probs to modify the next ARC ('LA', 'RA', 'LA(root)') actions scores
             # for rows with valid pointer value, modify the arc action scores;
@@ -524,6 +592,15 @@ class SequenceGenerator(object):
                 lprobs_arcs[tgt_actions_nodemask_any, :] += coef * pointer_max[tgt_actions_nodemask_any].unsqueeze(1)
                 lprobs_arcs[~tgt_actions_nodemask_any, :] = -math.inf
                 lprobs[:, arc_action_ids] = lprobs_arcs
+
+            # ====================================================
+
+            # ========== convert back the size of lprobs to bsz * beam_size from only valid beams ==========
+            # stuff -inf scores to invalid positions, to have the full size for matrix reshape during search
+
+            lprobs_buf = lprobs.new(bsz * beam_size, self.vocab_size).fill_(-math.inf)
+            lprobs_buf[valid_bbsz_mask] = lprobs
+            lprobs = lprobs_buf
 
             # ====================================================
 
@@ -549,6 +626,7 @@ class SequenceGenerator(object):
                     for bbsz_idx in range(bsz * beam_size):
                         lprobs[bbsz_idx, banned_tokens[bbsz_idx]] = -math.inf
 
+                # TODO if prefix_tokens is not None: not supported now
                 if prefix_tokens is not None and step < prefix_tokens.size(1):
                     assert isinstance(self.search, search.BeamSearch) or bsz == 1, \
                         "currently only BeamSearch supports decoding with prefix_tokens"
@@ -592,6 +670,10 @@ class SequenceGenerator(object):
                         scores.view(bsz, beam_size, -1)[:, :, :step],
                     )
             else:
+                # NOTE the ending condition should never be max step reached; in principle our generation is contraint
+                # on the the source sequences, and we finish generation of an action sequence only when we have
+                # processed all the source words
+                raise ValueError('max step reached; we should set proper max step value so that this does not happen.')
                 # make probs contain cumulative scores for each hypothesis
                 lprobs.add_(scores[:, step - 1].unsqueeze(-1))
 
@@ -611,9 +693,15 @@ class SequenceGenerator(object):
             # hypotheses, with a range of values: [0, bsz*beam_size),
             # and dimensions: [bsz, cand_size] (NOTE: cand_size = 2 * beam_size)
             cand_bbsz_idx = cand_beams.add(bbsz_offsets)
+            assert set(cand_bbsz_idx.unique().tolist()).issubset(valid_bbsz_idx.tolist()), \
+                'new beam candidates should only stem from valid beams last step'
+
+            # disallowed candidates mask (invalid positions)
+            cand_disallowed = cand_scores == -math.inf
 
             # finalize hypotheses that end in eos
             eos_mask = cand_indices.eq(self.eos)    # size (bsz, 2 * beam_size)
+            eos_mask[cand_disallowed] = 0
 
             finalized_sents = set()    # NOTE is this line necessary? Yes, to empty the list from previous step.
             if step >= self.min_len:
@@ -629,6 +717,11 @@ class SequenceGenerator(object):
                         mask=eos_mask[:, :beam_size],
                         out=eos_scores,  # here eos_scores is 1-D
                     )
+                    # ========== disallow the finalized hypos ==========
+                    # this is used for the ending condition in function "is_finished()", when there is no more valid
+                    # options but we haven't reached beam_size --> force quit for this sentence
+                    cand_scores[:, :beam_size][eos_mask[:, :beam_size]] = -math.inf
+                    # ==================================================
                     finalized_sents = finalize_hypos(step, eos_bbsz_idx, eos_scores, cand_scores)
                     num_remaining_sent -= len(finalized_sents)
 
@@ -647,6 +740,7 @@ class SequenceGenerator(object):
                 batch_idxs = batch_mask.nonzero().squeeze(-1)    # indices of unfinished sentences, 1-D, length new_bsz
 
                 eos_mask = eos_mask[batch_idxs]        # size (new_bsz, 2 * beam_size)
+                cand_disallowed = cand_disallowed[batch_idxs]    # size (new_bsz, 2 * beam_size)
                 cand_beams = cand_beams[batch_idxs]    # size (new_bsz, 2 * beam_size)
                 bbsz_offsets.resize_(new_bsz, 1)
                 # NOTE Tensor().resize_() actually prune the original elements when the new size is smaller!
@@ -694,13 +788,19 @@ class SequenceGenerator(object):
             else:
                 batch_idxs = None
 
-            # set active_mask so that values >= cand_size indicate eos hypos
+            # set active_mask so that values >= cand_size indicate eos hypos or disallowed hypos
             # and values < cand_size indicate candidate active hypos.
             # After, the min values per row are the top candidate active hypos
+            # NOTE we try to exclude the following candidates in the selection:
+            #      a) <eos> in the first beam_size candidates (which are already finished)
+            #      b) <eos> in the second beam_size candidates (beams are only finished if <eos> is in the first half
+            #         candidates within beam_size)
+            #      c) disallowed candidates (in our case, candidates with -inf scores)
             active_mask = buffer('active_mask')
+            eos_or_disallowed = eos_mask | cand_disallowed
             torch.add(
-                eos_mask.type_as(cand_offsets) * cand_size,
-                cand_offsets[:eos_mask.size(1)],
+                eos_or_disallowed.type_as(cand_offsets) * cand_size,
+                cand_offsets[:eos_or_disallowed.size(1)],
                 out=active_mask,
             )
 
@@ -708,11 +808,23 @@ class SequenceGenerator(object):
             # with the smallest values in active_mask
             # NOTE this is where cand_size = 2 * beam_size plays its role
             # NOTE here after removing the EOS candidates, we can always ensure beam_size candidates remained
-            active_hypos, _ignore = buffer('active_hypos'), buffer('_ignore')
+            active_hypos, active_mask_selected = buffer('active_hypos'), buffer('active_mask_selected')
             torch.topk(
                 active_mask, k=beam_size, dim=1, largest=False,
-                out=(_ignore, active_hypos)
+                out=(active_mask_selected, active_hypos)
             )
+
+            # ========== get the valid/disallowed beam mask for the selected top beam_size beams ==========
+            # top beam_size beams could include disallowed candidates when beam_size is larger than the allowed
+            # candidate space size
+
+            valid_bbsz_mask = active_mask_selected.lt(cand_size)    # size (bsz, beam_size)
+            assert valid_bbsz_mask.any(
+                dim=1).all(), 'there must be remaining valid candidates for each sentence in batch'
+            valid_bbsz_mask = valid_bbsz_mask.view(-1)    # size (bsz x beam_size,)
+            valid_bbsz_idx = valid_bbsz_mask.nonzero().squeeze(-1)    # size (valid_bbsz_num,)
+
+            # =============================================================================================
 
             active_bbsz_idx = buffer('active_bbsz_idx')
             torch.gather(
@@ -749,13 +861,15 @@ class SequenceGenerator(object):
                     # (from the same last beam)
                     amr_state_machines = [deepcopy(amr_state_machines[i]) for i in active_bbsz_idx]
                 # add and apply new action tokens to state machine
-                for sm, act_id in zip(amr_state_machines, tokens_buf[:, step + 1]):
-                    # eos changed to CLOSE action
+                for i, (sm, act_id, is_valid) in enumerate(zip(amr_state_machines, tokens_buf[:, step + 1],
+                                                               valid_bbsz_mask)):
+                    # do not run the state machine if the action is not valid; this state machine will be "deleted"
+                    # as it will not be indexed out anymore in the next step
+                    if not is_valid:
+                        continue
+                    # eos changed to CLOSE action (although NOTE currently this will never be eos at this step)
                     act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
-                    try:
-                        sm.apply_canonical_action(sm.canonical_action_form(act))
-                    except:
-                        import pdb; pdb.set_trace()
+                    sm.apply_canonical_action(sm.canonical_action_form(act))
 
             # reorder target pointer values and scores
             tgt_pointers[:, :step + 2] = torch.index_select(tgt_pointers[:, :step + 2], dim=0, index=active_bbsz_idx)

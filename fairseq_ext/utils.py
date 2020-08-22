@@ -65,6 +65,60 @@ def post_process_action_pointer_prediction(hypo, tgt_dict):
     return actions_nopos, actions_pos, actions
 
 
+def clean_pointer_arcs(actions_nopos, actions_pos, actions):
+    """Clean action sequence by removing self-loops and multi-edges (regardless of the arc labels)."""
+    arcs = []
+    arcs_start_idx = None
+    invalid_idx = []    # invalid index of the original sequence
+    actions_nopos_new = []
+    actions_pos_new = []
+    actions_new = []
+    pos_map = []        # index map from previous sequence to the cleanned sequence
+    num_popped = 0      # number of elements that are popped out
+    for i, v in enumerate(actions_pos):
+        if v != -1:
+            if not arcs:
+                # first position of the arc sub-sequence
+                arcs_start_idx = i
+                # check: if self-loop
+                if v == arcs_start_idx - 1:
+                    invalid_idx.append(i)
+                    num_popped += 1
+                    pos_map.append(None)
+                else:
+                    arcs.append(v)
+                    actions_pos_new.append(pos_map[v])
+                    actions_nopos_new.append(actions_nopos[i])
+                    pos_map.append(i - num_popped)
+            else:
+                # not first position of the arc sub-sequence
+                # check: if multi-edge
+                if v in arcs or v == arcs_start_idx - 1:
+                    invalid_idx.append(i)
+                    num_popped += 1
+                    pos_map.append(None)
+                else:
+                    arcs.append(v)
+                    actions_pos_new.append(pos_map[v])
+                    actions_nopos_new.append(actions_nopos[i])
+                    pos_map.append(i - num_popped)
+        else:
+            if arcs:
+                arcs = []
+
+            actions_pos_new.append(v)    # here v is -1
+            actions_nopos_new.append(actions_nopos[i])
+
+            pos_map.append(i - num_popped)
+
+    assert len(pos_map) == len(actions_pos)
+
+    # we have to rejoin since the pointer values have changed
+    actions_new = [join_action_pointer(act, pos) for act, pos in zip(actions_nopos_new, actions_pos_new)]
+
+    return actions_nopos_new, actions_pos_new, actions_new, invalid_idx
+
+
 def time_since(start):
     now = time.time()
     s = now - start
