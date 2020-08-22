@@ -11,10 +11,11 @@ from collections import defaultdict
 
 import torch
 
-from fairseq import bleu, checkpoint_utils, options, progress_bar, tasks, utils
+from fairseq import bleu, checkpoint_utils, progress_bar, tasks, utils
 from fairseq.meters import StopwatchMeter, TimeMeter
 
-from fairseq_ext.utils import post_process_action_pointer_prediction
+from fairseq_ext import options
+from fairseq_ext.utils import post_process_action_pointer_prediction, clean_pointer_arcs
 
 
 class Examples():
@@ -221,6 +222,11 @@ def main(args):
                     # )
 
                     actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, tgt_dict)
+
+                    if args.clean_arcs:
+                        actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
+                                                                                            actions_pos,
+                                                                                            actions)
 
                     # TODO these are just dummy for the reference below to run
                     hypo_tokens = hypo['tokens'].int().cpu()

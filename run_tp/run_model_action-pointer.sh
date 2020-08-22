@@ -17,6 +17,8 @@ else
     config_model=$1
 fi
 
+seed=$2
+
 set -o nounset
 
 dir=$(dirname $0)

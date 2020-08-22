@@ -11,6 +11,8 @@ else
     config_model=$1
 fi
 
+seed=${2:-42}
+
 # to detect any reuse of $1 which is shared across all sourced files and may cause error
 set -o nounset
 
@@ -38,7 +40,7 @@ jbsub_info=$(jbsub \
              -name run_model_action-pointer \
              -out $MODEL_FOLDER/${jbsub_tag}-%J.stdout \
              -err $MODEL_FOLDER/${jbsub_tag}-%J.stderr \
-             /bin/bash $dir/run_model_action-pointer.sh $config_model \
+             /bin/bash $dir/run_model_action-pointer.sh $config_model $seed \
              | grep 'is submitted to queue')
 
 

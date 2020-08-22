@@ -157,7 +157,7 @@ def preprocess_amr(gold_amr, add_unaligned, included_unaligned, root_id=-1):
     # an example is in training data, when the sentence is
     # ['Among', 'common', 'birds', ',', 'a', 'rather', 'special', 'one', 'is',
     # 'the', 'black', '-', 'faced', 'spoonbill', '.']
-    # TODO if undealt, this causes a problem when the root aligned token id is sentence length (not -1)
+    # TODO if not dealt with, this causes a problem when the root aligned token id is sentence length (not -1)
     for nid, tids in gold_amr.alignments.items():
         gold_amr.alignments[nid] = [tid for tid in tids if tid <= len(gold_amr.tokens)]
 

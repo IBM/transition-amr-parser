@@ -513,6 +513,9 @@ def add_generation_args(parser):
     group.add_argument('--print-alignment', action='store_true',
                        help='if set, uses attention feedback to compute and print alignment to source tokens')
     # fmt: on
+    # addition: AMR generation
+    group.add_argument('--clean-arcs', type=int, default=0,
+                       help='whether to clean the pointer arcs by removing self-loops and multi-edges')
     return group
 
 
