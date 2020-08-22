@@ -33,6 +33,13 @@ AMR_TEST_FILE=$LDC2017_AMR_CORPUS/test.txt
 # AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned
 # AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 
+# WIKI files
+# NOTE: If left empty no wiki will be added
+WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
+AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
+WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
+AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
+
 
 ##### CONFIG
 ORACLEDIR=data/o3_act-states

@@ -12,15 +12,25 @@ set -o nounset
 # Configuration 
 MAX_WORDS=100
 # ORACLE_TAG=o7+Word${MAX_WORDS}_noclose
-ORACLE_TAG=o7+Word${MAX_WORDS}
+# ORACLE_TAG=o7+Word${MAX_WORDS}
+ORACLE_TAG=o7_o3align-prefix+Word${MAX_WORDS}
 ORACLE_FOLDER=oracles/${ORACLE_TAG}
 
 LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira
 LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed_TAP_v0.0.1
 
 # Select between train/dev
-# train_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
-train_amr=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
+
+# o3 pre-fix
+train_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+
+# o3 fix
+# train_amr=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
+
+# o5 pre-fix
+# train_amr=/dccstor/multi-parse/transformer-amr/psuedo.txt
+
+
 if [ "$test_set" == "dev" ];then
     # ATTENTION: To pass the tests the dev test must have alignments as those
     # obtained with the preprocessing described in README

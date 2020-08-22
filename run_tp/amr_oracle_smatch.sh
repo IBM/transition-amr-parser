@@ -17,7 +17,7 @@ fi
 
 ##### reconstruct AMR given sentence and oracle actions without being constrained
 # by training stats
-for split in dev test #train
+for split in dev test train
 do
 
     if [ $split == "dev" ]; then
