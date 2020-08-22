@@ -17,6 +17,8 @@ else
     config_model=$1
 fi
 
+seed=$2
+
 set -o nounset
 
 dir=$(dirname $0)
@@ -27,6 +29,7 @@ dir=$(dirname $0)
 # $EMB_FOLDER
 # $PRETRAINED_EMBED
 # $PRETRAINED_EMBED_DIM
+
 
 ##############################################################
 
@@ -74,7 +77,7 @@ model_epoch=_last
 batch_size=128
 
 echo "[Decoding and computing smatch:]"
-for beam_size in 5 10
+for beam_size in 50
 do
     . $dir/ad_test.sh "" dev
     . $dir/ad_test.sh "" test

@@ -268,6 +268,32 @@ class JAMR_CorpusReader:
                 root = root.strip()
                 amrs[-1].root = root
 
+                # if amrs[-1].tokens == ['here', ',', 'you', 'can', 'come', 'up', 'close', 'with',
+                #                     'the', 'stars', 'in', 'your', 'mind', '.']:
+                #     import pdb; pdb.set_trace()
+
+                # to fix the data alignments where the root alignment is different from the corresponding node alignment
+                # when the root alignment is a subset of node alignment, use the smaller alignment
+                if root in amrs[-1].nodes:
+                    if len(splinetabs) >= 4:
+                        tab = splinetabs[3]
+                        # root alignment exists
+                        if '-' in tab:
+                            start_end = tab.strip().split("-")
+                            start = int(start_end[0])  # inclusive
+                            end = int(start_end[1])  # exclusive
+                            word_idxs = list(range(start + 1, end + 1))  # off by one (we start at index 1)
+                            assert all(x in amrs[-1].alignments[root] for x in word_idxs)
+                            if len(word_idxs) < len(amrs[-1].alignments[root]):
+                                # import pdb; pdb.set_trace()
+                                amrs[-1].alignments[root] = word_idxs
+                    # specific fix for one training sentence for the prefix alignment data
+                    elif amrs[-1].tokens == ['Muslim', 'hatred', 'has', 'zero', 'to', 'do',
+                                             'with', '"', 'election', 'cycles', '.', '"']:
+                        # for this sentence the data does not contain root alignment; we fix by hard setting
+                        amrs[-1].alignments[root] = [3]    # root id '0', label 'have-to-do-with-04'
+                        amrs[-1].alignments['0.0'] = [2]   # node id '0.0', label 'hate-01'
+
         if len(amrs[-1].nodes) == 0:
             amrs.pop()
         print_log('amr', "Training Data" if training else "Dev Data")

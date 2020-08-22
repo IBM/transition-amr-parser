@@ -134,6 +134,10 @@ if __name__ == '__main__':
         actions_file = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/test_data/oracles/o7+Word100/{split}.actions'
         out_file_path = f'/dccstor/ykt-parse/AMR/jiawei2020/transition-amr-parser/test_data/oracles/o7+Word100/{split}.stats'
 
+        en_file = f'/dccstor/jzhou1/work/EXP/data/o3-prefix_act-states/oracle/{split}.en'
+        actions_file = f'/dccstor/jzhou1/work/EXP/data/o3-prefix_act-states/oracle/{split}.actions'
+        out_file_path = f'/dccstor/jzhou1/work/EXP/data/o3-prefix_act-states/oracle/{split}.stats'
+
         out_file = open(out_file_path, 'w')
         check_actions_file(en_file, actions_file, out_file)
         out_file.close()

@@ -34,7 +34,7 @@ tgt_vocab_masks=0
 share_decoder_embed=0
 
 apply_tgt_src_align=1
-tgt_src_align_layers="0 1 2 3 4 5"
+tgt_src_align_layers="0"
 tgt_src_align_heads=1
 tgt_src_align_focus='p0c1n0'    
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
@@ -49,14 +49,41 @@ pointer_dist_decoder_selfattn_avg=0
 pointer_dist_decoder_selfattn_infer=5
 
 apply_tgt_input_src=1
-tgt_input_src_emb=top
+tgt_input_src_emb="top"
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 seed=42
 max_epoch=120
 
-cam_lay="all"
+
+if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
+    cam_lay="all"
+elif [[ $tgt_src_align_layers == "3 4 5" ]]; then
+    cam_lay="456"
+elif [[ $tgt_src_align_layers == "0 1 2" ]]; then
+    cam_lay="123"
+elif [[ $tgt_src_align_layers == "0 1" ]]; then
+    cam_lay="12"
+elif [[ $tgt_src_align_layers == "4 5" ]]; then
+    cam_lay="56"
+elif [[ $tgt_src_align_layers == "2 3" ]]; then
+    cam_lay="34"
+elif [[ $tgt_src_align_layers == "0" ]]; then
+    cam_lay="1"
+elif [[ $tgt_src_align_layers == "1" ]]; then
+    cam_lay="2"
+elif [[ $tgt_src_align_layers == "2" ]]; then
+    cam_lay="3"
+elif [[ $tgt_src_align_layers == "3" ]]; then
+    cam_lay="4"
+elif [[ $tgt_src_align_layers == "4" ]]; then
+    cam_lay="5"
+elif [[ $tgt_src_align_layers == "5" ]]; then
+    cam_lay="6"
+else:
+    echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 0
+fi
 
 if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
     lay="all"
@@ -70,7 +97,14 @@ else
     echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 0
 fi
 
-expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}_cam-layer${cam_lay}-head${tgt_src_align_heads}-focus${tgt_src_align_focus}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
+expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
+
+if [[ $apply_tgt_src_align == 1 ]]; then
+    expdir=${expdir}_cam-layer${cam_lay}-head${tgt_src_align_heads}-focus${tgt_src_align_focus}
+fi
+
+expdir=${expdir}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
+
 
 if [[ $pointer_dist_decoder_selfattn_avg == 1 ]]; then
     expdir=${expdir}-avg
