@@ -6,13 +6,15 @@ from math import sqrt, ceil
 from collections import defaultdict
 
 # checkpoints/folder regex
-checkpoint_re = re.compile(r'checkpoint([0-9]+)\.pt')
 model_folder_re = re.compile('(.*)-seed([0-9]+)')
 
 # results file name regex
-results_regex = re.compile(r'dec-checkpoint([0-9]+)\.(.+)')
 # smatch_re = re.compile(r'dec-checkpoint([0-9]+)\.smatch')
 # smatch_re_wiki = re.compile(r'dec-checkpoint([0-9]+)\.wiki\.smatch')
+
+# checkpoints/folder regex
+checkpoint_re = re.compile(r'checkpoint([0-9]+)\.pt')
+results_regex = re.compile(r'dec-checkpoint([0-9]+)\.(.+)')
 
 # results file content regex
 smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
@@ -97,6 +99,36 @@ def std(items):
         return sqrt(var)
 
 
+def get_scores_from_folder(epoch_folder, score_name):
+    '''
+    Get score files from an epoch folder (<model_folder>/epoch_folder/)
+    '''
+
+    # Get results available in this folder 
+    scores = {}
+    epoch_numbers = []
+    for dfile in os.listdir(epoch_folder):
+
+        # if not a results file, skip
+        if not results_regex.match(dfile): 
+            continue
+
+        epoch_number, sname = results_regex.match(dfile).groups()
+
+        # store epoch number
+        epoch_numbers.append(int(epoch_number))
+
+        if sname != score_name:
+            continue
+
+        # get score
+        score = get_score_from_log(f'{epoch_folder}/{dfile}', score_name)
+        if score is not None:
+            scores[int(epoch_number)] = score
+
+    return scores, max(epoch_numbers)
+
+
 def get_score_from_log(file_path, score_name):
 
     results = None
@@ -116,47 +148,6 @@ def get_score_from_log(file_path, score_name):
                 break
 
     return results
-
-
-def get_checkpoints(epoch_folder):
-
-    # data in {epoch_folder}/../
-    # assume containing folder is the model folder
-    model_folder = epoch_folder.replace('epoch_tests', '')
-    if not os.path.isdir(model_folder):
-        return [], model_folder
-    else:
-        cpts = list(filter(checkpoint_re.match, os.listdir(model_folder)))
-        return cpts, model_folder
-#     num_checkpoints = len([
-#         int(checkpoint_re.match(dfile).groups()[0])
-#         for dfile in checkpoints
-#     ])
-
-#    return num_checkpoints 
-
-
-def get_scores_from_folder(epoch_folder, score_name):
-
-    # Get results available in this folder 
-    scores = {}
-    for dfile in os.listdir(epoch_folder):
-
-        # if not a results file, skip
-        if not results_regex.match(dfile): 
-            continue
-
-        epoch_number, sname = results_regex.match(dfile).groups()
-
-        if sname != score_name:
-            continue
-
-        # get score
-        score = get_score_from_log(f'{epoch_folder}/{dfile}', score_name)
-        if score is not None:
-            scores[int(epoch_number)] = score
-
-    return scores
 
 
 def rank_scores(scores, score_name):
@@ -196,15 +187,18 @@ def collect_checkpoint_results(epoch_folders, score_name):
     items = []
     for epoch_folder in epoch_folders:
 
-        # Get checkpoints available for this model
-        checkpoints, model_folder = get_checkpoints(epoch_folder)
+        # data in {epoch_folder}/../
+        # assume containing folder is the model folder
+        model_folder = epoch_folder.replace('epoch_tests', '')
+        if not os.path.isdir(model_folder):
+            continue
 
-        if checkpoints == []:
-            import ipdb; ipdb.set_trace(context=30)
-            print()
+        # Get checkpoints available for this model
+        checkpoints = list(filter(checkpoint_re.match, os.listdir(model_folder)))
 
         # Get the scores from the result files
-        scores = get_scores_from_folder(epoch_folder, score_name)
+        scores, max_score_epoch = \
+            get_scores_from_folder(epoch_folder, score_name)
 
         # If no scores skip this folder
         if not scores:
@@ -214,12 +208,24 @@ def collect_checkpoint_results(epoch_folders, score_name):
         best_score, second_best_score, third_best_score, top3_prev  = \
             rank_scores(scores, score_name)
 
-        # Find if checkpoints have been deleted
+        # Find if checkpoints have been deleted and there is no copy (e.g. as
+        # done by remove_checkpoints.sh)
         deleted_checkpoints = False
-        for score in [best_score, second_best_score, third_best_score]:
+        for label, score in zip(
+            ['best', 'second_best', 'third_best'], 
+            [best_score, second_best_score, third_best_score]
+        ):
             if score[0] == -1:
                 continue
-            if f'checkpoint{score[0]}.pt' not in checkpoints:
+
+            saved_checkpoint_name = (
+                f'{model_folder}/checkpoint_{label}_{score_name.upper()}.pt'
+            )
+
+            if (
+                f'checkpoint{score[0]}.pt' not in checkpoints and
+                not os.path.isfile(saved_checkpoint_name) 
+            ):
                 deleted_checkpoints = True
                 break
 
@@ -227,6 +233,13 @@ def collect_checkpoint_results(epoch_folders, score_name):
         stdout_numbers = [
             int(checkpoint_re.match(x).groups()[0]) for x in checkpoints
         ] 
+
+        # find out the maximum number of epochs
+        if checkpoints:
+            max_epochs = max(stdout_numbers) if stdout_numbers else -1
+        else:
+            max_epochs = max_score_epoch
+
         missing_epochs = list(set(stdout_numbers) - set(scores.keys()))
 
         items.append({
@@ -246,7 +259,7 @@ def collect_checkpoint_results(epoch_folders, score_name):
             # any top score checkpoints missing
             'deleted_checkpoints': deleted_checkpoints,
             # other
-            'max_epochs': max(stdout_numbers) if stdout_numbers else -1,
+            'max_epochs': max_epochs,
             'num_missing_epochs': len(missing_epochs),
             'num': 1,
             'ensemble': False
@@ -593,7 +606,10 @@ def link_top_models(items, score_name):
                     source_best
             ):
                 os.remove(target_best)
-            if not os.path.islink(target_best):
+            if (
+                not os.path.islink(target_best) and 
+                not os.path.isfile(target_best)        # after link removal
+            ):
                 os.symlink(source_best, target_best)
 
 
