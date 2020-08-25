@@ -992,7 +992,12 @@ class AMRStateMachine:
                     self.amr.nodes[t] = 'NA'
             self.connectGraph()
 
-            # Remove edge duplicates 
+            # Fix duplicated edges for :polarity :mode
+            # self.amr = fix_duplicated_edges(self.amr)
+            # def fix_duplicated_edges(self.amr)
+
+            # Remove edge duplicates i.e. same (id, edge_label, child_label)
+            # *not* same (id, edge_label, id2)
             removable_edges = [':polarity', ':mode']
             unique_edges = []
             edge_children = []
@@ -1010,13 +1015,23 @@ class AMRStateMachine:
                     else:
                         repeated_edges.append(triplet) 
 
-            # warn if duplicates found
+            # warn if duplicates found and remove resulting danglin nodes
             if repeated_edges:
+
+                # nodes that have a parent in the valid AMR
+                nodes_with_parent = [e[2] for e in unique_edges]
+
                 # Collect offending nodes and remove nodes that have no edge
                 duplicates = []
-                for triplet in repeated_edges:
+                while repeated_edges:
+                    triplet = repeated_edges.pop()
                     node_name = self.amr.nodes[triplet[2]]  
-                    if triplet[2] in self.amr.nodes:
+                    # delete nodes that have no parents in the valid AMR or
+                    # upcoming repeated edges
+                    if (
+                        triplet[2] not in nodes_with_parent and 
+                        triplet[2] not in [e[2] for e in repeated_edges]
+                    ):
                         del self.amr.nodes[triplet[2]]
                     duplicates.append(f'{triplet[1]} {node_name}')
                 # print warning
