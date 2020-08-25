@@ -2,6 +2,10 @@ import sys
 from transition_amr_parser.utils import print_log
 
 
+class InvalidAMRError(Exception):
+    pass
+
+
 class AMR:
 
     def __init__(self, tokens=None, root='', nodes=None, edges=None, alignments=None, score=0.0):
@@ -134,7 +138,7 @@ class AMR:
 
         else:
             if len(completed) < len(self.nodes):
-                raise Exception("Tried to print an uncompleted AMR")
+                raise InvalidAMRError("Tried to print an uncompleted AMR")
                 print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) + ' nodes printed:\n ' + amr_string)
             if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
                 amr_string = '(x / '+amr_string+')'
