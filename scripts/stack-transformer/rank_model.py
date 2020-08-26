@@ -126,7 +126,7 @@ def get_scores_from_folder(epoch_folder, score_name):
         if score is not None:
             scores[int(epoch_number)] = score
 
-    return scores, max(epoch_numbers)
+    return scores, max(epoch_numbers) if epoch_numbers else -1
 
 
 def get_score_from_log(file_path, score_name):
