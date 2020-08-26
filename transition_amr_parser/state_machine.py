@@ -139,6 +139,68 @@ def get_graph_str(amr, alignments):
     return graph_str
 
 
+def fix_duplicated_edges(amr, removable_edges):
+    '''
+    Remove edge duplicates i.e. same (id, edge_label, child_label) *not* same
+    (id, edge_label, id2)
+    '''
+
+    # keep list of non repeated and repeated edges keeping original order
+    edge_child_count = Counter([
+        (t[0], t[1], amr.nodes[t[2]]) for t in amr.edges
+    ])
+
+    # warn if duplicates found and remove resulting dangling nodes
+    repeated_edges = [t for t, count in edge_child_count.items() if count > 1] 
+    parents = set([t[0] for t in amr.edges])
+    total_to_delete = []
+    could_not_delete = False
+    for triple in repeated_edges:
+
+        # involved edges
+        duplicates = [t for t in amr.edges if triple[:2] == t[:2]]
+
+        # can not be deleted because they are parents of a subgraph
+        to_delete = [t for t in duplicates if t[2] not in parents]
+
+        # if all nodes can be deleted, leave at least one
+        if len(to_delete) == len(duplicates):
+            total_to_delete.extend(to_delete[1:])
+        elif len(to_delete) + 1 < len(duplicates):
+            total_to_delete.extend(to_delete)
+            could_not_delete = True
+        else:
+            total_to_delete.extend(to_delete)
+
+    # assign removed edges
+    new_edges = []
+    new_nodes = []
+    for t in amr.edges:
+        if t not in total_to_delete:
+            new_edges.append(t)             
+            new_nodes.extend([t[0], t[2]])
+    amr.edges = new_edges
+
+    # remove dangling nodes
+    dangling_nodes = set(amr.nodes.keys()) - set(new_nodes)
+    for k in dangling_nodes:
+        del amr.nodes[k]
+
+    if total_to_delete:
+        duplicates = ', '.join([t[1] for t in total_to_delete])
+        warn_msg = yellow_font('WARNING:')
+        print(f'\n{warn_msg} Removed edge duplicates {duplicates}')
+
+    if could_not_delete:
+        warn_msg = yellow_font('WARNING:')
+        print(
+            f'{warn_msg} some duplicates could not be removed since they were'
+            ' parents'
+        )
+
+    return amr
+
+
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
@@ -154,7 +216,7 @@ class AMRStateMachine:
         # word tokens of sentence
         self.tokens = tokens.copy()
 
-        # build and store amr graph (needed e.g. for oracle)
+        # build and store amr graph (needed e.g. for oracle and PENMAN)
         self.amr_graph = amr_graph
 
         # spacy lemmatizer
@@ -297,25 +359,25 @@ class AMRStateMachine:
         # update display str
         display_str += "%s\n%s\n%s\n\n" % (green_font("# Buffer/Stack/Reduced:"), pointer_view_str, mask_view_str)
 
-        # nodes
-        # nodes_str = " ".join([x for x in self.predicates if x != '_'])
-        node_items = []
-        for stack0, token_pos in self.alignments.items():
-            if stack0 not in self.amr.nodes:
-                continue
-            node = self.amr.nodes[stack0]
-            if isinstance(token_pos, tuple):
-                tokens = " ".join(self.tokens[p] for p in token_pos)
-            else:
-                tokens = self.tokens[token_pos]
-            node_items.append(f'{tokens}--{node}')
-        nodes_str = "  ".join(node_items)
-        # update display str
-        display_str += "%s\n%s\n\n" % (green_font("# Alignments:"), nodes_str)
-
-        # Graph 
-        display_str += green_font("# Graph:\n")
+        # nodes (requires on the fly AMR computation)
         if self.amr_graph:
+
+            node_items = []
+            for stack0, token_pos in self.alignments.items():
+                if stack0 not in self.amr.nodes:
+                    continue
+                node = self.amr.nodes[stack0]
+                if isinstance(token_pos, tuple):
+                    tokens = " ".join(self.tokens[p] for p in token_pos)
+                else:
+                    tokens = self.tokens[token_pos]
+                node_items.append(f'{tokens}--{node}')
+            nodes_str = "  ".join(node_items)
+            # update display str
+            display_str += "%s\n%s\n\n" % (green_font("# Alignments:"), nodes_str)
+    
+            # Graph 
+            display_str += green_font("# Graph:\n")
             display_str += get_graph_str(self.amr, self.alignments)
 
         return display_str
@@ -624,6 +686,7 @@ class AMRStateMachine:
         self.applyAction(act)
 
     def get_annotations(self):
+        assert sel.amr_graph, ".toJAMRString() requires amr_graph = True"
         return self.amr.toJAMRString()
 
     def SHIFT(self, shift_label=None):
@@ -689,7 +752,8 @@ class AMRStateMachine:
         stack0 = self.stack[-1]
         node_label, _ = self.get_top_of_stack(lemma=True)
         # update AMR graph
-        self.amr.nodes[stack0] = node_label
+        if self.amr_graph:
+            self.amr.nodes[stack0] = node_label
         # update statistics
         self.actions.append(f'COPY_LEMMA')
         self.labels.append('_')
@@ -714,7 +778,8 @@ class AMRStateMachine:
         lemma, _ = self.get_top_of_stack(lemma=True)
         node_label = f'{lemma}-01'
         # update AMR graph
-        self.amr.nodes[stack0] = node_label
+        if self.amr_graph:
+            self.amr.nodes[stack0] = node_label
         # update statistics
         self.actions.append(f'COPY_SENSE01')
         self.labels.append('_')
@@ -993,58 +1058,16 @@ class AMRStateMachine:
             self.connectGraph()
 
             # Fix duplicated edges for :polarity :mode
-            # self.amr = fix_duplicated_edges(self.amr)
-            # def fix_duplicated_edges(self.amr)
-
-            # Remove edge duplicates i.e. same (id, edge_label, child_label)
-            # *not* same (id, edge_label, id2)
-            removable_edges = [':polarity', ':mode']
-            unique_edges = []
-            edge_children = []
-            repeated_edges = []
-            for triplet in self.amr.edges:
-                if triplet[1] not in removable_edges:
-                    unique_edges.append(triplet)
-                else:    
-                    edge_child = (
-                        triplet[0], triplet[1], self.amr.nodes[triplet[2]]
-                    )
-                    if edge_child not in edge_children:
-                        unique_edges.append(triplet)
-                        edge_children.append(edge_child)
-                    else:
-                        repeated_edges.append(triplet) 
-
-            # warn if duplicates found and remove resulting danglin nodes
-            if repeated_edges:
-
-                # nodes that have a parent in the valid AMR
-                nodes_with_parent = [e[2] for e in unique_edges]
-
-                # Collect offending nodes and remove nodes that have no edge
-                duplicates = []
-                while repeated_edges:
-                    triplet = repeated_edges.pop()
-                    node_name = self.amr.nodes[triplet[2]]  
-                    # delete nodes that have no parents in the valid AMR or
-                    # upcoming repeated edges
-                    if (
-                        triplet[2] not in nodes_with_parent and 
-                        triplet[2] not in [e[2] for e in repeated_edges]
-                    ):
-                        del self.amr.nodes[triplet[2]]
-                    duplicates.append(f'{triplet[1]} {node_name}')
-                # print warning
-                duplicates = ', '.join(duplicates)
-                warn_msg = yellow_font('WARNING:')
-                print(f'{warn_msg} Removed edge duplicates {duplicates}')
-            self.amr.edges = unique_edges
+            # FIXME: Right now all duplicated nodes removed
+            self.amr = fix_duplicated_edges(self.amr, [':polarity', ':mode'])
 
         self.actions.append('SHIFT')
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
-        self.convert_state_machine_alignments_to_amr_alignments()
+        # FIXME: Make sure that this is not needed when amr_graph = False
+        if self.amr_graph:
+           self.convert_state_machine_alignments_to_amr_alignments()
         if self.verbose:
             print('CLOSE')
             if self.amr_graph:
