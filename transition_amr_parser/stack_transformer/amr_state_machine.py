@@ -693,7 +693,9 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rule
                 sent_tokens,
                 actions_by_stack_rules=actions_by_stack_rules,
                 spacy_lemmatizer=spacy_lemmatizer,
-                entity_rules=entity_rules
+                entity_rules=entity_rules,
+                # this is only needed to generate the AMR
+                amr_graph=False
             )
         elif machine_type == 'dep-parsing':
             assert sent_tokens[-1] == 'ROOT'
