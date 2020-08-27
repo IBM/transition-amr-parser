@@ -26,6 +26,8 @@ from transition_amr_parser.amr import AMR
 """
 entity_rules_json = None
 NUM_RE = re.compile(r'^([0-9]|,)+(st|nd|rd|th)?$')
+arg_re = re.compile(r'^:ARG([0-9])$')
+argof_re = re.compile(r'^:ARG([0-9])-of$')
 entity_rule_stats = Counter()
 entity_rule_totals = Counter()
 entity_rule_fails = Counter()
@@ -74,6 +76,36 @@ def stack_style(string, confirmed=False):
 
 def reduced_style(string):
     return black_font(red_background(string))
+
+
+def get_forbidden_arcs(stack0, stack1, amr):
+    '''
+    Return actions that create already existing edges (to forbid them)
+    '''
+    invalid_actions = []
+    for t in amr.edges:
+
+        # for edges with top of stack as parent, the child name (not the id)
+        # can not be the same as the name of current second in the stack
+        if t[0] == stack0 and (amr.nodes[t[2]] == amr.nodes[stack1]):
+            invalid_actions.append(f'LA({t[1][1:]})')
+            # Also reversed arguments
+            if arg_re.match(t[1]): 
+                invalid_actions.append(f'RA({t[1][1:]}-of)')
+            elif argof_re.match(t[1]):
+                argn = t[1].split('-')[0][1:]
+                invalid_actions.append(f'RA({argn})')
+
+        # same for second (RA instead of LA)
+        elif t[0] == stack1 and (amr.nodes[t[2]] == amr.nodes[stack0]):
+            invalid_actions.append(f'RA({t[1][1:]})')
+            # Also reversed arguments
+            if arg_re.match(t[1]): 
+                invalid_actions.append(f'LA({t[1][1:]}-of)')
+            elif argof_re.match(t[1]):
+                argn = t[1].split('-')[0][1:]
+                invalid_actions.append(f'LA({argn})')
+    return invalid_actions
 
 
 class NoTokenizer(object):
@@ -139,73 +171,11 @@ def get_graph_str(amr, alignments):
     return graph_str
 
 
-def fix_duplicated_edges(amr, removable_edges):
-    '''
-    Remove edge duplicates i.e. same (id, edge_label, child_label) *not* same
-    (id, edge_label, id2)
-    '''
-
-    # keep list of non repeated and repeated edges keeping original order
-    edge_child_count = Counter([
-        (t[0], t[1], amr.nodes[t[2]]) for t in amr.edges
-    ])
-
-    # warn if duplicates found and remove resulting dangling nodes
-    repeated_edges = [t for t, count in edge_child_count.items() if count > 1] 
-    parents = set([t[0] for t in amr.edges])
-    total_to_delete = []
-    could_not_delete = False
-    for triple in repeated_edges:
-
-        # involved edges
-        duplicates = [t for t in amr.edges if triple[:2] == t[:2]]
-
-        # can not be deleted because they are parents of a subgraph
-        to_delete = [t for t in duplicates if t[2] not in parents]
-
-        # if all nodes can be deleted, leave at least one
-        if len(to_delete) == len(duplicates):
-            total_to_delete.extend(to_delete[1:])
-        elif len(to_delete) + 1 < len(duplicates):
-            total_to_delete.extend(to_delete)
-            could_not_delete = True
-        else:
-            total_to_delete.extend(to_delete)
-
-    # assign removed edges
-    new_edges = []
-    new_nodes = []
-    for t in amr.edges:
-        if t not in total_to_delete:
-            new_edges.append(t)             
-            new_nodes.extend([t[0], t[2]])
-    amr.edges = new_edges
-
-    # remove dangling nodes
-    dangling_nodes = set(amr.nodes.keys()) - set(new_nodes)
-    for k in dangling_nodes:
-        del amr.nodes[k]
-
-    if total_to_delete:
-        duplicates = ', '.join([t[1] for t in total_to_delete])
-        warn_msg = yellow_font('WARNING:')
-        print(f'\n{warn_msg} Removed edge duplicates {duplicates}')
-
-    if could_not_delete:
-        warn_msg = yellow_font('WARNING:')
-        print(
-            f'{warn_msg} some duplicates could not be removed since they were'
-            ' parents'
-        )
-
-    return amr
-
-
 class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
                  actions_by_stack_rules=None, amr_graph=True,
-                 spacy_lemmatizer=None, entity_rules=None):
+                 post_process=True, spacy_lemmatizer=None, entity_rules=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
@@ -218,6 +188,7 @@ class AMRStateMachine:
 
         # build and store amr graph (needed e.g. for oracle and PENMAN)
         self.amr_graph = amr_graph
+        self.post_process = post_process
 
         # spacy lemmatizer
         self.spacy_lemmatizer = spacy_lemmatizer
@@ -542,7 +513,9 @@ class AMRStateMachine:
         if self.is_closed:
             return ['</s>']
 
+        # NOTE: Example: valid_actions = ['LA'] invalid_actions = ['LA(:mod)']
         valid_actions = []
+        invalid_actions = []
 
         # Buffer not empty
         if True:  # len(self.buffer):
@@ -602,84 +575,20 @@ class AMRStateMachine:
             ):
                 valid_actions.extend(['SWAP', 'UNSHIFT'])
 
-            # confirmed nodes can be drawn edges between
+            # confirmed nodes can be drawn edges between as long as they are
+            # not repeated
             if (stack0 in self.is_confirmed and stack1 in self.is_confirmed):
                 valid_actions.extend(['LA', 'RA'])
+                # Forbid repeated edges
+                invalid_actions.extend(
+                    get_forbidden_arcs(stack0, stack1, self.amr)
+                )
 
             # FIXME: special rule to account for oracle errors
             elif self.get_top_of_stack()[0] == 'me':
                 valid_actions.extend(['RA(mode)'])
 
-        return valid_actions
-
-    def get_valid_action_indices(self):
-        """Return valid actions for this state at test time (no oracle info)"""
-        valid_action_indices = []
-
-        # Buffer not empty
-        if len(self.buffer):
-            valid_action_indices.extend(self.action_list_by_prefix['SHIFT'])
-            # FIXME: reduce also accepted here if node_id != None and something
-            # aligned to it (see tryReduce)
-
-        # One or more tokens in stack
-        if len(self.stack) > 0:
-            valid_action_indices.extend(self.action_list_by_prefix['REDUCE'])
-            valid_action_indices.extend(
-                self.action_list_by_prefix['DEPENDENT']
-            )
-
-            # valid_node = get_valid_node(self):
-            valid_action_indices.extend(self.action_list_by_prefix['PRED'])
-            valid_action_indices.extend(self.action_list_by_prefix['COPY'])
-            valid_action_indices.extend(
-                self.action_list_by_prefix['COPY_LITERAL']
-            )
-
-            # Forbid entitity if top token already an entity
-            if self.stack[-1] not in self.entities:
-                # FIXME: Any rules involving MERGE here?
-                valid_action_indices.extend(
-                    self.action_list_by_prefix['ENTITY']
-                )
-
-            # Forbid introduce if no latent
-            if len(self.latent) > 0:
-                valid_action_indices.extend(
-                    self.action_list_by_prefix['INTRODUCE']
-                )
-
-        # two or more tokens in stack
-        if len(self.stack) > 1:
-
-            valid_action_indices.extend(self.action_list_by_prefix['LA'])
-            valid_action_indices.extend(self.action_list_by_prefix['RA'])
-
-            stack0 = self.stack[-1]
-            stack1 = self.stack[-2]
-
-            # Forbid merging if two words are identical
-            if stack0 != stack1:
-                valid_action_indices.extend(self.action_list_by_prefix['MERGE'])
-
-            # Forbid SWAP if both words have been swapped already
-            if (
-                (
-                    stack0 not in self.swapped_words or
-                    stack1 not in self.swapped_words.get(stack0)
-                ) and
-                (
-                    stack1 not in self.swapped_words or
-                    stack0 not in self.swapped_words.get(stack1)
-                )
-            ):
-                valid_action_indices.extend(self.action_list_by_prefix['SWAP'])
-
-        # If not valid action indices machine is closed, output EOL
-        if valid_action_indices == []:
-            valid_action_indices = [self.action_list.index('</s>')]
-
-        return valid_action_indices
+        return valid_actions, invalid_actions
 
     # forward compatibility aliases
     def update(self, act):
@@ -1000,7 +909,7 @@ class AMRStateMachine:
 
         self.buffer = []
         self.stack = []
-        if self.amr_graph:
+        if self.amr_graph and self.post_process:
             if training and not use_addnonde_rules:
                 self.postprocessing_training(gold_amr)
             else:
@@ -1057,9 +966,15 @@ class AMRStateMachine:
                     self.amr.nodes[t] = 'NA'
             self.connectGraph()
 
-            # Fix duplicated edges for :polarity :mode
-            # FIXME: Right now all duplicated nodes removed
-            self.amr = fix_duplicated_edges(self.amr, [':polarity', ':mode'])
+            # warn if duplicate edges found 
+            edge_child_count = Counter([
+                (t[0], t[1], self.amr.nodes[t[2]]) for t in self.amr.edges
+            ])
+            dupes = [(t, c) for t, c in edge_child_count.items() if c > 1] 
+            if any(dupes):
+                warn_msg = yellow_font('WARNING:')
+                print(f'{warn_msg} duplicated edges', end=' ')
+                print(dict(dupes))
 
         self.actions.append('SHIFT')
         self.labels.append('_')
