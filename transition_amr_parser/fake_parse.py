@@ -136,7 +136,7 @@ def reduce_counter(counts, reducer):
 def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
 
     # Get valid actions
-    valid_actions = state_machine.get_valid_actions()
+    valid_actions, invalid_actions = state_machine.get_valid_actions()
 
     # Fallback for constrained PRED actions
     if 'PRED' in raw_action:
@@ -162,13 +162,15 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
             else:
                 pred_counts.update(['matches'])
     elif (
-        raw_action not in valid_actions and
-        raw_action.split('(')[0] not in valid_actions
+        (
+            raw_action not in valid_actions and
+            raw_action.split('(')[0] not in valid_actions
+        )
+        or raw_action in invalid_actions
     ):
-
         # note-down rule violation
         token, _ = state_machine.get_top_of_stack()
-        rule_violation.update([(token, raw_action)])
+        rule_violation.update([raw_action.split('(')[0]])
 
     return raw_action
 
