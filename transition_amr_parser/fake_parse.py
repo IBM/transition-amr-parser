@@ -14,6 +14,7 @@ from transition_amr_parser.state_machine import (
     get_spacy_lemmatizer
 )
 from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.amr import InvalidAMRError
 from transition_amr_parser.io import (
     writer,
     read_tokenized_sentences,
@@ -418,7 +419,12 @@ def main():
             tag_str += '\n\n'
             bio_write(tag_str)
         if args.out_amr:
-            amr_write(machine.amr.toJAMRString())
+            try:
+                amr_write(machine.amr.toJAMRString())
+            except InvalidAMRError as exception:    
+                print(f'\nFailed at sentence {sent_idx}\n')
+                raise exception
+
 
     if (
         getattr(parsing_model, "rule_violation") and

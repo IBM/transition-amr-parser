@@ -413,7 +413,7 @@ class StateMachineBatch():
     """
 
     def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None, 
-                 entity_rules=None):
+                 entity_rules=None, post_process=False):
 
         # Get all actions indexed by prefix
         # TODO: This code can be inline here now that we have __init__/reset
@@ -426,7 +426,8 @@ class StateMachineBatch():
             # self.state_machine = StateMachine(folder)
             self.get_new_state_machine = machine_generator(
                 rule_stats['possible_predicates'],
-                entity_rules=entity_rules
+                entity_rules=entity_rules,
+                post_process=post_process
             )
         else:
             assert machine_type != 'AMR', \
@@ -673,7 +674,7 @@ def update_machine(step, tokens, scores, state_machine):
     state_machine.update_masks()
 
 
-def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rules=None):
+def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rules=None, post_process=False):
     """Return function that itself returns initialized state machines"""
 
     # initialize spacy lemmatizer
@@ -704,7 +705,7 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rule
                 spacy_lemmatizer=spacy_lemmatizer,
                 entity_rules=entity_rules,
                 # this is only needed to generate the AMR
-                post_process=False
+                post_process=post_process
             )
         elif machine_type == 'dep-parsing':
             assert sent_tokens[-1] == 'ROOT'

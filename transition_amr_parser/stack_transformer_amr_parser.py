@@ -10,6 +10,7 @@ import copy
 from fairseq import checkpoint_utils, utils
 from fairseq.sequence_generator import EnsembleModel
 
+from transition_amr_parser.amr import InvalidAMRError
 from transition_amr_parser.stack_transformer.amr_state_machine import (
     StateMachineBatch,
 )
@@ -187,7 +188,10 @@ class AMRParser():
             tgt_dict,
             machine_type,
             machine_rules=machine_rules,
-            entity_rules=entity_rules
+            entity_rules=entity_rules,
+            # note that on standalone, we do need to post-process to get AMR
+            # annotations
+            post_process=True
         )
 
     @classmethod
@@ -244,7 +248,8 @@ class AMRParser():
         # Load RoBERTa
         embeddings = PretrainedEmbeddings(
             name=prepro_args['--pretrained-embed'][0],
-            bert_layers=[int(x) for x in prepro_args['--bert-layers']],
+            bert_layers=[int(x) for x in prepro_args['--bert-layers']] 
+                if '--bert-layers' in prepro_args else None,
             model=load_roberta(
                 name=prepro_args['--pretrained-embed'][0],
                 roberta_cache_path=args.roberta_cache_path,
@@ -422,7 +427,7 @@ class AMRParser():
                                               roberta_batch_size)
         data_iterator = self.get_iterator(data, batch_size)
 
-        # Lopp over batches of sentences
+        # Loop over batches of sentences
         amr_annotations = {}
         for sample in tqdm(data_iterator, desc='decoding'):
 
@@ -435,8 +440,13 @@ class AMRParser():
             # collect all annotations
             ids = sample["id"].detach().cpu().tolist()
             for index, id in enumerate(ids):
-                amr_annotations[id] = \
-                    self.state_machine_batch.machines[index].get_annotations()
+                machine = self.state_machine_batch.machines[index]
+                try:
+                    amr_annotations[id] = machine.get_annotations()
+                except InvalidAMRError as exception:    
+                    print(f'\nFailed at sentence {id}\n')
+                    raise exception
+
 
         # return the AMRs in order
         result = []
