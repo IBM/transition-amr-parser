@@ -595,7 +595,7 @@ class AMRStateMachine:
         self.applyAction(act)
 
     def get_annotations(self):
-        assert sel.amr_graph, ".toJAMRString() requires amr_graph = True"
+        assert self.amr_graph, ".toJAMRString() requires amr_graph = True"
         return self.amr.toJAMRString()
 
     def SHIFT(self, shift_label=None):
