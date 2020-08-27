@@ -13,7 +13,7 @@ set -o nounset
 
 # Configuration 
 MAX_WORDS=100
-ORACLE_TAG=o4+Word${MAX_WORDS}
+ORACLE_TAG=o3+Word${MAX_WORDS}
 
 # Variables
 ORACLE_FOLDER=DATA.tests/AMR/oracles/${ORACLE_TAG}/
@@ -43,6 +43,8 @@ amr-fake-parse \
     --in-actions $ORACLE_FOLDER/train.actions \
     --entity-rules $ORACLE_FOLDER/entity_rules.json \
     --out-amr $ORACLE_FOLDER/oracle_train.amr
+
+echo -e "\nEvaluating SMATCH (may take ~40min for AMR 2.0 train)\n"
 
 # evaluate reconstruction performance
 smatch="$(smatch.py --significant 3 -r 10 -f $train_amr $ORACLE_FOLDER/oracle_train.amr)"
