@@ -26,8 +26,6 @@ from transition_amr_parser.amr import AMR
 """
 entity_rules_json = None
 NUM_RE = re.compile(r'^([0-9]|,)+(st|nd|rd|th)?$')
-arg_re = re.compile(r'^:ARG([0-9])$')
-argof_re = re.compile(r'^:ARG([0-9])-of$')
 entity_rule_stats = Counter()
 entity_rule_totals = Counter()
 entity_rule_fails = Counter()
@@ -78,33 +76,85 @@ def reduced_style(string):
     return black_font(red_background(string))
 
 
-def get_forbidden_arcs(stack0, stack1, amr):
+def get_forbidden_actions(stack, amr):
     '''
     Return actions that create already existing edges (to forbid them)
     '''
+
+    if len(stack) == 0:
+        return []
+
+    # Regex for ARGs
+    arg_re = re.compile(r'^(ARG)([0-9]+)$')
+    snt_re = re.compile(r'^(snt|op)([0-9]+)$')
+    argof_re = re.compile(r'^ARG([0-9])-of$')
+
     invalid_actions = []
     for t in amr.edges:
 
-        # for edges with top of stack as parent, the child name (not the id)
-        # can not be the same as the name of current second in the stack
-        if t[0] == stack0 and (amr.nodes[t[2]] == amr.nodes[stack1]):
-            invalid_actions.append(f'LA({t[1][1:]})')
-            # Also reversed arguments
-            if arg_re.match(t[1]): 
-                invalid_actions.append(f'RA({t[1][1:]}-of)')
-            elif argof_re.match(t[1]):
-                argn = t[1].split('-')[0][1:]
+        # if we find an edge in the list of non repeatable edges, check if
+        # this parent has already had one such edge and forbid repetition in
+        # that case. 
+
+        # infor abouty this edge
+        head = t[0]
+        edge = t[1][1:]
+        child = amr.nodes[t[2]]
+
+        # unique constants
+        # this edge label can not be repeated with same child name
+        # note that DEPENDENT can be used as well as RA/LA
+        if edge in ['polarity', 'mode']:
+
+            if head == stack[-1]:
+                # DEPENDENT
+                invalid_actions.append(f'DEPENDENT({child},{edge})')
+
+            if len(stack) > 1:
+                if head == stack[-1] and (child == amr.nodes[stack[-2]]):
+                    # LA (stack1 <-- stack0)
+                    invalid_actions.append(f'LA({edge})')
+                elif head == stack[-2] and (child == amr.nodes[stack[-1]]):
+                    # RA (stack1 --> stack0)            
+                    invalid_actions.append(f'RA({edge})')
+
+        # snt[0-9] op[0-9]
+        # this edge label can not be repeated
+        elif snt_re.match(edge) and len(stack) > 1: 
+            if head == stack[-1]:
+                # Left Arcs (stack1 <-- stack0)
+                invalid_actions.append(f'LA({edge})')
+            elif head == stack[-2]:
+                # Right Arcs (stack1 --> stack0)            
+                invalid_actions.append(f'RA({edge})')
+
+        # ARG[0-9] 
+        # this edge label can not be repeated with same child name
+        elif arg_re.match(edge) and len(stack) > 1: 
+
+            if head == stack[-1] and (child == amr.nodes[stack[-2]]):
+                # Left Arcs (stack1 <-- stack0)
+                invalid_actions.append(f'LA({edge})')
+                
+            elif head == stack[-2] and (child == amr.nodes[stack[-1]]):
+                # Right Arcs (stack1 --> stack0)            
+                invalid_actions.append(f'RA({edge})')
+
+        # ARG[0-9]-of 
+        # this edge label can not be repeated with same parent name
+        # NOTE: father and child roles reverse wrt ARG[0-9]
+        elif argof_re.match(edge) and len(stack) > 1:
+
+            if head == stack[-2] and (child == amr.nodes[stack[-1]]):
+                # Left Arcs (stack1 <-- stack0)
+                argn = edge.split('-')[0]
+                invalid_actions.append(f'LA({argn})')
+                
+            elif head == stack[-1] and (child == amr.nodes[stack[-1]]):
+                # Right Arcs (stack1 --> stack0)            
+                argn = edge.split('-')[0]
                 invalid_actions.append(f'RA({argn})')
 
-        # same for second (RA instead of LA)
-        elif t[0] == stack1 and (amr.nodes[t[2]] == amr.nodes[stack0]):
-            invalid_actions.append(f'RA({t[1][1:]})')
-            # Also reversed arguments
-            if arg_re.match(t[1]): 
-                invalid_actions.append(f'LA({t[1][1:]}-of)')
-            elif argof_re.match(t[1]):
-                argn = t[1].split('-')[0][1:]
-                invalid_actions.append(f'LA({argn})')
     return invalid_actions
 
 
@@ -579,14 +629,14 @@ class AMRStateMachine:
             # not repeated
             if (stack0 in self.is_confirmed and stack1 in self.is_confirmed):
                 valid_actions.extend(['LA', 'RA'])
-                # Forbid repeated edges
-                invalid_actions.extend(
-                    get_forbidden_arcs(stack0, stack1, self.amr)
-                )
 
             # FIXME: special rule to account for oracle errors
             elif self.get_top_of_stack()[0] == 'me':
                 valid_actions.extend(['RA(mode)'])
+
+        # Forbid actions given graph. Right now avoid some edge duplicates by
+        # forbidding LA, RA and DEPENDENT
+        invalid_actions.extend(get_forbidden_actions(self.stack, self.amr))
 
         return valid_actions, invalid_actions
 
@@ -965,16 +1015,6 @@ class AMRStateMachine:
                 if t not in self.amr.nodes:
                     self.amr.nodes[t] = 'NA'
             self.connectGraph()
-
-            # warn if duplicate edges found 
-            edge_child_count = Counter([
-                (t[0], t[1], self.amr.nodes[t[2]]) for t in self.amr.edges
-            ])
-            dupes = [(t, c) for t, c in edge_child_count.items() if c > 1] 
-            if any(dupes):
-                warn_msg = yellow_font('WARNING:')
-                print(f'{warn_msg} duplicated edges', end=' ')
-                print(dict(dupes))
 
         self.actions.append('SHIFT')
         self.labels.append('_')

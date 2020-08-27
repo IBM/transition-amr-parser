@@ -1,4 +1,6 @@
 import sys
+import re
+from collections import Counter
 
 
 class InvalidAMRError(Exception):
@@ -264,6 +266,33 @@ class JAMR_CorpusReader:
 
         if len(amrs[-1].nodes) == 0:
             amrs.pop()
+
+
+def get_duplicate_edges(amr):
+
+    # Regex for ARGs
+    arg_re = re.compile(r'^(ARG|snt|op)([0-9]+)$')
+    argof_re = re.compile(r'^ARG([0-9])-of$')
+
+    def select(edge):
+        return (
+            edge in ['polarity', 'mode'] 
+            or arg_re.match(edge)
+            or argof_re.match(edge)
+        )
+
+    # cound duplicate edges, we need to resolve child name (orparent name for
+    # ARG[0-9]-of
+    edge_child_count = Counter([
+        (amr.nodes[t[0]], t[1], t[2]) if argof_re.match(t[1][1:]) 
+            else (t[0], t[1], amr.nodes[t[2]]) 
+        for t in amr.edges
+    ])
+    return [
+        (t, c) 
+        for t, c in edge_child_count.items() 
+        if c > 1 and select(t[1][1:])
+    ] 
 
 
 def main():

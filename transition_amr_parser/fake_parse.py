@@ -14,7 +14,7 @@ from transition_amr_parser.state_machine import (
     get_spacy_lemmatizer
 )
 from transition_amr_parser.utils import yellow_font
-from transition_amr_parser.amr import InvalidAMRError
+from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.io import (
     writer,
     read_tokenized_sentences,
@@ -412,6 +412,14 @@ def main():
         # NOTE: To simulate the real endpoint, input provided as a string of
         # whitespace separated tokens
         machine, bio_tags = parsing_model.parse_sentence(" ".join(tokens))
+
+        # sanity check annotations
+        dupes = get_duplicate_edges(machine.amr)
+        if any(dupes):
+            msg = yellow_font('WARNING:')
+            print(f'{msg} duplicated edges in sent {id}\n', end=' ')
+            print(dict(dupes))
+            print(' '.join(machine.tokens))
 
         # store output AMR
         if args.out_bio_tags:

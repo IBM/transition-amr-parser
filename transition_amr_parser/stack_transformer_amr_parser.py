@@ -10,7 +10,7 @@ import copy
 from fairseq import checkpoint_utils, utils
 from fairseq.sequence_generator import EnsembleModel
 
-from transition_amr_parser.amr import InvalidAMRError
+from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.stack_transformer.amr_state_machine import (
     StateMachineBatch,
 )
@@ -447,6 +447,13 @@ class AMRParser():
                     print(f'\nFailed at sentence {id}\n')
                     raise exception
 
+                # sanity check annotations
+                dupes = get_duplicate_edges(machine.amr)
+                if any(dupes):
+                    msg = yellow_font('WARNING:')
+                    print(f'{msg} duplicated edges in sent {id}\n', end=' ')
+                    print(dict(dupes))
+                    print(' '.join(machine.tokens))
 
         # return the AMRs in order
         result = []
