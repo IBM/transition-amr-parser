@@ -1,5 +1,4 @@
 import sys
-from transition_amr_parser.utils import print_log
 
 
 class InvalidAMRError(Exception):
@@ -139,7 +138,6 @@ class AMR:
         else:
             if len(completed) < len(self.nodes):
                 raise InvalidAMRError("Tried to print an uncompleted AMR")
-                print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) + ' nodes printed:\n ' + amr_string)
             if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
                 amr_string = '(x / '+amr_string+')'
             if not amr_string.startswith('('):
@@ -165,8 +163,6 @@ class JAMR_CorpusReader:
         self.words2Ints = {}
         self.chars2Ints = {}
         self.labels2Ints = {}
-
-        print_log('amr', 'Starts reading data')
 
     """
     Reads AMR Graphs file in JAMR format. If Training==true, it is reading
@@ -268,12 +264,6 @@ class JAMR_CorpusReader:
 
         if len(amrs[-1].nodes) == 0:
             amrs.pop()
-        print_log('amr', "Training Data" if training else "Dev Data")
-        if training:
-            print_log('amr', "Number of labels: " + str(len(self.labels2Ints)))
-            print_log('amr', "Number of nodes: " + str(len(self.nodes2Ints)))
-            print_log('amr', "Number of words: " + str(len(self.words2Ints)))
-        print_log('amr', "Number of sentences: " + str(len(amrs)))
 
 
 def main():
