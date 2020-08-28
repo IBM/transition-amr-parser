@@ -85,8 +85,8 @@ def get_forbidden_actions(stack, amr):
         return []
 
     # Regex for ARGs
+    unique_re = re.compile(r'^(ARG|snt|op)([0-9]+)$')
     arg_re = re.compile(r'^(ARG)([0-9]+)$')
-    snt_re = re.compile(r'^(snt|op)([0-9]+)$')
     argof_re = re.compile(r'^ARG([0-9])-of$')
 
     invalid_actions = []
@@ -97,63 +97,66 @@ def get_forbidden_actions(stack, amr):
         # that case. 
 
         # infor abouty this edge
-        head = t[0]
+        head_id = t[0]
+        head = amr.nodes[head_id]
         edge = t[1][1:]
-        child = amr.nodes[t[2]]
+        child_id = t[2]
+        child = amr.nodes[child_id]
 
         # unique constants
         # this edge label can not be repeated with same child name
         # note that DEPENDENT can be used as well as RA/LA
         if edge in ['polarity', 'mode']:
-
-            if head == stack[-1]:
+            if head_id == stack[-1]:
                 # DEPENDENT
                 invalid_actions.append(f'DEPENDENT({child},{edge})')
-
             if len(stack) > 1:
-                if head == stack[-1] and (child == amr.nodes[stack[-2]]):
+                if head_id == stack[-1] and (child == amr.nodes[stack[-2]]):
                     # LA (stack1 <-- stack0)
                     invalid_actions.append(f'LA({edge})')
-                elif head == stack[-2] and (child == amr.nodes[stack[-1]]):
+                elif head_id == stack[-2] and (child == amr.nodes[stack[-1]]):
                     # RA (stack1 --> stack0)            
                     invalid_actions.append(f'RA({edge})')
 
-        # snt[0-9] op[0-9]
-        # this edge label can not be repeated
-        elif snt_re.match(edge) and len(stack) > 1: 
-            if head == stack[-1]:
+        # snt[0-9] op[0-9] 
+        # this edge label can not be repeated regardless of child label
+        elif unique_re.match(edge) and len(stack) > 1: 
+            if head_id == stack[-1]:
                 # Left Arcs (stack1 <-- stack0)
                 invalid_actions.append(f'LA({edge})')
-            elif head == stack[-2]:
+            elif head_id == stack[-2]:
                 # Right Arcs (stack1 --> stack0)            
                 invalid_actions.append(f'RA({edge})')
 
-        # ARG[0-9] 
-        # this edge label can not be repeated with same child name
+        # ARG[0-9]
+        # this edge label can not be repeated regardless of child label
+        # watch for reverse ARG-of arcs
         elif arg_re.match(edge) and len(stack) > 1: 
-
-            if head == stack[-1] and (child == amr.nodes[stack[-2]]):
+            if head_id == stack[-1]:
                 # Left Arcs (stack1 <-- stack0)
                 invalid_actions.append(f'LA({edge})')
-                
-            elif head == stack[-2] and (child == amr.nodes[stack[-1]]):
+                invalid_actions.append(f'RA({edge}-of)')
+            elif head_id == stack[-2]:
                 # Right Arcs (stack1 --> stack0)            
                 invalid_actions.append(f'RA({edge})')
+                invalid_actions.append(f'LA({edge})-of')
 
         # ARG[0-9]-of 
-        # this edge label can not be repeated with same parent name
+        # this edge label can not be repeated regardless of parent label
+        # watch for direct ARG arcs
         # NOTE: father and child roles reverse wrt ARG[0-9]
         elif argof_re.match(edge) and len(stack) > 1:
-
-            if head == stack[-2] and (child == amr.nodes[stack[-1]]):
+            if child_id == stack[-1]:
                 # Left Arcs (stack1 <-- stack0)
                 argn = edge.split('-')[0]
                 invalid_actions.append(f'LA({argn})')
+                invalid_actions.append(f'RA({edge})')
                 
-            elif head == stack[-1] and (child == amr.nodes[stack[-1]]):
+            elif child_id == stack[-2]:
                 # Right Arcs (stack1 --> stack0)            
                 argn = edge.split('-')[0]
                 invalid_actions.append(f'RA({argn})')
+                invalid_actions.append(f'LA({edge})')
 
     return invalid_actions
 
