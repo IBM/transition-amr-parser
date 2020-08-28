@@ -1,4 +1,5 @@
 import json
+import re
 import argparse
 from collections import Counter, defaultdict
 
@@ -6,6 +7,7 @@ from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
 from transition_amr_parser.io import writer, read_propbank, read_amr
+from transition_amr_parser.amr import get_duplicate_edges
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer,
@@ -230,7 +232,13 @@ def alert_inconsistencies(gold_amrs):
     sentence_count = Counter()
     amr_by_amrkey_by_sentence = defaultdict(dict)
     amr_counts_by_sentence = defaultdict(lambda: Counter())
+    collect_duplicates = []
     for amr in gold_amrs:
+
+        # collect duplicate arcs 
+        dupes = get_duplicate_edges(amr)
+        if dupes:
+            collect_duplicates.extend(dupes)
 
         # hash of sentence
         assert amr.tokens, "Tokens missing from amr file"
@@ -284,6 +292,17 @@ def alert_inconsistencies(gold_amrs):
             perc
         )
         print(yellow_font(alert_str))
+
+    if collect_duplicates:
+        dupes_by_arc = defaultdict(int)
+        for item in collect_duplicates:
+            if re.match('^[0-9\.]+$', item[0][0]):
+                dupes_by_arc[item[0][1]] += item[1]
+            else:
+                dupes_by_arc[item[0][0]] += item[1]
+        num_dup = sum(dupes_by_arc.values())        
+        print(yellow_font(f'AMR contains {num_dup} duplicate edges'))
+        print(dict(dupes_by_arc))
 
 
 def read_multitask_words(multitask_list):
@@ -1111,7 +1130,7 @@ def print_corpus_info(amrs):
     edge_tokens = sum(edge_label_count.values())
     print(f'{len(edge_label_count)}/{edge_tokens} edge types/tokens')
     word_label_count = Counter([w for amr in amrs for w in amr.tokens])
-    word_tokens = len(word_label_count.values())
+    word_tokens = sum(word_label_count.values())
     print(f'{len(word_label_count)}/{word_tokens} word types/tokens')
 
 def main():

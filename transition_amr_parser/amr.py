@@ -271,7 +271,8 @@ class JAMR_CorpusReader:
 def get_duplicate_edges(amr):
 
     # Regex for ARGs
-    arg_re = re.compile(r'^(ARG|snt|op)([0-9]+)$')
+    arg_re = re.compile(r'^(ARG)([0-9]+)$')
+    unique_re = re.compile(r'^(snt|op)([0-9]+)$')
     argof_re = re.compile(r'^ARG([0-9]+)-of$')
 
     # count duplicate edges
@@ -279,14 +280,17 @@ def get_duplicate_edges(amr):
     for t in amr.edges:
         edge = t[1][1:]
         if edge in ['polarity', 'mode']:
-            key = (t[0], edge, amr.nodes[t[2]])
+            keys = [(t[0], edge, amr.nodes[t[2]])]
+        elif unique_re.match(edge):
+            keys = [(t[0], edge)]
         elif arg_re.match(edge):
-            key = (t[0], edge)
+            keys = [(t[0], edge)]
         elif argof_re.match(edge):
-            key = (edge, t[2])
+            # normalize ARG0-of --> to ARG0 <--
+            keys = [(t[2], edge.split('-')[0])]
         else:
             continue
-        edge_child_count.update([key])
+        edge_child_count.update(keys)
 
     return [(t, c) for t, c in edge_child_count.items() if c > 1] 
 
