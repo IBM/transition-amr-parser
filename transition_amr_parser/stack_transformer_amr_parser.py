@@ -451,7 +451,7 @@ class AMRParser():
                 dupes = get_duplicate_edges(machine.amr)
                 if any(dupes):
                     msg = yellow_font('WARNING:')
-                    print(f'{msg} duplicated edges in sent {id}\n', end=' ')
+                    print(f'{msg} duplicated edges in sent {id}', end=' ')
                     print(dict(dupes))
                     print(' '.join(machine.tokens))
 
