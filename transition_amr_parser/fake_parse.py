@@ -101,6 +101,11 @@ def argument_parser():
         help="Assume whitespaces normalized to _ in PRED"
     )
     parser.add_argument(
+        "--sanity-check",
+        action='store_true',
+        help="Sanity check produced AMRs"
+    )
+    parser.add_argument(
         "--out-bio-tags",
         type=str,
         help="Output AMR info as BIO tags (PRED and ADDNODE actions)"
@@ -415,7 +420,7 @@ def main():
 
         # sanity check annotations
         dupes = get_duplicate_edges(machine.amr)
-        if any(dupes):
+        if args.sanity_check and any(dupes):
             msg = yellow_font('WARNING:')
             print(f'{msg} duplicated edges in sent {sent_idx}', end=' ')
             print(dict(dupes))
