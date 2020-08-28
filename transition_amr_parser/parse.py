@@ -2,6 +2,7 @@ import time
 import os
 import signal
 import argparse
+from pdb import set_trace
 from datetime import timedelta
 from fairseq.tokenizer import tokenize_line
 from transition_amr_parser.io import read_sentences
@@ -54,7 +55,12 @@ def argument_parsing():
         action='store_true',
         default=False
     )
-
+    parser.add_argument(
+        "--set-trace",
+        help="breakpoint after each action",
+        action='store_true',
+        default=False
+    )
     args = parser.parse_args()
     
     # sanity checks
@@ -103,8 +109,19 @@ def simple_inspector(machine):
     print the first machine
     '''
     os.system('clear')
-    print(machine.machines[0])
+    machine = machine.machines[0]
+    print(machine)
     input("")
+
+
+def breakpoint_inspector(machine):
+    '''
+    call set_trace() on the first machine
+    '''
+    os.system('clear')
+    machine = machine.machines[0]
+    print(machine)
+    set_trace()
 
 
 def main():
@@ -112,7 +129,10 @@ def main():
     # argument handling
     args = argument_parsing()
 
+    # set inspector to use on action loop
     inspector = None
+    if args.set_trace:
+        inspector = breakpoint_inspector
     if args.step_by_step:
         inspector = simple_inspector
 
