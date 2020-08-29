@@ -85,9 +85,9 @@ def get_forbidden_actions(stack, amr):
         return []
 
     # Regex for ARGs
-    unique_re = re.compile(r'^(ARG|snt|op)([0-9]+)$')
-    arg_re = re.compile(r'^(ARG)([0-9]+)$')
-    argof_re = re.compile(r'^ARG([0-9])-of$')
+    unique_re = re.compile(r'^(snt|op)([0-9]+)$')
+    arg_re = re.compile(r'^ARG([0-9]+)$')
+    argof_re = re.compile(r'^ARG([0-9]+-of)$')
 
     invalid_actions = []
     for t in amr.edges:
@@ -139,7 +139,7 @@ def get_forbidden_actions(stack, amr):
             elif head_id == stack[-2]:
                 # Right Arcs (stack1 --> stack0)            
                 invalid_actions.append(f'RA({edge})')
-                invalid_actions.append(f'LA({edge})-of')
+                invalid_actions.append(f'LA({edge}-of)')
 
         # ARG[0-9]-of 
         # this edge label can not be repeated regardless of parent label
