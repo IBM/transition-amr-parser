@@ -176,7 +176,7 @@ def get_cross_attention_mask_heads(tgt_src_cursors, src_max_len, src_pad_mask, t
     # Thus, we mask these positions after softmax
     bsz_head_mask_post_softmax = bsz_head_mask.new_ones(*bsz_head_mask.size()[:2], 1, dtype=torch.float)
     bsz_head_mask_post_softmax[bsz_head_mask.sum(dim=2) == 0] = 0
-    # we need to modify the pre-softmax as well, since after we get nan, multiplying by 0 is still 0
+    # we need to modify the pre-softmax as well, since after we get nan, multiplying by 0 is still nan
     bsz_head_mask[(bsz_head_mask.sum(dim=2, keepdim=True) == 0).repeat(1, 1, src_max_len)] = 1
 
     return bsz_head_mask, bsz_head_mask_post_softmax

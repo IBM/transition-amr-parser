@@ -60,6 +60,8 @@ AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 
 echo "[Training:]"
 
+mkdir -p $MODEL_FOLDER
+
 cp $dir/$config_data $ROOTDIR/$expdir/
 cp $dir/$config_model $MODEL_FOLDER/
 cp $0 $MODEL_FOLDER/

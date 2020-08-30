@@ -33,6 +33,7 @@ seed=${seed:-42}
 # seed=42
 
 apply_tgt_input_src=${apply_tgt_input_src:-0}
+apply_tgt_actnode_masks=${apply_tgt_actnode_masks:-0}
 tgt_input_src_emb=${tgt_input_src_emb:-top}
 tgt_input_src_backprop=${tgt_input_src_backprop:-1}
 tgt_input_src_combine=${tgt_input_src_combine:-cat}
@@ -68,6 +69,8 @@ else
         --pointer-dist-decoder-selfattn-heads $pointer_dist_decoder_selfattn_heads \
         --pointer-dist-decoder-selfattn-avg $pointer_dist_decoder_selfattn_avg \
         --pointer-dist-decoder-selfattn-infer $pointer_dist_decoder_selfattn_infer \
+        \
+        --apply-tgt-actnode-masks $apply_tgt_actnode_masks \
         \
         --apply-tgt-input-src $apply_tgt_input_src \
         --tgt-input-src-emb $tgt_input_src_emb \
