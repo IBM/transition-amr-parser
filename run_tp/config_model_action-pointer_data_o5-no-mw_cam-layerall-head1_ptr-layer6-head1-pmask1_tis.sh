@@ -31,9 +31,9 @@ dir=$(dirname $0)
 ###############################################################
 
 ##### model configuration
-shift_pointer_value=0
+shift_pointer_value=1
 apply_tgt_actnode_masks=1
-tgt_vocab_masks=1
+tgt_vocab_masks=0
 share_decoder_embed=0
 
 apply_tgt_src_align=1
@@ -52,7 +52,7 @@ pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
 pointer_dist_decoder_selfattn_infer=5
 
-apply_tgt_input_src=0
+apply_tgt_input_src=1
 tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"

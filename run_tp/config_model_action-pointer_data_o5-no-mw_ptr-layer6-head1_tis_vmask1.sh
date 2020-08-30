@@ -32,6 +32,7 @@ dir=$(dirname $0)
 
 ##### model configuration
 shift_pointer_value=1
+apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
@@ -90,6 +91,9 @@ fi
 
 expdir=${expdir}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
 
+if [[ $apply_tgt_actnode_masks == 1 ]]; then
+    expdir=${expdir}-pmask1
+fi
 
 if [[ $pointer_dist_decoder_selfattn_avg == 1 ]]; then
     expdir=${expdir}-avg
