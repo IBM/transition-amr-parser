@@ -582,6 +582,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             encoder_out,
             incremental_state,
             tgt_src_cursors=tgt_src_cursors,
+            tgt_actnode_masks=tgt_actnode_masks
         )
         x = self.output_layer(
             x,
@@ -599,7 +600,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
     def extract_features(self, prev_output_tokens, memory, memory_pos,
                          encoder_out=None, incremental_state=None,
-                         tgt_src_cursors=None,
+                         tgt_src_cursors=None, tgt_actnode_masks=None,
                          **unused):
         """
         Similar to *forward* but only return features.
@@ -670,6 +671,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         inner_states = [x]
 
+        # ========== alignment guidance in the cross-attention: get the mask ==========
         if self.args.apply_tgt_src_align:
             assert tgt_src_cursors is not None
             cross_attention_mask = get_cross_attention_mask_heads(tgt_src_cursors,
@@ -680,6 +682,35 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                                                                   self.layers[0].encoder_attn.num_heads)
         else:
             cross_attention_mask = None
+        # ==============================================================================
+
+        # ========== pointer distribution (decoder self-attention) mask ==========
+        if self.args.apply_tgt_actnode_masks:
+            assert tgt_actnode_masks is not None
+            if self.args.shift_pointer_value:
+                tgt_actnode_masks[:, 1:] = tgt_actnode_masks[:, :-1]
+                tgt_actnode_masks[:, 0] = 0
+            ptr_self_attn_mask = tgt_actnode_masks.unsqueeze(dim=1).repeat(1, tgt_actnode_masks.size(1), 1)
+            ptr_self_attn_mask = ptr_self_attn_mask.unsqueeze(dim=1).repeat(
+                1, self.args.pointer_dist_decoder_selfattn_heads, 1, 1).view(
+                    -1, tgt_actnode_masks.size(1), tgt_actnode_masks.size(1))
+            # NOTE need to include the causal mask as well in case some rows are completely masked out
+            # in which case we need to do the post mask
+            ptr_self_attn_mask &= (self.buffered_future_mask(x) != -float('inf')).unsqueeze(dim=0)
+            # NOTE when one row out of bsz * num_heads (tgt_max_len, src_max_len) masks is full zeros, after softmax the
+            # distribution will be all "nan"s, which will cause problem when calculating gradients.
+            # Thus, we mask these positions after softmax
+            ptr_self_attn_mask_post_softmax = ptr_self_attn_mask.new_ones(*ptr_self_attn_mask.size()[:2], 1,
+                                                                          dtype=torch.float)
+            ptr_self_attn_mask_post_softmax[ptr_self_attn_mask.sum(dim=2) == 0] = 0
+            # we need to modify the pre-softmax as well, since after we get nan, multiplying by 0 is still nan
+            ptr_self_attn_mask[(ptr_self_attn_mask.sum(dim=2, keepdim=True) == 0).
+                               repeat(1, 1, tgt_actnode_masks.size(1))] = 1
+            ptr_self_attn_mask = (ptr_self_attn_mask, ptr_self_attn_mask_post_softmax)
+        else:
+            ptr_self_attn_mask = None
+        # ========================================================================
+        # import pdb; pdb.set_trace()
 
         # decoder layers
         for layer_index, layer in enumerate(self.layers):
@@ -710,7 +741,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 self_attn_mask=self.buffered_future_mask(x) if incremental_state is None else None,
                 head_attention_masks=head_attention_masks,
                 head_positions=head_positions,
-                cross_attention_mask=cross_attention_mask
+                cross_attention_mask=cross_attention_mask,
+                ptr_self_attn_mask=(ptr_self_attn_mask
+                                    if layer_index in self.args.pointer_dist_decoder_selfattn_layers
+                                    else None)
             )
             inner_states.append(x)
 
@@ -736,6 +770,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                     # no mean
                     pointer_dists = list(map(lambda x: x.squeeze(1),
                                              torch.chunk(attn, self.args.pointer_dist_decoder_selfattn_heads, dim=1)))
+                    # for decoding: using a single pointer distribution
                     attn = attn.prod(dim=1).pow(1 / self.args.pointer_dist_decoder_selfattn_heads)
                     attn_all.extend(pointer_dists)
                 else:

@@ -93,7 +93,8 @@ class MultiheadAttention(nn.Module):
     def forward(self, query, key, value, key_padding_mask=None, incremental_state=None,
                 need_weights=True, static_kv=False, attn_mask=None,
                 head_attention_masks=None, head_positions=None,
-                cross_attention_mask=None):
+                cross_attention_mask=None,
+                ptr_self_attn_mask=None):
         """Input shape: Time x Batch x Channel
 
         Timesteps can be masked by supplying a T x T mask in the
@@ -283,6 +284,10 @@ class MultiheadAttention(nn.Module):
             # attn_weights[~cross_attention_mask[0]] = -float('inf')
             attn_weights = attn_weights.masked_fill(~cross_attention_mask[0], float('-inf'))
 
+        if ptr_self_attn_mask is not None:
+            attn_weights[:ptr_self_attn_mask[0].size(0)][~ptr_self_attn_mask[0]] = -float('inf')
+            # attn_weights[:ptr_self_attn_mask[0].size(0)].masked_fill(~ptr_self_attn_mask[0], float('-inf'))
+
         if head_positions is not None:
             # if buffer/stack positions provided, add them to attention computation
             # Note that batched inner product is here implemented as
@@ -335,7 +340,7 @@ class MultiheadAttention(nn.Module):
 
         # if torch.isnan(attn_weights).any():
         #     import pdb; pdb.set_trace()
-        
+
         # NOTE after softmax, we need to mask out the rows that are all masked out, which are full rows of
         # '-inf' before softmax -> 'nan' after softmax
         if cross_attention_mask is not None:
@@ -343,6 +348,17 @@ class MultiheadAttention(nn.Module):
             # post_mask = cross_attention_mask.new_ones(*cross_attention_mask.size()[:2], 1).float()
             # post_mask[cross_attention_mask.sum(dim=2) == 0] = 0.0
             attn_weights = attn_weights * cross_attention_mask[1]
+
+        if ptr_self_attn_mask is not None:
+            # NOTE in-place operation doesn't work for backward
+            # attn_weights[:ptr_self_attn_mask[1].size(0)] *= ptr_self_attn_mask[1]
+            # attn_weights[:ptr_self_attn_mask[1].size(0)] = \
+            #     attn_weights[:ptr_self_attn_mask[1].size(0)] * ptr_self_attn_mask[1]    # this doesn't work either
+            # NOTE not sure why though
+            ptr_self_attn_mask_tmp = ptr_self_attn_mask[1].new_ones(attn_weights.size(0),
+                                                                    *ptr_self_attn_mask[1].size()[1:])
+            ptr_self_attn_mask_tmp[:ptr_self_attn_mask[1].size(0)] = ptr_self_attn_mask[1]
+            attn_weights = attn_weights * ptr_self_attn_mask_tmp
 
         # if torch.isnan(attn_weights).any():
         #     import pdb; pdb.set_trace()

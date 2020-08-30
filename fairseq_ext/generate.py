@@ -225,8 +225,8 @@ def main(args):
 
                     if args.clean_arcs:
                         actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
-                                                                                            actions_pos,
-                                                                                            actions)
+                                                                                              actions_pos,
+                                                                                              actions)
 
                     # TODO these are just dummy for the reference below to run
                     hypo_tokens = hypo['tokens'].int().cpu()
