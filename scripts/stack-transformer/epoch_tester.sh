@@ -52,11 +52,11 @@ for model_folder in "$@";do
             continue
         fi
     
-        echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}"
-        fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name} --entity-rules $ENTITY_RULES
-        
         # Evaluation
         if [ "$TASK_TAG" == "dep-parsing" ];then
+
+            echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}"
+            fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}
         
             # Create the AMR from the model obtained actions
             python scripts/dep_parsing_score.py \
@@ -68,17 +68,22 @@ for model_folder in "$@";do
     
         elif [ "$TASK_TAG" == "AMR" ];then
     
+            echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name} --entity-rules $ENTITY_RULES"
+            fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name} --entity-rules $ENTITY_RULES
+
             # TODO: Path fixed at the config, create if it does not exist
+
     	    if [ "$ENTITY_RULES" == "" ]; then
     	        ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
     	    fi
     
             # bear in mind this has hardcoded dev here 
             amr-fake-parse \
-    	    --entity-rules $ENTITY_RULES \
+    	        --entity-rules $ENTITY_RULES \
                 --in-sentences $ORACLE_FOLDER/dev.en \
                 --in-actions ${std_name}.actions \
-                --out-amr ${std_name}.amr 
+                --out-amr ${std_name}.amr \
+                --sanity-check
     
             if [ "$WIKI_DEV" == "" ];then
     
@@ -114,9 +119,12 @@ for model_folder in "$@";do
             fi
         
         elif [ "$TASK_TAG" == "NER" ];then
+
+            echo "fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}"
+            fairseq-generate $FAIRSEQ_GENERATE_ARGS --quiet --path $test_model --results-path ${std_name}
         
             # play actions to create annotations
-            python play.py \
+            python transition_amr_parser/play.py \
                 --in-tokens $ORACLE_FOLDER/dev.en \
                 --in-actions ${std_name}.actions \
                 --machine-type NER \
@@ -124,7 +132,7 @@ for model_folder in "$@";do
                 --basename $(basename ${std_name}) \
             
             # measure performance
-            python bio_tags/metrics.py \
+            python transition_amr_parser/metrics.py \
                 --in-annotations ${std_name}.dat \
                 --in-reference-annotations $NER_DEV_FILE \
                 --out-score ${std_name}.f-measure
@@ -133,7 +141,7 @@ for model_folder in "$@";do
         elif [ "$TASK_TAG" == "NER+AMR" ];then
         
             # AMR scores
-            python play.py \
+            python transition_amr_parser/play.py \
                 --in-tokens $ORACLE_FOLDER/dev.en \
                 --in-actions ${std_name}.actions \
                 --in-mixing-indices $ORACLE_FOLDER/dev.mixing_indices \
@@ -141,7 +149,7 @@ for model_folder in "$@";do
                 --basename $(basename ${std_name}) \
             
             # compute F-measure for NER
-            python bio_tags/metrics.py \
+            python transition_amr_parser/metrics.py \
                 --in-annotations ${std_name}.dat \
                 --in-reference-annotations $NER_DEV_FILE \
                 --out-score ${std_name}.f-measure
