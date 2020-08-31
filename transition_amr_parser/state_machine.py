@@ -1701,6 +1701,9 @@ class DepParsingStateMachine():
             # set element 1 of the stack to 0 of the buffer
             self.buffer.append(self.stack.pop(1))
 
+        elif action == '</s>':
+            # FIXME: Why is this needed now? It was not before
+            pass
         else: 
             raise Exception("Invalid action %s" % action)
 
@@ -1716,11 +1719,11 @@ class DepParsingStateMachine():
 
         # Quick exit for a closed machine
         if self.is_closed:
-            return ['</s>']
+            return ['</s>'], []
 
         # if top of the stack contains <ROOT> only LA(root allowed)
         if self.stack and self.stack[-1] == -1:
-            return ['LEFT-ARC(root)']
+            return ['LEFT-ARC(root)'], []
 
         # multiple actions possible
         valid_actions = []
@@ -1731,4 +1734,4 @@ class DepParsingStateMachine():
             valid_actions.append('RIGHT-ARC')
             valid_actions.append('SWAP')
 
-        return valid_actions
+        return valid_actions, []
