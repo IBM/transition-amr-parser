@@ -639,7 +639,9 @@ class AMRStateMachine:
 
         # Forbid actions given graph. Right now avoid some edge duplicates by
         # forbidding LA, RA and DEPENDENT
-        invalid_actions.extend(get_forbidden_actions(self.stack, self.amr))
+        # TODO: Removed for now due to problems with beam (inconsistent
+        # self.amr
+        # invalid_actions.extend(get_forbidden_actions(self.stack, self.amr))
 
         return valid_actions, invalid_actions
 
