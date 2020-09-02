@@ -344,8 +344,9 @@ class AMR_Oracle:
         self.verbose = verbose
 
         # predicates
+        # TODO change names to use underscore
         self.preds2Ints = {}
-        self.possiblePredicates = {}
+        self.possible_predicates = {}
 
         self.new_edge = ''
         self.new_node = ''
@@ -474,8 +475,18 @@ class AMR_Oracle:
                             actions = ['COPY_SENSE01']
                         else:
                             actions = [f'PRED({self.new_node})']
+                            # record statistics of word-to-PRED-labels for generation restriction
+                            token = tr.get_current_token(lemma=False)
+                            if token not in self.possible_predicates:
+                                self.possible_predicates[token] = Counter()
+                            self.possible_predicates[token][self.new_node] += 1
                     else:
                         actions = [f'PRED({self.new_node})']
+                        # record statistics of word-to-PRED-labels for generation restriction
+                        token = tr.get_current_token(lemma=False)
+                        if token not in self.possible_predicates:
+                            self.possible_predicates[token] = Counter()
+                        self.possible_predicates[token][self.new_node] += 1
 
                 elif self.tryDEPENDENT(tr, tr.amr, gold_amr):
                     edge = self.new_edge[1:] \
@@ -599,7 +610,7 @@ class AMR_Oracle:
         self.stats["node2idx"] = self.node2idx
         self.stats["word_counter"] = self.word_counter
 
-        self.stats['possible_predicates'] = self.possiblePredicates
+        self.stats['possible_predicates'] = self.possible_predicates
 
         if addnode_count_cutoff:
             self.stats['addnode_blacklist'] = [
