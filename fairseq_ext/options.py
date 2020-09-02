@@ -514,6 +514,12 @@ def add_generation_args(parser):
                        help='if set, uses attention feedback to compute and print alignment to source tokens')
     # fmt: on
     # addition: AMR generation
+    group.add_argument('--run-amr-sm', type=int, default=1,
+                       help='whether to run AMR state machine during decoding')
+    group.add_argument('--modify-arcact-score', type=int, default=1,
+                       help='whether to modify the arc action scores with the pointer score')
+    group.add_argument('--use-pred-rules', type=int, default=0,
+                       help='whether to use predicate statistics rules from training oracle to restrict PRED actions')
     group.add_argument('--clean-arcs', type=int, default=0,
                        help='whether to clean the pointer arcs by removing self-loops and multi-edges')
     return group

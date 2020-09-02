@@ -354,7 +354,8 @@ class AMRActionPointerParsingTask(FairseqTask):
                 diverse_beam_strength=getattr(args, 'diverse_beam_strength', 0.5),
                 match_source_len=getattr(args, 'match_source_len', False),
                 no_repeat_ngram_size=getattr(args, 'no_repeat_ngram_size', 0),
-                shift_pointer_value=getattr(model_args, 'shift_pointer_value', 0)
+                shift_pointer_value=getattr(model_args, 'shift_pointer_value', 0),
+                stats_rules=getattr(args, 'machine_rules', None)
             )
 
     def train_step(self, sample, model, criterion, optimizer, ignore_grad=False):
@@ -424,11 +425,12 @@ class AMRActionPointerParsingTask(FairseqTask):
             loss, sample_size, logging_output = criterion(model, sample)
         return loss, sample_size, logging_output
 
-    def inference_step(self, generator, models, sample, prefix_tokens=None, run_amr_sm=True, modify_arcact_score=True):
+    def inference_step(self, generator, models, sample, args, prefix_tokens=None):
         with torch.no_grad():
             return generator.generate(models, sample, prefix_tokens=prefix_tokens,
-                                      run_amr_sm=run_amr_sm,
-                                      modify_arcact_score=modify_arcact_score)
+                                      run_amr_sm=args.run_amr_sm,
+                                      modify_arcact_score=args.modify_arcact_score,
+                                      use_pred_rules=args.use_pred_rules)
 
     def max_positions(self):
         """Return the max sentence length allowed by the task."""
