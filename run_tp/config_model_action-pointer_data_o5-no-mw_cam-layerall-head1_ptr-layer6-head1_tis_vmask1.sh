@@ -32,7 +32,7 @@ dir=$(dirname $0)
 
 ##### model configuration
 shift_pointer_value=1
-apply_tgt_actnode_masks=1
+apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 

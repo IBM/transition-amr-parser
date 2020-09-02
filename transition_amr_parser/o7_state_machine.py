@@ -331,7 +331,7 @@ class AMRStateMachine:
         canonical_act_ids = dict()
         vocab_act_count = 0
         for i in range(len(vocab)):
-            # NOTE can not direct use "for act in vocab" -> this will never stop since no stopping iter implemented
+            # NOTE can not directly use "for act in vocab" -> this will never stop since no stopping iter implemented
             act = vocab[i]
             cano_act = cls.canonical_action_form(act) if i != vocab.eos() else 'CLOSE'
             if cano_act in cls.canonical_actions:
@@ -467,7 +467,7 @@ class AMRStateMachine:
                                           'can be applied for AMR postprocessing'
 
         self.actions_tokcursor.append(self.tok_cursor)
-        
+
         # apply action: only move token cursor, and record the executed action
         if action in ['SHIFT', 'REDUCE', 'MERGE']:
             self._shift()
