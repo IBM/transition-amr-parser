@@ -5,33 +5,66 @@ set -o pipefail
 
 # load local variables used below
 # . set_environment.sh
-[ -z "$1" ] && echo "$0 train (or dev)" && exit 1
+[ -z "$1" ] && echo "$0 train (or dev, test)" && exit 1
 test_set=$1
 set -o nounset
 
-# Configuration
+# Configuration 
 MAX_WORDS=100
-ORACLE_TAG=o3+Word${MAX_WORDS}
+# ORACLE_TAG=o3_o3align-prefix
+ORACLE_TAG=o3_o3align
+# ORACLE_TAG=o3_o5align-prefix
+# ORACLE_TAG=o3_o5align
+if [[ $MAX_WORDS != 0 ]]; then
+    ORACLE_TAG=${ORACLE_TAG}+Word${MAX_WORDS}
+fi
 ORACLE_FOLDER=oracles/${ORACLE_TAG}
 
 LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira
 LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed_TAP_v0.0.1
 
-# Select between train/dev
-train_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
-if [ "$test_set" == "dev" ];then
+
+##### AMR data with alignments
+# NOTE: the dev and test data are not with the corresponding alignment version excpet for o3-prefix.
+#       Thus only train smatch makes sense now (except for o3-prefix).
+
+# o3 pre-fix
+# train_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+# dev_amr=$LDC2017_AMR_CORPUS/dev.txt
+# test_amr=$LDC2017_AMR_CORPUS/test.txt
+
+# o3 fix
+train_amr=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
+dev_amr=$LDC2017_AMR_CORPUS/dev.txt
+test_amr=$LDC2017_AMR_CORPUS/test.txt
+
+# o5 pre-fix
+# train_amr=/dccstor/multi-parse/transformer-amr/psuedo.txt
+# dev_amr=$LDC2017_AMR_CORPUS/dev.txt
+# test_amr=$LDC2017_AMR_CORPUS/test.txt
+
+# o5 fix
+# train_amr=/dccstor/multi-parse/transformer-amr/jkaln.txt
+# dev_amr=$LDC2017_AMR_CORPUS/dev.txt
+# test_amr=$LDC2017_AMR_CORPUS/test.txt
+
+#####
+
+# Select between train/dev/test
+if [ "$test_set" == "dev" ]; then
     # ATTENTION: To pass the tests the dev test must have alignments as those
     # obtained with the preprocessing described in README
-    reference_amr=$LDC2017_AMR_CORPUS/dev.txt
+    reference_amr=$dev_amr
     # Do not limit actions by rules
     ref_smatch=0.938
     # limit actions by rules
     ref_smatch2=0.921
-elif [ "$test_set" == "train" ];then
-    reference_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+elif [ "$test_set" == "train" ]; then
+#     reference_amr=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
+    reference_amr=$train_amr
     ref_smatch=0.937
 elif [ "$test_set" == "test" ]; then
-    reference_amr=$LDC2017_AMR_CORPUS/test.txt
+    reference_amr=$test_amr
     ref_smatch=0.941
 else
     echo "Usupported set $test_set"
@@ -65,6 +98,7 @@ if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json" ];then
         --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
         --copy-lemma-action
 fi
+
 
 # reconstruct AMR given sentence and oracle actions without being constrained
 # by training stats
