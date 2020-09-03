@@ -10,11 +10,16 @@ set -o pipefail
 ROOTDIR=/dccstor/jzhou1/work/EXP
 
 ##### load data config
+dir=$(dirname $0)
 if [ -z "$1" ]; then
-    config_data=config_data_o3_roberta-base-last.sh
+    config_data=$dir/config_data/config_data_o3_roberta-base-last.sh
 else
     config_data=$1
 fi
+
+echo "[Data configuration file:]"
+echo $config_data
+
 
 if [ ! -z "$2" ]; then
     ROOTDIR=$2
@@ -23,8 +28,8 @@ fi
 # NOTE: this should be set after the "$1" check, otherwise it will throw error "unbound variable" if $1 is not set!!
 set -o nounset
 
-dir=$(dirname $0)
-. $dir/$config_data    # we should always call from one level up
+
+. $config_data    # $config_data should include its path
 # now we have
 # $ORACLE_FOLDER
 # $DATA_FOLDER
@@ -50,7 +55,7 @@ AMR_TRAIN_FILE=$ORACLE_FOLDER/ref_train.amr
 AMR_DEV_FILE=$ORACLE_FOLDER/ref_dev.amr
 AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 
-cp $dir/$config_data $ROOTDIR/$ORACLEDIR/config_data.sh
+cp $config_data $ROOTDIR/$ORACLEDIR/config_data.sh
 
 # exit 0
 

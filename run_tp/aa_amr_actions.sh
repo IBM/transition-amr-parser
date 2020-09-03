@@ -9,10 +9,10 @@ set -o nounset
 ##### CONFIG
 dir=$(dirname $0)
 if [ -z "$1" ]; then
-    :        # in this case, must provide $1 as "" empty
+    :        # in this case, must provide $1 as "" empty; otherwise put "set -o nounset" below
 else
     config=$1
-    . $dir/$config    # we should always call from one level up
+    . $config    # $config should include its path
 fi
 # NOTE: when the first configuration argument is not provided, this script must
 #       be called from other scripts
@@ -32,10 +32,18 @@ else
 
     mkdir -p $ORACLE_FOLDER
 
-    # copy the original AMR data
+    # copy the original AMR data: no wikification
     cp $AMR_TRAIN_FILE $ORACLE_FOLDER/ref_train.amr
     cp $AMR_DEV_FILE $ORACLE_FOLDER/ref_dev.amr
     cp $AMR_TEST_FILE $ORACLE_FOLDER/ref_test.amr
+    
+    if [[ "$WIKI_DEV" == "" ]]; then
+        # copy the original AMR data: wiki files and original AMR with wikification
+        cp $WIKI_DEV $ORACLE_FOLDER/ref_dev.wiki
+        cp $WIKI_TEST $ORACLE_FOLDER/ref_test.wiki
+        cp $AMR_DEV_FILE_WIKI $ORACLE_FOLDER/ref_dev.wiki.amr
+        cp $AMR_TEST_FILE_WIKI $ORACLE_FOLDER/ref_test.wiki.amr
+    fi
 
     # generate the actions
     
