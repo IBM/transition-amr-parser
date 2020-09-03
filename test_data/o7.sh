@@ -20,6 +20,8 @@ if [[ $MAX_WORDS != 0 ]]; then
 fi
 ORACLE_FOLDER=oracles/${ORACLE_TAG}
 
+echo "[Oracle Folder] $ORACLE_FOLDER"
+
 LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira
 LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed_TAP_v0.0.1
 
@@ -77,7 +79,7 @@ fi
 
 # create oracle actions from AMR and the sentence for the train set. This also
 # accumulates necessary statistics in train.rules.json
-if [ ! -f "$ORACLE_FOLDER/train.rules.json" ];then
+if [ ! -f "$ORACLE_FOLDER/train.rules.json" ]; then
     python ../transition_amr_parser/o7_data_oracle.py \
         --in-amr $train_amr \
         --out-sentences $ORACLE_FOLDER/train.en \
@@ -90,13 +92,26 @@ fi
 
 # create oracle actions from AMR and the sentence for the dev set if needed
 # this is to prevent run on training data again
-if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json" ];then
+if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json" ]; then
+
+    if [[ $MAX_WORDS == 0 ]]; then
+    
+    python ../transition_amr_parser/o7_data_oracle.py \
+        --in-amr $reference_amr \
+        --out-sentences $ORACLE_FOLDER/${test_set}.en \
+        --out-actions $ORACLE_FOLDER/${test_set}.actions \
+        --copy-lemma-action
+    
+    else
+    
     python ../transition_amr_parser/o7_data_oracle.py \
         --in-amr $reference_amr \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
         --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
         --copy-lemma-action
+    
+    fi
 fi
 
 
@@ -110,8 +125,8 @@ python ../transition_amr_parser/o7_fake_parse.py \
 # evaluate reconstruction performance
 # smatch="$(smatch.py --significant 3 -r 10 -f $reference_amr $ORACLE_FOLDER/oracle_${test_set}.amr)"
 
-smatch.py --significant 3 -r 10 -f $reference_amr $ORACLE_FOLDER/oracle_${test_set}.amr
+smatch.py --significant 3 -r 10 -f $reference_amr $ORACLE_FOLDER/oracle_${test_set}.amr > $ORACLE_FOLDER/oracle_${test_set}.smatch
+cat $ORACLE_FOLDER/oracle_${test_set}.smatch
 
 # echo "$smatch"
 # echo "$ref_smatch"
-
