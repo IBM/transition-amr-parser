@@ -7,9 +7,12 @@ set -o nounset
 
 ##### CONFIG
 dir=$(dirname $0)
-if [ ! -z "$1" ]; then
+
+if [ -z "$1" ]; then
+    :        # in this case, must provide $1 as "" empty; otherwise put "set -o nounset" below
+else
     config=$1
-    . $dir/$config    # we should always call from one level up
+    . $config    # $config should include its path
 fi
 # NOTE: when the first configuration argument is not provided, this script must
 #       be called from other scripts

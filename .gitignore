@@ -39,6 +39,7 @@ TMP*
 
 # other
 __pycache__/
+*.ipynb_checkpoints/
 transition_amr_parser.egg-info/
 # assumed used to store models
 models/
