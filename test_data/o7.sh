@@ -12,7 +12,7 @@ set -o nounset
 # Configuration 
 MAX_WORDS=0
 # ORACLE_TAG=o7_o3align-prefix
-ORACLE_TAG=o7_o3align
+ORACLE_TAG=o7-depfix_o3align
 # ORACLE_TAG=o7_o5align-prefix
 # ORACLE_TAG=o7_o5align
 if [[ $MAX_WORDS != 0 ]]; then

@@ -491,10 +491,16 @@ class AMR_Oracle:
                 elif self.tryDEPENDENT(tr, tr.amr, gold_amr):
                     edge = self.new_edge[1:] \
                         if self.new_edge.startswith(':') else self.new_edge
-                    actions = [f'DEPENDENT({self.new_node},{edge})', 'SHIFT']
+                    # 'SHIFT' will block all the other edges: should not be set here
+                    # actions = [f'DEPENDENT({self.new_node},{edge})', 'SHIFT']
+                    actions = [f'DEPENDENT({self.new_node},{edge})']
                     self.dep_id = None
                 # TODO clean up the logic for a better one
                 else:
+                    # debug difference from the refactored code
+                    # if sent_idx == 995 and tr.time_step >= 46:
+                    #     import pdb; pdb.set_trace()
+
                     actions = self.get_previous_arcs(tr, tr.amr, gold_amr)
                     if actions:
                         actions.append('SHIFT')
@@ -779,7 +785,8 @@ class AMR_Oracle:
             if s == source and r in [":polarity", ":mode"]:
                 # FIXME: state altering code should be outside of tryACTION
                 # in this case we need to recompute ...
-                if (tok_id + 1, r) in [(e[0], e[1]) for e in amr.edges]:
+                if (node_id, r) in [(e[0], e[1]) for e in amr.edges]:
+                    # to prevent same DEPENDENT added twice, as each time we scan all the possible edges
                     continue
                 if t not in tok_alignment and (t in gold_amr.alignments and gold_amr.alignments[t]):
                     continue
