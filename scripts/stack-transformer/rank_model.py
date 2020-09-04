@@ -199,10 +199,6 @@ def collect_checkpoint_results(epoch_folders, score_name):
         # Get checkpoints available for this model
         checkpoints, model_folder = get_checkpoints(epoch_folder)
 
-        if checkpoints == []:
-            import ipdb; ipdb.set_trace(context=30)
-            print()
-
         # Get the scores from the result files
         scores = get_scores_from_folder(epoch_folder, score_name)
 
