@@ -9,6 +9,7 @@ Data pre-processing: build vocabularies and binarize training data.
 import os
 import shutil
 import torch
+from tqdm import tqdm
 import argparse
 from fairseq.tokenizer import tokenize_line
 from fairseq.models.roberta import RobertaModel
@@ -37,6 +38,11 @@ def argument_parsing():
         required=True,
         help='File to store bad unicode sentences'
     )
+    parser.add_argument(
+        '--raise-error',
+        action='store_true',
+        help='Set to force exception if unicode error found'
+    )
 
     return parser.parse_args()
 
@@ -62,7 +68,7 @@ def main():
             roberta.cuda()
         return roberta
 
-    def get_wordpiece_to_word_map(sentence, roberta_bpe):
+    def get_wordpiece_to_word_map(sentence, roberta_bpe, raise_error):
         # Get word and worpiece tokens according to RoBERTa                                           
         # sentence = sentence.replace(u'\x91', u' ')
         # sentence = sentence.replace(u'\x96', u' ')
@@ -107,30 +113,33 @@ def main():
         if bad_unicode_flag == 1:
             bad_unicode.write(sentence)
             wp = " ".join(wordpiece_tokens)
-            print("sentence: ", sentence)
+            print("\n\nsentence: ", sentence)
             print("wp: ", wp)
             print("\n")
             bad_unicode.write("\n")
             bad_unicode.write(wp)
             bad_unicode.write("\n\n")
+            if raise_error:
+                raise Exception('Unicode splitting failed')
 
         return word_to_wordpiece
 
-    def check_wordpiece_to_word_map(input_file):
+    def check_wordpiece_to_word_map(input_file, raise_error):
         num_sents = 0
         with open(input_file, 'r') as fid:
-            for sentence in fid:
+            for sentence in tqdm(fid):
                 if not sentence:
                     break
                 sentence = " ".join(tokenize_line(str(sentence.rstrip())))
                 #print("input: ", sentence)
                 word2piece = get_wordpiece_to_word_map(
                     sentence,
-                    roberta.bpe
+                    roberta.bpe,
+                    raise_error
                 )
 
     roberta = load_roberta(name=args.pretrained_embed)
-    check_wordpiece_to_word_map(args.in_tokenized_sentences)
+    check_wordpiece_to_word_map(args.in_tokenized_sentences, args.raise_error)
 
 if __name__ == "__main__":
     main()
