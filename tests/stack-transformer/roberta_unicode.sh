@@ -3,13 +3,30 @@
 # size)
 set -o errexit
 set -o pipefail
+# default AMR is wiki 25 sentences
+if [ -z "$1" ];then
+    amr_file=DATA/wiki25.jkaln
+else    
+    amr_file=$1
+fi    
 . set_environment.sh
 set -o nounset
 
-python tests/stack-transformer/roberta.py -i DATA/roberta.tok -p roberta.large -o DATA/roberta.unicode.txt
+mkdir -p DATA.tests/roberta/
 
+# create tokens from wiki task
+echo "Creating DATA.tests/roberta/roberta.tok from $amr_file"
+grep '::tok' $amr_file | sed 's@.*::tok @@' > DATA.tests/roberta/roberta.tok
 
+# Use this one if you do not have tokenized sentences (unicode should fail equally)
+# grep '::snt' $amr_file | sed 's@.*::snt@@' > DATA.tests/roberta/roberta.tok
 
+echo "Extracting DATA.tests/roberta/roberta.tok"
+python tests/stack-transformer/roberta.py \
+    -i DATA.tests/roberta/roberta.tok \
+    -p roberta.large \
+    -o DATA.tests/roberta/roberta.unicode.txt \
+    --raise-error
 
- 
-
+# If we reach here we passed
+echo -e "[\033[92mOK\033[0m] RoBERTA extraction for $amr_file works"
