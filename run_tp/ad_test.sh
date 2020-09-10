@@ -11,7 +11,7 @@ dir=$(dirname $0)
 # if [ ! -z "${1+x}" ]; then
 if [ ! -z "$1" ]; then
     config=$1
-    . $dir/$config    # we should always call from one level up
+    . $config    # $config_data should include its path
 fi
 # NOTE: when the first configuration argument is not provided, this script must
 #       be called from other scripts

@@ -13,12 +13,12 @@ set -o nounset
 
 
 # Get the data confirguration
-# TODO copy the latest data configuration into the data config
+# TODO copy the latest data configuration into the data config (done)
 expdir=$(dirname $checkpoints_folder)
 config_data=($expdir/config_data_*)
-echo "[Experiments directory:]"
+echo -e "\n[Experiments directory:]"
 echo $expdir
-echo "[Data configuration file:]"
+echo -e "\n[Data configuration file:]"
 echo $config_data
 . $config_data
 # now we have
@@ -29,15 +29,34 @@ echo $config_data
 # echo $AMR_DEV_FILE_WIKI
 # echo $WIKI_TEST
 # echo $AMR_TEST_FILE_WIKI
+#
+# echo $DATA_FOLDER
+# echo $ORACLE_FOLDER
+# echo $EMB_FOLDER
 
 
 # Loop over existing checkpoints
 # NOTE sort -r doesn't really sort the epoch numbers now; 9* is larger than any 1* by default
 for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort -r); do
 
-    echo $test_model
-
+    echo -e "\n$test_model"
+    echo "[Decoding and computing smatch:]"
+    
+    MODEL_FOLDER=$checkpoints_folder
+    # or: MODEL_FOLDER=$(dirname $test_model)
+    
+    # decoding setup
+    model_epoch=$(basename $test_model | sed 's/checkpoint\(.*\).pt/\1/g')
+    beam_size=1
+    batch_size=128
+    use_pred_rules=0
+    
+    # run decoding
+    . run_tp/ad_test.sh "" dev
+    
 done
+
+touch $checkpoints_folder/model-selection_stage1-done
 
 exit 0
 
