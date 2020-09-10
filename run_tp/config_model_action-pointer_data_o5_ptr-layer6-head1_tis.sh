@@ -11,16 +11,13 @@ ROOTDIR=/dccstor/jzhou1/work/EXP
 ##############################################################
 
 ##### load data config
-# config_data=config_data_o3_roberta-large-last.sh
-config_data=config_data_o5_roberta-large-top24.sh
-# config_data=config_data_o3_roberta-large-top25.sh
-# config_data=config_data_o3_roberta-base-top12.sh
+config_data=run_tp/config_data/config_data_o5_roberta-large-top24.sh
 
 data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
 
 
 dir=$(dirname $0)
-. $dir/$config_data   # we should always call from one level up
+. $config_data   # $config_data should include its path
 # now we have
 # $ORACLE_FOLDER
 # $DATA_FOLDER

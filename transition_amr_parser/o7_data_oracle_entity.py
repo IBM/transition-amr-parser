@@ -718,7 +718,35 @@ class AMR_Oracle:
         # check if we should use DEPENDENT instead
         # no need, since DEPENDENT happens when the node is added
 
-        # what is the rule here?
+        # separate named entity case: (entity_category, ':name', 'name')
+        entity_edge = []
+        name_node_ids = []
+        for s, r, t in edges:
+            if gold_amr.nodes[s] == 'name':
+                name_node_id = s
+            if r == ':name' and gold_amr.nodes[t] == 'name':
+                entity_edge.append((s, r, t))
+                name_node_ids.append(t)
+
+        # debug: check if there could be more than one entity from a single token
+        # if len(entity_edge) > 1:
+        #     edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
+        #     print('-' * 80)
+        #     print(transitions.get_current_token())
+        #     print(edges_named)
+        #     print('-' * 80)
+        #     import pdb; pdb.set_trace()
+
+        # debug: check if there could be more than one node with name "name" aligned to a single token
+        if len(set(name_node_ids)) > 1:
+            edges_named=[(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
+            print('-' * 80)
+            print(transitions.get_current_token())
+            print(edges_named)
+            print('-' * 80)
+            import pdb; pdb.set_trace()
+
+        # what is the rule here? -->
         # 1) find all the aligned nodes that do not have any outcoming edges in the aligned subgraph
         # 2) exclude the above nodes
         #
@@ -727,9 +755,19 @@ class AMR_Oracle:
         #
         # this is equivalent to
         new_nodes = [gold_amr.nodes[n] for n in tok_alignment if any(s == n for s, r, t in edges)]
-        
+
         self.entity_type = ','.join(new_nodes)
         self.possibleEntityTypes[self.entity_type] += 1
+
+        # debug: look at the entity case
+        edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
+
+        # print('-' * 80)
+        # print(transitions.get_current_token())
+        # print(edges_named)
+        # print(new_nodes)
+        # print('-' * 80)
+        # import pdb; pdb.set_trace()
 
         return True
 
