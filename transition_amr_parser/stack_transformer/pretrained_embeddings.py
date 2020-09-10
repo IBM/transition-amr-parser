@@ -27,10 +27,22 @@ def get_average_embeddings(final_layer, word2piece):
 
     return word_features
 
-
 def get_wordpiece_to_word_map(sentence, roberta_bpe):
+    # replace all instances of 3-4 byte characters by '@'
+    converted_sentence = ''
+    for char in sentence:
+        if ord(char) < 2304:
+            converted_sentence += char
+        else:
+            converted_sentence += "@"
+        if sentence != converted_sentence:
+            sentence = converted_sentence
+    # 3-4 byte character conversion ends here
 
     # Get word and worpiece tokens according to RoBERTa
+    # sentence = sentence.replace(u'\x91', u' ')
+    # sentence = sentence.replace(u'\x98', u' ')
+
     word_tokens = sentence.split()
     wordpiece_tokens = [
         roberta_bpe.decode(wordpiece)
@@ -44,27 +56,96 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
     w_index = 0
     word_to_wordpiece = []
     subword_sequence = []
+    bad_unicode_flag = 0
+    overrun_sentence_flag = 0
     for wp_index in range(len(wordpiece_tokens)):
-        word = word_tokens[w_index]
-        if word == wordpiece_tokens[wp_index]:
-            word_to_wordpiece.append(wp_index)
-            w_index += 1
-        else:
-            subword_sequence.append(wp_index)
-            word_from_pieces = "".join([
-                # NOTE: Facebooks BPE signals SOW with whitesplace
-                wordpiece_tokens[i].lstrip()
-                for i in subword_sequence
-            ])
-            if word == word_from_pieces:
-                word_to_wordpiece.append(subword_sequence)
+        if w_index in range(len(word_tokens)):
+            word = word_tokens[w_index]
+            if word == wordpiece_tokens[wp_index]:
+                word_to_wordpiece.append(wp_index)
                 w_index += 1
-                subword_sequence = []
+            else:
+                subword_sequence.append(wp_index)
+                word_from_pieces = "".join([
+                    # NOTE: Facebooks BPE signals SOW with whitesplace
+                    wordpiece_tokens[i].lstrip()
+                    for i in subword_sequence
+                ])
+                if word == word_from_pieces:
+                    word_to_wordpiece.append(subword_sequence)
+                    w_index += 1
+                    subword_sequence = []
+                elif word_from_pieces not in word:
+                    word_to_wordpiece.append(subword_sequence)
+                    w_index += 1
+                    subword_sequence = []
+                    bad_unicode_flag = 1
+                # assert word_from_pieces in word, \
+                #    "wordpiece must be at least a segment of current word"
+    if bad_unicode_flag==0:
+        #assert len(word_tokens) == len(word_to_wordpiece)
+        if len(word_tokens) != len(word_to_wordpiece):
+            print("sentence: ", sentence)
+            print("wordpiecetokens: ", wordpiece_tokens)
+            print("word token count: ", len(word_tokens))
+            print("word_to_wordpiece count: ", len(word_to_wordpiece))
+        return word_to_wordpiece
+    else:
+        # remove extra bad token 'fffd' for oov 2-byte characters
+        wptok = []
+        i = 0
+        while(i < len(wordpiece_tokens)):
+            x = wordpiece_tokens[i]
+            if ord(x[-1:]) != 65533:
+                wptok.append(x)
+                i += 1
+            else:
+                print("X: ", x)
+                nx = wordpiece_tokens[i+1]
+                if ord(x[-1:])==65533:
+                    if ord(nx[-1:])==65533:
+                        wptok.append(x)
+                        i += 2
+                    else:
+                        wptok.append(x)
+                        i += 1
+        ### reimplementation of word_to_wordpiece with the modified roberta wordpieces
+        w_index = 0
+        word_to_wordpiece = []
+        subword_sequence = []
+        bad_match_flag = 0
+        for wp_index, wp in enumerate(wptok):
+            if w_index in range(len(word_tokens)):
+                word = word_tokens[w_index]
+                if word == wptok[wp_index]:
+                    word_to_wordpiece.append(wp_index)
+                    w_index += 1
+                else:
+                    subword_sequence.append(wp_index)
+                    word_from_pieces = "".join([
+                        wptok[i].lstrip()
+                        for i in subword_sequence
+                    ])
+                    if word == word_from_pieces:
+                        word_to_wordpiece.append(subword_sequence)
+                        w_index += 1
+                        subword_sequence = []
+                    elif word_from_pieces not in word:
+                        # compare the length instead of strings since there are offending 
+                        # characters in roberta wordpieces
+                        if len(word) == len(word_from_pieces):
+                            word_to_wordpiece.append(subword_sequence)
+                            w_index += 1
+                            subword_sequence = []
 
-            assert word_from_pieces in word, \
-                "wordpiece must be at least a segment of current word"
-
-    return word_to_wordpiece
+        # assert len(word_tokens) == len(word_to_wordpiece)
+        if len(word_tokens) != len(word_to_wordpiece):
+            print("SENTENCE: ",sentence)
+            print("WPTOK: ", wptok, " ", len(wptok))
+            print("WORDPIECE: ", wordpiece_tokens, " ", len(wordpiece_tokens))
+            print("WORD token count: ",len(word_tokens))
+            print("WORD_to_wordpiece: ", word_to_wordpiece, " ", len(word_to_wordpiece))
+        return word_to_wordpiece
 
 def get_scatter_indices(word2piece, reverse=False):
     if reverse:
