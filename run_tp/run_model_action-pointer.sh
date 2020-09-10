@@ -62,7 +62,7 @@ echo "[Training:]"
 
 mkdir -p $MODEL_FOLDER
 
-cp $dir/$config_data $ROOTDIR/$expdir/
+cp $config_data $ROOTDIR/$expdir/
 cp $dir/$config_model $MODEL_FOLDER/
 cp $0 $MODEL_FOLDER/
 cp $dir/ac_train.sh $MODEL_FOLDER/train.sh
@@ -76,6 +76,7 @@ cp $dir/ac_train.sh $MODEL_FOLDER/train.sh
 model_epoch=_last
 # beam_size=1
 batch_size=128
+use_pred_rules=0
 
 echo "[Decoding and computing smatch:]"
 for beam_size in 1 5 10
