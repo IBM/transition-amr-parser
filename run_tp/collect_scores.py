@@ -29,7 +29,7 @@ def red(string):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Collect model results')
-    parser.add_argument('--checkpoints', type=str, default='/dccstor/jzhou1/work/EXP/exp_debug/models_ep120_seed42',
+    parser.add_argument('checkpoints', type=str, default='/dccstor/jzhou1/work/EXP/exp_debug/models_ep120_seed42',
                         help='folder containing saved model checkpoints for a single training')
     parser.add_argument('--data_sets', type=str, nargs='*', default=['valid', 'test'],
                         help='data sets to collect scores')

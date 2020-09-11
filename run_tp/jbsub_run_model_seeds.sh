@@ -6,7 +6,7 @@ set -o pipefail
 
 # ##### data config
 if [ -z "$1" ]; then
-    config_model=config_model_action-pointer.sh
+    config_model=run_tp/config_model_action-pointer.sh
 else
     config_model=$1
 fi
@@ -20,7 +20,7 @@ set -o nounset
 dir=$(dirname $0)
 
 # load model configuration so that the command knows where to log
-. $dir/$config_model
+. $config_model
 
 # this is set in the above file sourced
 # set -o nounset
@@ -33,6 +33,7 @@ gpu_type=v100
 
 num_seeds=3
 seeds=(43 44 0)
+# seeds=(0 123)
 
 echo "number of seeds: $num_seeds"
 echo "seeds list: ${seeds[@]}"
@@ -47,7 +48,7 @@ do
     seed=${seeds[i]}
     
     # source config: for $MODEL_FOLDER to exist to save logs
-    . $dir/$config_model
+    . $config_model
     
     # check if the config script correctly set up seed
     [[ $seed != ${seeds[i]} ]] && echo "seed is not correctly set up in config file: $config_model; try setting seed default instead of fixing seed" && exit 1

@@ -47,9 +47,10 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
         token_cursors.append(amr_state_machine.tok_cursor)
         # apply the current action
         cano_act = amr_state_machine.canonical_action_form(act)
-        # if cano_act not in act_allowed:
-        #     import pdb; pdb.set_trace()
-        assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
+        if cano_act not in act_allowed:
+            import pdb
+            pdb.set_trace()
+        # assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
         amr_state_machine.apply_canonical_action(cano_act)
 
     assert len(amr_state_machine.actions_nodemask) == len(actions)
@@ -137,6 +138,10 @@ if __name__ == '__main__':
         en_file = f'/dccstor/jzhou1/work/EXP/data/o3-prefix_act-states/oracle/{split}.en'
         actions_file = f'/dccstor/jzhou1/work/EXP/data/o3-prefix_act-states/oracle/{split}.actions'
         out_file_path = f'/dccstor/jzhou1/work/EXP/data/o3-prefix_act-states/oracle/{split}.stats'
+
+        en_file = f'/dccstor/jzhou1/work/EXP/data-amr1/depfix_o5_no-mw_act-states/oracle/{split}.en'
+        actions_file = f'/dccstor/jzhou1/work/EXP/data-amr1/depfix_o5_no-mw_act-states/oracle/{split}.actions'
+        out_file_path = f'/dccstor/jzhou1/work/EXP/data-amr1/depfix_o5_no-mw_act-states/oracle/{split}.stats'
 
         out_file = open(out_file_path, 'w')
         check_actions_file(en_file, actions_file, out_file)

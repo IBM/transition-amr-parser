@@ -1,185 +1,108 @@
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed42
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed43
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed44
-Done
+/dccstor/jzhou1/work/EXP/exp_o5-prefix_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1
+/dccstor/jzhou1/work/EXP/exp_o5-prefix_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed42
+Job <3771878> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed42
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed43
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed44
-Done
+/dccstor/jzhou1/work/EXP/exp_o5-prefix_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5-prefix_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771879> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Done
+/dccstor/jzhou1/work/EXP/exp_o5-prefix_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5-prefix_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771880> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Job <3706839> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed0
+Job <3771881> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed42
+Job <3771882> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed43
+Job <3771883> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed44
+Job <3771884> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-[model not trained till 120 epochs]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706840> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706841> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Job <3706842> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771885> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layerall-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Done
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
+Job <3771886> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771887> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
+Job <3771888> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
+Job <3771889> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Job <3706843> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706844> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706845> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Done
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed0
+Job <3771890> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771891> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed43
+Job <3771892> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed44
+Job <3771893> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Job <3706846> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706847> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706848> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-[model not trained till 120 epochs]
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed0
+Job <3771894> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771895> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed43
+Job <3771896> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed44
+Job <3771897> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask0_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706849> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
+Job <3771898> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771899> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
+Job <3771900> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
+Job <3771901> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1/models_ep120_seed42
-Job <3706850> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed0
+Job <3771902> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771903> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed43
+Job <3771904> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed44
+Job <3771905> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed42
-Job <3706851> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed43
-Job <3706852> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos0_cam-layerall-head2-focusabuf_ptr-layer6-head1/models_ep120_seed44
-Job <3706853> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed0
+Job <3771906> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771907> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed43
+Job <3771908> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed44
+Job <3771909> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Job <3706854> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706855> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706856> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layer123-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Job <3706857> is submitted to queue <x86_6h>.
-
-[Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Job <3706858> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706859> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706860> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Job <3706861> is submitted to queue <x86_6h>.
-
-[Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1-pmask1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1-pmask1_tis-embtop-comadd-bp1/models_ep120_seed42
-[model not trained till 120 epochs]
-
-[Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706862> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706863> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Job <3706864> is submitted to queue <x86_6h>.
-
-[Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layerall-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706865> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706866> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Job <3706867> is submitted to queue <x86_6h>.
-
-[Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Job <3706868> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706869> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706870> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer456-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Job <3706871> is submitted to queue <x86_6h>.
-
-[Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-[model not trained till 120 epochs]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706872> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-Job <3706873> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-Done
-
-[Decoding for all checkpoints under experiments:]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed0
-Done
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed42
-Job <3706874> is submitted to queue <x86_6h>.
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed43
-[model not trained till 120 epochs]
-/dccstor/jzhou1/work/EXP/exp_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layerall-head1_tis-embtop-comadd-bp1/models_ep120_seed44
-[model not trained till 120 epochs]
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top25_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top25_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed0
+Job <3771910> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top25_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed42
+Job <3771911> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top25_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed43
+Job <3771912> is submitted to queue <x86_6h>.
+/dccstor/jzhou1/work/EXP/exp_o5_roberta-large-top25_act-pos_vmask0_shiftpos1_ptr-layer6-head1_tis-embtop-comadd-bp1/models_ep120_seed44
+Job <3771913> is submitted to queue <x86_6h>.
