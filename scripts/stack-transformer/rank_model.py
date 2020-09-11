@@ -594,21 +594,43 @@ def link_top_models(items, score_name):
             if epoch == -1:
                 continue
 
+            # get names and paths
             score_name_caps = score_name.upper()
             target_best = (f'{model_folder}/'
                            f'checkpoint_{rank}_{score_name_caps}.pt')
             source_best = f'checkpoint{epoch}.pt'
-            # We may have created a link before to a worse model,
-            # remove it
+
+            # if the best checkpoint does not exist but we have not saved it as
+            # a file, we are in trouble
             if (
-                os.path.islink(target_best) and
-                os.path.basename(os.path.realpath(target_best)) !=
-                    source_best
+                not os.path.isfile(f'{model_folder}/{source_best}')
+                and not os.path.isfile(target_best)
             ):
+                raise Exception(
+                    f'Best model is {model_folder}/{source_best}, however, '
+                    'the checkpoint seems to have been removed' 
+                )
+
+            # get current best model (if exists)
+            if os.path.islink(target_best):
+                current_best = os.path.basename(os.path.realpath(target_best))
+            else:
+                current_best =  None
+
+            # replace link/checkpoint or create a new one
+            if os.path.islink(target_best) and current_best != source_best:
+                # We created a link before to a worse model, remove it
                 os.remove(target_best)
+            elif os.path.isfile(target_best):
+                # If we ran remove_checkpoints.sh, we replaced the original
+                # link by copy of the checkpoint. We dont know if this is the
+                # correct checkpoint already
+                # import ipdb; ipdb.set_trace(context=30)
+                os.remove(target_best)
+
             if (
-                not os.path.islink(target_best) and 
-                not os.path.isfile(target_best)        # after link removal
+                not os.path.islink(target_best)
+                and not os.path.isfile(target_best)    
             ):
                 os.symlink(source_best, target_best)
 
