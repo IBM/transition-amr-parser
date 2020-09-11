@@ -6,7 +6,7 @@ set -o pipefail
 
 # ##### data config
 if [ -z "$1" ]; then
-    config_model=config_model_action-pointer.sh
+    config_model=run_tp/config_model_action-pointer.sh
 else
     config_model=$1
 fi
@@ -19,7 +19,7 @@ set -o nounset
 dir=$(dirname $0)
 
 # load model configuration so that the command knows where to log
-. $dir/$config_model
+. $config_model
 
 # this is set in the above file sourced
 # set -o nounset

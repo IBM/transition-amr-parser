@@ -101,7 +101,7 @@ def save_ranked_scores(checkpoint_folder, ranked_scores, score_name, print_to_co
         epoch_info = f'epochs: {epoch_min} - {epoch_max}'
     else:
         # epochs are not continuous
-        epoch_info = 'epochs: ' + ' '.join(map(str, epochs))
+        epoch_info = 'epochs: ' + ' '.join(map(str, sorted(epochs, reverse=True)))
     # save and print ranked results
     with open(save_path, 'w') as f:
         f.write(head_info + epoch_info + '\n')
@@ -110,13 +110,13 @@ def save_ranked_scores(checkpoint_folder, ranked_scores, score_name, print_to_co
             print(head_info + epoch_info)
         for rank, (epoch, score) in enumerate(ranked_scores):
             f.write(f'checkpoint{epoch}.pt {score}' + '\n')
-            if print_to_console and rank <= print_best:
+            if print_to_console and rank < print_best:
                 print(f'checkpoint{epoch}.pt {score}')
     if print_to_console:
         print('-' * 80)
 
 
-def link_top_models(ranked_scores, checkpoint_folder, score_name, link_best=3):
+def link_top_models(ranked_scores, checkpoint_folder, score_name, link_best=5):
     # works when 'link_best' is larger than 'len(ranked_scores)'
     for rank, epoch_score in enumerate(ranked_scores[:link_best], start=1):
         epoch, score = epoch_score

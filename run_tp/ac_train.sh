@@ -17,7 +17,7 @@ if [[ $sourced == 0 ]]; then
     dir=$(dirname $0)
     if [ ! -z "${1+x}" ]; then
         config=$1
-        . $dir/$config    # we should always call from one level up
+        . $config    # $config_model should always include its path
     fi
     # NOTE: when the first configuration argument is not provided, this script must
     #       be called from other scripts
@@ -26,10 +26,11 @@ fi
 
 ##### script specific config
 if [ -z ${max_epoch+x} ]; then
-    max_epoch=100
+    max_epoch=120
 fi
+eval_init_epoch=${eval_init_epoch:-81}
 seed=${seed:-42}
-# max_epoch=100
+# max_epoch=120
 # seed=42
 
 apply_tgt_input_src=${apply_tgt_input_src:-0}
@@ -93,7 +94,7 @@ else
         --criterion label_smoothed_cross_entropy_pointer \
         --label-smoothing 0.01 \
         --loss-coef 1 \
-        --keep-last-epochs 40 \
+        --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
         --max-tokens 3584 \
         --log-format json \
         --seed $seed \
