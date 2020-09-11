@@ -58,6 +58,7 @@ rm -Rf DATA.tests/models/wiki25/
 fairseq-train \
     $FEATURES_FOLDER \
     --max-epoch $max_epoch \
+    --burnthrough 5 \
     --arch stack_transformer_6x6_tops_nopos \
     --optimizer adam \
     --adam-betas '(0.9,0.98)' \
