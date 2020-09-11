@@ -12,9 +12,9 @@ set -o nounset
 # Configuration 
 MAX_WORDS=0
 # ORACLE_TAG=o7_o3align-prefix
-ORACLE_TAG=o7-depfix_o3align
+# ORACLE_TAG=o7-depfix_o3align
 # ORACLE_TAG=o7_o5align-prefix
-# ORACLE_TAG=o7_o5align
+ORACLE_TAG=o7-depfix_o5align
 if [[ $MAX_WORDS != 0 ]]; then
     ORACLE_TAG=${ORACLE_TAG}+Word${MAX_WORDS}
 fi
@@ -36,9 +36,9 @@ LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed
 # test_amr=$LDC2017_AMR_CORPUS/test.txt
 
 # o3 fix
-train_amr=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
-dev_amr=$LDC2017_AMR_CORPUS/dev.txt
-test_amr=$LDC2017_AMR_CORPUS/test.txt
+# train_amr=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
+# dev_amr=$LDC2017_AMR_CORPUS/dev.txt
+# test_amr=$LDC2017_AMR_CORPUS/test.txt
 
 # o5 pre-fix
 # train_amr=/dccstor/multi-parse/transformer-amr/psuedo.txt
@@ -46,9 +46,9 @@ test_amr=$LDC2017_AMR_CORPUS/test.txt
 # test_amr=$LDC2017_AMR_CORPUS/test.txt
 
 # o5 fix
-# train_amr=/dccstor/multi-parse/transformer-amr/jkaln.txt
-# dev_amr=$LDC2017_AMR_CORPUS/dev.txt
-# test_amr=$LDC2017_AMR_CORPUS/test.txt
+train_amr=/dccstor/multi-parse/transformer-amr/jkaln.txt
+dev_amr=$LDC2017_AMR_CORPUS/dev.txt
+test_amr=$LDC2017_AMR_CORPUS/test.txt
 
 #####
 

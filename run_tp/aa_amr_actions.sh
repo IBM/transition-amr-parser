@@ -37,7 +37,7 @@ else
     cp $AMR_DEV_FILE $ORACLE_FOLDER/ref_dev.amr
     cp $AMR_TEST_FILE $ORACLE_FOLDER/ref_test.amr
     
-    if [[ "$WIKI_DEV" == "" ]]; then
+    if [[ ! "$WIKI_DEV" == "" ]]; then
         # copy the original AMR data: wiki files and original AMR with wikification
         cp $WIKI_DEV $ORACLE_FOLDER/ref_dev.wiki
         cp $WIKI_TEST $ORACLE_FOLDER/ref_test.wiki

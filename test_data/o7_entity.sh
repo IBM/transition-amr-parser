@@ -80,7 +80,7 @@ fi
 # create oracle actions from AMR and the sentence for the train set. This also
 # accumulates necessary statistics in train.rules.json
 if [ ! -f "$ORACLE_FOLDER/train.rules.json" ]; then
-    python ../transition_amr_parser/o7_data_oracle_entity.py \
+    python ../transition_amr_parser/o7-entity_data_oracle.py \
         --in-amr $train_amr \
         --out-sentences $ORACLE_FOLDER/train.en \
         --out-actions $ORACLE_FOLDER/train.actions \
@@ -96,7 +96,7 @@ if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json-----------------" ]; then
 
     if [[ $MAX_WORDS == 0 ]]; then
     
-    python ../transition_amr_parser/o7_data_oracle_entity.py \
+    python ../transition_amr_parser/o7-entity_data_oracle.py \
         --in-amr $reference_amr \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
@@ -104,7 +104,7 @@ if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json-----------------" ]; then
     
     else
     
-    python ../transition_amr_parser/o7_data_oracle_entity.py \
+    python ../transition_amr_parser/o7-entity_data_oracle.py \
         --in-amr $reference_amr \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \

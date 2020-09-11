@@ -12,7 +12,7 @@ ROOTDIR=/dccstor/jzhou1/work/EXP
 
 ##### load model config
 if [ -z "$1" ]; then
-    config_model=config_model_action-pointer.sh
+    config_model=run_tp/config_model_action-pointer.sh
 else
     config_model=$1
 fi
@@ -22,7 +22,7 @@ seed=$2
 set -o nounset
 
 dir=$(dirname $0)
-. $dir/$config_model   # we should always call from one level up
+. $config_model   # $config_model should always include its path
 # now we have
 # $ORACLE_FOLDER
 # $DATA_FOLDER
@@ -49,9 +49,9 @@ echo "[Preprocessing data:]"
 . $dir/ab_preprocess.sh ""
 
 # change path to original data as we have copied in processing
-AMR_TRAIN_FILE=$ORACLE_FOLDER/ref_train.amr
-AMR_DEV_FILE=$ORACLE_FOLDER/ref_dev.amr
-AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
+# AMR_TRAIN_FILE=$ORACLE_FOLDER/ref_train.amr
+# AMR_DEV_FILE=$ORACLE_FOLDER/ref_dev.amr
+# AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 
 # exit 0
 ###############################################################
@@ -63,7 +63,11 @@ echo "[Training:]"
 mkdir -p $MODEL_FOLDER
 
 cp $config_data $ROOTDIR/$expdir/
-cp $dir/$config_model $MODEL_FOLDER/
+cp $config_model $MODEL_FOLDER/
+
+# change the seed name in the particular model configuration copied
+sed -i "s/seed:-42/seed:-${seed}/g" $MODEL_FOLDER/$(basename $config_model)
+
 cp $0 $MODEL_FOLDER/
 cp $dir/ac_train.sh $MODEL_FOLDER/train.sh
 
