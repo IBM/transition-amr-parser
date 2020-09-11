@@ -168,15 +168,26 @@ for model_folder in "$@";do
     
     done
 
-    # After all tests are done, rank model and softlink the top 3 models according
-    # to smatch
+    # After all tests are done, rank model, softlink the top 3 models according
+    # to smatch, clean-up checkpoints, compute checkpoint avreage and beam10
     if [ "$TASK_TAG" == "AMR" ];then
     
         # model linking (will also display table)
-        python scripts/stack-transformer/rank_model.py --link-best
+        python scripts/stack-transformer/rank_model.py --link-best 
     
         # clean-up all checkpoints and save the *_best_* labeled ones
-        # bash scripts/stack-transformer/remove_checkpoints.sh $model_folder
+        python scripts/stack-transformer/remove_checkpoints.py $model_folder 
+
+        # checkpoint average
+        if [ "$WIKI_DEV" == "" ];then
+            bash scripts/stack-transformer/get_weight_ensemble.sh SMATCH $model_folder
+        else
+            bash scripts/stack-transformer/get_weight_ensemble.sh WIKI.SMATCH $model_folder
+        fi    
+
+        # beam10 results
+        bash scripts/stack-transformer/get_beam_test.sh 10 top3-average \
+            $model_folder/checkpoint_top3-average.pt
     
     fi
  

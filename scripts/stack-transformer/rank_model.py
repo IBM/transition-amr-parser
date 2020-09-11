@@ -75,6 +75,7 @@ def argument_parsing():
         action='store_true',
         help='do not split model name into components'
     )
+    parser.add_argument("--ignore-deleted", action='store_true')
     return parser.parse_args()
 
 
@@ -576,7 +577,7 @@ def ptable(rows, centering):
     print("")
 
 
-def link_top_models(items, score_name):
+def link_top_models(items, score_name, ignore_deleted):
 
     for item in items:
 
@@ -606,10 +607,13 @@ def link_top_models(items, score_name):
                 not os.path.isfile(f'{model_folder}/{source_best}')
                 and not os.path.isfile(target_best)
             ):
-                raise Exception(
-                    f'Best model is {model_folder}/{source_best}, however, '
-                    'the checkpoint seems to have been removed' 
-                )
+                if ignore_deleted:
+                    continue
+                else:
+                    raise Exception(
+                        f'Best model is {model_folder}/{source_best}, however'
+                        ', the checkpoint seems to have been removed' 
+                    )
 
             # get current best model (if exists)
             if os.path.islink(target_best):
@@ -663,7 +667,7 @@ def main():
 
         # link best score model
         if args.link_best:
-            link_top_models(items, score_name)
+            link_top_models(items, score_name, args.ignore_deleted)
 
         if items != [] and not args.no_print:
             # average over seeds
