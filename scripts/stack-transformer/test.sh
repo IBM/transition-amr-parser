@@ -87,8 +87,8 @@ elif [ "$TASK_TAG" == "AMR" ];then
     	--entity-rules $ENTITY_RULES \
         --in-sentences $ORACLE_FOLDER/dev.en \
         --in-actions $results_folder/valid.actions \
-        --out-amr $results_folder/valid.amr \
-        --sanity-check
+        --out-amr $results_folder/valid.amr 
+        # --sanity-check
 
     if [ "$WIKI_DEV" == "" ];then
 

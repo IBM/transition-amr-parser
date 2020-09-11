@@ -82,8 +82,8 @@ for model_folder in "$@";do
     	        --entity-rules $ENTITY_RULES \
                 --in-sentences $ORACLE_FOLDER/dev.en \
                 --in-actions ${std_name}.actions \
-                --out-amr ${std_name}.amr \
-                --sanity-check
+                --out-amr ${std_name}.amr 
+                # --sanity-check
     
             if [ "$WIKI_DEV" == "" ];then
     
