@@ -564,7 +564,7 @@ class AMRStateMachine:
 
         # Quick exit for a closed machine
         if self.is_closed:
-            return ['</s>']
+            return ['</s>'], []
 
         # NOTE: Example: valid_actions = ['LA'] invalid_actions = ['LA(:mod)']
         valid_actions = []
