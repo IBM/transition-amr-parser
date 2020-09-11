@@ -242,7 +242,6 @@ class AMRStateMachine:
 
     @property
     def current_node_id(self):
-        # TODO use this function to replace `self.tokid_to_nodeid[self.tok_cursor]` in this file
         return self.tokid_to_nodeid[self.tok_cursor]
 
     def tok_index_neg2pos(self, ind):
@@ -583,7 +582,7 @@ class AMRStateMachine:
     def REDUCE(self):
         """REDUCE : delete token when there is no alignment"""
         if self.amr_graph:
-            del self.amr.nodes[self.tokid_to_nodeid[self.tok_cursor]]
+            del self.amr.nodes[self.current_node_id]
         self._shift()    # shift to next position in the token sequence
 
         # record action info
@@ -623,7 +622,7 @@ class AMRStateMachine:
 
     def PRED(self, node_label):
         """PRED : assign a propbank label"""
-        node_id = self.tokid_to_nodeid[self.tok_cursor]
+        node_id = self.current_node_id
         if self.amr_graph:
             self.amr.nodes[node_id] = node_label
 
@@ -642,7 +641,7 @@ class AMRStateMachine:
 
     def COPY_LEMMA(self):
         """COPY_LEMMA: same as PRED but use lowercased lemma"""
-        node_id = self.tokid_to_nodeid[self.tok_cursor]
+        node_id = self.current_node_id
         node_label = self.get_current_token(lemma=True)
         if self.amr_graph:
             self.amr.nodes[node_id] = node_label
@@ -661,7 +660,7 @@ class AMRStateMachine:
 
     def COPY_SENSE01(self):
         """COPY_SENSE01: same as PRED but use lowercased lemma + '-01'"""
-        node_id = self.tokid_to_nodeid[self.tok_cursor]
+        node_id = self.current_node_id
         node_label = self.get_current_token(lemma=True)
         node_label = node_label + '-01'
         if self.amr_graph:
@@ -681,7 +680,7 @@ class AMRStateMachine:
 
     def ENTITY(self, entity_type):
         """ENTITY : create a named entity"""
-        head = self.tokid_to_nodeid[self.tok_cursor]
+        head = self.current_node_id
         child_id = self.new_id
         self.new_id += 1
 
@@ -715,7 +714,7 @@ class AMRStateMachine:
                 node_id = self.new_id
                 self.new_id += 1
                 self.amr.nodes[node_id] = node_label
-            self.amr.edges.append((self.tokid_to_nodeid[self.tok_cursor], edge_label, node_id))
+            self.amr.edges.append((self.current_node_id, edge_label, node_id))
 
         # record action info
         self.actions.append(f'DEPENDENT({node_label},{edge_label.replace(":","")})')
@@ -762,8 +761,8 @@ class AMRStateMachine:
         edge_label = label if label.startswith(':') else (':' + label if label != 'root' else 'root')
         if self.amr_graph:
             if edge_label == 'root':
-                assert self.tokid_to_nodeid[self.tok_cursor] == self.root_id
-            self.amr.edges.append((self.tokid_to_nodeid[self.tok_cursor], edge_label, self.actions_to_nodes[pos]))
+                assert self.current_node_id == self.root_id
+            self.amr.edges.append((self.current_node_id, edge_label, self.actions_to_nodes[pos]))
 
         # record action info
         self.actions.append(f'LA({pos},{edge_label})')
@@ -778,8 +777,8 @@ class AMRStateMachine:
         if self.amr_graph:
             if edge_label == 'root':
                 # note: in principle, '<ROOT>' token can be at any position
-                assert self.tokid_to_nodeid[self.tok_cursor] == self.root_id
-            self.amr.edges.append((self.actions_to_nodes[pos], edge_label, self.tokid_to_nodeid[self.tok_cursor]))
+                assert self.current_node_id == self.root_id
+            self.amr.edges.append((self.actions_to_nodes[pos], edge_label, self.current_node_id))
 
         # record action info
         self.actions.append(f'RA({pos},{edge_label})')

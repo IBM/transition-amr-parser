@@ -492,7 +492,7 @@ class AMR_Oracle:
                     edge = self.new_edge[1:] \
                         if self.new_edge.startswith(':') else self.new_edge
                     # 'SHIFT' will block all the other edges: should not be set here
-                    # actions = [f'DEPENDENT({self.new_node},{edge})', 'SHIFT']
+                    # actions = [f'DEPENDENT({self.new_node},{edge})', 'SHIFT']    # this was a bug!
                     actions = [f'DEPENDENT({self.new_node},{edge})']
                     self.dep_id = None
                 # TODO clean up the logic for a better one
@@ -739,7 +739,7 @@ class AMR_Oracle:
 
         # debug: check if there could be more than one node with name "name" aligned to a single token
         if len(set(name_node_ids)) > 1:
-            edges_named=[(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
+            edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
             print('-' * 80)
             print(transitions.get_current_token())
             print(edges_named)

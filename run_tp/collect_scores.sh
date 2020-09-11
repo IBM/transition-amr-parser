@@ -42,7 +42,7 @@ done
 for data in "${data_sets[*]}"; do
     
     python run_tp/collect_scores.py \
-           --checkpoints $checkpoints_folder \
+           $checkpoints_folder \
            --score_name $score_name \
            --data_sets $data \
            --ndigits 2

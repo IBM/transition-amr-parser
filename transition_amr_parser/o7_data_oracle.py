@@ -492,7 +492,7 @@ class AMR_Oracle:
                     edge = self.new_edge[1:] \
                         if self.new_edge.startswith(':') else self.new_edge
                     # 'SHIFT' will block all the other edges: should not be set here
-                    # actions = [f'DEPENDENT({self.new_node},{edge})', 'SHIFT']
+                    # actions = [f'DEPENDENT({self.new_node},{edge})', 'SHIFT']    # this was a bug!
                     actions = [f'DEPENDENT({self.new_node},{edge})']
                     self.dep_id = None
                 # TODO clean up the logic for a better one
@@ -727,7 +727,7 @@ class AMR_Oracle:
         #
         # this is equivalent to
         new_nodes = [gold_amr.nodes[n] for n in tok_alignment if any(s == n for s, r, t in edges)]
-        
+
         self.entity_type = ','.join(new_nodes)
         self.possibleEntityTypes[self.entity_type] += 1
 

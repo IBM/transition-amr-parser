@@ -8,7 +8,10 @@ set -o pipefail
 rootdir=/dccstor/jzhou1/work/EXP
 
 # exp_dirs=($rootdir/exp_o*)
-exp_dirs=($rootdir/exp_o5_no-mw*)
+# exp_dirs=($rootdir/exp_o5_no-mw*)
+exp_dirs=($rootdir/exp_o3*)
+# exp_dirs=($rootdir/exp_o5_no-mw* $rootdir/exp_o3*)    # both patterns
+# exp_dirs=($rootdir/exp_o5?[!n]*)    # not exp_o5_no-mw*
 
 epoch_last=120
 
@@ -29,7 +32,7 @@ for exp_dir in "${exp_dirs[@]}"; do
 
                 jbsub_info=$(jbsub \
                              -cores 1+1 \
-                             -mem 10g \
+                             -mem 20g \
                              -q x86_6h \
                              -require v100 \
                              -name $0 \
