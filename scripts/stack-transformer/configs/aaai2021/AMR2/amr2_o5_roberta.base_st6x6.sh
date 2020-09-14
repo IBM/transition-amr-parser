@@ -65,7 +65,7 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6
+TRAIN_TAG=st6x6
 base_model=stack_transformer_6x6
 # number of random seeds trained at once
 NUM_SEEDS=3
