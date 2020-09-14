@@ -76,6 +76,7 @@ TRAIN_QUEUE=ppc_24h
 # --bert-backprop do backprop though BERT
 # NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
 MAX_EPOCH=110
+keep_last_epochs=40
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 FAIRSEQ_TRAIN_ARGS="
     $FEATURES_FOLDER
@@ -94,7 +95,8 @@ FAIRSEQ_TRAIN_ARGS="
     --weight-decay 0.0
     --criterion label_smoothed_cross_entropy
     --label-smoothing 0.01
-    --keep-last-epochs 40
+    --keep-last-epochs $keep_last_epochs
+    --burnthrough $((MAX_EPOCH-keep_last_epochs))
     --max-tokens 3584
     --log-format json
     --fp16

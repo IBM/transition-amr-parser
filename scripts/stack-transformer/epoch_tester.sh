@@ -190,6 +190,5 @@ for model_folder in "$@";do
             $model_folder/checkpoint_top3-average.pt
     
     fi
- 
 
 done
