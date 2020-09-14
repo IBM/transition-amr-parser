@@ -34,16 +34,12 @@ ENTITY_RULES=""
 # --multitask-max-words --out-multitask-words --in-multitask-words
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
-MAX_WORDS=100
-ORACLE_TAG=amr1_o5+Word${MAX_WORDS}
+ORACLE_TAG=amr1_o5
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
-    --multitask-max-words $MAX_WORDS 
-    --out-multitask-words $ORACLE_FOLDER/train.multitask_words 
     --copy-lemma-action
 "
 ORACLE_DEV_ARGS="
-    --in-multitask-words $ORACLE_FOLDER/train.multitask_words 
     --copy-lemma-action
 "
 
@@ -70,8 +66,8 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6
-base_model=stack_transformer_6x6_nopos
+TRAIN_TAG=st6x6
+base_model=stack_transformer_6x6
 # number of random seeds trained at once
 NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
