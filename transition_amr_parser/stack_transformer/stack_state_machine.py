@@ -407,7 +407,7 @@ def sanity_check_masks(pre_mask, post_mask, encoder_padding_mask):
 
 def get_heads_stack_representation(memory, memory_pos, num_heads, 
                                    embed_stack_positions, do_stack=True, 
-                                   do_buffer=True, do_stack_top=False, 
+                                   do_buffer=True, do_top=False, 
                                    do_positions=True):
     """
     memory (batch_size, src_len, tgt_len) 
@@ -433,16 +433,18 @@ def get_heads_stack_representation(memory, memory_pos, num_heads,
     assert num_heads in [6, 4]
     pre_mask = torch.ones_like(memory)
     # (num_heads, batch_size, src_len, tgt_len)
-    if do_stack_top:
-        # only one head with hard attention on the top two words of the stack
-        pre_mask[0, :, :, :] = memory[0, :, :, :] == 4
-        pre_mask[0, :, :, :][memory_pos>1] = 0
     if do_buffer:
         # only use the buffer
         pre_mask[0, :, :, :] = memory[0, :, :, :] == 3
+        # mask everything that is not top two positions
+        if do_top:
+            pre_mask[0, :, :, :][memory_pos>1] = 0
     if do_stack:
         # only use the stack
         pre_mask[1, :, :, :] = memory[1, :, :, :] == 4
+        # mask everything that is not top two positions
+        if do_top:
+            pre_mask[1, :, :, :][memory_pos>1] = 0
 
     # flatten head and batch into same dimension. Heads for each batch element
     # must be contiguous
@@ -518,29 +520,30 @@ def state_machine_encoder(encode_state_machine, memory, memory_pos, num_heads,
     if (
         (encode_state_machine == 'layer0' and layer_index == 0) or 
          encode_state_machine == 'layer0_nopos' and layer_index == 0 or
-         encode_state_machine == 'all-layers_nopos' or
          encode_state_machine == 'all-layers' or
-         encode_state_machine == 'only_stack' or
+         encode_state_machine == 'all-layers_nopos' or
+         encode_state_machine == 'all-layers_top_nopos' or
          encode_state_machine == 'only_stack_nopos' or
-         encode_state_machine == 'only_buffer' or
          encode_state_machine == 'only_buffer_nopos' or
-         encode_state_machine == 'stack_top' or
-         encode_state_machine == 'stack_top_nopos'
+         encode_state_machine == 'only_stack_top_nopos' or
+         encode_state_machine == 'only_buffer_top_nopos'
     ):
 
         # default options
         do_stack = True
         do_buffer = True
-        do_stack_top = False
+        do_top = False
 
         if encode_state_machine.startswith('only_buffer'):
             do_stack = False
         if encode_state_machine.startswith('only_stack'):
             do_buffer = False
-        if encode_state_machine.startswith('stack_top'):
-            do_stack_top = True
-            do_stack = False
-            do_buffer = False
+
+        # TODO: Change by _top
+        if 'top' in encode_state_machine.split('_'):
+            do_top = True
+
+        do_positions = 'nopos' not in encode_state_machine.split('_')
 
         # stack/buffer state masks 
         head_attention_masks, head_positions = get_heads_stack_representation(
@@ -550,8 +553,8 @@ def state_machine_encoder(encode_state_machine, memory, memory_pos, num_heads,
             embed_stack_positions,
             do_stack=do_stack,
             do_buffer=do_buffer,
-            do_stack_top=do_stack_top,
-            do_positions='nopos' not in encode_state_machine.split('_')
+            do_top=do_top,
+            do_positions=do_positions
         )
 
     elif encode_state_machine in ['layer0', 'layer0_nopos'] and layer_index != 0:
