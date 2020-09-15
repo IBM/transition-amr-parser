@@ -121,7 +121,7 @@ jbsub_info=$(jbsub \
              -name eval_in_training \
              -out $MODEL_FOLDER/${jbsub_tag}-%J.stdout \
              -err $MODEL_FOLDER/${jbsub_tag}-%J.stderr \
-             /bin/bash $dir/run_model_eval.sh $config_model $seed \
+             /bin/bash $dir/run_model_eval_updated.sh $config_model $seed \
              | grep 'is submitted to queue')
 
 

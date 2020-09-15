@@ -30,13 +30,13 @@ dir=$(dirname $0)
 ##### model configuration
 shift_pointer_value=1
 apply_tgt_actnode_masks=0
-tgt_vocab_masks=1
+tgt_vocab_masks=0
 share_decoder_embed=0
 
-pointer_dist_decoder_selfattn_layers="0 1 2"
+pointer_dist_decoder_selfattn_layers="5"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=2
+pointer_dist_decoder_selfattn_infer=5
 
 apply_tgt_src_align=1
 tgt_src_align_layers="0 1 2 3 4 5"
