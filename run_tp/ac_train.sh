@@ -43,9 +43,13 @@ tgt_input_src_combine=${tgt_input_src_combine:-cat}
 ##### TRAINING
 # rm -Rf $MODEL_FOLDER
 
-if [ -f $MODEL_FOLDER/checkpoint_last.pt ]; then
+# if [ -f $MODEL_FOLDER/checkpoint_last.pt ]; then
     
-    echo "Model checkpoint $MODEL_FOLDER/checkpoint_last.pt already exists --- do nothing."
+#     echo "Model checkpoint $MODEL_FOLDER/checkpoint_last.pt already exists --- do nothing."
+
+if [ -f $MODEL_FOLDER/checkpoint_last.pt ] && [ -f $MODEL_FOLDER/checkpoint${max_epoch}.pt ]; then
+
+    echo "Model checkpoint $MODEL_FOLDER/checkpoint_last.pt && $MODEL_FOLDER/checkpoint${max_epoch}.pt already exist --- do nothing."
 
 else
 

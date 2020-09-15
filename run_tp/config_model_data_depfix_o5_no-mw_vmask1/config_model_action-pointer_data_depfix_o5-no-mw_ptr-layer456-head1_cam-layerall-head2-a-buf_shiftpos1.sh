@@ -33,23 +33,23 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-pointer_dist_decoder_selfattn_layers="0 1 2"
+pointer_dist_decoder_selfattn_layers="3 4 5"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=2
+pointer_dist_decoder_selfattn_infer=5
 
 apply_tgt_src_align=1
 tgt_src_align_layers="0 1 2 3 4 5"
-tgt_src_align_heads=1
-tgt_src_align_focus='p0c1n0'
-focus_name='p0c1n0'
+tgt_src_align_heads=2
+tgt_src_align_focus='p0c1n0 p0c0n*'
+focus_name='abuf'
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
 # current version: 'p0c1n1', 'p1c1n1', 'p*c1n0', 'p0c0n*', etc.
 #                  'p' - previous (prior to alignment), a number or '*' for all previous src tokens
 #                  'c' - current (alignment position, 1 for each tgt token), either 0 or 1
 #                  'n' - next (post alignment), a number or '*' for all the remaining src tokens
 
-apply_tgt_input_src=1
+apply_tgt_input_src=0
 tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"

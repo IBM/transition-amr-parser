@@ -91,12 +91,12 @@ Done
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embbot-comadd-bp1
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embbot-comadd-bp1/models_ep120_seed42
-Done
+Job <3788736> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embbot-comcat-bp1
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embbot-comcat-bp1/models_ep120_seed42
-Done
+Job <3788737> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comadd-bp1
@@ -106,7 +106,7 @@ Done
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comcat-bp1
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embtop-comcat-bp1/models_ep120_seed42
-Done
+Job <3788738> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cam-layerall-head2-focusaa_ptr-layer6-head1
@@ -176,7 +176,7 @@ Done
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cattnmask-layerall-head1-focusp0n0_ptr-layer456-head4
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cattnmask-layerall-head1-focusp0n0_ptr-layer456-head4/models_ep120_seed42
-Job <3832878> is submitted to queue <x86_6h>.
+Job <3788739> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos0_cattnmask-layerall-head1-focusp0n0_ptr-layer456-head4-avg
@@ -241,7 +241,7 @@ Done
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embbot-comadd-bp0
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embbot-comadd-bp0/models_ep120_seed42
-Done
+Job <3788740> is submitted to queue <x86_6h>.
 
 [Decoding for all checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_o3_roberta-large-top24_act-pos_vmask0_shiftpos1_cam-layerall-head1-focusp0c1n0_ptr-layer6-head1_tis-embbot-comadd-bp1

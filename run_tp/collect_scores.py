@@ -174,6 +174,9 @@ def save_beam_results(checkpoint_folder, beam_results, models, data_sets, score_
 if __name__ == '__main__':
     args = parse_args()
 
+    if args.score_name != 'wiki.smatch':
+        args.models = [m.replace('wiki-smatch', args.score_name.replace('.', '-')) for m in models]
+
     beam_results = collect_final_scores(args.checkpoints, args.data_sets, args.models, args.score_name)
     save_beam_results(args.checkpoints, beam_results, args.models, args.data_sets, args.score_name,
                       ndigits=args.ndigits,

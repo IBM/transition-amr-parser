@@ -11,9 +11,9 @@ ROOTDIR=/dccstor/jzhou1/work/EXP
 ##############################################################
 
 ##### load data config
-config_data=run_tp/config_data/config_data_depfix_o5_no-mw_roberta-large-top24.sh
+config_data=run_tp/config_data-amr1/config_data-amr1_depfix_o5_no-mw_roberta-large-top24.sh
 
-data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
+data_tag="$(basename $config_data | sed 's@config_data-\(.*\)\.sh@\1@g')"
 
 
 dir=$(dirname $0)
@@ -33,12 +33,12 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-pointer_dist_decoder_selfattn_layers="0 1 2"
+pointer_dist_decoder_selfattn_layers="5"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=2
+pointer_dist_decoder_selfattn_infer=5
 
-apply_tgt_src_align=1
+apply_tgt_src_align=0
 tgt_src_align_layers="0 1 2 3 4 5"
 tgt_src_align_heads=1
 tgt_src_align_focus='p0c1n0'
@@ -55,7 +55,7 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 seed=${seed:-42}
-max_epoch=150
+max_epoch=120
 eval_init_epoch=81
 
 

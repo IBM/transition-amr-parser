@@ -88,6 +88,7 @@ def collect_checkpoint_results(checkpoint_folder, score_name):
     score_folder = os.path.join(checkpoint_folder, f'beam{beam_size}')
     scores = get_scores_from_folder(score_folder, score_name)
     ranked_scores = rank_scores(scores, score_name)
+    # ranked_scores is a list of tuples, with each entry being (epoch, [score])
     return ranked_scores
 
 

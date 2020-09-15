@@ -37,7 +37,12 @@ dir=$(dirname $0)
 # $eval_init_epoch
 
 eval_init_epoch=${eval_init_epoch:-81}
-eval_init_epoch=43
+
+# # NOTE set the evaluation starting epoch to be a bit later
+# #      than the first eval epoch, to reduce waiting during
+# #      training and keep evaluation job within 6 hours on CCC
+# eval_init_epoch=101
+
 
 ###############################################################
 # to get the time elapsed --> time out the script automatically
@@ -66,12 +71,12 @@ while true; do
 
     # for first run: if the first checkpoint to eval start to appear
     if [[ -f $MODEL_FOLDER/checkpoint${eval_init_epoch}.pt ]]; then
-    
+
         echo "--- Triggered - first checkpoint to eval appears"
         break
 
     else
-    
+
     # for non-first run: the first checkpoint to eval may have been deleted
     # check if later checkpoints exit
         for test_model in $(find $MODEL_FOLDER -iname 'checkpoint[0-9]*.pt' | sort -r); do
@@ -86,9 +91,9 @@ while true; do
         done
 
     fi
-    
+
     sleep 5
-    
+
     # time out
     end=$SECONDS
     duration=$(( end - start ))
@@ -100,6 +105,13 @@ done
 ###############################################################
 # launch the evaluation process
 
-/bin/bash $dir/run_model_eval.sh $config_model $seed #|& tee $MODEL_FOLDER/runeval.log
+# "|& tee file" will dump output to file as well as to terminal
+# "&> file" only dumps output to file
+# interactive: debug
+/bin/bash $dir/run_model_eval.sh $config_model $seed #|& tee $MODEL_FOLDER/log.eval
 
-# Get pid (cont...)
+# formal run: send to background
+# /bin/bash $dir/run_model_eval.sh $config_model $seed &> $MODEL_FOLDER/log.eval &
+# echo "eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
+
+# Get pid by "$!"
