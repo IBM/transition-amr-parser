@@ -47,10 +47,10 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
         token_cursors.append(amr_state_machine.tok_cursor)
         # apply the current action
         cano_act = amr_state_machine.canonical_action_form(act)
-        if cano_act not in act_allowed:
-            import pdb
-            pdb.set_trace()
-        # assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
+        # if cano_act not in act_allowed:
+        #     import pdb
+        #     pdb.set_trace()
+        assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
         amr_state_machine.apply_canonical_action(cano_act)
 
     assert len(amr_state_machine.actions_nodemask) == len(actions)

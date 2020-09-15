@@ -8,26 +8,19 @@ set -o pipefail
 rootdir=/dccstor/jzhou1/work/EXP
 
 # exp_dirs=($rootdir/exp_o*)
-# exp_dirs=($rootdir/exp_o3*)
-# exp_dirs=($rootdir/exp_o5?[!n]*)
 # exp_dirs=($rootdir/exp_o5_no-mw*)
 # epoch_last=120
 
 # seed=0
 seed=""    # check all seeds
 
-exp_dirs=($rootdir/exp_amr1*)
-epoch_last=120
-
-# exp_dirs=($rootdir/exp_depfix_o5*)
-# epoch_last=150
+exp_dirs=($rootdir/exp_depfix_o5*)
+epoch_last=150
 
 for exp_dir in "${exp_dirs[@]}"; do
 
     echo -e "\n[Results for all model checkpoints under experiments:]"
     echo "$exp_dir"
-
-    # model_folders=($exp_dir/models*)
 
     if [[ $seed == "" ]]; then
         model_folders=($exp_dir/models*)
@@ -36,17 +29,17 @@ for exp_dir in "${exp_dirs[@]}"; do
     fi
 
     for checkpoints_folder in "${model_folders[@]}"; do
-
+    
         echo $checkpoints_folder
-
-        if [[ -f $checkpoints_folder/checkpoint${epoch_last}.pt ]]; then
-
-            bash run_tp/collect_scores.sh $checkpoints_folder
-
+        
+        if [[ -f $checkpoints_folder/epoch_wiki-smatch_ranks.txt ]]; then
+        
+            head -6 $checkpoints_folder/epoch_wiki-smatch_ranks.txt
+        
         else
-
-            echo "[model not trained till $epoch_last epochs]"
-
+        
+            echo "[epochs not tested and ranked]"
+        
         fi
 
     done

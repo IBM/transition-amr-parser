@@ -46,8 +46,15 @@ beam_size=1
 batch_size=128
 use_pred_rules=0
 
-# do not change the score name, as there are hard-coded wiki-smatch in this script
-score_name=wiki.smatch
+
+if [ "$WIKI_DEV" == "" ]; then
+    score_name=smatch
+else
+    score_name=wiki.smatch
+fi
+# best and average checkpoints'name are also associated with $score_name (e.g. checkpoint_wiki-smatch_*.pt)
+score_name_tag=$(echo $score_name | sed 's/\./-/g')
+
 
 ##### functions for evaluation process
 function eval_one_checkpoint {
@@ -71,7 +78,8 @@ function eval_one_checkpoint {
     . run_tp/ad_test.sh "" dev
 
     # this will reulst in:
-    # "$MODEL_FOLDER/beam${beam_size}/valid_checkpoint${model_epoch}.wiki.smatch"
+    # "$MODEL_FOLDER/beam${beam_size}/valid_checkpoint${model_epoch}.wiki.smatch" (when wiki is provided)
+    # or "$MODEL_FOLDER/beam${beam_size}/valid_checkpoint${model_epoch}.smatch" (when wiki is not provided)
 
 }
 
@@ -120,28 +128,28 @@ function average_best_checkpoints {
     # average best checkpoints
     local checkpoints_folder=$1
 
-    if [[ -f $checkpoints_folder/checkpoint_wiki-smatch_best3.pt ]]; then
+    if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best3.pt ]]; then
 
         python fairseq/scripts/average_checkpoints.py \
                 --input \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best1.pt \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best2.pt \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best3.pt \
-                --output $checkpoints_folder/checkpoint_wiki-smatch_top3-avg.pt
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt \
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best2.pt \
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best3.pt \
+                --output $checkpoints_folder/checkpoint_${score_name_tag}_top3-avg.pt
 
     fi
 
 
-    if [[ -f $checkpoints_folder/checkpoint_wiki-smatch_best5.pt ]]; then
+    if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best5.pt ]]; then
 
         python fairseq/scripts/average_checkpoints.py \
                 --input \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best1.pt \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best2.pt \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best3.pt \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best4.pt \
-                    $checkpoints_folder/checkpoint_wiki-smatch_best5.pt \
-                --output $checkpoints_folder/checkpoint_wiki-smatch_top5-avg.pt
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt \
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best2.pt \
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best3.pt \
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best4.pt \
+                    $checkpoints_folder/checkpoint_${score_name_tag}_best5.pt \
+                --output $checkpoints_folder/checkpoint_${score_name_tag}_top5-avg.pt
 
     fi
 
@@ -152,9 +160,9 @@ function eval_best_avg_models {
     # decoding and test best averaged models
     local checkpoints_folder=$1
 
-    if [[ -f $checkpoints_folder/checkpoint_wiki-smatch_best1.pt ]]; then
+    if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt ]]; then
 
-        test_model=$checkpoints_folder/checkpoint_wiki-smatch_best1.pt
+        test_model=$checkpoints_folder/checkpoint_${score_name_tag}_best1.pt
 
         echo -e "\n$test_model"
         echo "[Decoding and computing smatch:]"
@@ -184,7 +192,7 @@ function eval_best_avg_models {
 
 
     ##### Loop over existing averaged checkpoints
-    for test_model in $(find $checkpoints_folder -iname 'checkpoint_wiki-smatch_top[0-9]*-avg.pt' | sort ); do
+    for test_model in $(find $checkpoints_folder -iname "checkpoint_${score_name_tag}_top[0-9]*-avg.pt" | sort ); do
 
         echo -e "\n$test_model"
         echo "[Decoding and computing smatch:]"

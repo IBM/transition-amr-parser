@@ -34,6 +34,7 @@ if __name__ == '__main__':
     max_epoch = max(epochs)
 
     # remove checkpoints that are (unlinked && not the last one)
+    print('Removing unlinked and not-the-last checkpoints --- ')
     for fname in glob.glob(f'{checkpoint_folder}/checkpoint[0-9]*'):
         fname_base = os.path.basename(fname)
         epoch_num, = checkpoint_re.match(fname_base).groups()

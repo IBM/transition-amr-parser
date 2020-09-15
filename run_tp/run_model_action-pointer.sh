@@ -62,8 +62,9 @@ echo "[Training:]"
 
 mkdir -p $MODEL_FOLDER
 
-cp $config_data $ROOTDIR/$expdir/
-cp $config_model $MODEL_FOLDER/
+cp $config_data $ROOTDIR/$expdir/ || true
+# to skip cp error (e.g. when $config_model already exists and cp the same file)
+cp $config_model $MODEL_FOLDER/ || true 
 
 # change the seed name in the particular model configuration copied
 sed -i "s/seed:-42/seed:-${seed}/g" $MODEL_FOLDER/$(basename $config_model)

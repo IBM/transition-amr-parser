@@ -4,7 +4,7 @@ set -o errexit
 set -o pipefail
 # . set_environment.sh
 
-# ##### data config
+##### data config
 if [ -z "$1" ]; then
     config_model=run_tp/config_model_action-pointer.sh
 else

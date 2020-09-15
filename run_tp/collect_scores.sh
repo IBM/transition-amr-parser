@@ -11,8 +11,11 @@ checkpoints_folder=$1
     exit 1
 set -o nounset
 
-
 score_name=wiki.smatch
+if [[ $checkpoints_folder == *"amr1"* ]]; then
+    score_name=smatch
+fi
+
 # data_sets=("dev")
 # data_sets=("test")
 data_sets=("dev" "test")
@@ -27,7 +30,7 @@ data_sets=("dev" "test")
 
 #     if [[ $data == "dev" ]]; then
 #         data=valid
-#     fi  
+#     fi
 
 # done
 
@@ -40,7 +43,7 @@ done
 # the following will join the string list to a single string;
 # this is in constrast with: ${data_sets[*]}, or ${data_sets[@]}, or "${data_sets[@]}"
 for data in "${data_sets[*]}"; do
-    
+
     python run_tp/collect_scores.py \
            $checkpoints_folder \
            --score_name $score_name \
