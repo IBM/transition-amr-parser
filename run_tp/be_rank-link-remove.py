@@ -28,7 +28,7 @@ def parse_args():
     return args
 
 
-def rm_checkpoints(checkpoint_folder, link_best):
+def rm_checkpoints(checkpoint_folder, link_best, scored_epochs=None):
     being_linked = []
     # get the checkpoints that are linked as the best selected models
     for fname in glob.glob(f'{checkpoint_folder}/checkpoint_*'):
@@ -58,12 +58,16 @@ def rm_checkpoints(checkpoint_folder, link_best):
     max_epoch = max(epochs)
 
     # remove checkpoints that are (unlinked && not the last one)
+    # NOTE do not remove the checkpoints that have not beed decoded and scored
+    #      as this would cause some issue during the separate evaluation process during training
     print('Removing unlinked and not-the-last checkpoints --- ')
     for fname in glob.glob(f'{checkpoint_folder}/checkpoint[0-9]*'):
         fname_base = os.path.basename(fname)
         epoch_num, = checkpoint_re.match(fname_base).groups()
         epoch_num = int(epoch_num)
         if epoch_num == max_epoch:
+            continue
+        if scored_epochs is not None and epoch_num not in scored_epochs:
             continue
         if fname_base not in being_linked:
             # print(fname_base)
@@ -85,4 +89,6 @@ if __name__ == '__main__':
 
     # remove checkpoints
     if args.remove:
-        rm_checkpoints(args.checkpoints, args.link_best)
+        # get the checkpoint epoch numbers that have been decoded and scored
+        scored_epochs = [ep for ep, sc in ranked_scores]
+        rm_checkpoints(args.checkpoints, args.link_best, scored_epochs)
