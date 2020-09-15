@@ -21,6 +21,9 @@ smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
 las_results_re = re.compile(r'UAS: ([0-9\.]+) % LAS: ([0-9\.]+) %')
 
 
+config_var_regex = re.compile(r'^([^=]+)=([^ ]+).*$')
+
+
 def argument_parsing():
 
     # Argument hanlding
@@ -182,6 +185,18 @@ def rank_scores(scores, score_name):
     return best_score, second_best_score, third_best_score, top3_prev
 
 
+def get_max_epoch_from_config(model_folder):
+    max_epoch = None
+    with open(f'{model_folder}/config.sh') as fid:
+        for line in fid.readlines():
+            if config_var_regex.match(line.strip()):
+                name, value = config_var_regex.match(line.strip()).groups()
+                if name == 'MAX_EPOCH':
+                    max_epoch = int(value)
+                    break
+    return max_epoch
+
+
 def collect_checkpoint_results(epoch_folders, score_name):
 
     # loop over those folders
@@ -236,11 +251,7 @@ def collect_checkpoint_results(epoch_folders, score_name):
         ] 
 
         # find out the maximum number of epochs
-        if checkpoints:
-            max_epochs = max(stdout_numbers) if stdout_numbers else -1
-        else:
-            max_epochs = max_score_epoch
-
+        max_epochs = get_max_epoch_from_config(model_folder)
         missing_epochs = list(set(stdout_numbers) - set(scores.keys()))
 
         items.append({
