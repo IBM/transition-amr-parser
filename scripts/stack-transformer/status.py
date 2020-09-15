@@ -117,6 +117,7 @@ def main():
     # ARGUMENT HANDLING
     args = argument_parsing()
 
+    # Get status of each model
     stata = []
     for model_name in os.listdir(args.models):
         stata.append(get_status(args.models, model_name))
