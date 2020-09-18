@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
 from transition_amr_parser.io import writer, read_propbank, read_amr
-from transition_amr_parser.o7_state_machine import (
+from transition_amr_parser.o7_entity_state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer,
     entity_rule_stats,
@@ -360,6 +360,11 @@ class AMR_Oracle:
         # DEBUG
         # self.copy_rules = False
 
+        # node id to gold AMR node id mapping (used for multiple PRED from a single token)
+        self.node2goldnode = {}
+        self.node2goldnode[-1] = -1    # for root node
+        self.goldnode = None    # gold node id
+
     def read_actions(self, actions_file):
         transitions = []
         with open(actions_file, 'r', encoding='utf8') as f:
@@ -462,7 +467,13 @@ class AMR_Oracle:
                     actions = ['MERGE']
 
                 elif self.tryENTITY(tr, tr.amr, gold_amr):
-                    actions = [f'ENTITY({self.entity_type})']
+                    actions = self.get_named_entities(tr, tr.amr, gold_amr)
+
+                    if len(actions) > 3:
+                        import pdb; pdb.set_trace()
+
+                    if not actions:
+                        actions = [f'ENTITY({self.entity_type})']
 
                 # note: need to put tryPRED after tryENTITY, since ENTITY does not work on single alignment
                 # note: and PRED is broader
@@ -527,7 +538,7 @@ class AMR_Oracle:
                     actions[i] = action
 
                 # APPLY ACTION
-                tr.apply_actions(actions)
+                tr.apply_actions(actions, node2goldnode=self.node2goldnode, goldnode=self.goldnode)
 
             # Close machine
             tr.CLOSE(
@@ -681,6 +692,87 @@ class AMR_Oracle:
         else:
             return False
 
+    def get_named_entities(self, transitions, amr, gold_amr):
+        """
+        Get the named entity sequences from the current surface token (segments).
+        E.g.
+        a) for one entity
+        ENTITY('name') PRED('city') LA(pos,':name')
+        b) for two entities with same surface tokens
+        ENTITY('name') PRED('city') LA(pos,':name') PRED('city') LA(pos,':name')
+        c) for two entities with two surface tokens
+        ENTITY('name') PRED('city') LA(pos,':name') ENTITY('name') PRED('city') LA(pos,':name')
+
+        TODO currently doesn't consider DEPENDENT inside; see if it is needed by checking the data
+        """
+        tok_id = transitions.tok_cursor
+        node_id = transitions.current_node_id
+
+        # TODO currently ignore these, as we do the subsequence all at once here
+        if node_id in transitions.entities:
+            # do not do twice
+            return False
+
+        if node_id in transitions.is_confirmed:
+            return False
+
+        tok_alignment = gold_amr.alignmentsToken2Node(tok_id + 1)
+
+        # check if alignment empty (or singleton)
+        if len(tok_alignment) <= 1:
+            return False
+
+        # check if we should MERGE instead
+        # no need, since tryMERGE happens first
+
+        # check if there is any edge with the aligned nodes
+        edges = gold_amr.findSubGraph(tok_alignment).edges
+        if not edges:
+            return False
+
+        # check if we should use DEPENDENT instead
+        # no need, since DEPENDENT happens when the node is added
+
+        # separate named entity case: (entity_category, ':name', 'name')
+        entity_edges = []
+        name_node_ids = []
+        for s, r, t in edges:
+            if r == ':name' and gold_amr.nodes[t] == 'name':
+                entity_edges.append((s, r, t))
+                name_node_ids.append(t)
+
+        # debug: check if there could be more than one entity from a single token
+        # if len(entity_edge) > 1:
+        #     edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
+        #     print('-' * 80)
+        #     print(transitions.get_current_token())
+        #     print(edges_named)
+        #     print('-' * 80)
+        #     import pdb; pdb.set_trace()
+
+        # debug: check if there could be more than one node with name "name" aligned to a single token
+        # if len(set(name_node_ids)) > 1:
+        #     edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
+        #     print('-' * 80)
+        #     print(transitions.get_current_token())
+        #     print(edges_named)
+        #     print('-' * 80)
+        #     import pdb
+        #     pdb.set_trace()
+
+        named_entity_actions = []
+        if name_node_ids:
+            added_name_node_ids = set()
+            pos = len(transitions.actions)
+            for nid, (s, r, t) in zip(name_node_ids, entity_edges):
+                if nid not in added_name_node_ids:
+                    pos += len(named_entity_actions)
+                    named_entity_actions.append('ENTITY(name)')
+                named_entity_actions.append(f'PRED({gold_amr.nodes[s]})')
+                named_entity_actions.append(f'LA({pos},:name)')
+
+        return named_entity_actions
+
     def tryENTITY(self, transitions, amr, gold_amr):
         """
         Check if the next action is ENTITY.
@@ -722,8 +814,6 @@ class AMR_Oracle:
         entity_edge = []
         name_node_ids = []
         for s, r, t in edges:
-            if gold_amr.nodes[s] == 'name':
-                name_node_id = s
             if r == ':name' and gold_amr.nodes[t] == 'name':
                 entity_edge.append((s, r, t))
                 name_node_ids.append(t)
@@ -738,13 +828,13 @@ class AMR_Oracle:
         #     import pdb; pdb.set_trace()
 
         # debug: check if there could be more than one node with name "name" aligned to a single token
-        if len(set(name_node_ids)) > 1:
-            edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
-            print('-' * 80)
-            print(transitions.get_current_token())
-            print(edges_named)
-            print('-' * 80)
-            import pdb; pdb.set_trace()
+        # if len(set(name_node_ids)) > 1:
+        #     edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
+        #     print('-' * 80)
+        #     print(transitions.get_current_token())
+        #     print(edges_named)
+        #     print('-' * 80)
+        #     import pdb; pdb.set_trace()
 
         # what is the rule here? -->
         # 1) find all the aligned nodes that do not have any outcoming edges in the aligned subgraph
@@ -756,12 +846,13 @@ class AMR_Oracle:
         # this is equivalent to
         new_nodes = [gold_amr.nodes[n] for n in tok_alignment if any(s == n for s, r, t in edges)]
 
+        self.goldnode = [n for n in tok_alignment if any(s == n for s, r, t in edges)]
+
         self.entity_type = ','.join(new_nodes)
         self.possibleEntityTypes[self.entity_type] += 1
 
         # debug: look at the entity case
-        edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
-
+        # edges_named = [(gold_amr.nodes[e[0]], e[1], gold_amr.nodes[e[2]]) for e in edges]
         # print('-' * 80)
         # print(transitions.get_current_token())
         # print(edges_named)
@@ -794,6 +885,8 @@ class AMR_Oracle:
             gold_id = gold_amr.findSubGraph(tok_alignment).root
         # TODO a better to pass back new node label instead of class attribute
         self.new_node = gold_amr.nodes[gold_id]
+
+        self.goldnode = gold_id
         return True
 
     def tryDEPENDENT(self, transitions, amr, gold_amr):
@@ -837,6 +930,7 @@ class AMR_Oracle:
                     continue
                 self.new_edge = r
                 self.new_node = gold_amr.nodes[t]
+                self.goldnode = t
                 return True
 
         return False
@@ -860,7 +954,9 @@ class AMR_Oracle:
         for act_id, (act_name, act_node_id) in enumerate(zip(transitions.actions, transitions.actions_to_nodes)):
             if act_node_id is None:
                 continue
-            arc = self.get_arc(gold_amr, transitions.nodeid_to_tokid[act_node_id], tok_id)
+            # arc = self.get_arc(gold_amr, transitions.nodeid_to_tokid[act_node_id], tok_id)
+            # for multiple nodes out of one token --> need to use node id to check edges
+            arc = self.get_arc(gold_amr, act_node_id, node_id)
             if arc is None:
                 continue
             arc_name, arc_label = arc
@@ -876,7 +972,7 @@ class AMR_Oracle:
         # TODO the return value to be better managed
         return arcs
 
-    def get_arc(self, gold_amr, tok_id1, tok_id2):
+    def get_arc(self, gold_amr, node_id1, node_id2):
         """
         Get the arcs between token with `tok_id1` and token with `tok_id2`.
         RA if there is an edge `tok_id1` --> `tok_id2`
@@ -886,8 +982,19 @@ class AMR_Oracle:
         #TODO could there be more than one edges?
         currently we only return the first one.
         """
-        nodes1 = gold_amr.alignmentsToken2Node(tok_id1 + 1)
-        nodes2 = gold_amr.alignmentsToken2Node(tok_id2 + 1)
+        nodes1 = self.node2goldnode[node_id1]
+        nodes2 = self.node2goldnode[node_id2]
+
+        if not isinstance(nodes1, list):
+            nodes1 = [nodes1]
+
+        if not isinstance(nodes2, list):
+            nodes2 = [nodes2]
+
+        # import pdb; pdb.set_trace()
+
+        # nodes1 = gold_amr.alignmentsToken2Node(tok_id1 + 1)
+        # nodes2 = gold_amr.alignmentsToken2Node(tok_id2 + 1)
 
         if not nodes1 or not nodes2:
             return None
@@ -912,6 +1019,43 @@ class AMR_Oracle:
                 return ('LA', r)
 
         return None
+
+    # def get_arc(self, gold_amr, tok_id1, tok_id2):
+    #     """
+    #     Get the arcs between token with `tok_id1` and token with `tok_id2`.
+    #     RA if there is an edge `tok_id1` --> `tok_id2`
+    #     LA if there is an edge `tok_id2` <-- `tok_id2`
+    #     Thus the order of inputs matter. (could also change to follow strict orders between these 2 ids)
+
+    #     #TODO could there be more than one edges?
+    #     currently we only return the first one.
+    #     """
+    #     nodes1 = gold_amr.alignmentsToken2Node(tok_id1 + 1)
+    #     nodes2 = gold_amr.alignmentsToken2Node(tok_id2 + 1)
+
+    #     if not nodes1 or not nodes2:
+    #         return None
+
+    #     # convert to single node aligned to each of these two tokens
+    #     if len(nodes1) > 1:
+    #         # get root of subgraph aligned to token 1
+    #         node1 = gold_amr.findSubGraph(nodes1).root
+    #     else:
+    #         node1 = nodes1[0]
+    #     if len(nodes2) > 1:
+    #         # get root of subgraph aligned to token 2
+    #         node2 = gold_amr.findSubGraph(nodes2).root
+    #     else:
+    #         node2 = nodes2[0]
+
+    #     # find edges
+    #     for s, r, t in gold_amr.edges:
+    #         if node1 == s and node2 == t:
+    #             return ('RA', r)
+    #         if node1 == t and node2 == s:
+    #             return ('LA', r)
+
+    #     return None
 
 
 def process_multitask_words(tokenized_corpus, multitask_max_words,
