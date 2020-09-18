@@ -20,6 +20,9 @@ amr_corpus*
 preprocess/jamr
 preprocess/kevin
 
+# run scripts logs
+logs*
+
 # external tools
 smatch*
 amr-evaluation/
