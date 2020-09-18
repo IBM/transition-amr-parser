@@ -84,23 +84,23 @@ fi
 
 ##### submit the evaluation job to ccc
 
-# if [[ -f $MODEL_FOLDER/model-selection_stage3-done ]]; then
+if [[ -f $MODEL_FOLDER/model-selection_stage3-done ]]; then
 
-#     echo "Model selection and final testing all done --- do nothing."
+    echo "Model selection and final testing all done --- do nothing."
 
-# else
+else
 
-# echo -e "\nRun evaluation ---"
-# echo [$MODEL_FOLDER]
+echo -e "\nRun evaluation ---"
+echo [$MODEL_FOLDER]
 
-# # disallow the print and send the command to background
-# # /bin/bash $dir/jbsub_run_eval.sh $config_model $seed &> /dev/null &
-# /bin/bash $dir/jbsub_run_eval.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
-# echo "Log for launching the evaluation and model selection written at $MODEL_FOLDER/logeval.launch"
-# # record pid for debug and kill checks
-# echo "launch eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/jid_model-folder.history
+# disallow the print and send the command to background
+# /bin/bash $dir/jbsub_run_eval.sh $config_model $seed &> /dev/null &
+/bin/bash $dir/jbsub_run_eval.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
+echo "Log for launching the evaluation and model selection written at $MODEL_FOLDER/logeval.launch"
+# record pid for debug and kill checks
+echo "launch eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/jid_model-folder.history
 
-# fi
+fi
 
-# echo
+echo
 
