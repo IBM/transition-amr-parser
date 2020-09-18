@@ -14,6 +14,7 @@ amr_corpus*
 
 # run scripts logs
 logs*
+*.log
 
 # external tools
 smatch/
