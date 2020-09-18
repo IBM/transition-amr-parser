@@ -19,6 +19,9 @@ exp_dirs=($rootdir/exp_o5_no-mw*)
 
 epoch_last=120
 
+exp_dirs=($rootdir/exp_depfix_o5*)
+epoch_last=150
+
 for exp_dir in "${exp_dirs[@]}"; do
 
     echo -e "\n[Removing unused checkpoints under experiments:]"

@@ -22,6 +22,7 @@ preprocess/kevin
 
 # run scripts logs
 logs*
+*.log
 
 # external tools
 smatch*
