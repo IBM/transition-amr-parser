@@ -95,7 +95,7 @@ fi
 
 # # disallow the print and send the command to background
 # # /bin/bash $dir/jbsub_run_eval.sh $config_model $seed &> /dev/null &
-# /bin/bash $dir/jbsub_run_eval_updated.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
+# /bin/bash $dir/jbsub_run_eval.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
 # echo "Log for launching the evaluation and model selection written at $MODEL_FOLDER/logeval.launch"
 # # record pid for debug and kill checks
 # echo "launch eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/jid_model-folder.history

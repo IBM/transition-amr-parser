@@ -12,6 +12,9 @@ checkpoints*
 amr_corpus*
 !EXPR
 
+# run scripts logs
+logs*
+
 # external tools
 smatch/
 amr-evaluation/
