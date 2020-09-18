@@ -16,11 +16,11 @@ rootdir=/dccstor/jzhou1/work/EXP
 # seed=0
 seed=""    # check all seeds
 
-exp_dirs=($rootdir/exp_amr1*)
-epoch_last=120
+# exp_dirs=($rootdir/exp_amr1*)
+# epoch_last=120
 
-# exp_dirs=($rootdir/exp_depfix_o5*)
-# epoch_last=150
+exp_dirs=($rootdir/exp_depfix_o5*)
+epoch_last=150
 
 for exp_dir in "${exp_dirs[@]}"; do
 
