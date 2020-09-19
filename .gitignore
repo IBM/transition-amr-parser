@@ -2,7 +2,7 @@
 # old version
 scripts/local_variables.sh
 # new version
-# set_environment.sh
+set_environment.sh
 
 # data
 DATA*
