@@ -1275,6 +1275,72 @@ test - [91mbest score[0m: 76.53 (checkpoint_wiki-smatch_top3-avg.pt, beam size
 
 
 [Results for all model checkpoints under experiments:]
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer123-head1-focusp0c1n0
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer123-head1-focusp0c1n0/models_ep150_seed0
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.53          80.00          80.00
+wiki-smatch_best1             80.00          80.43          80.50
+wiki-smatch_top3-avg          80.22          80.65          80.70
+wiki-smatch_top5-avg          80.12          80.59          80.66
+
+valid - [91mbest score[0m: 80.70 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.15          79.66          79.69
+wiki-smatch_best1             79.54          80.02          80.07
+wiki-smatch_top3-avg          79.55          80.01          80.05
+wiki-smatch_top5-avg          79.57          80.08          80.09
+
+test - [91mbest score[0m: 80.09 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer123-head1-focusp0c1n0/models_ep150_seed135
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.73          80.32          80.33
+wiki-smatch_best1             80.18          80.42          80.50
+wiki-smatch_top3-avg          80.00          80.39          80.45
+wiki-smatch_top5-avg          80.22          80.61          80.59
+
+valid - [91mbest score[0m: 80.61 (checkpoint_wiki-smatch_top5-avg.pt, beam size 5)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.44          79.95          79.92
+wiki-smatch_best1             79.53          80.08          80.15
+wiki-smatch_top3-avg          79.65          80.10          80.09
+wiki-smatch_top5-avg          79.67          80.04          80.04
+
+test - [91mbest score[0m: 80.15 (checkpoint_wiki-smatch_best1.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer123-head1-focusp0c1n0/models_ep150_seed42
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.92          80.30          80.28
+wiki-smatch_best1             80.08          80.37          80.39
+wiki-smatch_top3-avg          80.32          80.69          80.77
+wiki-smatch_top5-avg          80.21          80.54          80.59
+
+valid - [91mbest score[0m: 80.77 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.56          79.89          79.98
+wiki-smatch_best1             79.37          80.01          80.03
+wiki-smatch_top3-avg          79.79          80.28          80.24
+wiki-smatch_top5-avg          79.87          80.28          80.28
+
+test - [91mbest score[0m: 80.28 (checkpoint_wiki-smatch_top3-avg.pt, beam size 5)
+
+
+[Results for all model checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer123-head1-focusp0c1n0_tis-embtop-comadd-bp1
 /dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer123-head1-focusp0c1n0_tis-embtop-comadd-bp1/models_ep150_seed0
 -------------------------------------------------- valid --------------------------------------------------
@@ -1338,6 +1404,72 @@ wiki-smatch_top3-avg          79.86          80.15          80.10
 wiki-smatch_top5-avg          79.89          80.19          80.23
 
 test - [91mbest score[0m: 80.23 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+
+[Results for all model checkpoints under experiments:]
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer1-head1-focusp0c1n0
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer1-head1-focusp0c1n0/models_ep150_seed0
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.55          80.00          80.01
+wiki-smatch_best1             80.00          80.43          80.50
+wiki-smatch_top3-avg          80.22          80.66          80.69
+wiki-smatch_top5-avg          80.13          80.59          80.64
+
+valid - [91mbest score[0m: 80.69 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.12          79.66          79.68
+wiki-smatch_best1             79.55          80.04          80.08
+wiki-smatch_top3-avg          79.53          80.03          80.08
+wiki-smatch_top5-avg          79.54          80.06          80.08
+
+test - [91mbest score[0m: 80.08 (checkpoint_wiki-smatch_best1.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer1-head1-focusp0c1n0/models_ep150_seed135
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.73          80.33          80.34
+wiki-smatch_best1             80.15          80.44          80.49
+wiki-smatch_top3-avg          80.01          80.39          80.39
+wiki-smatch_top5-avg          80.17          80.59          80.62
+
+valid - [91mbest score[0m: 80.62 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.44          79.95          79.94
+wiki-smatch_best1             79.52          80.06          80.14
+wiki-smatch_top3-avg          79.54          79.98          80.03
+wiki-smatch_top5-avg          79.70          80.18          80.18
+
+test - [91mbest score[0m: 80.18 (checkpoint_wiki-smatch_top5-avg.pt, beam size 5)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer1-head1-focusp0c1n0/models_ep150_seed42
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.93          80.32          80.28
+wiki-smatch_best1             80.10          80.38          80.39
+wiki-smatch_top3-avg          80.25          80.67          80.71
+wiki-smatch_top5-avg          80.31          80.71          80.77
+
+valid - [91mbest score[0m: 80.77 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.56          79.89          79.98
+wiki-smatch_best1             79.35          79.99          80.03
+wiki-smatch_top3-avg          79.78          80.33          80.26
+wiki-smatch_top5-avg          79.85          80.34          80.35
+
+test - [91mbest score[0m: 80.35 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
 
 
 [Results for all model checkpoints under experiments:]
@@ -1407,6 +1539,72 @@ test - [91mbest score[0m: 80.26 (checkpoint_wiki-smatch_top5-avg.pt, beam size
 
 
 [Results for all model checkpoints under experiments:]
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer456-head1-focusp0c1n0
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer456-head1-focusp0c1n0/models_ep150_seed0
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.53          80.01          80.00
+wiki-smatch_best1             80.01          80.43          80.49
+wiki-smatch_top3-avg          80.22          80.67          80.69
+wiki-smatch_top5-avg          80.16          80.59          80.66
+
+valid - [91mbest score[0m: 80.69 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.13          79.67          79.69
+wiki-smatch_best1             79.51          80.04          80.08
+wiki-smatch_top3-avg          79.54          80.04          80.09
+wiki-smatch_top5-avg          79.48          79.99          80.03
+
+test - [91mbest score[0m: 80.09 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer456-head1-focusp0c1n0/models_ep150_seed135
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.74          80.33          80.35
+wiki-smatch_best1             80.16          80.44          80.48
+wiki-smatch_top3-avg          79.99          80.37          80.38
+wiki-smatch_top5-avg          80.16          80.60          80.60
+
+valid - [91mbest score[0m: 80.60 (checkpoint_wiki-smatch_top5-avg.pt, beam size 5)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.45          79.95          79.94
+wiki-smatch_best1             79.54          80.06          80.16
+wiki-smatch_top3-avg          79.53          79.96          80.05
+wiki-smatch_top5-avg          79.70          80.18          80.16
+
+test - [91mbest score[0m: 80.18 (checkpoint_wiki-smatch_top5-avg.pt, beam size 5)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer456-head1-focusp0c1n0/models_ep150_seed42
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.92          80.32          80.27
+wiki-smatch_best1             80.09          80.37          80.41
+wiki-smatch_top3-avg          80.15          80.59          80.65
+wiki-smatch_top5-avg          80.31          80.73          80.76
+
+valid - [91mbest score[0m: 80.76 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.53          79.87          79.96
+wiki-smatch_best1             79.36          80.02          80.03
+wiki-smatch_top3-avg          79.61          80.24          80.27
+wiki-smatch_top5-avg          79.85          80.32          80.36
+
+test - [91mbest score[0m: 80.36 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+
+[Results for all model checkpoints under experiments:]
 /dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer456-head1-focusp0c1n0_tis-embtop-comadd-bp1
 /dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer456-head1-focusp0c1n0_tis-embtop-comadd-bp1/models_ep150_seed0
 -------------------------------------------------- valid --------------------------------------------------
@@ -1470,6 +1668,72 @@ wiki-smatch_top3-avg          79.73          80.29          80.32
 wiki-smatch_top5-avg          79.76          80.26          80.27
 
 test - [91mbest score[0m: 80.32 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+
+[Results for all model checkpoints under experiments:]
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer6-head1-focusp0c1n0
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer6-head1-focusp0c1n0/models_ep150_seed0
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.54          80.00          80.01
+wiki-smatch_best1             79.99          80.43          80.50
+wiki-smatch_top3-avg          80.22          80.64          80.70
+wiki-smatch_top5-avg          80.13          80.58          80.66
+
+valid - [91mbest score[0m: 80.70 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.12          79.67          79.68
+wiki-smatch_best1             79.53          80.04          80.07
+wiki-smatch_top3-avg          79.53          80.02          80.07
+wiki-smatch_top5-avg          79.55          80.07          80.07
+
+test - [91mbest score[0m: 80.07 (checkpoint_wiki-smatch_best1.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer6-head1-focusp0c1n0/models_ep150_seed135
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.72          80.31          80.34
+wiki-smatch_best1             80.17          80.44          80.50
+wiki-smatch_top3-avg          80.22          80.57          80.59
+wiki-smatch_top5-avg          80.20          80.63          80.58
+
+valid - [91mbest score[0m: 80.63 (checkpoint_wiki-smatch_top5-avg.pt, beam size 5)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.42          79.96          79.92
+wiki-smatch_best1             79.52          80.07          80.15
+wiki-smatch_top3-avg          79.64          80.15          80.14
+wiki-smatch_top5-avg          79.68          80.04          80.04
+
+test - [91mbest score[0m: 80.15 (checkpoint_wiki-smatch_best1.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layer6-head1-focusp0c1n0/models_ep150_seed42
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.90          80.32          80.29
+wiki-smatch_best1             80.08          80.38          80.40
+wiki-smatch_top3-avg          80.32          80.70          80.76
+wiki-smatch_top5-avg          80.31          80.72          80.77
+
+valid - [91mbest score[0m: 80.77 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.56          79.89          79.99
+wiki-smatch_best1             79.35          80.01          80.05
+wiki-smatch_top3-avg          79.79          80.25          80.24
+wiki-smatch_top5-avg          79.83          80.35          80.35
+
+test - [91mbest score[0m: 80.35 (checkpoint_wiki-smatch_top5-avg.pt, beam size 5)
 
 
 [Results for all model checkpoints under experiments:]
@@ -1821,6 +2085,72 @@ wiki-smatch_top3-avg          79.99          80.46          80.47
 wiki-smatch_top5-avg          80.05          80.52          80.59
 
 test - [91mbest score[0m: 80.59 (checkpoint_wiki-smatch_top5-avg.pt, beam size 10)
+
+
+[Results for all model checkpoints under experiments:]
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layerall-head2-focusp0c1n0
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layerall-head2-focusp0c1n0/models_ep150_seed0
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.87          80.36          80.36
+wiki-smatch_best1             80.05          80.45          80.55
+wiki-smatch_top3-avg          80.09          80.67          80.66
+wiki-smatch_top5-avg          80.15          80.57          80.60
+
+valid - [91mbest score[0m: 80.67 (checkpoint_wiki-smatch_top3-avg.pt, beam size 5)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.78          80.07          80.16
+wiki-smatch_best1             79.52          80.14          80.25
+wiki-smatch_top3-avg          79.74          80.10          80.22
+wiki-smatch_top5-avg          79.77          80.23          80.24
+
+test - [91mbest score[0m: 80.25 (checkpoint_wiki-smatch_best1.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layerall-head2-focusp0c1n0/models_ep150_seed135
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.69          80.10          80.19
+wiki-smatch_best1             80.10          80.50          80.50
+wiki-smatch_top3-avg          80.07          80.53          80.59
+wiki-smatch_top5-avg          80.11          80.46          80.52
+
+valid - [91mbest score[0m: 80.59 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.39          79.69          79.76
+wiki-smatch_best1             79.54          79.98          80.15
+wiki-smatch_top3-avg          79.57          80.15          80.22
+wiki-smatch_top5-avg          79.60          80.09          80.13
+
+test - [91mbest score[0m: 80.22 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
+
+/dccstor/jzhou1/work/EXP/exp_depfix_o5_no-mw_roberta-large-top24_act-pos_vmask1_shiftpos1_ptr-layer6-head1_cam-layerall-head2-focusp0c1n0/models_ep150_seed42
+-------------------------------------------------- valid --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.81          80.22          80.29
+wiki-smatch_best1             80.18          80.58          80.63
+wiki-smatch_top3-avg          80.32          80.59          80.66
+wiki-smatch_top5-avg          80.38          80.70          80.67
+
+valid - [91mbest score[0m: 80.70 (checkpoint_wiki-smatch_top5-avg.pt, beam size 5)
+
+-------------------------------------------------- test --------------------------------------------------
+
+                              beam1          beam5          beam10
+last                          79.39          79.95          80.08
+wiki-smatch_best1             79.54          79.92          80.05
+wiki-smatch_top3-avg          79.70          80.25          80.29
+wiki-smatch_top5-avg          79.60          80.21          80.27
+
+test - [91mbest score[0m: 80.29 (checkpoint_wiki-smatch_top3-avg.pt, beam size 10)
 
 
 [Results for all model checkpoints under experiments:]
