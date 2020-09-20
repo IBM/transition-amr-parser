@@ -50,6 +50,7 @@ models/
 !fairseq_ext/models
 # assumed where data stored
 data/
+!fairseq_ext/data/
 
 # python package
 dist/
