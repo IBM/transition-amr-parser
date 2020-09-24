@@ -10,7 +10,7 @@ DATA*
 EXP*
 checkpoints*
 amr_corpus*
-!EXPR
+#!EXPR
 
 # run scripts logs
 logs*
@@ -21,6 +21,7 @@ smatch/
 amr-evaluation/
 pytorch_scatter*
 fairseq/
+apex/
 
 # virtual environments
 .python-version

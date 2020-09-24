@@ -31,9 +31,9 @@ jbsub_tag=log
 train_queue=x86_12h
 gpu_type=v100
 
-num_seeds=3
-seeds=(43 44 0)
-gpus=(4 4 4)
+num_seeds=4
+seeds=(0 135 43 1234)
+gpus=(0 1 2 3)
 
 echo "number of seeds: $num_seeds"
 echo "seeds list: ${seeds[@]}"
@@ -48,7 +48,7 @@ do
     seed=${seeds[i]}
 
     # source config: for $MODEL_FOLDER to exist to save logs
-    . $dir/$config_model
+    . $config_model
 
     # check if the config script correctly set up seed
     [[ $seed != ${seeds[i]} ]] && echo "seed is not correctly set up in config file: $config_model; try setting seed default instead of fixing seed" && exit 1
@@ -72,11 +72,11 @@ done
 echo
 
 # Tail logs to command line
-echo "Waiting for $MODEL_FOLDER/run.log"
+echo "Waiting for $MODEL_FOLDER/log.train"
 while true; do
-    [ -f "$MODEL_FOLDER/run.log" ] && break
+    [ -f "$MODEL_FOLDER/log.train" ] && break
     sleep 1
 done
 
-tail -f $MODEL_FOLDER/run.log
+tail -f $MODEL_FOLDER/log.train
 

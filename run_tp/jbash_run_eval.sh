@@ -8,8 +8,11 @@ set -o pipefail
 # . set_environment.sh
 
 ##### root folder to store everything
-ROOTDIR=/dccstor/jzhou1/work/EXP
+. set_exps.sh    # set $ROOTDIR
 
+if [ -z ${ROOTDIR+x} ]; then
+    ROOTDIR=/dccstor/jzhou1/work/EXP
+fi
 
 ##############################################################
 
@@ -108,10 +111,10 @@ done
 # "|& tee file" will dump output to file as well as to terminal
 # "&> file" only dumps output to file
 # interactive: debug
-/bin/bash $dir/run_model_eval.sh $config_model $seed #|& tee $MODEL_FOLDER/log.eval
+# /bin/bash $dir/run_model_eval.sh $config_model $seed #|& tee $MODEL_FOLDER/log.eval
 
 # formal run: send to background
-# /bin/bash $dir/run_model_eval.sh $config_model $seed &> $MODEL_FOLDER/log.eval &
-# echo "eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
+/bin/bash $dir/run_model_eval.sh $config_model $seed &> $MODEL_FOLDER/log.eval &
+echo "eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
 # Get pid by "$!"
