@@ -37,7 +37,8 @@ dir=$(dirname $0)
 # $eval_init_epoch
 
 eval_init_epoch=${eval_init_epoch:-81}
-
+# for debug
+# eval_init_epoch=8
 
 ###############################################################
 

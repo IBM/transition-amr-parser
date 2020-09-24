@@ -706,7 +706,8 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             # we need to modify the pre-softmax as well, since after we get nan, multiplying by 0 is still nan
             ptr_self_attn_mask[(ptr_self_attn_mask.sum(dim=2, keepdim=True) == 0).
                                repeat(1, 1, tgt_actnode_masks.size(1))] = 1
-            ptr_self_attn_mask = (ptr_self_attn_mask, ptr_self_attn_mask_post_softmax)
+            # NOTE must use torch.bool for mask for PyTorch >= 1.2, otherwise there will be problems around ~mask
+            ptr_self_attn_mask = (ptr_self_attn_mask.to(torch.bool), ptr_self_attn_mask_post_softmax)
         else:
             ptr_self_attn_mask = None
         # ========================================================================

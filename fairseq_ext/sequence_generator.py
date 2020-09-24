@@ -452,7 +452,8 @@ class SequenceGenerator(object):
             # ========== use the AMR state machine (if turned on) to restrict the next action space ==========
 
             # restrict the action space for next candidate tokens
-            allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.uint8)
+            # allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.uint8)  # only for pytorch <= 1.1
+            allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.bool)
             tok_cursors = tokens.new_zeros(valid_bbsz_num, dtype=torch.int64)
             if amr_state_machines is not None:
                 for i, j in enumerate(valid_bbsz_idx):
@@ -561,7 +562,8 @@ class SequenceGenerator(object):
             # 1) get a mask for valid previous actions that can generate nodes
             # mask for (previous + current) actions (generated tgt tokens) that are corresponding to AMR nodes
             # the mask includes the current action
-            tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1).byte()
+            # tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1).byte()  # only for pytorch <= 1.1
+            tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.bool)
 
             if step == 0:
                 # do nothing to the mask, since we don't have any action history yet, no pointer is generated
