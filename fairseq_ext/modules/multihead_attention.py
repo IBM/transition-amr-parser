@@ -65,10 +65,13 @@ class MultiheadAttention(nn.Module):
         self.onnx_trace = False
 
         self.enable_torch_version = False
-        if hasattr(F, "multi_head_attention_forward"):
-            self.enable_torch_version = True
-        else:
-            self.enable_torch_version = False
+        # NOTE from pytorch 1.2.0 it will automatically use the pytorch version of attention
+        #      this will be different from pytorch 1.1.0
+        # ---> So we have to shut this off!
+        # if hasattr(F, "multi_head_attention_forward"):
+        #     self.enable_torch_version = True
+        # else:
+        #     self.enable_torch_version = False
 
     def prepare_for_onnx_export_(self):
         self.onnx_trace = True

@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
-VERSION = '0.2.0'
+VERSION = '0.4.0'
 
 package_data = {
     'transition_amr_parser': [
@@ -13,11 +13,11 @@ package_data = {
 
 # this is what usually goes on requirements.txt
 install_requires = [
-    'torch==1.1.0',
-    'h5py==2.10.0',
+    'torch',
+    'h5py',
     'spacy==2.2.3',
-    'tqdm==4.39.0',
-    'fairseq==0.8.0'
+    'tqdm',
+    'fairseq'
 ]
 
 setup(
