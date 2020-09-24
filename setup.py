@@ -2,7 +2,24 @@ import os
 import subprocess
 from setuptools import setup, find_packages
 
-VERSION = '0.3.3'
+VERSION = '0.4.0'
+
+package_data = {
+    'transition_amr_parser': [
+        'config.json',
+        'entity_rules.json',
+        'train.rules.json'
+     ]
+}
+
+# this is what usually goes on requirements.txt
+install_requires = [
+    'torch',
+    'h5py',
+    'spacy==2.2.3',
+    'tqdm',
+    'fairseq'
+]
 
 # You need to pip install the requirements.txt first
 setup(

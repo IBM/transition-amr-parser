@@ -14,7 +14,7 @@ DATA*
 EXP*
 checkpoints*
 amr_corpus*
-!EXPR
+#!EXPR
 
 #
 preprocess/jamr
