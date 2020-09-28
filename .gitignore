@@ -27,6 +27,7 @@ apex/
 .python-version
 venv*/
 cenv*/
+amr0.4_ody/
 
 # debug
 *.lprof
