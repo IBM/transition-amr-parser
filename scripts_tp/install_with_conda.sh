@@ -1,9 +1,17 @@
 set -o errexit
 set -o pipefail
 
-# set environment
+### set environment
+
+### default shared env
 # conda create -y -n amr0.4
-source activate amr0.4
+# source activate amr0.4
+
+### local env
+cenv_name=amr0.4_ody
+[ ! -d $cenv_name ] && conda create -y -p ./$cenv_name
+echo "source activate ./$cenv_name"
+source activate ./$cenv_name
 
 set -o nounset
 
@@ -11,7 +19,7 @@ set -o nounset
 conda install python=3.7
 conda install pytorch=1.4 -c pytorch
 
-[ ! -d apex] && git clone https://github.com/NVIDIA/apex
+[ ! -d apex ] && git clone https://github.com/NVIDIA/apex
 cd apex
 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 cd ..
@@ -47,4 +55,7 @@ cd smatch
 git checkout v1.0.4
 cd ..
 pip install smatch/
+## if the above doesn't work with due to an EnvironmentError: [Errno 13]
+# python setup.py install
+# cd ..
 
