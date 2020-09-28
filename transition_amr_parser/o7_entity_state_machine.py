@@ -551,6 +551,13 @@ class AMRStateMachine:
 
     def apply_actions(self, actions, **kwargs):
         # no special extra actions such as CLOSE, thus `apply_actions` can be applied multiple times sequentially
+        if 'goldnode' in kwargs:
+            if kwargs['goldnode'] and isinstance(kwargs['goldnode'][0], list):
+                assert len(kwargs['goldnode']) == len(actions)
+                for i, action in enumerate(actions):
+                    self.apply_action(action, node2goldnode=kwargs['node2goldnode'], goldnode=kwargs['goldnode'][i])
+                return
+
         for action in actions:
             self.apply_action(action, **kwargs)
 
