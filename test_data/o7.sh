@@ -9,12 +9,12 @@ set -o pipefail
 test_set=$1
 set -o nounset
 
-# Configuration 
+# Configuration
 MAX_WORDS=0
 # ORACLE_TAG=o7_o3align-prefix
-# ORACLE_TAG=o7-depfix_o3align
+ORACLE_TAG=o7_o3align
 # ORACLE_TAG=o7_o5align-prefix
-ORACLE_TAG=o7-depfix_o5align
+# ORACLE_TAG=o7-depfix_o5align
 if [[ $MAX_WORDS != 0 ]]; then
     ORACLE_TAG=${ORACLE_TAG}+Word${MAX_WORDS}
 fi
@@ -39,6 +39,9 @@ LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed
 # train_amr=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
 # dev_amr=$LDC2017_AMR_CORPUS/dev.txt
 # test_amr=$LDC2017_AMR_CORPUS/test.txt
+train_amr=../amr_corpus/amr2.0/o3/kaln_2016.txt.mrged
+dev_amr=../amr_corpus/amr2.0/o3/dev.txt
+test_amr=../amr_corpus/amr2.0/o3/test.txt
 
 # o5 pre-fix
 # train_amr=/dccstor/multi-parse/transformer-amr/psuedo.txt
@@ -46,9 +49,9 @@ LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed
 # test_amr=$LDC2017_AMR_CORPUS/test.txt
 
 # o5 fix
-train_amr=/dccstor/multi-parse/transformer-amr/jkaln.txt
-dev_amr=$LDC2017_AMR_CORPUS/dev.txt
-test_amr=$LDC2017_AMR_CORPUS/test.txt
+# train_amr=/dccstor/multi-parse/transformer-amr/jkaln.txt
+# dev_amr=$LDC2017_AMR_CORPUS/dev.txt
+# test_amr=$LDC2017_AMR_CORPUS/test.txt
 
 #####
 
@@ -79,7 +82,8 @@ fi
 
 # create oracle actions from AMR and the sentence for the train set. This also
 # accumulates necessary statistics in train.rules.json
-if [ ! -f "$ORACLE_FOLDER/train.rules.json" ]; then
+# if [ ! -f "$ORACLE_FOLDER/train.rules.json" ]; then
+if false; then
     python ../transition_amr_parser/o7_data_oracle.py \
         --in-amr $train_amr \
         --out-sentences $ORACLE_FOLDER/train.en \
@@ -87,7 +91,7 @@ if [ ! -f "$ORACLE_FOLDER/train.rules.json" ]; then
         --out-rule-stats $ORACLE_FOLDER/train.rules.json \
         --multitask-max-words $MAX_WORDS  \
         --out-multitask-words $ORACLE_FOLDER/train.multitask_words \
-        --copy-lemma-action  
+        --copy-lemma-action
 fi
 
 # create oracle actions from AMR and the sentence for the dev set if needed
@@ -95,22 +99,22 @@ fi
 if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json" ]; then
 
     if [[ $MAX_WORDS == 0 ]]; then
-    
+
     python ../transition_amr_parser/o7_data_oracle.py \
         --in-amr $reference_amr \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
         --copy-lemma-action
-    
+
     else
-    
+
     python ../transition_amr_parser/o7_data_oracle.py \
         --in-amr $reference_amr \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
         --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
         --copy-lemma-action
-    
+
     fi
 fi
 

@@ -818,6 +818,10 @@ class AMR_Oracle:
         if node_id not in transitions.is_confirmed:
             return []
 
+        # debug to compare with multiple PRED for ENTITY
+        if transitions.tokens[:2] == ['Some', 'people']:
+            breakpoint()
+
         arcs = []
         for act_id, (act_name, act_node_id) in enumerate(zip(transitions.actions, transitions.actions_to_nodes)):
             if act_node_id is None:

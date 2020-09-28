@@ -467,12 +467,15 @@ class AMR_Oracle:
                     actions = ['MERGE']
 
                 elif self.tryENTITY(tr, tr.amr, gold_amr):
-                    actions = self.get_named_entities(tr, tr.amr, gold_amr)
+
+                    actions, gold_node_ids = self.get_named_entities(tr, tr.amr, gold_amr)
 
                     if len(actions) > 3:
                         import pdb; pdb.set_trace()
 
-                    if not actions:
+                    if actions:
+                        self.goldnode = gold_node_ids
+                    else:
                         actions = [f'ENTITY({self.entity_type})']
 
                 # note: need to put tryPRED after tryENTITY, since ENTITY does not work on single alignment
@@ -539,6 +542,7 @@ class AMR_Oracle:
 
                 # APPLY ACTION
                 tr.apply_actions(actions, node2goldnode=self.node2goldnode, goldnode=self.goldnode)
+                self.goldnode = None
 
             # Close machine
             tr.CLOSE(
@@ -546,6 +550,9 @@ class AMR_Oracle:
                 gold_amr=gold_amr,
                 use_addnonde_rules=use_addnode_rules    # TODO not used flag
             )
+            # TODO this should be related to the AMR machine
+            self.node2goldnode = {}
+            self.node2goldnode[-1] = -1    # for root node
 
             # update files
             if out_oracle:
@@ -561,7 +568,7 @@ class AMR_Oracle:
             # Update action count
             self.stats['action_vocabulary'].update(actions)
             del gold_amr.nodes[-1]
-#             addnode_actions = [a for a in actions if a.startswith('ADDNODE')]
+            # addnode_actions = [a for a in actions if a.startswith('ADDNODE')]
             addnode_actions = [a for a in actions if a.startswith('ENTITY')]
             self.stats['addnode_counts'].update(addnode_actions)
 
@@ -761,6 +768,7 @@ class AMR_Oracle:
         #     pdb.set_trace()
 
         named_entity_actions = []
+        gold_node_ids = []
         if name_node_ids:
             added_name_node_ids = set()
             pos = len(transitions.actions)
@@ -768,10 +776,14 @@ class AMR_Oracle:
                 if nid not in added_name_node_ids:
                     pos += len(named_entity_actions)
                     named_entity_actions.append('ENTITY(name)')
+                    added_name_node_ids.add(nid)
+                    gold_node_ids.append([nid])
                 named_entity_actions.append(f'PRED({gold_amr.nodes[s]})')
+                gold_node_ids.append([s])
                 named_entity_actions.append(f'LA({pos},:name)')
+                gold_node_ids.append([None])
 
-        return named_entity_actions
+        return named_entity_actions, gold_node_ids
 
     def tryENTITY(self, transitions, amr, gold_amr):
         """
@@ -950,6 +962,10 @@ class AMR_Oracle:
         if node_id not in transitions.is_confirmed:
             return []
 
+        # debug
+        # if transitions.tokens[:2] == ['Some', 'people']:
+        #     breakpoint()
+
         arcs = []
         for act_id, (act_name, act_node_id) in enumerate(zip(transitions.actions, transitions.actions_to_nodes)):
             if act_node_id is None:
@@ -960,6 +976,15 @@ class AMR_Oracle:
             if arc is None:
                 continue
             arc_name, arc_label = arc
+
+            # avoid repetitive edges
+            if arc_name == 'LA':
+                if (node_id, arc_label, act_node_id) in transitions.amr.edges:
+                    continue
+            if arc_name == 'RA':
+                if (act_node_id, arc_label, node_id) in transitions.amr.edges:
+                    continue
+
             arc_pos = act_id
             # if (transitions.tokens ==
             #     ['here', ',', 'you', 'can', 'come', 'up', 'close', 'with', 'the', 'stars', 'in', 'your', 'mind', '.', '<ROOT>']) \
