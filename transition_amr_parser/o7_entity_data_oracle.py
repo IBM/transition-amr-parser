@@ -470,8 +470,8 @@ class AMR_Oracle:
 
                     actions, gold_node_ids = self.get_named_entities(tr, tr.amr, gold_amr)
 
-                    if len(actions) > 3:
-                        import pdb; pdb.set_trace()
+                    # if len(actions) > 3:
+                    #     import pdb; pdb.set_trace()
 
                     if actions:
                         self.goldnode = gold_node_ids
