@@ -6,7 +6,7 @@ import re
 from tqdm import tqdm
 
 from transition_amr_parser.io import read_propbank, read_amr, write_tokenized_sentences
-from transition_amr_parser.o7_entity_state_machine_new import (
+from transition_amr_parser.o8_state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer
 )
@@ -20,7 +20,7 @@ Actions are
     SHIFT : move cursor to next position in the token sequence
     REDUCE : delete current token
     MERGE : merge two tokens (for MWEs)
-    ENTITY(type) : form a named entity
+    ENTITY(type) : form a named entity, or a subgraph
     PRED(label) : form a new node with label
     COPY_LEMMA : form a new node by copying lemma
     COPY_SENSE01 : form a new node by copying lemma and add '01'
@@ -490,10 +490,6 @@ class AMROracleBuilder:
         self.multitask_words = multitask_words
         # TODO deprecate `multitask_words` or change for a better name such as `shift_label_words`
 
-        # control flags
-        self.on_arc = False
-        self.on_named_entity = False
-
         # AMR construction states info
         self.nodeid_to_gold_nodeid = {}  # key: node id in the state machine, value: list of node ids in gold AMR
         self.nodeid_to_gold_nodeid[self.machine.root_id] = [-1]  # NOTE gold amr root id is fixed at -1
@@ -531,8 +527,8 @@ class AMROracleBuilder:
             action = self.try_dependent()
         if not action:
             action = self.try_arcs()
-        # if not action:
-        #     action = self.try_named_entities()
+        if not action:
+            action = self.try_named_entities()
         if not action:
             action = self.try_entity()
         if not action:
@@ -554,7 +550,7 @@ class AMROracleBuilder:
         and the alignment.
         """
         # Loop over potential actions
-        # NOTE "<ROOT>" token at last position is in the confirmed node list from the beginning, so no prediction
+        # NOTE "<ROOT>" token at last position is added as a node from the beginning, so no prediction
         # for it here; the ending sequence is always [... SHIFT CLOSE] or [... LA(pos,'root') SHIFT CLOSE]
         machine = self.machine
         while not machine.is_closed:
@@ -937,8 +933,7 @@ def run_oracle(gold_amrs, copy_lemma_action, multitask_words):
     pred_re = re.compile(r'^PRED\((.*)\)$')
 
     # Process AMRs one by one
-    gold_amrs = [(i, amr) for i, amr in enumerate(gold_amrs)]
-    for sent_idx, gold_amr in tqdm(gold_amrs, desc='Oracle'):
+    for sent_idx, gold_amr in tqdm(enumerate(gold_amrs), desc='Oracle'):
 
         # TODO: See if we can remove this part
         gold_amr = gold_amr.copy()
@@ -946,6 +941,7 @@ def run_oracle(gold_amrs, copy_lemma_action, multitask_words):
 
         # Initialize oracle builder
         oracle_builder = AMROracleBuilder(gold_amr, lemmatizer, copy_lemma_action, multitask_words)
+        # build the oracle actions sequence
         actions = oracle_builder.build_oracle_actions()
 
         # store data

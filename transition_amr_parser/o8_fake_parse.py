@@ -8,7 +8,7 @@ from collections import Counter
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.o7_entity_state_machine_new import (
+from transition_amr_parser.o8_state_machine import (
     AMRStateMachine,
 #     DepParsingStateMachine,
     get_spacy_lemmatizer
