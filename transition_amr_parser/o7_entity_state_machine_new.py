@@ -180,7 +180,7 @@ class AMRStateMachine:
         # init current processing position in the token sequence
         self.tok_cursor = 0
         self.current_node_id = None    # frontier of the node id
-        self.new_node_id = 0    # counting from 0 (root is -1)
+        self.new_node_id = 1    # counting from 1 (root is -1); avoid 0 to be more different from None in if statements
 
         # build and store amr graph (needed e.g. for oracle)
         self.amr_graph = amr_graph
