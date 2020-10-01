@@ -664,7 +664,7 @@ class AMROracleBuilder:
                 return 'ENTITY(name)'
             if s not in self.built_gold_nodeids:
                 self.built_gold_nodeids.append(s)
-                self.nodeid_to_gold_nodeid.setdefault(machine.new_node_id, []).append(t)
+                self.nodeid_to_gold_nodeid.setdefault(machine.new_node_id, []).append(s)
                 return f'PRED({gold_amr.nodes[s]})'
 
         return None
@@ -683,6 +683,11 @@ class AMROracleBuilder:
         gold_amr = self.gold_amr
 
         tok_id = machine.tok_cursor
+
+        # to avoid subgraph ENTITY after named entities
+        if tok_id in machine.entity_tokenids:
+            return None
+
         # NOTE currently do not allow multiple ENTITY here on a single token
         if machine.current_node_id in machine.entities:
             return None

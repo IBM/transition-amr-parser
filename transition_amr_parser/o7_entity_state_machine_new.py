@@ -189,7 +189,7 @@ class AMRStateMachine:
         self.tokid_to_nodeid = {}    # one token could generate multiple nodes
 
         self.root_id = -1    # or `self.tokseq_len - 1` for consistent positive values with other nodes
-        # TODO 'root' should be tied with -1 currently <-- since -1 is a must for self.connectGraph() processing
+        # TODO 'root' should be tied with -1 currently <-- since -1 is a must for self.connect_graph() processing
         if self.amr_graph:
             self.amr = AMR(tokens=self.tokens)
             for i, tok in enumerate(self.tokens):
@@ -208,15 +208,29 @@ class AMRStateMachine:
         self.alignments = {}
 
         # information for oracle
-        self.is_confirmed = set()                  # node ids
-        self.is_confirmed.add(self.root_id)
         self.merged_tokens = {}                    # keys are token ids of the last merged token
         self.entities = []                         # node ids
         self.entity_tokens = {}                    # named entities, key: node ids, value: surface tokens
+        self.entity_tokenids = []                  # token ids on which ENTITY is done
 
         # during the build of the oracle: relate to the gold AMR graph
         self.nodeid_to_gold_nodeid = {}    # key: node id in the state machine, value: list of node ids in gold AMR
         self.nodeid_to_gold_nodeid[self.root_id] = [-1]    # NOTE gold amr root id is fixed at -1
+
+    def __str__(self):
+        """Command line styling"""
+        display_str = ""
+        # Tokens
+        tokens_str = ""
+        for position, token in enumerate(self.tokens):
+            pad = ' ' if position > 0 else ''
+            if position == self.tok_cursor:
+                tokens_str += f'{pad}{stack_style(token)}'
+            else:
+                tokens_str += f'{pad}{token}'
+        # Actions
+        action_str = ' '.join([a for a in self.actions])
+        return tokens_str + '\n\n' + action_str
 
     def __deepcopy__(self, memo):
         """
@@ -595,7 +609,7 @@ class AMRStateMachine:
             self.clean_amr()
             # do not do multiple close, cuz of this
             self.convert_state_machine_alignments_to_amr_alignments()
-            self.connectGraph()
+            self.connect_graph()
         self.is_postprocessed = True
         return
 
@@ -752,6 +766,7 @@ class AMRStateMachine:
         self.entities.append(head_id)
 
         self.entity_tokens[head_id] = surface_tokens
+        self.entity_tokenids.append(self.tok_cursor)    # could have duplicates -> indicating how many ENTITY on it
 
         # child id (the surface token nodes) is completely hidden -> left for postprocessing
         self.current_node_id = head_id
@@ -1298,21 +1313,6 @@ class AMRStateMachine:
 
     def clean_amr(self):
         if self.amr_graph:
-            # delete (reduce) the nodes that were never confirmed or attached
-            to_del = []
-            for n in self.amr.nodes:
-                found = False
-                if n in self.is_confirmed:
-                    found = True
-                else:
-                    for s, r, t in self.amr.edges:
-                        if n == s or n == t:
-                            found = True
-                if not found:
-                    to_del.append(n)
-            for n in to_del:
-                del self.amr.nodes[n]
-
             # clean concepts
             for n in self.amr.nodes:
                 if self.amr.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
@@ -1358,7 +1358,7 @@ class AMRStateMachine:
                     new_list.append(alignment + 1)
                 self.amr.alignments[node] = deepcopy(new_list)
 
-    def connectGraph(self):
+    def connect_graph(self):
         assigned_root = None
         root_edges = []
         if -1 in self.amr.nodes:
