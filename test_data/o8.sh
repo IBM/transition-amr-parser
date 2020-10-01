@@ -12,9 +12,9 @@ set -o nounset
 # Configuration
 MAX_WORDS=0
 # ORACLE_TAG=o7_o3align-prefix
-ORACLE_TAG=o7_entity_new_o3align
+ORACLE_TAG=o8_o3align
 # ORACLE_TAG=o7_o5align-prefix
-# ORACLE_TAG=o7_entity_new_o5align
+# ORACLE_TAG=o8_o5align
 if [[ $MAX_WORDS != 0 ]]; then
     ORACLE_TAG=${ORACLE_TAG}+Word${MAX_WORDS}
 fi
@@ -88,7 +88,7 @@ fi
 # accumulates necessary statistics in train.rules.json
 # if [ ! -f "$ORACLE_FOLDER/train.rules.json" ]; then
 if false; then
-    python ../transition_amr_parser/o7_entity_data_oracle_new.py \
+    python ../transition_amr_parser/o8_data_oracle.py \
         --in-amr $train_amr \
         --out-sentences $ORACLE_FOLDER/train.en \
         --out-actions $ORACLE_FOLDER/train.actions \
@@ -104,7 +104,7 @@ if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json-----------------" ]; then
 
     if [[ $MAX_WORDS == 0 ]]; then
 
-    python ../transition_amr_parser/o7_entity_data_oracle_new.py \
+    python ../transition_amr_parser/o8_data_oracle.py \
         --in-amr $reference_amr \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
@@ -112,7 +112,7 @@ if [ ! -f "$ORACLE_FOLDER/${test_set}.rules.json-----------------" ]; then
 
     else
 
-    python ../transition_amr_parser/o7_entity_data_oracle_new.py \
+    python ../transition_amr_parser/o8_data_oracle.py \
         --in-amr $reference_amr \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
@@ -125,7 +125,7 @@ fi
 
 # reconstruct AMR given sentence and oracle actions without being constrained
 # by training stats
-python ../transition_amr_parser/o7_entity_fake_parse_new.py \
+python ../transition_amr_parser/o8_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/${test_set}.en \
     --in-actions $ORACLE_FOLDER/${test_set}.actions \
     --out-amr $ORACLE_FOLDER/oracle_${test_set}.amr
