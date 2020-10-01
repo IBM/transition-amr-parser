@@ -37,12 +37,35 @@ mkdir -p $results_folder
 #test_command="kernprof -o generate.lprof -l fairseq/generate.py"
 test_command=fairseq-generate
 
-# decode 
-echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
-    --results-path $results_folder/test"
-$test_command $FAIRSEQ_GENERATE_ARGS \
-    --path $checkpoint \
-    --results-path $results_folder/test
+if [ "$TASK_TAG" == "AMR" ] ; then
+
+    if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ] ; then
+	    echo "using given entity rules"
+    else
+	    echo "reading entity rules from oracle"
+	    ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
+    fi
+
+    # decode 
+    echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
+        --results-path $results_folder/test --entity-rules $ENTITY_RULES"
+    
+    $test_command $FAIRSEQ_GENERATE_ARGS \
+        --path $checkpoint \
+        --results-path $results_folder/test \
+        --entity-rules $ENTITY_RULES
+
+else
+
+    # decode 
+    echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
+        --results-path $results_folder/test"
+
+    $test_command $FAIRSEQ_GENERATE_ARGS \
+        --path $checkpoint \
+        --results-path $results_folder/test
+    
+fi
 
 model_folder=$(dirname $checkpoint)
 
@@ -61,6 +84,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
 
     # Create the AMR from the model obtained actions
     amr-fake-parse \
+    	--entity-rules $ENTITY_RULES \
         --in-sentences $ORACLE_FOLDER/test.en \
         --in-actions $results_folder/test.actions \
         --out-amr $results_folder/test.amr \
@@ -83,7 +107,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
         # Smatch evaluation with wiki
 
         # add wiki
-        python fairseq/dcc/add_wiki.py \
+        python scripts/add_wiki.py \
             $results_folder/test.amr $WIKI_TEST \
             > $results_folder/test.wiki.amr
     
