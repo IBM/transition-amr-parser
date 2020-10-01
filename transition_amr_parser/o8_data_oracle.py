@@ -627,11 +627,11 @@ class AMROracleBuilder:
 
         E.g.
         a) for one entity
-        ENTITY('name') PRED('city') LA(pos,':name')
+        ENTITY('name') PRED('city') [other arcs] LA(pos,':name')
         b) for two entities with same surface tokens
-        ENTITY('name') PRED('city') LA(pos,':name') PRED('city') LA(pos,':name')
+        ENTITY('name') PRED('city') [other arcs] LA(pos,':name') PRED('city') [other arcs] LA(pos,':name')
         c) for two entities with two surface tokens
-        ENTITY('name') PRED('city') LA(pos,':name') ENTITY('name') PRED('city') LA(pos,':name')
+        ENTITY('name') PRED('city') [other arcs] LA(pos,':name') ENTITY('name') PRED('city') [other arcs]  LA(pos,':name')
         """
         machine = self.machine
         gold_amr = self.gold_amr
