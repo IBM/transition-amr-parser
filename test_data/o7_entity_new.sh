@@ -14,7 +14,7 @@ MAX_WORDS=0
 # ORACLE_TAG=o7_o3align-prefix
 ORACLE_TAG=o7_entity_new_o3align
 # ORACLE_TAG=o7_o5align-prefix
-# ORACLE_TAG=o7_o5align
+# ORACLE_TAG=o7_entity_new_o5align
 if [[ $MAX_WORDS != 0 ]]; then
     ORACLE_TAG=${ORACLE_TAG}+Word${MAX_WORDS}
 fi
@@ -52,6 +52,10 @@ test_amr=../amr_corpus/amr2.0/o3/test.txt
 # train_amr=/dccstor/multi-parse/transformer-amr/jkaln.txt
 # dev_amr=$LDC2017_AMR_CORPUS/dev.txt
 # test_amr=$LDC2017_AMR_CORPUS/test.txt
+
+# train_amr=../amr_corpus/amr2.0/o5/jkaln.txt
+# dev_amr=../amr_corpus/amr2.0/o5/dev.txt
+# test_amr=../amr_corpus/amr2.0/o5/test.txt
 
 #####
 
