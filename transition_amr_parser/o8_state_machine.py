@@ -17,7 +17,7 @@ Actions are
     SHIFT : move cursor to next position in the token sequence
     REDUCE : delete current token
     MERGE : merge two tokens (for MWEs)
-    ENTITY(type) : form a named entity
+    ENTITY(type) : form a named entity, or a subgraph
     PRED(label) : form a new node with label
     COPY_LEMMA : form a new node by copying lemma
     COPY_SENSE01 : form a new node by copying lemma and add '01'
@@ -213,10 +213,6 @@ class AMRStateMachine:
         self.entity_tokens = {}                    # named entities, key: node ids, value: surface tokens
         self.entity_tokenids = []                  # token ids on which ENTITY is done
 
-        # during the build of the oracle: relate to the gold AMR graph
-        self.nodeid_to_gold_nodeid = {}    # key: node id in the state machine, value: list of node ids in gold AMR
-        self.nodeid_to_gold_nodeid[self.root_id] = [-1]    # NOTE gold amr root id is fixed at -1
-
     def __str__(self):
         """Command line styling"""
         display_str = ""
@@ -260,17 +256,6 @@ class AMRStateMachine:
             for n in ns:
                 self._nodeid_to_tokid.setdefault(n, set()).add(n)
         return self._nodeid_to_tokid
-
-    def tok_index_neg2pos(self, ind):
-        """Negative index to positive value on the token sequence.
-
-        This is for consistency when doing algorithmic calculation on the indexes.
-        TODO this is currently not used
-        """
-        if ind >= 0:
-            return ind
-        else:
-            return self.tokseq_len + ind
 
     def get_current_token(self, lemma=False):
         """Get the token at current cursor position."""
@@ -512,7 +497,7 @@ class AMRStateMachine:
 
         return
 
-    def apply_action(self, action, *, gold_nodeid=None, **kwargs):
+    def apply_action(self, action, **kwargs):
         assert not self.canonical_mode, 'Should not be in the canonical mode to apply detailed actions with labels'
 
         # read in action and properties
@@ -538,17 +523,17 @@ class AMRStateMachine:
         # the flowing 3 actions are for node generation
         elif action_label == 'PRED':
             assert len(properties) == 1
-            self.PRED(properties[0], gold_nodeid=gold_nodeid)
+            self.PRED(properties[0])
         elif action_label == 'COPY_LEMMA':
-            self.COPY_LEMMA(gold_nodeid=gold_nodeid)
+            self.COPY_LEMMA()
         elif action_label in ['COPY_SENSE01']:
-            self.COPY_SENSE01(gold_nodeid=gold_nodeid)
+            self.COPY_SENSE01()
         # for multiple alignments and other cases
         elif action_label.startswith('DEPENDENT'):
-            self.DEPENDENT(*properties, gold_nodeid=gold_nodeid)
+            self.DEPENDENT(*properties)
         elif action_label in ['ADDNODE', 'ENTITY']:    # TODO 'ADDNODE' currently not used
             # preprocessing
-            self.ENTITY(",".join(properties), gold_nodeid=gold_nodeid)
+            self.ENTITY(",".join(properties))
         elif action_label in ['MERGE']:
             self.MERGE()
         # add an arc
@@ -569,13 +554,6 @@ class AMRStateMachine:
 
     def apply_actions(self, actions, **kwargs):
         # no special extra actions such as CLOSE, thus `apply_actions` can be applied multiple times sequentially
-        if 'goldnode' in kwargs:
-            if kwargs['goldnode'] and isinstance(kwargs['goldnode'][0], list):
-                assert len(kwargs['goldnode']) == len(actions)
-                for i, action in enumerate(actions):
-                    self.apply_action(action, node2goldnode=kwargs['node2goldnode'], goldnode=kwargs['goldnode'][i])
-                return
-
         for action in actions:
             self.apply_action(action, **kwargs)
 
@@ -612,15 +590,6 @@ class AMRStateMachine:
             self.connect_graph()
         self.is_postprocessed = True
         return
-
-    def _record_gold_nodeid(self, gold_nodeid):
-        # record the node id to gold node id mapping
-        assert self.current_node_id is not None
-        assert self.gold_nodeid is not None
-        if isinstance(gold_nodeid, list):
-            self.nodeid_to_gold_nodeid.setdefault(self.current_node_id, []).extend(gold_nodeid)
-        else:
-            self.nodeid_to_gold_nodeid.setdefault(self.current_node_id, []).append(gold_nodeid)
 
     def REDUCE(self):
         """REDUCE : delete token when there is no alignment"""
@@ -661,7 +630,7 @@ class AMRStateMachine:
         self.actions_to_elabels.append(None)
         return
 
-    def PRED(self, node_label, *, gold_nodeid=None):
+    def PRED(self, node_label):
         """PRED : assign a propbank label"""
         node_id = self.new_node_id
         self.new_node_id += 1
@@ -682,13 +651,9 @@ class AMRStateMachine:
         self.actions_to_nlabels.append(node_label)
         self.actions_to_elabels.append(None)
 
-        # for oracle construction with gold AMR: build node id to gold node id mapping
-        if gold_nodeid is not None:
-            self._record_gold_nodeid(gold_nodeid)
-
         return
 
-    def COPY_LEMMA(self, *, gold_nodeid=None):
+    def COPY_LEMMA(self):
         """COPY_LEMMA: same as PRED but use lowercased lemma"""
         node_id = self.new_node_id
         self.new_node_id += 1
@@ -710,13 +675,9 @@ class AMRStateMachine:
         self.actions_to_nlabels.append(node_label)
         self.actions_to_elabels.append(None)
 
-        # for oracle construction with gold AMR: build node id to gold node id mapping
-        if gold_nodeid is not None:
-            self._record_gold_nodeid(gold_nodeid)
-
         return
 
-    def COPY_SENSE01(self, *, gold_nodeid=None):
+    def COPY_SENSE01(self):
         """COPY_SENSE01: same as PRED but use lowercased lemma + '-01'"""
         node_id = self.new_node_id
         self.new_node_id += 1
@@ -739,13 +700,9 @@ class AMRStateMachine:
         self.actions_to_nlabels.append(node_label)
         self.actions_to_elabels.append(None)
 
-        # for oracle construction with gold AMR: build node id to gold node id mapping
-        if gold_nodeid is not None:
-            self._record_gold_nodeid(gold_nodeid)
-
         return
 
-    def ENTITY(self, entity_type, *, gold_nodeid=None):
+    def ENTITY(self, entity_type):
         """ENTITY : create a named entity"""
         # get the surface tokens
         surface_tokens = ','.join(self.tokens[x].replace(',', '-COMMA-') for x in self.merged_tokens[self.tok_cursor]) \
@@ -783,13 +740,9 @@ class AMRStateMachine:
         self.actions_to_nlabels.append(entity_type)
         self.actions_to_elabels.append('entity')
 
-        # for oracle construction with gold AMR: build node id to gold node id mapping
-        if gold_nodeid is not None:
-            self._record_gold_nodeid(gold_nodeid)    # here 'gold_nodeid' could be a list
-
         return
 
-    def DEPENDENT(self, node_label, edge_label, node_id=None, *, gold_nodeid=None):
+    def DEPENDENT(self, node_label, edge_label, node_id=None):
         """DEPENDENT : add a single edge and node"""
         edge_label = edge_label if edge_label.startswith(':') else ':' + edge_label
         if self.amr_graph:
@@ -812,10 +765,6 @@ class AMRStateMachine:
         # TODO in previous code, below were all set to None
         self.actions_to_nlabels.append(node_label)
         self.actions_to_elabels.append(edge_label)
-
-        # for oracle construction with gold AMR: build node id to gold node id mapping
-        if gold_nodeid is not None:
-            self._record_gold_nodeid(gold_nodeid)
 
         return
 
