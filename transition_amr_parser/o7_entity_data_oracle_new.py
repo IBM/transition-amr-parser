@@ -517,6 +517,13 @@ class AMROracleBuilder:
         # find the next action
         # NOTE the order here is important, which is based on priority
         #      e.g. within node-arc actions, arc subsequence comes highest, then named entity subsequence, etc.
+
+        # debug
+        # on dev set, sentence id 459 (starting from 0) -> for DEPENDENT missing
+        # if self.tokens == ['The', 'cyber', 'attacks', 'were', 'unprecedented', '.', '<ROOT>']:
+        #     if self.time_step >= 8:
+        #         breakpoint()
+
         action = self.try_reduce()
         if not action:
             action = self.try_merge()
@@ -524,8 +531,8 @@ class AMROracleBuilder:
             action = self.try_dependent()
         if not action:
             action = self.try_arcs()
-        if not action:
-            action = self.try_named_entities()
+        # if not action:
+        #     action = self.try_named_entities()
         if not action:
             action = self.try_entity()
         if not action:
@@ -786,15 +793,19 @@ class AMROracleBuilder:
         machine = self.machine
         gold_amr = self.gold_amr
 
+        tok_id = machine.tok_cursor
         node_id = machine.current_node_id
 
-        if not node_id:
+        if node_id is None:    # NOTE if node_id could be 0, 'if not node_id' would cause a bug
             # the node has not been built at current step
             return None
 
-        gold_nodeids = self.nodeid_to_gold_nodeid[node_id]
+        # NOTE this doesn't work for ENTITY now, as the mapping from ENTITY node is only to the source nodes in the
+        #      aligned subgraph, whereas for the DEPENDENT we are checking the target nodes in the subgraph
+        # gold_nodeids = self.nodeid_to_gold_nodeid[node_id]
+        # gold_nodeids = list(set(gold_nodeids))    # just in case
 
-        gold_nodeids = list(set(gold_nodeids))    # just in case
+        gold_nodeids = gold_amr.alignmentsToken2Node(tok_id + 1)
 
         # below is coupled with the PRED checks? and also the ENTITY
         if len(gold_nodeids) == 1:
@@ -833,7 +844,7 @@ class AMROracleBuilder:
 
         node_id = machine.current_node_id
 
-        if not node_id:
+        if node_id is None:    # NOTE if node_id could be 0, 'if not node_id' would cause a bug
             # the node has not been built at current step
             return None
 
