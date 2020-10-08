@@ -241,6 +241,9 @@ def score_amr_pair(ref_amr_line, rec_amr_line, restart_num, justinstance=False,
     amr1 = AMR.parse_AMR_line(ref_amr_line)
     amr2 = AMR.parse_AMR_line(rec_amr_line)
 
+    if amr2 is None:
+        return 0, 0, len(amr1.get_triples()[0])
+
     # Fix prefix
     prefix1 = "a"
     prefix2 = "b"
