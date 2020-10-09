@@ -192,7 +192,10 @@ for model_folder in "$@";do
     elif [ "$TASK_TAG" == "dep-parsing" ];then
     
         # model linking (will also display table)
-        python scripts/stack-transformer/rank_model.py --link-best 
+        python scripts/stack-transformer/rank_model.py \
+            --link-best \
+            --score-name las \
+            --checkpoints DATA/dep-parsing/
     
         # clean-up all checkpoints and save the *_best_* labeled ones
         # python scripts/stack-transformer/remove_checkpoints.py $model_folder 
