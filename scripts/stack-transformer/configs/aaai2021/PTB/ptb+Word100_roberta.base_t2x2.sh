@@ -52,7 +52,7 @@ TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
 # NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
-MAX_EPOCH=80
+MAX_EPOCH=100
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 FAIRSEQ_TRAIN_ARGS="
     $FEATURES_FOLDER
