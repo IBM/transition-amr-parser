@@ -188,8 +188,22 @@ for model_folder in "$@";do
         # beam10 results
         bash scripts/stack-transformer/get_beam_test.sh 10 top3-average \
             $model_folder/checkpoint_top3-average.pt
+
+    elif [ "$TASK_TAG" == "dep-parsing" ];then
+    
+        # model linking (will also display table)
+        python scripts/stack-transformer/rank_model.py --link-best 
+    
+        # clean-up all checkpoints and save the *_best_* labeled ones
+        # python scripts/stack-transformer/remove_checkpoints.py $model_folder 
+
+        # checkpoint average
+        bash scripts/stack-transformer/get_weight_ensemble.sh LAS $model_folder
+
+        # beam10 results
+        bash scripts/stack-transformer/get_beam_test.sh 10 top3-average \
+            $model_folder/checkpoint_top3-average.pt
     
     fi
- 
 
 done

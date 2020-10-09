@@ -55,11 +55,17 @@ fairseq-preprocess \
  
 # TRAINING
 rm -Rf DATA.tests/models/wiki25/
+model_arch=stack_transformer_6x6_nopos 
+#model_arch=stack_transformer_6x6_top_nopos 
+#model_arch=stack_transformer_6x6_tops_nopos 
+#model_arch=stack_transformer_6x6_topb_nopos 
+#model_arch=stack_transformer_6x6_only_buffer_nopos 
+#model_arch=stack_transformer_6x6_only_stack_nopos 
 fairseq-train \
     $FEATURES_FOLDER \
     --max-epoch $max_epoch \
     --burnthrough 5 \
-    --arch stack_transformer_6x6_tops_nopos \
+    --arch $model_arch \
     --optimizer adam \
     --adam-betas '(0.9,0.98)' \
     --clip-norm 0.0 \
