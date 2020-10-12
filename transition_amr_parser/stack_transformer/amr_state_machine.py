@@ -189,7 +189,7 @@ def h5_writer(file_path):
 def get_valid_actions(action_list, amr_state_machine, train_rule_stats,
                       action_by_basic, gold_action, stats):
     # Get basic actions
-    valid_basic_actions = amr_state_machine.get_valid_actions()
+    valid_basic_actions, invalid_actions = amr_state_machine.get_valid_actions()
 
     # Expand non-pred actions
     valid_actions = [
@@ -393,7 +393,7 @@ def get_action_indexer(symbols):
         idx = set()
         for action in actions:
             if '(' in action:
-                # specific action, just inde
+                # specific action, just index
                 if action not in symbols:
                     # FIXME: Brittle
                     idx.add(symbols.index('<unk>'))
@@ -413,9 +413,10 @@ class StateMachineBatch():
     """
 
     def __init__(self, src_dict, tgt_dict, machine_type, machine_rules=None, 
-                 entity_rules=None):
+                 entity_rules=None, post_process=False):
 
         # Get all actions indexed by prefix
+        # TODO: This code can be inline here now that we have __init__/reset
         self.action_indexer = get_action_indexer(tgt_dict.symbols)
 
         # Load rule stats if provided
@@ -425,7 +426,8 @@ class StateMachineBatch():
             # self.state_machine = StateMachine(folder)
             self.get_new_state_machine = machine_generator(
                 rule_stats['possible_predicates'],
-                entity_rules=entity_rules
+                entity_rules=entity_rules,
+                post_process=post_process
             )
         else:
             assert machine_type != 'AMR', \
@@ -491,8 +493,11 @@ class StateMachineBatch():
                 # TODO: Change this to <pad> (will mess with decoder)
                 expanded_valid_indices = set([self.tgt_dict.indices['</s>']])
             else:
-                valid_actions = self.machines[i].get_valid_actions()
-                expanded_valid_indices = self.action_indexer(valid_actions)
+                valid_actions, invalid_actions = self.machines[i].get_valid_actions()
+                expanded_valid_indices = (
+                    self.action_indexer(valid_actions)
+                    - self.action_indexer(invalid_actions)
+                )
             batch_active_logits |= expanded_valid_indices
             logits_mask[i, 0, list(expanded_valid_indices)] = 1
         batch_active_logits = list(batch_active_logits)
@@ -625,6 +630,8 @@ def update_machine(step, tokens, scores, state_machine):
         # machine of the batch
         machine = state_machine.machines[index]
 
+        valid_actions, invalid_actions = machine.get_valid_actions()
+
         # some action may be invalid due to beam > 1. They should
         # have -Inf score so that they are pruned on the next iteration
         # so we do not execute those actions
@@ -637,8 +644,11 @@ def update_machine(step, tokens, scores, state_machine):
             machine.applyAction('</s>')
 
         elif (
-            action not in machine.get_valid_actions() and
-            action.split('(')[0] not in machine.get_valid_actions()
+            (
+                action not in valid_actions and
+                action.split('(')[0] not in valid_actions
+            )
+            or action in invalid_actions
         ):
 
             # FIXME: This should not happen
@@ -664,7 +674,7 @@ def update_machine(step, tokens, scores, state_machine):
     state_machine.update_masks()
 
 
-def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rules=None):
+def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rules=None, post_process=False):
     """Return function that itself returns initialized state machines"""
 
     # initialize spacy lemmatizer
@@ -693,7 +703,9 @@ def machine_generator(actions_by_stack_rules, spacy_lemmatizer=None, entity_rule
                 sent_tokens,
                 actions_by_stack_rules=actions_by_stack_rules,
                 spacy_lemmatizer=spacy_lemmatizer,
-                entity_rules=entity_rules
+                entity_rules=entity_rules,
+                # this is only needed to generate the AMR
+                post_process=post_process
             )
         elif machine_type == 'dep-parsing':
             assert sent_tokens[-1] == 'ROOT'

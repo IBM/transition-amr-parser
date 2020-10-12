@@ -36,13 +36,13 @@ for checkpoints_folder in "${@:2}";do
     fi
 
     # TEST ENSEMBLE
+    [ -f "$checkpoints_folder/top3-average/valid.actions" ] && continue
     # create config copy labeled as using weight ensemble
     cp $checkpoints_folder/config.sh $checkpoints_folder/config_top3-average.sh
     sed 's@^TEST_TAG=.*@TEST_TAG="top3-average"@' -i $checkpoints_folder/config_top3-average.sh
     echo "Created $checkpoints_folder/config_top3-average.sh"
 
     # run test
-    [ -f "$checkpoints_folder/top3-average/valid.actions" ] && continue
     bash scripts/stack-transformer/test.sh $checkpoints_folder/config_top3-average.sh $ensemble_checkpoint
     
 done

@@ -76,6 +76,91 @@ def reduced_style(string):
     return black_font(red_background(string))
 
 
+def get_forbidden_actions(stack, amr):
+    '''
+    Return actions that create already existing edges (to forbid them)
+    '''
+
+    if len(stack) == 0:
+        return []
+
+    # Regex for ARGs
+    unique_re = re.compile(r'^(snt|op)([0-9]+)$')
+    arg_re = re.compile(r'^ARG([0-9]+)$')
+    argof_re = re.compile(r'^ARG([0-9]+-of)$')
+
+    invalid_actions = []
+    for t in amr.edges:
+
+        # if we find an edge in the list of non repeatable edges, check if
+        # this parent has already had one such edge and forbid repetition in
+        # that case. 
+
+        # infor abouty this edge
+        head_id = t[0]
+        head = amr.nodes[head_id]
+        edge = t[1][1:]
+        child_id = t[2]
+        child = amr.nodes[child_id]
+
+        # unique constants
+        # this edge label can not be repeated with same child name
+        # note that DEPENDENT can be used as well as RA/LA
+        if edge in ['polarity', 'mode']:
+            if head_id == stack[-1]:
+                # DEPENDENT
+                invalid_actions.append(f'DEPENDENT({child},{edge})')
+            if len(stack) > 1:
+                if head_id == stack[-1] and (child == amr.nodes[stack[-2]]):
+                    # LA (stack1 <-- stack0)
+                    invalid_actions.append(f'LA({edge})')
+                elif head_id == stack[-2] and (child == amr.nodes[stack[-1]]):
+                    # RA (stack1 --> stack0)            
+                    invalid_actions.append(f'RA({edge})')
+
+        # snt[0-9] op[0-9] 
+        # this edge label can not be repeated regardless of child label
+        elif unique_re.match(edge) and len(stack) > 1: 
+            if head_id == stack[-1]:
+                # Left Arcs (stack1 <-- stack0)
+                invalid_actions.append(f'LA({edge})')
+            elif head_id == stack[-2]:
+                # Right Arcs (stack1 --> stack0)            
+                invalid_actions.append(f'RA({edge})')
+
+        # ARG[0-9]
+        # this edge label can not be repeated regardless of child label
+        # watch for reverse ARG-of arcs
+        elif arg_re.match(edge) and len(stack) > 1: 
+            if head_id == stack[-1]:
+                # Left Arcs (stack1 <-- stack0)
+                invalid_actions.append(f'LA({edge})')
+                invalid_actions.append(f'RA({edge}-of)')
+            elif head_id == stack[-2]:
+                # Right Arcs (stack1 --> stack0)            
+                invalid_actions.append(f'RA({edge})')
+                invalid_actions.append(f'LA({edge}-of)')
+
+        # ARG[0-9]-of 
+        # this edge label can not be repeated regardless of parent label
+        # watch for direct ARG arcs
+        # NOTE: father and child roles reverse wrt ARG[0-9]
+        elif argof_re.match(edge) and len(stack) > 1:
+            if child_id == stack[-1]:
+                # Left Arcs (stack1 <-- stack0)
+                argn = edge.split('-')[0]
+                invalid_actions.append(f'LA({argn})')
+                invalid_actions.append(f'RA({edge})')
+                
+            elif child_id == stack[-2]:
+                # Right Arcs (stack1 --> stack0)            
+                argn = edge.split('-')[0]
+                invalid_actions.append(f'RA({argn})')
+                invalid_actions.append(f'LA({edge})')
+
+    return invalid_actions
+
+
 class NoTokenizer(object):
     def __init__(self, vocab):
         self.vocab = vocab
@@ -143,7 +228,7 @@ class AMRStateMachine:
 
     def __init__(self, tokens, verbose=False, add_unaligned=0,
                  actions_by_stack_rules=None, amr_graph=True,
-                 spacy_lemmatizer=None, entity_rules=None):
+                 post_process=True, spacy_lemmatizer=None, entity_rules=None):
         """
         TODO: action_list containing list of allowed actions should be
         mandatory
@@ -154,8 +239,9 @@ class AMRStateMachine:
         # word tokens of sentence
         self.tokens = tokens.copy()
 
-        # build and store amr graph (needed e.g. for oracle)
+        # build and store amr graph (needed e.g. for oracle and PENMAN)
         self.amr_graph = amr_graph
+        self.post_process = post_process
 
         # spacy lemmatizer
         self.spacy_lemmatizer = spacy_lemmatizer
@@ -297,25 +383,25 @@ class AMRStateMachine:
         # update display str
         display_str += "%s\n%s\n%s\n\n" % (green_font("# Buffer/Stack/Reduced:"), pointer_view_str, mask_view_str)
 
-        # nodes
-        # nodes_str = " ".join([x for x in self.predicates if x != '_'])
-        node_items = []
-        for stack0, token_pos in self.alignments.items():
-            if stack0 not in self.amr.nodes:
-                continue
-            node = self.amr.nodes[stack0]
-            if isinstance(token_pos, tuple):
-                tokens = " ".join(self.tokens[p] for p in token_pos)
-            else:
-                tokens = self.tokens[token_pos]
-            node_items.append(f'{tokens}--{node}')
-        nodes_str = "  ".join(node_items)
-        # update display str
-        display_str += "%s\n%s\n\n" % (green_font("# Alignments:"), nodes_str)
-
-        # Graph 
-        display_str += green_font("# Graph:\n")
+        # nodes (requires on the fly AMR computation)
         if self.amr_graph:
+
+            node_items = []
+            for stack0, token_pos in self.alignments.items():
+                if stack0 not in self.amr.nodes:
+                    continue
+                node = self.amr.nodes[stack0]
+                if isinstance(token_pos, tuple):
+                    tokens = " ".join(self.tokens[p] for p in token_pos)
+                else:
+                    tokens = self.tokens[token_pos]
+                node_items.append(f'{tokens}--{node}')
+            nodes_str = "  ".join(node_items)
+            # update display str
+            display_str += "%s\n%s\n\n" % (green_font("# Alignments:"), nodes_str)
+    
+            # Graph 
+            display_str += green_font("# Graph:\n")
             display_str += get_graph_str(self.amr, self.alignments)
 
         return display_str
@@ -478,9 +564,11 @@ class AMRStateMachine:
 
         # Quick exit for a closed machine
         if self.is_closed:
-            return ['</s>']
+            return ['</s>'], []
 
+        # NOTE: Example: valid_actions = ['LA'] invalid_actions = ['LA(:mod)']
         valid_actions = []
+        invalid_actions = []
 
         # Buffer not empty
         if True:  # len(self.buffer):
@@ -540,7 +628,8 @@ class AMRStateMachine:
             ):
                 valid_actions.extend(['SWAP', 'UNSHIFT'])
 
-            # confirmed nodes can be drawn edges between
+            # confirmed nodes can be drawn edges between as long as they are
+            # not repeated
             if (stack0 in self.is_confirmed and stack1 in self.is_confirmed):
                 valid_actions.extend(['LA', 'RA'])
 
@@ -548,82 +637,20 @@ class AMRStateMachine:
             elif self.get_top_of_stack()[0] == 'me':
                 valid_actions.extend(['RA(mode)'])
 
-        return valid_actions
+        # Forbid actions given graph. Right now avoid some edge duplicates by
+        # forbidding LA, RA and DEPENDENT
+        # TODO: Removed for now due to problems with beam (inconsistent
+        # self.amr
+        # invalid_actions.extend(get_forbidden_actions(self.stack, self.amr))
 
-    def get_valid_action_indices(self):
-        """Return valid actions for this state at test time (no oracle info)"""
-        valid_action_indices = []
-
-        # Buffer not empty
-        if len(self.buffer):
-            valid_action_indices.extend(self.action_list_by_prefix['SHIFT'])
-            # FIXME: reduce also accepted here if node_id != None and something
-            # aligned to it (see tryReduce)
-
-        # One or more tokens in stack
-        if len(self.stack) > 0:
-            valid_action_indices.extend(self.action_list_by_prefix['REDUCE'])
-            valid_action_indices.extend(
-                self.action_list_by_prefix['DEPENDENT']
-            )
-
-            # valid_node = get_valid_node(self):
-            valid_action_indices.extend(self.action_list_by_prefix['PRED'])
-            valid_action_indices.extend(self.action_list_by_prefix['COPY'])
-            valid_action_indices.extend(
-                self.action_list_by_prefix['COPY_LITERAL']
-            )
-
-            # Forbid entitity if top token already an entity
-            if self.stack[-1] not in self.entities:
-                # FIXME: Any rules involving MERGE here?
-                valid_action_indices.extend(
-                    self.action_list_by_prefix['ENTITY']
-                )
-
-            # Forbid introduce if no latent
-            if len(self.latent) > 0:
-                valid_action_indices.extend(
-                    self.action_list_by_prefix['INTRODUCE']
-                )
-
-        # two or more tokens in stack
-        if len(self.stack) > 1:
-
-            valid_action_indices.extend(self.action_list_by_prefix['LA'])
-            valid_action_indices.extend(self.action_list_by_prefix['RA'])
-
-            stack0 = self.stack[-1]
-            stack1 = self.stack[-2]
-
-            # Forbid merging if two words are identical
-            if stack0 != stack1:
-                valid_action_indices.extend(self.action_list_by_prefix['MERGE'])
-
-            # Forbid SWAP if both words have been swapped already
-            if (
-                (
-                    stack0 not in self.swapped_words or
-                    stack1 not in self.swapped_words.get(stack0)
-                ) and
-                (
-                    stack1 not in self.swapped_words or
-                    stack0 not in self.swapped_words.get(stack1)
-                )
-            ):
-                valid_action_indices.extend(self.action_list_by_prefix['SWAP'])
-
-        # If not valid action indices machine is closed, output EOL
-        if valid_action_indices == []:
-            valid_action_indices = [self.action_list.index('</s>')]
-
-        return valid_action_indices
+        return valid_actions, invalid_actions
 
     # forward compatibility aliases
     def update(self, act):
         self.applyAction(act)
 
     def get_annotations(self):
+        assert self.amr_graph, ".toJAMRString() requires amr_graph = True"
         return self.amr.toJAMRString()
 
     def SHIFT(self, shift_label=None):
@@ -689,7 +716,8 @@ class AMRStateMachine:
         stack0 = self.stack[-1]
         node_label, _ = self.get_top_of_stack(lemma=True)
         # update AMR graph
-        self.amr.nodes[stack0] = node_label
+        if self.amr_graph:
+            self.amr.nodes[stack0] = node_label
         # update statistics
         self.actions.append(f'COPY_LEMMA')
         self.labels.append('_')
@@ -714,7 +742,8 @@ class AMRStateMachine:
         lemma, _ = self.get_top_of_stack(lemma=True)
         node_label = f'{lemma}-01'
         # update AMR graph
-        self.amr.nodes[stack0] = node_label
+        if self.amr_graph:
+            self.amr.nodes[stack0] = node_label
         # update statistics
         self.actions.append(f'COPY_SENSE01')
         self.labels.append('_')
@@ -935,7 +964,7 @@ class AMRStateMachine:
 
         self.buffer = []
         self.stack = []
-        if self.amr_graph:
+        if self.amr_graph and self.post_process:
             if training and not use_addnonde_rules:
                 self.postprocessing_training(gold_amr)
             else:
@@ -996,7 +1025,9 @@ class AMRStateMachine:
         self.labels.append('_')
         self.labelsA.append('_')
         self.predicates.append('_')
-        self.convert_state_machine_alignments_to_amr_alignments()
+        # FIXME: Make sure that this is not needed when amr_graph = False
+        if self.amr_graph:
+           self.convert_state_machine_alignments_to_amr_alignments()
         if self.verbose:
             print('CLOSE')
             if self.amr_graph:
@@ -1672,6 +1703,9 @@ class DepParsingStateMachine():
             # set element 1 of the stack to 0 of the buffer
             self.buffer.append(self.stack.pop(1))
 
+        elif action == '</s>':
+            # FIXME: Why is this needed now? It was not before
+            pass
         else: 
             raise Exception("Invalid action %s" % action)
 
@@ -1687,11 +1721,11 @@ class DepParsingStateMachine():
 
         # Quick exit for a closed machine
         if self.is_closed:
-            return ['</s>']
+            return ['</s>'], []
 
         # if top of the stack contains <ROOT> only LA(root allowed)
         if self.stack and self.stack[-1] == -1:
-            return ['LEFT-ARC(root)']
+            return ['LEFT-ARC(root)'], []
 
         # multiple actions possible
         valid_actions = []
@@ -1702,4 +1736,4 @@ class DepParsingStateMachine():
             valid_actions.append('RIGHT-ARC')
             valid_actions.append('SWAP')
 
-        return valid_actions
+        return valid_actions, []

@@ -11,21 +11,20 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2014_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/AMR_1.0/
+LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
 # NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2014_AMR_CORPUS/AMR_1.0_train_jkaln_pseudo.txt
-AMR_DEV_FILE=$LDC2014_AMR_CORPUS/AMR_1.0_dev_jaln.txt
-AMR_TEST_FILE=$LDC2014_AMR_CORPUS/AMR_1.0_test_jaln.txt
+AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/psuedo.txt
+AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
+AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
 # WIKI files
 # NOTE: If left empty no wiki will be added
-WIKI_DEV=""
-AMR_DEV_FILE_WIKI=""
-WIKI_TEST=""
-AMR_TEST_FILE_WIKI=""
-# Entity rules
+WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
+AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
+WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
+AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
 # Leave empty to create entity rules from the corpus
 ENTITY_RULES=""
 
@@ -34,25 +33,18 @@ ENTITY_RULES=""
 # --multitask-max-words --out-multitask-words --in-multitask-words
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
-MAX_WORDS=100
-ORACLE_TAG=amr1_o5+Word${MAX_WORDS}
+ORACLE_TAG=amr2_o5
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
-    --multitask-max-words $MAX_WORDS 
-    --out-multitask-words $ORACLE_FOLDER/train.multitask_words 
     --copy-lemma-action
 "
 ORACLE_DEV_ARGS="
-    --in-multitask-words $ORACLE_FOLDER/train.multitask_words 
     --copy-lemma-action
 "
 
-# GPU
-# k80, v100 (3 times faster)
-
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
-PREPRO_TAG="RoBERTa-large-top24"
+PREPRO_TAG="RoBERTa-base"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 PREPRO_GPU_TYPE=v100
 PREPRO_QUEUE=x86_6h
@@ -64,9 +56,8 @@ FAIRSEQ_PREPROCESS_ARGS="
     --validpref $ORACLE_FOLDER/dev
     --testpref $ORACLE_FOLDER/test
     --destdir $FEATURES_FOLDER
-    --workers 1 
-    --pretrained-embed roberta.large
-    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+    --workers 1
+    --pretrained-embed roberta.base
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
 "
@@ -74,8 +65,8 @@ FAIRSEQ_PREPROCESS_ARGS="
 # TRAINING
 # See fairseq/fairseq/options.py:add_optimization_args,add_checkpoint_args
 # model types defined in ./fairseq/fairseq/models/transformer.py
-TRAIN_TAG=stnp6x6
-base_model=stack_transformer_6x6_nopos
+TRAIN_TAG=stnp2x2
+base_model=stack_transformer_2x2_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
@@ -84,7 +75,8 @@ TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
 # NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
-MAX_EPOCH=100
+MAX_EPOCH=120
+keep_last_epochs=40
 CHECKPOINTS_DIR_ROOT="$data_root/models/${ORACLE_TAG}_${PREPRO_TAG}_${TRAIN_TAG}"
 FAIRSEQ_TRAIN_ARGS="
     $FEATURES_FOLDER
@@ -96,14 +88,15 @@ FAIRSEQ_TRAIN_ARGS="
     --lr-scheduler inverse_sqrt
     --warmup-init-lr 1e-07
     --warmup-updates 4000
-    --pretrained-embed-dim 1024
+    --pretrained-embed-dim 768
     --lr 0.0005
     --min-lr 1e-09
     --dropout 0.3
     --weight-decay 0.0
     --criterion label_smoothed_cross_entropy
     --label-smoothing 0.01
-    --keep-last-epochs 40
+    --keep-last-epochs $keep_last_epochs
+    --burnthrough $((MAX_EPOCH-keep_last_epochs))
     --max-tokens 3584
     --log-format json
     --fp16
@@ -118,7 +111,7 @@ TEST_TAG="beam${beam_size}"
 CHECKPOINT=checkpoint_best.pt
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 TEST_GPU_TYPE=v100
-TEST_QUEUE=x86_12h
+TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
     $FEATURES_FOLDER 
     --gen-subset valid

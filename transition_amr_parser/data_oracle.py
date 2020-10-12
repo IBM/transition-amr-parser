@@ -1,4 +1,5 @@
 import json
+import re
 import argparse
 from collections import Counter, defaultdict
 
@@ -6,6 +7,7 @@ from tqdm import tqdm
 
 from transition_amr_parser.utils import print_log
 from transition_amr_parser.io import writer, read_propbank, read_amr
+from transition_amr_parser.amr import get_duplicate_edges
 from transition_amr_parser.state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer,
@@ -32,6 +34,10 @@ from transition_amr_parser.state_machine import (
 """
 
 use_addnode_rules = True
+
+
+def yellow_font(string):
+    return "\033[93m%s\033[0m" % string
 
 
 def argument_parser():
@@ -222,16 +228,17 @@ def is_most_common(node_counts, node, rank=0):
 
 
 def alert_inconsistencies(gold_amrs):
-
-    def yellow_font(string):
-        return "\033[93m%s\033[0m" % string
-
     num_sentences = len(gold_amrs)
-
     sentence_count = Counter()
     amr_by_amrkey_by_sentence = defaultdict(dict)
     amr_counts_by_sentence = defaultdict(lambda: Counter())
+    collect_duplicates = []
     for amr in gold_amrs:
+
+        # collect duplicate arcs 
+        dupes = get_duplicate_edges(amr)
+        if dupes:
+            collect_duplicates.extend(dupes)
 
         # hash of sentence
         assert amr.tokens, "Tokens missing from amr file"
@@ -285,6 +292,17 @@ def alert_inconsistencies(gold_amrs):
             perc
         )
         print(yellow_font(alert_str))
+
+    if collect_duplicates:
+        dupes_by_arc = defaultdict(int)
+        for item in collect_duplicates:
+            if re.match('^[0-9\.]+$', item[0][0]):
+                dupes_by_arc[item[0][1]] += item[1]
+            else:
+                dupes_by_arc[item[0][0]] += item[1]
+        num_dup = sum(dupes_by_arc.values())        
+        print(yellow_font(f'AMR contains {num_dup} duplicate edges'))
+        print(dict(dupes_by_arc))
 
 
 def read_multitask_words(multitask_list):
@@ -378,8 +396,6 @@ class AMR_Oracle:
         # deep copy of gold AMRs
         self.gold_amrs = [gold_amr.copy() for gold_amr in gold_amrs]
 
-        # print about inconsistencies in annotations
-        alert_inconsistencies(self.gold_amrs)
 
         # open all files (if paths provided) and get writers to them
         oracle_write = writer(out_oracle)
@@ -404,6 +420,11 @@ class AMR_Oracle:
         spacy_lemmatizer = None
         if copy_lemma_action:
             spacy_lemmatizer = get_spacy_lemmatizer()
+
+        # Store invalid actions
+        actions_not_in_whitelist = []
+        actions_in_blacklist = []
+        dangling_nodes = []
 
         # Loop over golf AMRs
         for sent_idx, gold_amr in tqdm(
@@ -492,6 +513,13 @@ class AMR_Oracle:
                 token, merged_tokens = tr.get_top_of_stack()
                 action_label = action.split('(')[0]
 
+                # invalid actions
+                valid, not_valid = tr.get_valid_actions()
+                if action not in valid and action_label not in valid:
+                    actions_not_in_whitelist.append((sent_idx, token, action))
+                if action in not_valid:
+                    actions_in_blacklist.append((sent_idx, token, action))
+
                 # check action has not invalid chars and normalize
                 # TODO: --no-whitespace-in-actions being deprecated
                 if no_whitespace_in_actions and action_label == 'PRED':
@@ -513,6 +541,12 @@ class AMR_Oracle:
                 gold_amr=gold_amr,
                 use_addnonde_rules=use_addnode_rules
             )
+
+            # store dangling nodes
+            for e in tr.amr.edges:
+                if e[1] == ':rel':
+                    de = f'{e[1]} {tr.amr.nodes[e[2]]}'
+                    dangling_nodes.append((sent_idx, de))
 
             # update files
             if out_oracle:
@@ -609,6 +643,29 @@ class AMR_Oracle:
         if out_rule_stats:
             with open(out_rule_stats, 'w') as fid:
                 fid.write(json.dumps(self.stats))
+
+        # Inform about invalid actions
+        if actions_not_in_whitelist:
+            fa_count = Counter(
+                [a[2].split('(')[0] for a in actions_not_in_whitelist]
+            )
+            print(yellow_font(
+                "Not whitelisted actions used e.g. arcs for unconfirmed words"
+            ))
+            print(fa_count)
+        if actions_in_blacklist:
+            fa_count = Counter(
+                [a[2].split('(')[0] for a in actions_in_blacklist]
+            )
+            msg = "Blacklisted actions used e.g. duplicated edges"
+            print(yellow_font(msg))
+            print(fa_count)
+
+        # Inform about disconnected nodes 
+        if dangling_nodes:
+            num_nodes = len(dangling_nodes)
+            message = f'There were {num_nodes} disconnected nodes (:rel)'
+            print(yellow_font(message))
 
     def tryConfirm(self, transitions, amr, gold_amr):
         """
@@ -1060,22 +1117,43 @@ def process_multitask_words(tokenized_corpus, multitask_max_words,
     return multitask_words
 
 
+def print_corpus_info(amrs):
+
+    # print some info
+    print(f'{len(amrs)} sentences')
+    node_label_count = Counter([
+        n for amr in amrs for n in amr.nodes.values()
+    ])
+    node_tokens = sum(node_label_count.values())
+    print(f'{len(node_label_count)}/{node_tokens} node types/tokens')
+    edge_label_count = Counter([t[1] for amr in amrs for t in amr.edges])
+    edge_tokens = sum(edge_label_count.values())
+    print(f'{len(edge_label_count)}/{edge_tokens} edge types/tokens')
+    word_label_count = Counter([w for amr in amrs for w in amr.tokens])
+    word_tokens = sum(word_label_count.values())
+    print(f'{len(word_label_count)}/{word_tokens} word types/tokens')
+
 def main():
 
     # Argument handling
     args = argument_parser()
 
     # Load AMR (replace some unicode characters)
+    print(f'Read {args.in_amr}')
     corpus = read_amr(args.in_amr, unicode_fixes=True)
+    amrs = corpus.amrs
+    # print general info and about inconsistencies in AMR annotations
+    print_corpus_info(amrs)
+    alert_inconsistencies(amrs)
 
-    # Load propbank
+    # Load propbank (if provided)
     propbank_args = None
     if args.in_propbank_args:
         propbank_args = read_propbank(args.in_propbank_args)
 
     # read/write multi-task (labeled shift) action 
     multitask_words = process_multitask_words(
-        [list(amr.tokens) for amr in corpus.amrs],
+        [list(amr.tokens) for amr in amrs],
         args.multitask_max_words,
         args.in_multitask_words,
         args.out_multitask_words,
@@ -1083,12 +1161,12 @@ def main():
     )
 
     # TODO: At the end, an oracle is just a parser with oracle info. This could
-    # be turner into a loop similar to parser.py (ore directly use that and a
+    # be turner into a loop similar to parser.py (or directly use that and a
     # AMROracleParser())
     print_log("amr", "Processing oracle")
     oracle = AMR_Oracle(args.entity_rules, verbose=args.verbose)
     oracle.runOracle(
-        corpus.amrs,
+        amrs,
         propbank_args,
         out_oracle=args.out_oracle,
         out_amr=args.out_amr,
