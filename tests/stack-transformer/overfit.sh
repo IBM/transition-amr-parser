@@ -3,13 +3,20 @@
 # size)
 set -o errexit
 set -o pipefail
+if [ -z "$1" ];then
+    amr_file=DATA/wiki25.jkaln
+else
+    amr_file=$1
+fi
 . set_environment.sh
 set -o nounset
 
+experiment_tag=$(basename $amr_file)
+
 # Config
-ORACLE_FOLDER=DATA.tests/oracles/wiki25/
-FEATURES_FOLDER=DATA.tests/features/wiki25/
-MODEL_FOLDER=DATA.tests/models/wiki25/
+ORACLE_FOLDER=DATA.tests/oracles/$experiment_tag/
+FEATURES_FOLDER=DATA.tests/features/$experiment_tag/
+MODEL_FOLDER=DATA.tests/models/$experiment_tag/
 RESULTS_FOLDER=$MODEL_FOLDER/beam1
 max_epoch=10
 
@@ -20,11 +27,11 @@ mkdir -p $ORACLE_FOLDER
 # entity rules
 #entity_rules=transition_amr_parser/entity_rules.json
 entity_rules=$ORACLE_FOLDER/entity_rules.json
-python scripts/extract_rules.py DATA/wiki25.jkaln $entity_rules
+python scripts/extract_rules.py $amr_file $entity_rules
 
 # oracle
 amr-oracle \
-    --in-amr DATA/wiki25.jkaln \
+    --in-amr $amr_file \
     --entity-rules $entity_rules \
     --out-sentences $ORACLE_FOLDER/train.en \
     --out-actions $ORACLE_FOLDER/train.actions \
@@ -39,7 +46,7 @@ cp $ORACLE_FOLDER/train.actions $ORACLE_FOLDER/test.actions
 # PREPROCESSING
 # Extract sentence featrures and action sequence and store them in fairseq
 # format
-rm -Rf DATA.tests/features/wiki25/  # not as var for security
+rm -Rf DATA.tests/features/$experiment_tag/  # not as var for security
 mkdir -p $FEATURES_FOLDER
 fairseq-preprocess \
     --source-lang en \
@@ -54,7 +61,7 @@ fairseq-preprocess \
     --machine-rules $ORACLE_FOLDER/train.rules.json 
  
 # TRAINING
-rm -Rf DATA.tests/models/wiki25/
+rm -Rf DATA.tests/models/$experiment_tag/
 model_arch=stack_transformer_6x6_nopos 
 #model_arch=stack_transformer_6x6_top_nopos 
 #model_arch=stack_transformer_6x6_tops_nopos 
@@ -87,7 +94,7 @@ fairseq-train \
     --save-dir $MODEL_FOLDER 
 
 # DECODING
-rm -Rf DATA.tests/models/wiki25/beam1
+rm -Rf DATA.tests/models/$experiment_tag/beam1
 mkdir -p $RESULTS_FOLDER
 # --nbest 3 \
 fairseq-generate \
@@ -112,7 +119,7 @@ amr-fake-parse \
 # Smatch evaluation without wiki
 python smatch/smatch.py \
      --significant 4  \
-     -f DATA/wiki25.jkaln \
+     -f $amr_file \
      $RESULTS_FOLDER/valid.amr \
      -r 10 \
      > $RESULTS_FOLDER/valid.smatch
