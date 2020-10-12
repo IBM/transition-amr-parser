@@ -15,7 +15,7 @@ from transition_amr_parser.io import (
 )
 from collections import Counter, defaultdict
 from smatch import compute_f
-
+from copy import deepcopy
 
 def yellow_font(string):
     return "\033[93m%s\033[0m" % string
@@ -173,7 +173,7 @@ def merge_rules(sentences, actions, rule_stats, entity_rules=None):
             position, mpositions = \
                 state_machine.get_top_of_stack(positions=True)
             if action.startswith('PRED'):
-                node = action[4:-1]
+                node = action[5:-1]
                 possible_predicates[tokens[position]].update([node])
                 if mpositions:
                     mtokens = ','.join([tokens[p] for p in mpositions])
@@ -198,14 +198,37 @@ def merge_rules(sentences, actions, rule_stats, entity_rules=None):
             # execute action
             state_machine.applyAction(action)
 
-    # TODO: compare with old stats
     out_rule_stats = rule_stats
-    out_rule_stats['possible_predicates'] = {
-        key: dict(value) for key, value in possible_predicates.items()
-    }
+    new_possible_predicates = merge_both_rules(possible_predicates, actions_by_stack_rules)
+    out_rule_stats['possible_predicates'] = new_possible_predicates
 
     return out_rule_stats
 
+def merge_both_rules(new_action_rules, old_action_rules):
+    keys_old_rules = list(old_action_rules.keys())
+    keys_new_rules = list(new_action_rules.keys())
+
+    keys_common = list(set(keys_old_rules)&set(keys_new_rules))
+    merged_action_rules = dict()
+    for key in keys_old_rules:
+        if key not in keys_common:
+            merged_action_rules[key] = deepcopy(old_action_rules[key])
+    
+    for key in keys_new_rules:
+        if key not in keys_common:
+            merged_action_rules[key] = deepcopy(new_action_rules[key])
+    
+    for key in keys_common:
+        if list(new_action_rules[key].keys()) == list(old_action_rules[key].keys()):
+            merged_action_rules[key] = deepcopy(old_action_rules[key])
+        else:
+            merged_action_rules[key] = deepcopy(old_action_rules[key])
+            for predicate in new_action_rules[key].keys():
+                if predicate not in merged_action_rules[key]:
+                    merged_action_rules[key][predicate] = new_action_rules[key][predicate]
+
+    
+    return deepcopy(merged_action_rules)
 
 def main():
 
