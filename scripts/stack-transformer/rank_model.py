@@ -6,17 +6,22 @@ from math import sqrt, ceil
 from collections import defaultdict
 
 # checkpoints/folder regex
-checkpoint_re = re.compile(r'checkpoint([0-9]+)\.pt')
 model_folder_re = re.compile('(.*)-seed([0-9]+)')
 
 # results file name regex
-results_regex = re.compile(r'dec-checkpoint([0-9]+)\.(.+)')
 # smatch_re = re.compile(r'dec-checkpoint([0-9]+)\.smatch')
 # smatch_re_wiki = re.compile(r'dec-checkpoint([0-9]+)\.wiki\.smatch')
+
+# checkpoints/folder regex
+checkpoint_re = re.compile(r'checkpoint([0-9]+)\.pt')
+results_regex = re.compile(r'dec-checkpoint([0-9]+)\.(.+)')
 
 # results file content regex
 smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
 las_results_re = re.compile(r'UAS: ([0-9\.]+) % LAS: ([0-9\.]+) %')
+
+
+config_var_regex = re.compile(r'^([^=]+)=([^ ]+).*$')
 
 
 def argument_parsing():
@@ -73,6 +78,7 @@ def argument_parsing():
         action='store_true',
         help='do not split model name into components'
     )
+    parser.add_argument("--ignore-deleted", action='store_true')
     return parser.parse_args()
 
 
@@ -97,6 +103,36 @@ def std(items):
         return sqrt(var)
 
 
+def get_scores_from_folder(epoch_folder, score_name):
+    '''
+    Get score files from an epoch folder (<model_folder>/epoch_folder/)
+    '''
+
+    # Get results available in this folder 
+    scores = {}
+    epoch_numbers = []
+    for dfile in os.listdir(epoch_folder):
+
+        # if not a results file, skip
+        if not results_regex.match(dfile): 
+            continue
+
+        epoch_number, sname = results_regex.match(dfile).groups()
+
+        # store epoch number
+        epoch_numbers.append(int(epoch_number))
+
+        if sname != score_name:
+            continue
+
+        # get score
+        score = get_score_from_log(f'{epoch_folder}/{dfile}', score_name)
+        if score is not None:
+            scores[int(epoch_number)] = score
+
+    return scores, max(epoch_numbers) if epoch_numbers else -1
+
+
 def get_score_from_log(file_path, score_name):
 
     results = None
@@ -116,47 +152,6 @@ def get_score_from_log(file_path, score_name):
                 break
 
     return results
-
-
-def get_checkpoints(epoch_folder):
-
-    # data in {epoch_folder}/../
-    # assume containing folder is the model folder
-    model_folder = epoch_folder.replace('epoch_tests', '')
-    if not os.path.isdir(model_folder):
-        return [], model_folder
-    else:
-        cpts = list(filter(checkpoint_re.match, os.listdir(model_folder)))
-        return cpts, model_folder
-#     num_checkpoints = len([
-#         int(checkpoint_re.match(dfile).groups()[0])
-#         for dfile in checkpoints
-#     ])
-
-#    return num_checkpoints 
-
-
-def get_scores_from_folder(epoch_folder, score_name):
-
-    # Get results available in this folder 
-    scores = {}
-    for dfile in os.listdir(epoch_folder):
-
-        # if not a results file, skip
-        if not results_regex.match(dfile): 
-            continue
-
-        epoch_number, sname = results_regex.match(dfile).groups()
-
-        if sname != score_name:
-            continue
-
-        # get score
-        score = get_score_from_log(f'{epoch_folder}/{dfile}', score_name)
-        if score is not None:
-            scores[int(epoch_number)] = score
-
-    return scores
 
 
 def rank_scores(scores, score_name):
@@ -190,17 +185,36 @@ def rank_scores(scores, score_name):
     return best_score, second_best_score, third_best_score, top3_prev
 
 
+def get_max_epoch_from_config(model_folder):
+    max_epoch = None
+    with open(f'{model_folder}/config.sh') as fid:
+        for line in fid.readlines():
+            if config_var_regex.match(line.strip()):
+                name, value = config_var_regex.match(line.strip()).groups()
+                if name == 'MAX_EPOCH':
+                    max_epoch = int(value)
+                    break
+    return max_epoch
+
+
 def collect_checkpoint_results(epoch_folders, score_name):
 
     # loop over those folders
     items = []
     for epoch_folder in epoch_folders:
 
+        # data in {epoch_folder}/../
+        # assume containing folder is the model folder
+        model_folder = epoch_folder.replace('epoch_tests', '')
+        if not os.path.isdir(model_folder):
+            continue
+
         # Get checkpoints available for this model
-        checkpoints, model_folder = get_checkpoints(epoch_folder)
+        checkpoints = list(filter(checkpoint_re.match, os.listdir(model_folder)))
 
         # Get the scores from the result files
-        scores = get_scores_from_folder(epoch_folder, score_name)
+        scores, max_score_epoch = \
+            get_scores_from_folder(epoch_folder, score_name)
 
         # If no scores skip this folder
         if not scores:
@@ -210,12 +224,24 @@ def collect_checkpoint_results(epoch_folders, score_name):
         best_score, second_best_score, third_best_score, top3_prev  = \
             rank_scores(scores, score_name)
 
-        # Find if checkpoints have been deleted
+        # Find if checkpoints have been deleted and there is no copy (e.g. as
+        # done by remove_checkpoints.sh)
         deleted_checkpoints = False
-        for score in [best_score, second_best_score, third_best_score]:
+        for label, score in zip(
+            ['best', 'second_best', 'third_best'], 
+            [best_score, second_best_score, third_best_score]
+        ):
             if score[0] == -1:
                 continue
-            if f'checkpoint{score[0]}.pt' not in checkpoints:
+
+            saved_checkpoint_name = (
+                f'{model_folder}/checkpoint_{label}_{score_name.upper()}.pt'
+            )
+
+            if (
+                f'checkpoint{score[0]}.pt' not in checkpoints and
+                not os.path.isfile(saved_checkpoint_name) 
+            ):
                 deleted_checkpoints = True
                 break
 
@@ -223,6 +249,9 @@ def collect_checkpoint_results(epoch_folders, score_name):
         stdout_numbers = [
             int(checkpoint_re.match(x).groups()[0]) for x in checkpoints
         ] 
+
+        # find out the maximum number of epochs
+        max_epochs = get_max_epoch_from_config(model_folder)
         missing_epochs = list(set(stdout_numbers) - set(scores.keys()))
 
         items.append({
@@ -242,7 +271,7 @@ def collect_checkpoint_results(epoch_folders, score_name):
             # any top score checkpoints missing
             'deleted_checkpoints': deleted_checkpoints,
             # other
-            'max_epochs': max(stdout_numbers) if stdout_numbers else -1,
+            'max_epochs': max_epochs,
             'num_missing_epochs': len(missing_epochs),
             'num': 1,
             'ensemble': False
@@ -559,7 +588,7 @@ def ptable(rows, centering):
     print("")
 
 
-def link_top_models(items, score_name):
+def link_top_models(items, score_name, ignore_deleted):
 
     for item in items:
 
@@ -577,19 +606,47 @@ def link_top_models(items, score_name):
             if epoch == -1:
                 continue
 
+            # get names and paths
             score_name_caps = score_name.upper()
             target_best = (f'{model_folder}/'
                            f'checkpoint_{rank}_{score_name_caps}.pt')
             source_best = f'checkpoint{epoch}.pt'
-            # We may have created a link before to a worse model,
-            # remove it
+
+            # if the best checkpoint does not exist but we have not saved it as
+            # a file, we are in trouble
             if (
-                os.path.islink(target_best) and
-                os.path.basename(os.path.realpath(target_best)) !=
-                    source_best
+                not os.path.isfile(f'{model_folder}/{source_best}')
+                and not os.path.isfile(target_best)
             ):
+                if ignore_deleted:
+                    continue
+                else:
+                    raise Exception(
+                        f'Best model is {model_folder}/{source_best}, however'
+                        ', the checkpoint seems to have been removed' 
+                    )
+
+            # get current best model (if exists)
+            if os.path.islink(target_best):
+                current_best = os.path.basename(os.path.realpath(target_best))
+            else:
+                current_best =  None
+
+            # replace link/checkpoint or create a new one
+            if os.path.islink(target_best) and current_best != source_best:
+                # We created a link before to a worse model, remove it
                 os.remove(target_best)
-            if not os.path.islink(target_best):
+            elif os.path.isfile(target_best):
+                # If we ran remove_checkpoints.sh, we replaced the original
+                # link by copy of the checkpoint. We dont know if this is the
+                # correct checkpoint already
+                # import ipdb; ipdb.set_trace(context=30)
+                os.remove(target_best)
+
+            if (
+                not os.path.islink(target_best)
+                and not os.path.isfile(target_best)    
+            ):
                 os.symlink(source_best, target_best)
 
 
@@ -621,7 +678,7 @@ def main():
 
         # link best score model
         if args.link_best:
-            link_top_models(items, score_name)
+            link_top_models(items, score_name, args.ignore_deleted)
 
         if items != [] and not args.no_print:
             # average over seeds

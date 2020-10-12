@@ -118,8 +118,10 @@ def make_binary_stack(args, target_vocab, input_prefix, output_prefix, eos_idx, 
                 if mask_predicates:
 
                     # Get total valid actions by expanding base ones
-                    valid_action_idx = action_indexer(
-                        state_machine.get_valid_actions()
+                    valid_actions, invalid_actions = state_machine.get_valid_actions()
+                    valid_action_idx = (
+                        action_indexer(valid_actions) 
+                        - action_indexer(invalid_actions)
                     )
 
                     # if action is missing add it and count it

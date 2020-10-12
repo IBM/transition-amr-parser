@@ -3,6 +3,66 @@ import json
 from collections import Counter
 from transition_amr_parser.amr import JAMR_CorpusReader
 import ast
+import xml.etree.ElementTree as ET
+
+
+def read_frame(xml_file):
+    '''
+    Read probpank XML
+    '''
+    
+    root = ET.parse(xml_file).getroot()
+    propbank = {}
+    for predicate in root.findall('predicate'):
+        lemma = predicate.attrib['lemma']
+        for roleset_data in predicate.findall('roleset'):
+    
+            # ID of the role e.g. run.01
+            pred_id = roleset_data.attrib['id']
+    
+            # basic meta-data
+            propbank[pred_id] = {
+                'lemma': lemma,
+                'description': roleset_data.attrib['name']
+            } 
+    
+            # alias
+            propbank[pred_id]['aliases'] = []
+            for aliases in roleset_data.findall('aliases'):
+                for alias in aliases:
+                    propbank[pred_id]['aliases'].append(alias.text)
+    
+            # roles
+            propbank[pred_id]['roles'] = {}
+            for roles in roleset_data.findall('roles'):
+                for role in roles:
+                    if role.tag == 'note':
+                        continue
+                    number = role.attrib['n']
+                    propbank[pred_id]['roles'][f'ARG{number}'] = role.attrib
+    
+            # examples
+            propbank[pred_id]['examples'] = []
+            for examples in roleset_data.findall('example'):
+                sentence = examples.findall('text')
+                assert len(sentence) == 1
+                sentence = sentence[0].text
+                tokens = [x.text for x in examples.findall('rel')]
+                args = []
+                for x in examples.findall('arg'):
+                    args.append(x.attrib)
+                    args[-1].update({'text': x.text})
+                propbank[pred_id]['examples'].append({
+                    'sentence': sentence,
+                    'tokens': tokens,
+                    'args': args 
+                })
+
+
+    return propbank
+
+
+
 
 
 def read_action_scores(file_path):

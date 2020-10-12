@@ -1,37 +1,8 @@
 import sys
+import re
+from collections import Counter
 from transition_amr_parser.utils import print_log
 from collections import defaultdict
-
-
-def find_subgraph_edges2(total_edges, split_node_id):
-
-    children = defaultdict(list)
-    for t in total_edges:
-        children[t[0]].append(t)
-    
-    # Find subgraph first
-    subgraph_edges = []
-    prev_nodes = []
-    node_id = split_node_id
-    while True:
-        if node_id not in children:
-            # backtrack to parent
-            node_id = prev_node_id
-        edges = [e for e in children[node_id] if e not in subgraph_edges]
-        if edges:
-            edge = edges[0]
-            prev_node_id = node_id
-            node_id = edge[2]
-            subgraph_edges.append(edge)
-        elif prev_node_id == split_node_id:
-            # no more edges and at the root of subgraph, exit
-            break    
-        else:
-            # backtrack to parent
-            node_id = prev_node_id
-    
-    import ipdb; ipdb.set_trace(context=30)
-    print()
 
 
 def find_subgraph_edges(total_edges, split_node_id):
@@ -59,7 +30,10 @@ def find_subgraph_edges(total_edges, split_node_id):
             nodes.pop()
 
     return subgraph_edges
-    
+
+
+class InvalidAMRError(Exception):
+    pass
 
 class AMR:
 
@@ -263,8 +237,7 @@ class AMR:
 
         else:
             if len(completed) < len(self.nodes):
-                raise Exception("Tried to print an uncompleted AMR")
-                print_log('amr', 'Failed to print AMR, ' + str(len(completed)) + ' of ' + str(len(self.nodes)) + ' nodes printed:\n ' + amr_string)
+                raise InvalidAMRError("Tried to print an uncompleted AMR")
             if amr_string.startswith('"') or amr_string[0].isdigit() or amr_string[0] == '-':
                 amr_string = '(x / '+amr_string+')'
             if not amr_string.startswith('('):
@@ -296,8 +269,6 @@ class JAMR_CorpusReader:
         self.words2Ints = {}
         self.chars2Ints = {}
         self.labels2Ints = {}
-
-        print_log('amr', 'Starts reading data')
 
     """
     Reads AMR Graphs file in JAMR format. If Training==true, it is reading
@@ -399,12 +370,33 @@ class JAMR_CorpusReader:
 
         if len(amrs[-1].nodes) == 0:
             amrs.pop()
-        print_log('amr', "Training Data" if training else "Dev Data")
-        if training:
-            print_log('amr', "Number of labels: " + str(len(self.labels2Ints)))
-            print_log('amr', "Number of nodes: " + str(len(self.nodes2Ints)))
-            print_log('amr', "Number of words: " + str(len(self.words2Ints)))
-        print_log('amr', "Number of sentences: " + str(len(amrs)))
+
+
+def get_duplicate_edges(amr):
+
+    # Regex for ARGs
+    arg_re = re.compile(r'^(ARG)([0-9]+)$')
+    unique_re = re.compile(r'^(snt|op)([0-9]+)$')
+    argof_re = re.compile(r'^ARG([0-9]+)-of$')
+
+    # count duplicate edges
+    edge_child_count = Counter()
+    for t in amr.edges:
+        edge = t[1][1:]
+        if edge in ['polarity', 'mode']:
+            keys = [(t[0], edge, amr.nodes[t[2]])]
+        elif unique_re.match(edge):
+            keys = [(t[0], edge)]
+        elif arg_re.match(edge):
+            keys = [(t[0], edge)]
+        elif argof_re.match(edge):
+            # normalize ARG0-of --> to ARG0 <--
+            keys = [(t[2], edge.split('-')[0])]
+        else:
+            continue
+        edge_child_count.update(keys)
+
+    return [(t, c) for t, c in edge_child_count.items() if c > 1] 
 
 
 def main():

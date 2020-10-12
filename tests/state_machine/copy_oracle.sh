@@ -39,10 +39,17 @@ amr-oracle \
     --out-actions $ORACLE_FOLDER/train.actions \
     --out-rule-stats $ORACLE_FOLDER/train.rules.json \
 
-#    --multitask-max-words $MAX_WORDS  \
-#    --out-multitask-words $ORACLE_FOLDER/train.multitask_words \
+# Given sentences and oracle actions, recover AMR
+amr-fake-parse \
+    --in-sentences $ORACLE_FOLDER/train.en \
+    --in-actions $ORACLE_FOLDER/train.actions \
+    --entity-rules $ORACLE_FOLDER/entity_rules.json \
+    --out-amr $ORACLE_FOLDER/oracle_train.amr
 
-echo "Create $ORACLE_FOLDER"
+echo -e "\nEvaluating SMATCH (may take ~40min for AMR 2.0 train)\n"
+
+# evaluate reconstruction performance
+smatch="$(smatch.py --significant 3 -r 10 -f $train_amr $ORACLE_FOLDER/oracle_train.amr)"
 
 if [ "$ref_smatch" != "" ];then
     

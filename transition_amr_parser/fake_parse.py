@@ -14,6 +14,7 @@ from transition_amr_parser.state_machine import (
     get_spacy_lemmatizer
 )
 from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.io import (
     writer,
     read_tokenized_sentences,
@@ -100,6 +101,11 @@ def argument_parser():
         help="Assume whitespaces normalized to _ in PRED"
     )
     parser.add_argument(
+        "--sanity-check",
+        action='store_true',
+        help="Sanity check produced AMRs"
+    )
+    parser.add_argument(
         "--out-bio-tags",
         type=str,
         help="Output AMR info as BIO tags (PRED and ADDNODE actions)"
@@ -136,7 +142,7 @@ def reduce_counter(counts, reducer):
 def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
 
     # Get valid actions
-    valid_actions = state_machine.get_valid_actions()
+    valid_actions, invalid_actions = state_machine.get_valid_actions()
 
     # Fallback for constrained PRED actions
     if 'PRED' in raw_action:
@@ -162,13 +168,15 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
             else:
                 pred_counts.update(['matches'])
     elif (
-        raw_action not in valid_actions and
-        raw_action.split('(')[0] not in valid_actions
+        (
+            raw_action not in valid_actions and
+            raw_action.split('(')[0] not in valid_actions
+        )
+        or raw_action in invalid_actions
     ):
-
         # note-down rule violation
         token, _ = state_machine.get_top_of_stack()
-        rule_violation.update([(token, raw_action)])
+        rule_violation.update([raw_action.split('(')[0]])
 
     return raw_action
 
@@ -410,13 +418,26 @@ def main():
         # whitespace separated tokens
         machine, bio_tags = parsing_model.parse_sentence(" ".join(tokens))
 
+        # sanity check annotations
+        dupes = get_duplicate_edges(machine.amr)
+        if args.sanity_check and any(dupes):
+            msg = yellow_font('WARNING:')
+            print(f'{msg} duplicated edges in sent {sent_idx}', end=' ')
+            print(dict(dupes))
+            print(' '.join(machine.tokens))
+
         # store output AMR
         if args.out_bio_tags:
             tag_str = '\n'.join([f'{to} {ta}' for to, ta in bio_tags])
             tag_str += '\n\n'
             bio_write(tag_str)
         if args.out_amr:
-            amr_write(machine.amr.toJAMRString())
+            try:
+                amr_write(machine.amr.toJAMRString())
+            except InvalidAMRError as exception:    
+                print(f'\nFailed at sentence {sent_idx}\n')
+                raise exception
+
 
     if (
         getattr(parsing_model, "rule_violation") and
