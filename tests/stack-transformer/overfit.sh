@@ -23,6 +23,7 @@ max_epoch=10
 # ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the
 # AMR back
+rm -Rf DATA.tests/oracles/$experiment_tag/  # not as var for security
 mkdir -p $ORACLE_FOLDER
 # entity rules
 #entity_rules=transition_amr_parser/entity_rules.json
