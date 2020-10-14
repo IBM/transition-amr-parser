@@ -199,7 +199,8 @@ class TransformerDecoderLayer(nn.Module):
         head_attention_masks=None,
         head_positions=None,
         cross_attention_mask=None,
-        ptr_self_attn_mask=None
+        ptr_self_attn_mask=None,
+        graph_self_attn_mask=None
     ):
         """
         Args:
@@ -226,7 +227,8 @@ class TransformerDecoderLayer(nn.Module):
             incremental_state=incremental_state,
             need_weights=True,
             attn_mask=self_attn_mask,
-            ptr_self_attn_mask=ptr_self_attn_mask
+            ptr_self_attn_mask=ptr_self_attn_mask,
+            graph_self_attn_mask=graph_self_attn_mask
         )
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = residual + x

@@ -26,8 +26,9 @@ if __name__ == '__main__':
     # tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors = binarize_actstates_tolist(en_file, actions_file,
     #                                                                                 actions_dict=actions_dict)
     # TODO not working for num_workers > 1
-    tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors = binarize_actstates_tolist_workers(
-        en_file, actions_file, actions_dict=actions_dict, num_workers=num_workers)
+    tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
+        tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions = \
+        binarize_actstates_tolist_workers(en_file, actions_file, actions_dict=actions_dict, num_workers=num_workers)
 
     import pdb
     pdb.set_trace()
