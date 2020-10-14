@@ -140,6 +140,7 @@ def train(args, trainer, task, epoch_itr):
     extra_meters = collections.defaultdict(lambda: AverageMeter())
     valid_subsets = args.valid_subset.split(',')
     max_update = args.max_update or math.inf
+    # ## debug: right after datasets are loaded and before data iteration
     # import pdb; pdb.set_trace()
     for i, samples in enumerate(progress, start=epoch_itr.iterations_in_epoch):
         # import pdb

@@ -22,7 +22,7 @@ seed=$2
 set -o nounset
 
 dir=$(dirname $0)
-. $dir/$config_model   # we should always call from one level up
+. $config_model   # we should always call from one level up
 # now we have
 # $ORACLE_FOLDER
 # $DATA_FOLDER
@@ -59,14 +59,14 @@ AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 
 ##### train model (will do nothing if $MODEL_FOLDER exists)
 
-echo "[Training:]"
+# echo "[Training:]"
 
-cp $dir/$config_data $ROOTDIR/$expdir/
-cp $dir/$config_model $MODEL_FOLDER/
-cp $0 $MODEL_FOLDER/
-cp $dir/ac_train.sh $MODEL_FOLDER/train.sh
+# cp $config_data $ROOTDIR/$expdir/
+# cp $config_model $MODEL_FOLDER/
+# cp $0 $MODEL_FOLDER/
+# cp $dir/ac_train.sh $MODEL_FOLDER/train.sh
 
-. $dir/ac_train.sh
+# . $dir/ac_train.sh
 
 # exit 0
 ###############################################################
@@ -77,7 +77,7 @@ model_epoch=_last
 batch_size=128
 
 echo "[Decoding and computing smatch:]"
-for beam_size in 50
+for beam_size in 1 5 10
 do
     . $dir/ad_test.sh "" dev
     . $dir/ad_test.sh "" test

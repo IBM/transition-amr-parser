@@ -45,6 +45,8 @@ if __name__ == '__main__':
 
     os.system(f'ls -lh {os.path.dirname(out_file_pref)}')
 
-    tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors = load_actstates_fromfile(out_file_pref, actions_dict)
+    tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
+        tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions = \
+        load_actstates_fromfile(out_file_pref, actions_dict)
 
     import pdb; pdb.set_trace()
