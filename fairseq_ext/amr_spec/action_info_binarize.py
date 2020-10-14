@@ -71,7 +71,14 @@ class ActionStatesBinarizer:
                 actions_nodemask = torch.tensor(actions_states['actions_nodemask'], dtype=torch.uint8)
                 token_cursors = torch.tensor(actions_states['token_cursors'])
 
-                consumer(vocab_mask, actions_nodemask, token_cursors)
+                # graph structure information
+                actions_edge_mask = torch.tensor(actions_states['actions_edge_mask'], dtype=torch.uint8)
+                actions_edge_cur_node = torch.tensor(actions_states['actions_edge_cur_node'])
+                actions_edge_pre_node = torch.tensor(actions_states['actions_edge_pre_node'])
+                actions_edge_direction = torch.tensor(actions_states['actions_edge_direction'])
+
+                consumer(vocab_mask, actions_nodemask, token_cursors,
+                         actions_edge_mask, actions_edge_cur_node, actions_edge_pre_node, actions_edge_direction)
 
                 count += 1
                 if count % 1000 == 0:
@@ -138,6 +145,11 @@ def get_actions_states_file(en_file, actions_file, actions_dict, consumer=None, 
     tgt_vocab_masks = []    # a list of 2-D tensors of size (seq_len, tgt_vocab_size)
     tgt_actnode_masks = []    # a list of 1-D tensors of size (seq_len,)
     tgt_src_cursors = []    # a list of 1-D tensors of size (seq_len,)
+    # graph structure
+    tgt_actedge_masks = []        # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_cur_nodes = []    # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_pre_nodes = []    # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_directions = []    # a list of 1-D tensors of size (seq_len,)
 
     if canonical_act_ids is None:
         assert actions_dict is not None
@@ -175,10 +187,23 @@ def get_actions_states_file(en_file, actions_file, actions_dict, consumer=None, 
                 token_cursors = torch.tensor(actions_states['token_cursors'])
                 tgt_src_cursors.append(token_cursors)
 
-                if consumer is not None:
-                    consumer(vocab_mask, actions_nodemask, token_cursors)
+                # graph structure information
+                actions_edge_mask = torch.tensor(actions_states['actions_edge_mask'], dtype=torch.uint8)
+                actions_edge_cur_node = torch.tensor(actions_states['actions_edge_cur_node'])
+                actions_edge_pre_node = torch.tensor(actions_states['actions_edge_pre_node'])
+                actions_edge_direction = torch.tensor(actions_states['actions_edge_direction'])
 
-    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors
+                tgt_actedge_masks.append(actions_edge_mask)
+                tgt_actedge_cur_nodes.append(actions_edge_cur_node)
+                tgt_actedge_pre_nodes.append(actions_edge_pre_node)
+                tgt_actedge_directions.append(actions_edge_direction)
+
+                if consumer is not None:
+                    consumer(vocab_mask, actions_nodemask, token_cursors,
+                             actions_edge_mask, actions_edge_cur_node, actions_edge_pre_node, actions_edge_direction)
+
+    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
+        tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions
 
 
 def binarize_actstates_tolist(en_file, actions_file, actions_dict=None, tokenize=tokenize_line_tab,
@@ -189,11 +214,22 @@ def binarize_actstates_tolist(en_file, actions_file, actions_dict=None, tokenize
     tgt_vocab_masks = []    # a list of 2-D tensors of size (seq_len, tgt_vocab_size)
     tgt_actnode_masks = []    # a list of 1-D tensors of size (seq_len,)
     tgt_src_cursors = []    # a list of 1-D tensors of size (seq_len,)
+    # graph structure
+    tgt_actedge_masks = []        # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_cur_nodes = []    # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_pre_nodes = []    # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_directions = []    # a list of 1-D tensors of size (seq_len,)
 
-    def consumer(vocab_mask, actions_nodemask, token_cursors):
+    def consumer(vocab_mask, actions_nodemask, token_cursors,
+                 actions_edge_mask, actions_edge_cur_node, actions_edge_pre_node, actions_edge_direction):
         tgt_vocab_masks.append(vocab_mask)
         tgt_actnode_masks.append(actions_nodemask)
         tgt_src_cursors.append(token_cursors)
+        # graph structure
+        tgt_actedge_masks.append(actions_edge_mask)
+        tgt_actedge_cur_nodes.append(actions_edge_cur_node)
+        tgt_actedge_pre_nodes.append(actions_edge_pre_node)
+        tgt_actedge_directions.append(actions_edge_direction)
         return
 
     if action_state_binarizer is None:
@@ -206,7 +242,8 @@ def binarize_actstates_tolist(en_file, actions_file, actions_dict=None, tokenize
     # OR (for the same results, but should not be used when the function is called for multiprocessing)
     # _ = get_actions_states_file(en_file, actions_file, actions_dict, consumer=consumer, tokenize=tokenize)
 
-    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors
+    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
+        tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions
 
 
 # TODO not working for num_workers > 1: need to figure out how to properly return tensor values from Pool
@@ -252,11 +289,22 @@ def binarize_actstates_tolist_workers(en_file, actions_file, actions_dict=None,
     tgt_vocab_masks = []    # a list of 2-D tensors of size (seq_len, tgt_vocab_size)
     tgt_actnode_masks = []    # a list of 1-D tensors of size (seq_len,)
     tgt_src_cursors = []    # a list of 1-D tensors of size (seq_len,)
+    # graph structure
+    tgt_actedge_masks = []        # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_cur_nodes = []    # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_pre_nodes = []    # a list of 1-D tensors of size (seq_len,)
+    tgt_actedge_directions = []    # a list of 1-D tensors of size (seq_len,)
 
-    def consumer(vocab_mask, actions_nodemask, token_cursors):
+    def consumer(vocab_mask, actions_nodemask, token_cursors,
+                 actions_edge_mask, actions_edge_cur_node, actions_edge_pre_node, actions_edge_direction):
         tgt_vocab_masks.append(vocab_mask)
         tgt_actnode_masks.append(actions_nodemask)
         tgt_src_cursors.append(token_cursors)
+        # graph structure
+        tgt_actedge_masks.append(actions_edge_mask)
+        tgt_actedge_cur_nodes.append(actions_edge_cur_node)
+        tgt_actedge_pre_nodes.append(actions_edge_pre_node)
+        tgt_actedge_directions.append(actions_edge_direction)
         return
 
     action_state_binarizer.binarize(en_file, actions_file, consumer, tokenize=tokenize,
@@ -272,13 +320,18 @@ def binarize_actstates_tolist_workers(en_file, actions_file, actions_dict=None,
             # tgt_vocab_masks += res[worker_id - 1].get()[0]
             # tgt_actnode_masks += res[worker_id - 1].get()[1]
             # tgt_src_cursors += res[worker_id - 1].get()[2]
+            # tgt_actedge_masks += res[worker_id - 1].get()[3]
+            # tgt_actedge_cur_nodes += res[worker_id - 1].get()[4]
+            # tgt_actedge_pre_nodes += res[worker_id - 1].get()[5]
+            # tgt_actedge_directions += res[worker_id - 1].get()[6]
 
     print('finished !')
     print(f'Processed data saved to lists.')
     print(f'Total time elapsed: {time_since(start)}')
     print('-' * 100)
 
-    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors
+    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
+        tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions
 
 
 def binarize_actstates_tofile(en_file, actions_file, out_file_pref,
@@ -298,14 +351,38 @@ def binarize_actstates_tofile(en_file, actions_file, out_file_pref,
     out_file_tgt_src_cursors = out_file_pref + '.src_cursors' + '.bin'
     index_file_tgt_src_cursors = out_file_pref + '.src_cursors' + '.idx'
 
+    # graph structure
+    out_file_tgt_actedge_masks = out_file_pref + '.actedge_masks' + '.bin'
+    index_file_tgt_actedge_masks = out_file_pref + '.actedge_masks' + '.idx'
+
+    out_file_tgt_actedge_cur_nodes = out_file_pref + '.actedge_cur_nodes' + '.bin'
+    index_file_tgt_actedge_cur_nodes = out_file_pref + '.actedge_cur_nodes' + '.idx'
+
+    out_file_tgt_actedge_pre_nodes = out_file_pref + '.actedge_pre_nodes' + '.bin'
+    index_file_tgt_actedge_pre_nodes = out_file_pref + '.actedge_pre_nodes' + '.idx'
+
+    out_file_tgt_actedge_directions = out_file_pref + '.actedge_directions' + '.bin'
+    index_file_tgt_actedge_directions = out_file_pref + '.actedge_directions' + '.idx'
+
     ds_tgt_vocab_masks = make_builder(out_file_tgt_vocab_masks, impl=impl, dtype=np.uint8)
     ds_tgt_actnode_masks = make_builder(out_file_tgt_actnode_masks, impl=impl, dtype=np.uint8)
     ds_tgt_src_cursors = make_builder(out_file_tgt_src_cursors, impl=impl, dtype=np.int64)
+    # graph structure
+    ds_tgt_actedge_masks = make_builder(out_file_tgt_actedge_masks, impl=impl, dtype=np.uint8)
+    ds_tgt_actedge_cur_nodes = make_builder(out_file_tgt_actedge_cur_nodes, impl=impl, dtype=np.int64)
+    ds_tgt_actedge_pre_nodes = make_builder(out_file_tgt_actedge_pre_nodes, impl=impl, dtype=np.int64)
+    ds_tgt_actedge_directions = make_builder(out_file_tgt_actedge_directions, impl=impl, dtype=np.int64)
 
-    def consumer(vocab_mask, actions_nodemask, token_cursors):
+    def consumer(vocab_mask, actions_nodemask, token_cursors,
+                 actions_edge_mask, actions_edge_cur_node, actions_edge_pre_node, actions_edge_direction):
         ds_tgt_vocab_masks.add_item(vocab_mask.view(-1))    # NOTE here we flatten the 2-D tensor
         ds_tgt_actnode_masks.add_item(actions_nodemask)
         ds_tgt_src_cursors.add_item(token_cursors)
+        # graph structure
+        ds_tgt_actedge_masks.add_item(actions_edge_mask)
+        ds_tgt_actedge_cur_nodes.add_item(actions_edge_cur_node)
+        ds_tgt_actedge_pre_nodes.add_item(actions_edge_pre_node)
+        ds_tgt_actedge_directions.add_item(actions_edge_direction)
         return
 
     if action_state_binarizer is None:
@@ -321,6 +398,11 @@ def binarize_actstates_tofile(en_file, actions_file, out_file_pref,
     ds_tgt_vocab_masks.finalize(index_file_tgt_vocab_masks)
     ds_tgt_actnode_masks.finalize(index_file_tgt_actnode_masks)
     ds_tgt_src_cursors.finalize(index_file_tgt_src_cursors)
+    # graph structure
+    ds_tgt_actedge_masks.finalize(index_file_tgt_actedge_masks)
+    ds_tgt_actedge_cur_nodes.finalize(index_file_tgt_actedge_cur_nodes)
+    ds_tgt_actedge_pre_nodes.finalize(index_file_tgt_actedge_pre_nodes)
+    ds_tgt_actedge_directions.finalize(index_file_tgt_actedge_directions)
 
     return
 
@@ -379,14 +461,38 @@ def binarize_actstates_tofile_workers(en_file, actions_file, out_file_pref,
     out_file_tgt_src_cursors = out_file_pref + '.src_cursors' + '.bin'
     index_file_tgt_src_cursors = out_file_pref + '.src_cursors' + '.idx'
 
+    # graph structure
+    out_file_tgt_actedge_masks = out_file_pref + '.actedge_masks' + '.bin'
+    index_file_tgt_actedge_masks = out_file_pref + '.actedge_masks' + '.idx'
+
+    out_file_tgt_actedge_cur_nodes = out_file_pref + '.actedge_cur_nodes' + '.bin'
+    index_file_tgt_actedge_cur_nodes = out_file_pref + '.actedge_cur_nodes' + '.idx'
+
+    out_file_tgt_actedge_pre_nodes = out_file_pref + '.actedge_pre_nodes' + '.bin'
+    index_file_tgt_actedge_pre_nodes = out_file_pref + '.actedge_pre_nodes' + '.idx'
+
+    out_file_tgt_actedge_directions = out_file_pref + '.actedge_directions' + '.bin'
+    index_file_tgt_actedge_directions = out_file_pref + '.actedge_directions' + '.idx'
+
     ds_tgt_vocab_masks = make_builder(out_file_tgt_vocab_masks, impl=impl, dtype=np.uint8)
     ds_tgt_actnode_masks = make_builder(out_file_tgt_actnode_masks, impl=impl, dtype=np.uint8)
     ds_tgt_src_cursors = make_builder(out_file_tgt_src_cursors, impl=impl, dtype=np.int64)
+    # graph structure
+    ds_tgt_actedge_masks = make_builder(out_file_tgt_actedge_masks, impl=impl, dtype=np.uint8)
+    ds_tgt_actedge_cur_nodes = make_builder(out_file_tgt_actedge_cur_nodes, impl=impl, dtype=np.int64)
+    ds_tgt_actedge_pre_nodes = make_builder(out_file_tgt_actedge_pre_nodes, impl=impl, dtype=np.int64)
+    ds_tgt_actedge_directions = make_builder(out_file_tgt_actedge_directions, impl=impl, dtype=np.int64)
 
-    def consumer(vocab_mask, actions_nodemask, token_cursors):
+    def consumer(vocab_mask, actions_nodemask, token_cursors,
+                 actions_edge_mask, actions_edge_cur_node, actions_edge_pre_node, actions_edge_direction):
         ds_tgt_vocab_masks.add_item(vocab_mask.view(-1))    # NOTE here we flatten the 2-D tensor
         ds_tgt_actnode_masks.add_item(actions_nodemask)
         ds_tgt_src_cursors.add_item(token_cursors)
+        # graph structure
+        ds_tgt_actedge_masks.add_item(actions_edge_mask)
+        ds_tgt_actedge_cur_nodes.add_item(actions_edge_cur_node)
+        ds_tgt_actedge_pre_nodes.add_item(actions_edge_pre_node)
+        ds_tgt_actedge_directions.add_item(actions_edge_direction)
         return
 
     action_state_binarizer.binarize(en_file, actions_file, consumer, tokenize=tokenize,
@@ -401,17 +507,37 @@ def binarize_actstates_tofile_workers(en_file, actions_file, out_file_pref,
             ds_tgt_vocab_masks.merge_file_(out_file_pref_temp + '.vocab_masks')
             ds_tgt_actnode_masks.merge_file_(out_file_pref_temp + '.actnode_masks')
             ds_tgt_src_cursors.merge_file_(out_file_pref_temp + '.src_cursors')
+            # graph structure
+            ds_tgt_actedge_masks.merge_file_(out_file_pref_temp + '.actedge_masks')
+            ds_tgt_actedge_cur_nodes.merge_file_(out_file_pref_temp + '.actedge_cur_nodes')
+            ds_tgt_actedge_pre_nodes.merge_file_(out_file_pref_temp + '.actedge_pre_nodes')
+            ds_tgt_actedge_directions.merge_file_(out_file_pref_temp + '.actedge_directions')
+
             os.remove(out_file_pref_temp + '.vocab_masks' + '.bin')
             os.remove(out_file_pref_temp + '.vocab_masks' + '.idx')
             os.remove(out_file_pref_temp + '.actnode_masks' + '.bin')
             os.remove(out_file_pref_temp + '.actnode_masks' + '.idx')
             os.remove(out_file_pref_temp + '.src_cursors' + '.bin')
             os.remove(out_file_pref_temp + '.src_cursors' + '.idx')
+            # graph structure
+            os.remove(out_file_pref_temp + '.actedge_masks' + '.bin')
+            os.remove(out_file_pref_temp + '.actedge_masks' + '.idx')
+            os.remove(out_file_pref_temp + '.actedge_cur_nodes' + '.bin')
+            os.remove(out_file_pref_temp + '.actedge_cur_nodes' + '.idx')
+            os.remove(out_file_pref_temp + '.actedge_pre_nodes' + '.bin')
+            os.remove(out_file_pref_temp + '.actedge_pre_nodes' + '.idx')
+            os.remove(out_file_pref_temp + '.actedge_directions' + '.bin')
+            os.remove(out_file_pref_temp + '.actedge_directions' + '.idx')
 
     # finalize to save the dtype and size and index info
     ds_tgt_vocab_masks.finalize(index_file_tgt_vocab_masks)
     ds_tgt_actnode_masks.finalize(index_file_tgt_actnode_masks)
     ds_tgt_src_cursors.finalize(index_file_tgt_src_cursors)
+    # graph structure
+    ds_tgt_actedge_masks.finalize(index_file_tgt_actedge_masks)
+    ds_tgt_actedge_cur_nodes.finalize(index_file_tgt_actedge_cur_nodes)
+    ds_tgt_actedge_pre_nodes.finalize(index_file_tgt_actedge_pre_nodes)
+    ds_tgt_actedge_directions.finalize(index_file_tgt_actedge_directions)
 
     print('finished !')
     print(f'Processed data saved to path with prefix: {out_file_pref}')
@@ -426,9 +552,20 @@ def load_actstates_fromfile(file_pref, actions_dict, impl='mmap'):
     file_pref_tgt_vocab_masks = file_pref + '.vocab_masks'
     file_pref_tgt_actnode_masks = file_pref + '.actnode_masks'
     file_pref_tgt_src_cursors = file_pref + '.src_cursors'
+    # graph structure
+    file_pref_tgt_actedge_masks = file_pref + '.actedge_masks'
+    file_pref_tgt_actedge_cur_nodes = file_pref + '.actedge_cur_nodes'
+    file_pref_tgt_actedge_pre_nodes = file_pref + '.actedge_pre_nodes'
+    file_pref_tgt_actedge_directions = file_pref + '.actedge_directions'
 
     tgt_vocab_masks = load_indexed_dataset(file_pref_tgt_vocab_masks, actions_dict, impl)
     tgt_actnode_masks = load_indexed_dataset(file_pref_tgt_actnode_masks, None, impl)
     tgt_src_cursors = load_indexed_dataset(file_pref_tgt_src_cursors, None, impl)
+    # graph structure
+    tgt_actedge_masks = load_indexed_dataset(file_pref_tgt_actedge_masks, None, impl)
+    tgt_actedge_cur_nodes = load_indexed_dataset(file_pref_tgt_actedge_cur_nodes, None, impl)
+    tgt_actedge_pre_nodes = load_indexed_dataset(file_pref_tgt_actedge_pre_nodes, None, impl)
+    tgt_actedge_directions = load_indexed_dataset(file_pref_tgt_actedge_directions, None, impl)
 
-    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors
+    return tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
+        tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions

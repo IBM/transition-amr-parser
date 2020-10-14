@@ -37,13 +37,17 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
+arch=transformer_tgt_pointer_graph
+tgt_graph_layers="0 1 2"
+tgt_graph_heads=1
+
 pointer_dist_decoder_selfattn_layers="3 4 5"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
 pointer_dist_decoder_selfattn_infer=5
 
 apply_tgt_src_align=1
-tgt_src_align_layers="0 1 2"
+tgt_src_align_layers="0 1 2 3 4 5"
 tgt_src_align_heads=2
 tgt_src_align_focus='p0c1n0 p0c0n*'
 focus_name='abuf'
@@ -88,7 +92,7 @@ fi
 # set the experiment directory name
 expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
 
-# pointer distribution 
+# pointer distribution
 expdir=${expdir}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
 
 if [[ $pointer_dist_decoder_selfattn_avg == 1 ]]; then
@@ -112,7 +116,10 @@ if [[ $apply_tgt_input_src == 1 ]]; then
 fi
 
 # specific model directory name with a set random seed
-MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
+# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
+
+expdir=exp_debug
+MODEL_FOLDER=$ROOTDIR/exp_debug
 
 
 ###############################################################
@@ -121,4 +128,3 @@ MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
 # model_epoch=_last
 # # beam_size=1
 # batch_size=128
-

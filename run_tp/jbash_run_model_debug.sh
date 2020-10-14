@@ -6,9 +6,10 @@ set -o pipefail
 
 ##### data config
 if [ -z "$1" ]; then
-    config_model=run_tp/config_model_action-pointer.sh
+    config_model=config_files/config_model_debug.sh
 else
-    config_model=$1
+    # config_model=$1
+    echo "Configuration file is set by default - no need to provide" && exit 1
 fi
 
 seed=${2:-42}
@@ -36,10 +37,8 @@ mkdir -p $MODEL_FOLDER
 # /bin/bash $dir/run_model_action-pointer.sh $config_model $seed #|& tee $MODEL_FOLDER/log.train
 
 # formal run: send to background
-/bin/bash $dir/run_model_action-pointer.sh $config_model $seed &> $MODEL_FOLDER/log.train &
-echo "train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
-
-echo "Log for training written at $MODEL_FOLDER/log.train"
+/bin/bash $dir/run_model_action-pointer.sh $config_model $seed # &> $MODEL_FOLDER/log.train &
+# echo "train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
 # on CCC, but not taking care of log locations inside the $MODEL_FOLDER
 # bash_x86_12h_v100 $dir/run_model_action-pointer.sh $config_model $seed |& tee $MODEL_FOLDER/log.train

@@ -39,9 +39,15 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     src_wp2w = None
     tgt_dataset = None
     tgt_pos = None
+    # target action states
     tgt_vocab_masks = None
     tgt_actnode_masks = None
     tgt_src_cursors = None
+    # graph structure
+    tgt_actedge_masks = None
+    tgt_actedge_cur_nodes = None
+    tgt_actedge_pre_nodes = None
+    tgt_actedge_directions = None
 
     assert src == 'en'
     assert tgt == 'actions'
@@ -84,8 +90,9 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
 
     # tgt: actions states information
     try:
-        tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors = load_actstates_fromfile(filename_prefix + tgt,
-                                                                                      tgt_dict, dataset_impl)
+        tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
+            tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions = \
+            load_actstates_fromfile(filename_prefix + tgt, tgt_dict, dataset_impl)
     except:
         assert not collate_tgt_states, ('the target actions states information does not exist --- '
                                         'collate_tgt_states must be 0')
@@ -102,6 +109,10 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
                                       tgt_vocab_masks=tgt_vocab_masks,
                                       tgt_actnode_masks=tgt_actnode_masks,
                                       tgt_src_cursors=tgt_src_cursors,
+                                      tgt_actedge_masks=tgt_actedge_masks,
+                                      tgt_actedge_cur_nodes=tgt_actedge_cur_nodes,
+                                      tgt_actedge_pre_nodes=tgt_actedge_pre_nodes,
+                                      tgt_actedge_directions=tgt_actedge_directions,
                                       left_pad_source=True,
                                       left_pad_target=False,
                                       max_source_positions=max_source_positions,
@@ -335,7 +346,10 @@ class AMRActionPointerParsingTask(FairseqTask):
             from fairseq.sequence_scorer import SequenceScorer
             return SequenceScorer(self.target_dictionary)
         else:
-            from fairseq_ext.sequence_generator import SequenceGenerator
+            if 'graph' in model_args.arch:
+                from fairseq_ext.sequence_generator_graph import SequenceGenerator
+            else:
+                from fairseq_ext.sequence_generator import SequenceGenerator
             return SequenceGenerator(
                 self.target_dictionary,
                 beam_size=getattr(args, 'beam', 5),
