@@ -14,11 +14,14 @@ from fairseq_ext.data import data_utils
 def collate(
     samples, pad_idx, eos_idx, left_pad_source=True, left_pad_target=False,
     input_feeding=True, collate_tgt_states=False,
+    pad_tgt_actedge_cur_nodes=-1,
+    pad_tgt_actedge_pre_nodes=-1,
+    pad_tgt_actedge_directions=0
 ):
     if len(samples) == 0:
         return {}
 
-    def merge(key, left_pad, move_eos_to_beginning=False):
+    def merge(key, left_pad, move_eos_to_beginning=False, pad_idx=pad_idx):
         return data_utils.collate_tokens(
             [s[key] for s in samples],
             pad_idx, eos_idx, left_pad, move_eos_to_beginning,
@@ -187,14 +190,34 @@ def collate(
     if collate_tgt_states:
         tgt_vocab_masks = merge_tgt_vocab_masks()
         tgt_vocab_masks = tgt_vocab_masks.index_select(0, sort_order)
-        tgt_actnode_masks = merge('tgt_actnode_masks', left_pad=left_pad_target)
+        tgt_actnode_masks = merge('tgt_actnode_masks', left_pad=left_pad_target, pad_idx=0)
         tgt_actnode_masks = tgt_actnode_masks.index_select(0, sort_order)
         tgt_src_cursors = merge('tgt_src_cursors', left_pad=left_pad_target)
         tgt_src_cursors = tgt_src_cursors.index_select(0, sort_order)
+        # graph structure (NOTE the pad_idx is fixed at some special values)
+        tgt_actedge_masks = merge('tgt_actedge_masks', left_pad=left_pad_target, pad_idx=0)
+        tgt_actedge_masks = tgt_actedge_masks.index_select(0, sort_order)
+        tgt_actedge_cur_nodes = merge('tgt_actedge_cur_nodes', left_pad=left_pad_target,
+                                      pad_idx=pad_tgt_actedge_cur_nodes)
+        tgt_actedge_cur_nodes = tgt_actedge_cur_nodes.index_select(0, sort_order)
+        tgt_actedge_pre_nodes = merge('tgt_actedge_pre_nodes', left_pad=left_pad_target,
+                                      pad_idx=pad_tgt_actedge_pre_nodes)
+        tgt_actedge_pre_nodes = tgt_actedge_pre_nodes.index_select(0, sort_order)
+        tgt_actedge_directions = merge('tgt_actedge_directions', left_pad=left_pad_target,
+                                       pad_idx=pad_tgt_actedge_directions)
+        tgt_actedge_directions = tgt_actedge_directions.index_select(0, sort_order)
+        tgt_actnode_masks_shift = merge('tgt_actnode_masks_shift', left_pad=left_pad_target, pad_idx=0)
+        tgt_actnode_masks_shift = tgt_actnode_masks_shift.index_select(0, sort_order)
     else:
         tgt_vocab_masks = None
         tgt_actnode_masks = None
         tgt_src_cursors = None
+        # graph structure
+        tgt_actedge_masks = None
+        tgt_actedge_cur_nodes = None
+        tgt_actedge_pre_nodes = None
+        tgt_actedge_directions = None
+        tgt_actnode_masks_shift = None
 
     # batch variables
     batch = {
@@ -214,9 +237,16 @@ def collate(
             'logits_mask': logits_mask,
             'logits_indices': logits_indices,
             # not used above
+            # AMR actions states
             'tgt_vocab_masks': tgt_vocab_masks,
             'tgt_actnode_masks': tgt_actnode_masks,
-            'tgt_src_cursors': tgt_src_cursors
+            'tgt_src_cursors': tgt_src_cursors,
+            # graph structure
+            'tgt_actedge_masks': tgt_actedge_masks,
+            'tgt_actedge_cur_nodes': tgt_actedge_cur_nodes,
+            'tgt_actedge_pre_nodes': tgt_actedge_pre_nodes,
+            'tgt_actedge_directions': tgt_actedge_directions,
+            'tgt_actnode_masks_shift': tgt_actnode_masks_shift
         },
         'target': target,
         'tgt_pos': tgt_pos
@@ -252,6 +282,10 @@ class AMRActionPointerDataset(FairseqDataset):
                  tgt_vocab_masks=None,
                  tgt_actnode_masks=None,
                  tgt_src_cursors=None,
+                 tgt_actedge_masks=None,
+                 tgt_actedge_cur_nodes=None,
+                 tgt_actedge_pre_nodes=None,
+                 tgt_actedge_directions=None,
                  left_pad_source=True, left_pad_target=False,
                  max_source_positions=1024, max_target_positions=1024,
                  shuffle=True, input_feeding=True, remove_eos_from_source=False, append_eos_to_target=False,
@@ -296,6 +330,12 @@ class AMRActionPointerDataset(FairseqDataset):
         self.tgt_actnode_masks = tgt_actnode_masks
         self.tgt_src_cursors = tgt_src_cursors
 
+        # AMR graph structure information for each tgt step
+        self.tgt_actedge_masks = tgt_actedge_masks
+        self.tgt_actedge_cur_nodes = tgt_actedge_cur_nodes
+        self.tgt_actedge_pre_nodes = tgt_actedge_pre_nodes
+        self.tgt_actedge_directions = tgt_actedge_directions
+
         # others for collating examples to a batch
         self.left_pad_source = left_pad_source
         self.left_pad_target = left_pad_target
@@ -312,6 +352,23 @@ class AMRActionPointerDataset(FairseqDataset):
             assert self.tgt_vocab_masks is not None
             assert self.tgt_actnode_masks is not None
             assert self.tgt_src_cursors is not None
+            # NOTE graph structure is also required here
+            assert self.tgt_actedge_masks is not None
+            assert self.tgt_actedge_cur_nodes is not None
+            assert self.tgt_actedge_pre_nodes is not None
+            assert self.tgt_actedge_directions is not None
+
+            # get the padding values for the graph structure vectors
+            # since they are not all 0s, e.g. for node action ids 0 is an legit id
+            for i in range(len(self.tgt_actedge_masks[0])):
+                if self.tgt_actedge_masks[0][i] == 0:
+                    self.pad_tgt_actedge_cur_nodes = self.tgt_actedge_cur_nodes[0][i]
+                    self.pad_tgt_actedge_pre_nodes = self.tgt_actedge_pre_nodes[0][i]
+                    self.pad_tgt_actedge_directions = self.tgt_actedge_directions[0][i]
+                    break
+
+            # TODO lift this; associated with AMRStateMachine:apply_canonical_action()
+            assert self.pad_tgt_actedge_cur_nodes != -2, 'currently -2 is fixed to denote root node for LA(root)'
 
     def __getitem__(self, index):
         src_tokens_item = self.src_tokens[index] if self.src_tokens is not None else None
@@ -344,6 +401,44 @@ class AMRActionPointerDataset(FairseqDataset):
             if self.tgt_vocab_masks is not None else None
         tgt_actnode_mask_item = self.tgt_actnode_masks[index] if self.tgt_actnode_masks is not None else None
         tgt_src_cursor_item = self.tgt_src_cursors[index] if self.tgt_src_cursors is not None else None
+        # graph structure
+        tgt_actedge_masks_item = self.tgt_actedge_masks[index] \
+            if self.tgt_actedge_masks is not None else None
+        tgt_actedge_cur_nodes_item = self.tgt_actedge_cur_nodes[index] \
+            if self.tgt_actedge_cur_nodes is not None else None
+        tgt_actedge_pre_nodes_item = self.tgt_actedge_pre_nodes[index] \
+            if self.tgt_actedge_pre_nodes is not None else None
+        tgt_actedge_directions_item = self.tgt_actedge_directions[index] \
+            if self.tgt_actedge_directions is not None else None
+
+        # ========== tgt graph structure information should be tied with the tgt input ==========
+        # a) the vectors should be shifted to the right
+        tgt_actedge_masks_item = tgt_actedge_masks_item.clone()
+        tgt_actedge_cur_nodes_item = tgt_actedge_cur_nodes_item.clone()
+        tgt_actedge_pre_nodes_item = tgt_actedge_pre_nodes_item.clone()
+        tgt_actedge_directions_item = tgt_actedge_directions_item.clone()
+        tgt_actnode_mask_shift_item = tgt_actnode_mask_item.clone()    # node mask on the tgt input side
+        # NOTE we must clone first -- modification in their original place is not allowed
+        # if not using .clone(), there is an error:
+        #      RuntimeError: unsupported operation: some elements of the input tensor and the written-to tensor refer to
+        #      a single memory location. Please clone() the tensor before performing the operation.
+        for tgt_actedge_x in (tgt_actedge_masks_item, tgt_actedge_cur_nodes_item,
+                              tgt_actedge_pre_nodes_item, tgt_actedge_directions_item,
+                              tgt_actnode_mask_shift_item):
+            tgt_actedge_x[1:] = tgt_actedge_x[:-1].clone()
+
+        # b) the values referring to node positions should be shifted 1 to the right as well
+        tgt_actedge_cur_nodes_item[tgt_actedge_cur_nodes_item >= 0] += 1
+        tgt_actedge_pre_nodes_item[tgt_actedge_pre_nodes_item >= 0] += 1
+
+        # c) for the <s> position at the beginning
+        tgt_actedge_masks_item[0] = 0
+        tgt_actedge_cur_nodes_item[0] = self.pad_tgt_actedge_cur_nodes
+        tgt_actedge_pre_nodes_item[0] = self.pad_tgt_actedge_pre_nodes
+        tgt_actedge_directions_item[0] = self.pad_tgt_actedge_directions
+        tgt_actnode_mask_shift_item[0] = 0
+
+        # ========================================================================================
 
         # Append EOS to end of tgt sentence if it does not have an EOS and remove
         # EOS from end of src sentence if it exists. This is useful when we use
@@ -358,6 +453,17 @@ class AMRActionPointerDataset(FairseqDataset):
             tgt_vocab_mask_item = tgt_vocab_mask_item[:-1] if tgt_vocab_mask_item is not None else None
             tgt_actnode_mask_item = tgt_actnode_mask_item[:-1] if tgt_actnode_mask_item is not None else None
             tgt_src_cursor_item = tgt_src_cursor_item[:-1] if tgt_src_cursor_item is not None else None
+            # tgt graph structure
+            tgt_actedge_masks_item = tgt_actedge_masks_item[:-1] \
+                if tgt_actedge_masks_item is not None else None
+            tgt_actedge_cur_nodes_item = tgt_actedge_cur_nodes_item[:-1] \
+                if tgt_actedge_cur_nodes_item is not None else None
+            tgt_actedge_pre_nodes_item = tgt_actedge_pre_nodes_item[:-1] \
+                if tgt_actedge_pre_nodes_item is not None else None
+            tgt_actedge_directions_item = tgt_actedge_directions_item[:-1] \
+                if tgt_actedge_directions_item is not None else None
+            tgt_actnode_mask_shift_item = tgt_actnode_mask_shift_item[:-1] \
+                if tgt_actnode_mask_shift_item is not None else None
 
         if self.remove_eos_from_source:
             eos = self.src_dict.eos()
@@ -373,9 +479,16 @@ class AMRActionPointerDataset(FairseqDataset):
             'src_wp2w': src_wp2w_item,
             'target': tgt_item,
             'tgt_pos': tgt_pos_item,
+            # AMR actions states (tied with the tgt output side)
             'tgt_vocab_masks': tgt_vocab_mask_item,
             'tgt_actnode_masks': tgt_actnode_mask_item,
-            'tgt_src_cursors': tgt_src_cursor_item
+            'tgt_src_cursors': tgt_src_cursor_item,
+            # graph structure (tied with the tgt input side)
+            'tgt_actedge_masks': tgt_actedge_masks_item,
+            'tgt_actedge_cur_nodes': tgt_actedge_cur_nodes_item,
+            'tgt_actedge_pre_nodes': tgt_actedge_pre_nodes_item,
+            'tgt_actedge_directions': tgt_actedge_directions_item,
+            'tgt_actnode_masks_shift': tgt_actnode_mask_shift_item
         }
 
     def __len__(self):
@@ -414,7 +527,10 @@ class AMRActionPointerDataset(FairseqDataset):
             samples, pad_idx=self.tgt_dict.pad(), eos_idx=self.tgt_dict.eos(),
             left_pad_source=self.left_pad_source, left_pad_target=self.left_pad_target,
             input_feeding=self.input_feeding,
-            collate_tgt_states=self.collate_tgt_states
+            collate_tgt_states=self.collate_tgt_states,
+            pad_tgt_actedge_cur_nodes=self.pad_tgt_actedge_cur_nodes,
+            pad_tgt_actedge_pre_nodes=self.pad_tgt_actedge_pre_nodes,
+            pad_tgt_actedge_directions=self.pad_tgt_actedge_directions
         )
 
     def num_tokens(self, index):

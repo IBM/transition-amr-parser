@@ -33,14 +33,15 @@ from torch_scatter import scatter_mean
 
 from ..modules.transformer_layer import TransformerEncoderLayer, TransformerDecoderLayer
 from .attention_masks import get_cross_attention_mask, get_cross_attention_mask_heads
+from .graph_attention_masks import get_graph_self_attn_mask
 
 
 DEFAULT_MAX_SOURCE_POSITIONS = 1024
 DEFAULT_MAX_TARGET_POSITIONS = 1024
 
 
-@register_model('transformer_tgt_pointer')
-class TransformerTgtPointerModel(FairseqEncoderDecoderModel):
+@register_model('transformer_tgt_pointer_graph')
+class TransformerTgtPointerGraphModel(FairseqEncoderDecoderModel):
     """
     Transformer model from `"Attention Is All You Need" (Vaswani, et al, 2017)
     <https://arxiv.org/abs/1706.03762>`_.
@@ -187,6 +188,13 @@ class TransformerTgtPointerModel(FairseqEncoderDecoderModel):
         parser.add_argument('--tgt-input-src-combine', type=str, choices=['cat', 'add'],
                             help='target input to include aligned source tokens: how to combine the source token '
                                  'embeddings and the action embeddings')
+        # additional: graph structure encoding into the decoder self-attention
+        parser.add_argument('--tgt-graph-layers', nargs='*', type=int,
+                            help='target graph structure encoding in decoder self-attention: which layers to use')
+        parser.add_argument('--tgt-graph-heads', type=int,
+                            help='target graph structure encoding in decoder self-attention: how many heads per layer')
+        parser.add_argument('--tgt-graph-mask', type=str, choices=['e1c1p1', 'e1c1p0', 'e0c1p1', 'e0c1p0'],
+                            help='target graph structure encoding in decoder self-attention: how to set the graph mask')
         # fmt: on
 
     @classmethod
@@ -560,6 +568,8 @@ class TransformerDecoder(FairseqIncrementalDecoder):
     def forward(self, prev_output_tokens, encoder_out, memory=None, memory_pos=None,
                 incremental_state=None, logits_mask=None, logits_indices=None,
                 tgt_vocab_masks=None, tgt_actnode_masks=None, tgt_src_cursors=None,
+                tgt_actedge_masks=None, tgt_actedge_cur_nodes=None, tgt_actedge_pre_nodes=None,
+                tgt_actedge_directions=None, tgt_actnode_masks_shift=None,
                 **unused):
         """
         Args:
@@ -575,6 +585,19 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 - the decoder's output of shape `(batch, tgt_len, vocab)`
                 - a dictionary with any model-specific outputs
         """
+        # breakpoint()
+
+        if self.args.tgt_graph_mask == 'e1c1p1':
+            graph_self_attn_mask = get_graph_self_attn_mask(tgt_actedge_masks=tgt_actedge_masks,
+                                                            tgt_actedge_cur_nodes=tgt_actedge_cur_nodes,
+                                                            tgt_actedge_pre_nodes=tgt_actedge_pre_nodes,
+                                                            tgt_actedge_directions=tgt_actedge_directions,
+                                                            tgt_actnode_masks_shift=tgt_actnode_masks_shift,
+                                                            mask_num_heads=self.args.tgt_graph_heads,
+                                                            num_heads=self.layers[0].self_attn.num_heads)
+        else:
+            raise NotImplementedError
+
         x, extra = self.extract_features(
             prev_output_tokens,
             memory,
@@ -582,7 +605,9 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             encoder_out,
             incremental_state,
             tgt_src_cursors=tgt_src_cursors,
-            tgt_actnode_masks=tgt_actnode_masks
+            tgt_actnode_masks=tgt_actnode_masks,
+            # graph structure: decoder self-attention mask
+            graph_self_attn_mask=graph_self_attn_mask
         )
         x = self.output_layer(
             x,
@@ -601,6 +626,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
     def extract_features(self, prev_output_tokens, memory, memory_pos,
                          encoder_out=None, incremental_state=None,
                          tgt_src_cursors=None, tgt_actnode_masks=None,
+                         graph_self_attn_mask=None,
                          **unused):
         """
         Similar to *forward* but only return features.
@@ -624,6 +650,11 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             # TODO this is a hacky way of ignoring these two
             memory = memory[:, :, -1:] if memory is not None else None
             memory_pos = memory_pos[:, :, -1:] if memory_pos is not None else None
+            # graph structure mask on the decoder self-attention: take out the last row of (tgt_len, tgt_len)
+            # for only one step
+            if graph_self_attn_mask is not None:
+                graph_self_attn_mask = (graph_self_attn_mask[0][:, -1, :].unsqueeze(1),
+                                        graph_self_attn_mask[1][:, -1].unsqueeze(1))
 
         # embed tokens and positions
         x = self.embed_scale * self.embed_tokens(prev_output_tokens)
@@ -702,7 +733,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                     -1, tgt_actnode_masks.size(1), tgt_actnode_masks.size(1))
             # NOTE need to include the causal mask as well in case some rows are completely masked out
             # in which case we need to do the post mask
-            ptr_self_attn_mask &= (self.buffered_future_mask(x) != -float('inf')).unsqueeze(dim=0)
+            ptr_self_attn_mask &= (self.buffered_future_mask(x) != -float('inf')).byte().unsqueeze(dim=0)
             # NOTE when one row out of bsz * num_heads (tgt_max_len, src_max_len) masks is full zeros, after softmax the
             # distribution will be all "nan"s, which will cause problem when calculating gradients.
             # Thus, we mask these positions after softmax
@@ -718,6 +749,8 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             ptr_self_attn_mask = None
         # ========================================================================
         # import pdb; pdb.set_trace()
+
+        # breakpoint()
 
         # TODO tgt_src_align_layers are not really controlled!!!
 
@@ -755,7 +788,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                                       else None),
                 ptr_self_attn_mask=(ptr_self_attn_mask
                                     if layer_index in self.args.pointer_dist_decoder_selfattn_layers
-                                    else None)
+                                    else None),
+                graph_self_attn_mask=(graph_self_attn_mask
+                                      if layer_index in self.args.tgt_graph_layers
+                                      else None)
             )
             inner_states.append(x)
 
@@ -1177,7 +1213,7 @@ def base_architecture(args):
 # pointer transformer
 
 
-@register_model_architecture('transformer_tgt_pointer', 'transformer_tgt_pointer')
+@register_model_architecture('transformer_tgt_pointer_graph', 'transformer_tgt_pointer_graph')
 def transformer_pointer(args):
     # args.encode_state_machine = getattr(args, 'encode_state_machine', "stack_top_nopos")
     args.encode_state_machine = getattr(args, 'encode_state_machine', None)
@@ -1211,6 +1247,10 @@ def transformer_pointer(args):
     args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
     args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
     args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # graph structure encoding into the decoder self-attention
+    args.tgt_graph_layers = getattr(args, 'tgt_graph_layers', list(range(args.decoder_layers)))
+    args.tgt_graph_heads = getattr(args, 'tgt_graph_heads', 1)
+    args.tgt_graph_mask = getattr(args, 'tgt_graph_mask', 'e1c1p1')
 
     # process some of the args for compatibility issue with legacy versions
     if isinstance(args.tgt_src_align_focus, str):

@@ -631,7 +631,7 @@ class AMROracleBuilder:
         b) for two entities with same surface tokens
         ENTITY('name') PRED('city') [other arcs] LA(pos,':name') PRED('city') [other arcs] LA(pos,':name')
         c) for two entities with two surface tokens
-        ENTITY('name') PRED('city') [other arcs] LA(pos,':name') ENTITY('name') PRED('city') [other arcs]  LA(pos,':name')
+        ENTITY('name') PRED('city') [other arcs] LA(pos,':name') ENTITY('name') PRED('city') [other arcs] LA(pos,':name')
         """
         machine = self.machine
         gold_amr = self.gold_amr

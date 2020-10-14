@@ -147,6 +147,12 @@ class AMRStateMachine:
         self.actions_canonical = []    # used in canonical mode
         self.actions_nodemask = []     # used in canonical mode
         self.actions_tokcursor = []    # used in canonical mode
+        # graph structure information to be used in the model; used in canonical mode
+        self.actions_edge_mask = []
+        self.actions_latest_node = None
+        self.actions_edge_cur_node = []
+        self.actions_edge_pre_node = []
+        self.actions_edge_direction = []
 
         if tokens is not None:
             # word tokens of sentence
@@ -322,6 +328,22 @@ class AMRStateMachine:
         return action
 
     @classmethod
+    def canonical_action_form_ptr(cls, action):
+        """Get the canonical form of an action with labels/properties, and return the pointer value for arcs."""
+        if action in cls.canonical_actions:
+            return action, None
+        action, properties = cls.read_action(action)
+        if action.startswith('LA'):
+            if properties[1] == 'root':
+                action = 'LA(root)'
+        if action.startswith('LA') or action.startswith('RA'):
+            arc_pos = properties[0]
+        else:
+            arc_pos = None
+        # assert action in cls.canonical_actions
+        return action, arc_pos
+
+    @classmethod
     def canonical_action_to_dict(cls, vocab):
         """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
 
@@ -452,7 +474,7 @@ class AMRStateMachine:
 
         return cano_actions
 
-    def apply_canonical_action(self, action):
+    def apply_canonical_action(self, action, arc_pos=None):
         assert self.canonical_mode
         assert action in self.canonical_actions
 
@@ -474,6 +496,7 @@ class AMRStateMachine:
             self.actions_nodemask.append(0)
         elif action in ['PRED', 'COPY_LEMMA', 'COPY_SENSE01', 'ENTITY']:
             self.actions_nodemask.append(1)
+            self.actions_latest_node = len(self.actions_nodemask) - 1
         elif action in ['DEPENDENT']:
             self.actions_nodemask.append(0)    # TODO arc to dependent node is disallowed now. discuss
         elif action in ['LA', 'RA', 'LA(root)']:
@@ -486,6 +509,26 @@ class AMRStateMachine:
             raise Exception(f'Unrecognized canonical action: {action}')
 
         self.actions_canonical.append(action)
+
+        # graph structure: edge information
+        if action in ['LA', 'RA']:
+            self.actions_edge_mask.append(1)
+            self.actions_edge_cur_node.append(self.actions_latest_node)
+            self.actions_edge_pre_node.append(arc_pos)
+            if action == 'RA':
+                self.actions_edge_direction.append(1)
+            else:
+                self.actions_edge_direction.append(-1)
+        elif action == 'LA(root)':
+            self.actions_edge_mask.append(1)
+            self.actions_edge_cur_node.append(-2)    # NOTE root node is not added by any action
+            self.actions_edge_pre_node.append(arc_pos)
+            self.actions_edge_direction.append(-1)
+        else:
+            self.actions_edge_mask.append(0)
+            self.actions_edge_cur_node.append(-1)
+            self.actions_edge_pre_node.append(-1)
+            self.actions_edge_direction.append(0)
 
         # Increase time step
         self.time_step += 1

@@ -43,10 +43,9 @@ pointer_dist_decoder_selfattn_avg=0
 pointer_dist_decoder_selfattn_infer=5
 
 apply_tgt_src_align=1
-tgt_src_align_layers="0 1 2"
+tgt_src_align_layers="0 1 2 3 4 5"
 tgt_src_align_heads=2
-tgt_src_align_focus='p0c1n0 p0c0n*'
-focus_name='abuf'
+tgt_src_align_focus="p0c1n0 p0c0n*"
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
 # current version: 'p0c1n1', 'p1c1n1', 'p*c1n0', 'p0c0n*', etc.
 #                  'p' - previous (prior to alignment), a number or '*' for all previous src tokens
@@ -62,6 +61,8 @@ seed=${seed:-42}
 max_epoch=120
 eval_init_epoch=81
 
+
+##### set the experiment dir name based on model configurations
 
 if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
     lay="all"
@@ -85,34 +86,49 @@ else
 fi
 
 
+if [[ $tgt_src_align_focus == "p0c1n0" ]]; then
+    cam_focus=""    # default
+elif [[ $tgt_src_align_focus == "p0c1n0 p0c0n*" ]]; then
+    cam_focus=-abuf    # alignment and "buffer"
+fi
+
 # set the experiment directory name
 expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
 
-# pointer distribution 
-expdir=${expdir}_ptr-layer${lay}-head${pointer_dist_decoder_selfattn_heads}    # action-pointer
+# pointer distribution
+ptr_tag=_ptr-lay${lay}-h${pointer_dist_decoder_selfattn_heads}    # action-pointer
 
 if [[ $pointer_dist_decoder_selfattn_avg == 1 ]]; then
-    expdir=${expdir}-avg
+    ptr_tag=${ptr_tag}-avg
 elif [[ $pointer_dist_decoder_selfattn_avg == "-1" ]]; then
-    expdir=${expdir}-apd
+    ptr_tag=${ptr_tag}-apd
 fi
 
 if [[ $apply_tgt_actnode_masks == 1 ]]; then
-    expdir=${expdir}-pmask1
+    ptr_tag=${ptr_tag}-pmask1
 fi
 
 # cross-attention alignment
 if [[ $apply_tgt_src_align == 1 ]]; then
-    expdir=${expdir}_cam-layer${cam_lay}-head${tgt_src_align_heads}-focus${focus_name}
+    cam_tag=_cam-lay${cam_lay}-h${tgt_src_align_heads}${cam_focus}
+else
+    cam_tag=""
 fi
 
 # target input augmentation
 if [[ $apply_tgt_input_src == 1 ]]; then
-    expdir=${expdir}_tis-emb${tgt_input_src_emb}-com${tgt_input_src_combine}-bp${tgt_input_src_backprop}
+    tis_tag=_tis-emb${tgt_input_src_emb}-com${tgt_input_src_combine}-bp${tgt_input_src_backprop}
+else
+    tis_tag=""
 fi
+
+# combine different model configuration tags to the name
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}
+
 
 # specific model directory name with a set random seed
 MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
+
 
 
 ###############################################################
@@ -121,4 +137,3 @@ MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
 # model_epoch=_last
 # # beam_size=1
 # batch_size=128
-

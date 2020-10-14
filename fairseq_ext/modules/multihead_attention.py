@@ -97,7 +97,8 @@ class MultiheadAttention(nn.Module):
                 need_weights=True, static_kv=False, attn_mask=None,
                 head_attention_masks=None, head_positions=None,
                 cross_attention_mask=None,
-                ptr_self_attn_mask=None):
+                ptr_self_attn_mask=None,
+                graph_self_attn_mask=None):
         """Input shape: Time x Batch x Channel
 
         Timesteps can be masked by supplying a T x T mask in the
@@ -277,7 +278,7 @@ class MultiheadAttention(nn.Module):
         # q              (batch_size * num_heads, target_size, target_emb_size / num_heads)
         # k              (batch_size * num_heads, source_size, target_emb_size / num_heads)
         # ->
-        # attn_weights   (batch_size * num_heads, source_size, target_size)
+        # attn_weights   (batch_size * num_heads, target_size, source_size)
         attn_weights = torch.bmm(q, k.transpose(1, 2))
 
         # import pdb; pdb.set_trace()
@@ -290,6 +291,10 @@ class MultiheadAttention(nn.Module):
         if ptr_self_attn_mask is not None:
             attn_weights[:ptr_self_attn_mask[0].size(0)][~ptr_self_attn_mask[0]] = -float('inf')
             # attn_weights[:ptr_self_attn_mask[0].size(0)].masked_fill(~ptr_self_attn_mask[0], float('-inf'))
+
+        # graph structure encoding: decoder self-attention mask
+        if graph_self_attn_mask is not None:
+            attn_weights = attn_weights.masked_fill(~graph_self_attn_mask[0], float('-inf'))
 
         if head_positions is not None:
             # if buffer/stack positions provided, add them to attention computation
@@ -362,6 +367,10 @@ class MultiheadAttention(nn.Module):
                                                                     *ptr_self_attn_mask[1].size()[1:])
             ptr_self_attn_mask_tmp[:ptr_self_attn_mask[1].size(0)] = ptr_self_attn_mask[1]
             attn_weights = attn_weights * ptr_self_attn_mask_tmp
+
+        # graph structure encoding: decoder self-attention mask
+        if graph_self_attn_mask is not None:
+            attn_weights = attn_weights * graph_self_attn_mask[1]
 
         # if torch.isnan(attn_weights).any():
         #     import pdb; pdb.set_trace()
