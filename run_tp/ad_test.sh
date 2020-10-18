@@ -37,7 +37,7 @@ elif [ $data_split_amr == "test" ]; then
 else
     echo "$2 is invalid; must be dev or test"
 fi
-    
+
 
 # data_split=valid
 # data_split_amr=dev    # TODO make the names consistent
@@ -81,7 +81,7 @@ python fairseq_ext/generate.py \
     --results-path $results_prefix \
 
 # exit 0
-    
+
 ##### Create the AMR from the model obtained actions
 python transition_amr_parser/o7_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/$data_split_amr.en \
@@ -94,7 +94,7 @@ python transition_amr_parser/o7_fake_parse.py \
 if [[ "$wiki" == "" ]]; then
 
     # Smatch evaluation without wiki
-    
+
     echo "Computing SMATCH ---"
     python smatch/smatch.py \
          --significant 4  \
@@ -127,4 +127,3 @@ else
     cat $results_prefix.wiki.smatch
 
 fi
-

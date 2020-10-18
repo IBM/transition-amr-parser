@@ -745,7 +745,14 @@ class SequenceGenerator(object):
                 # NOTE the ending condition should never be max step reached; in principle our generation is contraint
                 # on the the source sequences, and we finish generation of an action sequence only when we have
                 # processed all the source words
-                raise ValueError('max step reached; we should set proper max step value so that this does not happen.')
+
+                import warnings
+                warnings.warn('max step reached; we should set proper max step value so that this does not happen. '
+                              'OR: the generation is stuck at some repetitive patterns.')
+
+                # breakpoint()
+                # raise ValueError('max step reached; we should set proper max step value so that this does not happen.')
+
                 # make probs contain cumulative scores for each hypothesis
                 lprobs.add_(scores[:, step - 1].unsqueeze(-1))
 
