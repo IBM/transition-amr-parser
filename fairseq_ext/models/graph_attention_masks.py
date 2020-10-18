@@ -28,7 +28,8 @@ def modify_mask_pre_post_softmax(mask):
 def get_graph_self_attn_mask(tgt_actedge_masks, tgt_actedge_cur_nodes,
                              tgt_actedge_pre_nodes, tgt_actedge_directions,
                              tgt_actnode_masks_shift,
-                             mask_num_heads, num_heads):
+                             mask_num_heads, num_heads,
+                             tgt_graph_mask='e1c1p1'):
     """Create the mask to encode graph structure for decoder self-attention. The mask could contain multiple heads.
 
     Args:
@@ -44,22 +45,35 @@ def get_graph_self_attn_mask(tgt_actedge_masks, tgt_actedge_cur_nodes,
             Note: padded with 0.
         mask_num_heads (int): number of attention heads that are used for graph structure masking.
         num_heads (int): total number of attention heads.
+        tgt_graph_mask (str): masking strategy for the graph edge positions. It takes the form 'e-c-p-' where 'e' is for
+            the edge, 'c' is for the current node on the edge, 'p' is for the previous node on the edge, and '-' can be
+            either '0' or '1', indicating the masking value.
     """
+    assert len(tgt_graph_mask) == 6
+    assert tgt_graph_mask[0] == 'e' and tgt_graph_mask[2] == 'c' and tgt_graph_mask[4] == 'p'
+
     # node diagonal mask, size (batch_size, tgt_max_len, tgt_max_len)
     mask_node = torch.diag_embed(tgt_actnode_masks_shift)
-    # edge diagonal mask, size (batch_size, tgt_max_len, tgt_max_len)
-    mask_edge = torch.diag_embed(tgt_actedge_masks)
 
-    # indexes of the edges in a flattened vector of size (batch_size * tgt_max_len,)
-    edge_idx_flattened = torch.nonzero(tgt_actedge_masks.flatten()).squeeze()
-    # NOTE root node is not added by an action, the cur_node is denoted as -2
-    edge_idx_flattened_noroot = torch.nonzero(tgt_actedge_cur_nodes.flatten() >= 0).squeeze()
+    # edge diagonal mask, size (batch_size, tgt_max_len, tgt_max_len)
+    if tgt_graph_mask[1] == '1':
+        mask_edge = torch.diag_embed(tgt_actedge_masks)
+    else:
+        mask_edge = torch.diag_embed(torch.zeros_like(tgt_actedge_masks))
 
     # make the mask: at edge position, attend to the edge and two nodes
-    mask_edge.view(-1, mask_edge.size(-1))[edge_idx_flattened_noroot,
-                                           tgt_actedge_cur_nodes.flatten()[edge_idx_flattened_noroot]] = 1
-    mask_edge.view(-1, mask_edge.size(-1))[edge_idx_flattened,
-                                           tgt_actedge_pre_nodes.flatten()[edge_idx_flattened]] = 1
+    if tgt_graph_mask[3] == '1':
+        # indexes of the edges in a flattened vector of size (batch_size * tgt_max_len,)
+        # NOTE root node is not added by any action, the cur_node is denoted as -2
+        edge_idx_flattened_noroot = torch.nonzero(tgt_actedge_cur_nodes.flatten() >= 0).squeeze()
+        mask_edge.view(-1, mask_edge.size(-1))[edge_idx_flattened_noroot,
+                                               tgt_actedge_cur_nodes.flatten()[edge_idx_flattened_noroot]] = 1
+    if tgt_graph_mask[5] == '1':
+        # indexes of the edges in a flattened vector of size (batch_size * tgt_max_len,)
+        edge_idx_flattened = torch.nonzero(tgt_actedge_masks.flatten()).squeeze()
+        mask_edge.view(-1, mask_edge.size(-1))[edge_idx_flattened,
+                                               tgt_actedge_pre_nodes.flatten()[edge_idx_flattened]] = 1
+
     mask = mask_edge + mask_node    # size (batch_size, tgt_max_len, tgt_max_len)
 
     # put the mask into heads

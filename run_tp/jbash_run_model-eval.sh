@@ -43,7 +43,8 @@ else
     /bin/bash $dir/run_model_action-pointer.sh $config_model $seed &> $MODEL_FOLDER/log.train &
 
     # record job process id and corresponding model checkpoints folder for debug checks
-    echo "train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
+    now=$(date +"[%T - %D]")
+    echo "$now train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
     echo "Log for training written at $MODEL_FOLDER/log.train"
 
@@ -74,7 +75,8 @@ else
     /bin/bash $dir/jbash_run_eval.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
     echo "Log for launching the evaluation and model selection written at $MODEL_FOLDER/logeval.launch"
     # record pid for debug and kill checks
-    echo "launch eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
+    now=$(date +"[%T - %D]")
+    echo "$now launch eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
 fi
 
