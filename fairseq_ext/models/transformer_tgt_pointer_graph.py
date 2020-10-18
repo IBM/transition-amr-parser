@@ -587,16 +587,14 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         """
         # breakpoint()
 
-        if self.args.tgt_graph_mask == 'e1c1p1':
-            graph_self_attn_mask = get_graph_self_attn_mask(tgt_actedge_masks=tgt_actedge_masks,
-                                                            tgt_actedge_cur_nodes=tgt_actedge_cur_nodes,
-                                                            tgt_actedge_pre_nodes=tgt_actedge_pre_nodes,
-                                                            tgt_actedge_directions=tgt_actedge_directions,
-                                                            tgt_actnode_masks_shift=tgt_actnode_masks_shift,
-                                                            mask_num_heads=self.args.tgt_graph_heads,
-                                                            num_heads=self.layers[0].self_attn.num_heads)
-        else:
-            raise NotImplementedError
+        graph_self_attn_mask = get_graph_self_attn_mask(tgt_actedge_masks=tgt_actedge_masks,
+                                                        tgt_actedge_cur_nodes=tgt_actedge_cur_nodes,
+                                                        tgt_actedge_pre_nodes=tgt_actedge_pre_nodes,
+                                                        tgt_actedge_directions=tgt_actedge_directions,
+                                                        tgt_actnode_masks_shift=tgt_actnode_masks_shift,
+                                                        mask_num_heads=self.args.tgt_graph_heads,
+                                                        num_heads=self.layers[0].self_attn.num_heads,
+                                                        tgt_graph_mask=self.args.tgt_graph_mask)
 
         x, extra = self.extract_features(
             prev_output_tokens,

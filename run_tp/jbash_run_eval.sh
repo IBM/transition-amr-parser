@@ -114,7 +114,18 @@ done
 # /bin/bash $dir/run_model_eval.sh $config_model $seed #|& tee $MODEL_FOLDER/log.eval
 
 # formal run: send to background
+
+# maintain the previous evaluation log files in case of rerunning due to some issues
+if [[ -f $MODEL_FOLDER/log.eval ]]; then
+    n=0
+    while [[ -f $MODEL_FOLDER/log.eval$n ]]; do
+        n=$(( $n + 1 ))
+    done
+    mv $MODEL_FOLDER/log.eval $MODEL_FOLDER/log.eval$n
+fi
+
 /bin/bash $dir/run_model_eval.sh $config_model $seed &> $MODEL_FOLDER/log.eval &
-echo "eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
+now=$(date +"[%T - %D]")
+echo "$now eval - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
 # Get pid by "$!"

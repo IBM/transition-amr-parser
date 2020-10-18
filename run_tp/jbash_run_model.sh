@@ -37,7 +37,8 @@ mkdir -p $MODEL_FOLDER
 
 # formal run: send to background
 /bin/bash $dir/run_model_action-pointer.sh $config_model $seed &> $MODEL_FOLDER/log.train &
-echo "train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
+now=$(date +"[%T - %D]")
+echo "$now train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
 echo "Log for training written at $MODEL_FOLDER/log.train"
 
