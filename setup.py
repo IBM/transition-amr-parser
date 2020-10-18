@@ -1,7 +1,6 @@
-import os
 from setuptools import setup, find_packages
 
-VERSION = '0.3.1'
+VERSION = '0.3.2'
 
 package_data = {
     'transition_amr_parser': [
@@ -12,7 +11,7 @@ package_data = {
 }
 
 # this is what usually goes on requirements.txt
-# Note that we use a concda installer for this 
+# Note that we use a concda installer for this
 # scripts/stack-transformer/ccc_x86_fairseq.yml
 install_requires = [
     'torch==1.1.0',
