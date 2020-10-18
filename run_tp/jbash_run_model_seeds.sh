@@ -63,7 +63,8 @@ do
 
     (CUDA_VISIBLE_DEVICES=${gpus[i]} /bin/bash $dir/run_model_action-pointer.sh $config_model $seed &> $MODEL_FOLDER/log.train) &
 
-    echo "train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
+    now=$(date +"[%T - %D]")
+    echo "$now train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
     echo "Log written at $MODEL_FOLDER/log.train"
 
@@ -79,4 +80,3 @@ while true; do
 done
 
 tail -f $MODEL_FOLDER/log.train
-

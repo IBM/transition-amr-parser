@@ -5,7 +5,7 @@
 # a) the model specific configuration
 # b) decoding setup (see below)
 # to run:
-# bash run_tp/ad_test.sh 
+# bash run_tp/ad_test.sh
 
 set -o errexit
 set -o pipefail
@@ -24,6 +24,10 @@ config_model=$1
 model_epoch=_wiki-smatch_top3-avg
 beam_size=5
 batch_size=128
-use_pred_rules=-0
+use_pred_rules=0
+
+# debug
+model_epoch=106
+beam_size=1
 
 . run_tp/ad_test.sh $config_model dev
