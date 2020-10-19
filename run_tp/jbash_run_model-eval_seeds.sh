@@ -16,7 +16,7 @@ set -o nounset
 ##### run model and evaluation with different seeds on different GPU
 num_seeds=3
 seeds=(42 0 315)
-gpus=(0 1 2)
+gpus=(1 2 3)
 
 echo "number of seeds: $num_seeds"
 echo "seeds list: ${seeds[@]}"

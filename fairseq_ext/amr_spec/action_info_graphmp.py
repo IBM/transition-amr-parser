@@ -57,6 +57,10 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
         assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
         amr_state_machine.reform_and_apply_action(action=act)
 
+    assert len(amr_state_machine.actions_nopos) == len(actions) \
+        == len(amr_state_machine.actions_pos) \
+        == len(amr_state_machine.actions_reformed_nopos) \
+        == len(amr_state_machine.actions_reformed_pos)
     assert len(amr_state_machine.actions_nodemask) == len(actions) \
         == len(amr_state_machine.actions_edge_mask) \
         == len(amr_state_machine.actions_edge_1stnode_mask)
@@ -69,7 +73,13 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
         == len(amr_state_machine.actions_edge_allpre_pre_node_index) \
         == len(amr_state_machine.actions_edge_allpre_direction)
 
-    return {'allowed_cano_actions': allowed_cano_actions,
+    # breakpoint()
+
+    return {'actions_nopos_in': amr_state_machine.actions_reformed_nopos,
+            'actions_nopos_out': amr_state_machine.actions_nopos,
+            'actions_pos': amr_state_machine.actions_reformed_pos,
+            # general states
+            'allowed_cano_actions': allowed_cano_actions,
             'token_cursors': token_cursors,
             'actions_nodemask': amr_state_machine.actions_nodemask,
             # graph structure
