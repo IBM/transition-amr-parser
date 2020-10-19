@@ -138,6 +138,8 @@ class AMRActionReformer(AMRStateMachine):
             # update the node position reference
             if action_nopos != 'LA(root)':
                 self.node_action_idx_map[self.current_node_action_idx] = self.action_idx
+        else:
+            self.actions_reformed_nopos.append(action_nopos)
 
         # update current node action
         if action_nopos.startswith(('PRED', 'COPY', 'ENTITY')):
