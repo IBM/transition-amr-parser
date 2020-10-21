@@ -9,9 +9,8 @@ set -o nounset
 conda install python=3.6.9 -y -c powerai
 
 # pre-install modules with conda 
-conda env update -f scripts/stack-transformer/environment.yml
 # Note spacy only available with conda. Version will not match x86 one
-conda install spacy -y -c defaults -c https://public.dhe.ibm.com/ibmdl/export/pub/software/server/ibm-ai/conda -c powerai 
+conda env update -f scripts/stack-transformer/environment_ppc.yml
 pip install smatch==1.0.4 ipdb
 
 # download fairseq
