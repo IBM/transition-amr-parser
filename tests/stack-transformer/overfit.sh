@@ -118,7 +118,7 @@ amr-fake-parse \
     --out-amr $RESULTS_FOLDER/valid.amr \
 
 # Smatch evaluation without wiki
-python smatch/smatch.py \
+smatch.py \
      --significant 4  \
      -f $amr_file \
      $RESULTS_FOLDER/valid.amr \

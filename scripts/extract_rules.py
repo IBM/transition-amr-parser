@@ -6,7 +6,7 @@ from transition_amr_parser.amr import JAMR_CorpusReader, AMR
 
 entity_rules_json = {}
 
-verbose = True
+verbose = False
 
 
 def create_fixed_rules(all_entities):
