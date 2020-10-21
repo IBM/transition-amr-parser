@@ -7,12 +7,12 @@ Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch. Th
 
 2. Two structured sequence-to-sequence models able to encode the parse state. This includes stack-LSTM and the stack-Transformer. 
 
-Current version is `0.3.0`. Initial commit developed by Miguel Ballesteros and Austin Blodgett while at IBM. 
+Current version is `0.3.2`. Initial commit developed by Miguel Ballesteros and Austin Blodgett while at IBM. Current [contributors](https://github.ibm.com/mnlp/transition-amr-parser/graphs/contributors).
 
 ## Using the Parser
 
-- The simplest is to use our endpoint (GRPC service) check [services](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Parsing-Services)
-- to install through the Watson-NLP artifactory, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-the-python-package-through-Artifactory)
+- To test an idea for few sentences, use our web interfaces, see [services](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Parsing-Services)
+- In the same page you have GRPC service URLs that require only a minor client side install 
 - to install the parser locally, see below. If you have acess to the CCC there are installers for x86/PPC and pre-trained models available, see the [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-in-CCC).
 
 Note the the parser consumes word-tokenized text. It is not greatly affected by
@@ -22,57 +22,69 @@ different tokenizers. We reccomend to use the 1NLP tokenizer.
 
 **NOTE:** See if the CCC installers suit your needs first
 [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-in-CCC).
-Below are the instructions for a generic architecture.
-
-The code has been tested on Python `3.6`. We use a script to activate
-conda/pyenv and virtual environments. If you prefer to handle this yourself
-just create an empty file (the scripts will assume it exists in any case)
-
-```bash
-touch set_environment.sh
-```
-
-then install our modified fairseq
-
-```
-. set_environment.sh    # if used
-git clone git@github.ibm.com:ramon-astudillo/fairseq.git
-cd fairseq
-git checkout v0.3.0/decouple-fairseq
-pip install .
-cd ..
-```
-
-the main repo
+Below are the instructions for `v0.3.2`
 
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
-git checkout v0.3.0
-pip install .
-cd ..
+git checkout v0.3.2
 ```
 
-and the smatch evaluation tool.
+The code has been tested on Python `3.6.9`. We use a script to activate
+conda/pyenv and virtual environments. If you prefer to handle this yourself
+just create an empty file (the training scripts will assume it exists in any
+case).
+
+```bash
+touch set_environment.sh
+# inside: your source venv/bin/activate or conda activate ./cenv
+. set_environment.sh
+```
+
+Then use either `conda` or `pip` to install. For `conda` do
 
 ```
-git clone https://github.com/snowblink14/smatch.git 
-cd smatch
-git checkout v1.0.4
-cd ..
+conda env update -f scripts/stack-transformer/environment.yml
+pip install spacy==2.2.3 smatch==1.0.4 ipdb
 ```
 
-The spacy tools will be updated on first use. To do this manually do
+For `pip` only do (ignore if you use the ones above)
+
+```
+pip install -r scripts/stack-transformer/requirements.txt
+```
+
+Then download and patch fairseq using
+
+```
+bash scripts/download_and_patch_fairseq.sh
+```
+
+Finally install fairseq without dependencies (installed above) and this repo.
+The `--editable` flag allows to modify the code without the need to reinstall.
+
+```
+pip install --no-deps --editable fairseq-stack-transformer-v0.3.2
+pip install --editable .
+```
+
+The spacy tools will be updated on first use. You can force this manually with 
 
 ```bash
 python -m spacy download en
 ```
 
-You can check if it worked using
+To check if install worked do
 
 ```bash
 python tests/correctly_installed.py
 ```
+
+If you are installing in PowerPCs, you will have to use the conda option. Also
+spacy has to be installed with conda instead of pip (2.2.3 version will not be
+available, which affects the lematizer behaviour)
+
+## Training a model
 
 ## Decode with Pre-trained model
 

@@ -5,20 +5,23 @@ set -o pipefail
 . set_environment.sh
 set -o nounset
 
-# fairseq
-[ ! -d fairseq ] && git clone git@github.ibm.com:ramon-astudillo/fairseq.git
+# This assumes python 3.6.9
+
+# pre-install modules with pip
 pip install -r scripts/stack-transformer/requirements.txt
-cd fairseq
-git checkout v0.3.0/decouple-fairseq
+
+# download fairseq
+# public branch and patch
+bash scripts/download_and_patch_fairseq.sh
+# private branch (for development)
+# git clone git@github.ibm.com:ramon-astudillo/fairseq.git fairseq-stack-transformer-v0.3.2
+# cd fairseq-stack-transformer-v0.3.2
+# git checkout v0.3.0/decouple-fairseq
+# cd ..
+
+# install repos
+pip install --no-deps --editable fairseq-stack-transformer-v0.3.2
 pip install --editable .
-cd ..
 
-# this repo without the dependencies (included in fairseq)
-pip install --no-deps --editable .
-
-# smatch v1.0.4
-[ ! -d smatch ] && git clone https://github.com/snowblink14/smatch.git smatch
-cd smatch
-git checkout v1.0.4
-cd ..
-pip install smatch/
+# sanity check
+python tests/correctly_installed.py

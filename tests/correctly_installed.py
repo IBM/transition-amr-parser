@@ -29,6 +29,7 @@ def check_cuda_torch_binary_vs_bare_metal():
 if __name__ == '__main__':
 
     # Pytorch and CUDA
+    print()
     assert torch.cuda.is_available(), "No CUDA available"
     print(f'pytorch {torch.__version__}') 
     print(f'cuda {torch.version.cuda}') 
@@ -43,31 +44,22 @@ if __name__ == '__main__':
     if torch.cuda.get_device_capability(0)[0] < 7:
         print("GPU wont support --fp")
 
-    try:
-        import torch_scatter
-        print("pytorch-scatter installed")
-    except ImportError:    
-        print("pytorch-scatter not installed")
+#     try:
+#         import torch_scatter
+#         print("pytorch-scatter installed")
+#     except ImportError:    
+#         print("pytorch-scatter not installed")
 
-    try:
-        import torch_scatter.scatter_cuda
-        print("torch_scatter.scatter_cuda works")
-    except ImportError:    
-        print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
-        pass
+#     try:
+#         import torch_scatter.scatter_cuda
+#         print("torch_scatter.scatter_cuda works")
+#     except ImportError:    
+#         print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
+#         pass
 
     # fairseq
-    try:
-        from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
-        print("transition_amr_parser.roberta_utils works")
-    except ImportError:    
-        print("fairseq installation failed")
-        pass
-
-    try:
-        # scipy
-        import spacy
-        print('spacy installed')
-    except ImportError:    
-        print("spacy installation failed")
-        pass
+    from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
+    print('fairseq installed')
+    # spacy
+    import spacy
+    print('spacy installed')
