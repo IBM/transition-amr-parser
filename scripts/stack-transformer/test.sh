@@ -93,7 +93,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
     if [ "$WIKI_DEV" == "" ];then
 
         # Smatch evaluation without wiki
-        python smatch/smatch.py \
+        smatch.py \
              --significant 4  \
              -f $AMR_DEV_FILE \
              $results_folder/valid.amr \
