@@ -63,3 +63,6 @@ if __name__ == '__main__':
     # spacy
     import spacy
     print('spacy installed')
+    
+    # If we get here we passed
+    print(f'[\033[92mOK\033[0m] correctly installed')

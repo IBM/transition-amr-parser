@@ -1,0 +1,26 @@
+channels:
+  - defaults
+  - https://public.dhe.ibm.com/ibmdl/export/pub/software/server/ibm-ai/conda
+  - powerai
+
+dependencies:
+#
+# for python 3.7 remove version from pytorch and apex
+  - requests
+#
+# fairseq
+  - cffi
+  - fastBPE
+  - regex
+  - sacrebleu
+#
+# transition_amr_parser
+  - pytorch=1.1.0
+  - apex=0.1.0
+  - h5py
+  - tqdm
+  # The version available wont be as high as the x86 one
+  - spacy
+#    
+# debug/optimization
+  - line_profiler
