@@ -18,7 +18,7 @@ DATA*
 smatch*
 amr-evaluation/
 pytorch_scatter*
-fairseq/
+fairseq-*
 
 # virtual environments
 .python-version

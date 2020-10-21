@@ -1,14 +1,17 @@
+# fairseq
 cffi
 fastBPE
 numpy
 regex
 sacrebleu
+
+# transtion_amr_parser
 torch==1.1.0
-tqdm
-requests
-# note that fairseq.pdb works with multi-threading
-torch-scatter==1.3.2
-ipdb 
-# for transition_amr_parser
-spacy
+spacy==2.2.3
+smatch==1.0.4
 h5py
+tqdm
+
+# debug/optimization
+ipdb
+line_profiler
