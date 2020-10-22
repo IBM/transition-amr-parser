@@ -16,7 +16,7 @@ config=$1
 if [ "$TASK_TAG" == "AMR" ] && \
    [ ! -f "$CORPUS_FOLDER/train.no_wiki.aligned.txt" ];then
 
-    bash preprocess/normalize_and_align.sh 
+    bash preprocess/normalize_and_align.sh $LDC_CORPUS
 
 fi
 
