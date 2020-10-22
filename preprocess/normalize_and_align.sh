@@ -1,6 +1,8 @@
 set -o errexit
 set -o pipefail
-[ -z "$1" ] && echo "$0 LDC_CORPUS" && exit 1
+[ "$#" -lt 2 ] && echo "$0 LDC_CORPUS CORPUS_FOLDER" && exit 1
+LDC_FOLDER=$1
+CORPUS_FOLDER=$2
 . set_environment.sh
 set -o nounset
 
@@ -9,10 +11,11 @@ mkdir -p $CORPUS_FOLDER
 
 for sset in dev train test;do
 
-    if [ "$sset" == "train" ];do
+    if [ "$sset" == "train" ];then
         folder=$LDC_FOLDER/training/
     else
         folder=$LDC_FOLDER/$sset/
+    fi    
 
     # Merge domains into single files and normalize
     python preprocess/merge_files.py \
