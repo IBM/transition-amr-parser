@@ -74,7 +74,7 @@ You first need to preprocess and align the data. See `preprocess/README.md`.
 Then just call a config to carry a desired experiment
 
 ```bash
-bash scripts/stack-transformer/experiment.sh scripts/stack-transformer/configs/amr2_o5+Word100_roberta.large.top24_stnp6x6.sh
+bash scripts/stack-transformer/experiment.sh configs/amr2_o5+Word100_roberta.large.top24_stnp6x6.sh
 ```
 
 Note that there is cluster version of this script, currently only supporting
