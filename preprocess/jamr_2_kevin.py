@@ -1,9 +1,6 @@
 import os
+import sys
 import re
-
-LDC_dir = 'abstract_meaning_representation_amr_2.0'
-
-outputs = ['train.jamr.txt','dev.jamr.txt','test.jamr.txt']
 
 
 def merge_dir_kevin(file):
@@ -49,5 +46,6 @@ def merge_dir_kevin(file):
     print(amrs.count('\n'),'+',len(bad_indices))
 
 
-for output in outputs:
-    merge_dir_kevin(output)
+if __name__ == '__main__':
+    for output in sys.argv[1:]:
+        merge_dir_kevin(output)

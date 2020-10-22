@@ -8,11 +8,12 @@ set -o nounset
 
 TASK_TAG=AMR
 
-# Global paths
-AMR_CORPORA=/dccstor/ykt-parse/SHARED/CORPORA/AMR/
-
 # All data stored here
 data_root=DATA/$TASK_TAG/
+
+# Global paths
+AMR_CORPORA=$data_root/corpora/qald/
+
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
