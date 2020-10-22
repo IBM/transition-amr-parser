@@ -8,6 +8,7 @@ set -o nounset
 
 # Use absolute path to avoid problems
 amr_file=$(realpath $amr_file)
+aligned_amr_file=$(realpath $aligned_amr_file)
 
 echo -e "\nRunning JAMR\n"
 . preprocess/jamr/scripts/config.sh 
