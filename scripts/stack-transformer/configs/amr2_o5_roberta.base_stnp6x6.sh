@@ -11,20 +11,20 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/
+LDC2016_AMR_CORPUS=$data_root/corpora/amr2.0/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
 # NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/psuedo.txt
-AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned 
-AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
+AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/train.no_wiki.aligned.txt
+AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.no_wiki.aligned.txt 
+AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.no_wiki.aligned.txt
 # WIKI files
 # NOTE: If left empty no wiki will be added
-WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
-AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt 
-WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
-AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
+WIKI_DEV=$LDC2016_AMR_CORPUS/dev.wiki
+AMR_DEV_FILE_WIKI=$LDC2016_AMR_CORPUS/dev.txt 
+WIKI_TEST=$LDC2016_AMR_CORPUS/test.wiki
+AMR_TEST_FILE_WIKI=$LDC2016_AMR_CORPUS/test.txt
 # Leave empty to create entity rules from the corpus
 ENTITY_RULES=""
 
