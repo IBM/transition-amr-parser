@@ -7,7 +7,7 @@ Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch. Th
 
 2. Two structured sequence-to-sequence models able to encode the parse state. This includes stack-LSTM and the stack-Transformer. 
 
-Current version is `0.3.2`. Initial commit developed by Miguel Ballesteros and Austin Blodgett while at IBM. Current [contributors](https://github.ibm.com/mnlp/transition-amr-parser/graphs/contributors).
+Current version is `0.3.3`. Initial commit developed by Miguel Ballesteros and Austin Blodgett while at IBM. Current [contributors](https://github.ibm.com/mnlp/transition-amr-parser/graphs/contributors).
 
 ## Using the Parser
 
@@ -22,12 +22,12 @@ different tokenizers. We reccomend to use the 1NLP tokenizer.
 
 **NOTE:** See if the CCC installers suit your needs first
 [wiki](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Installing-in-CCC).
-Below are the instructions for `v0.3.2`
+Below are the instructions for `v0.3.3`
 
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
-git checkout v0.3.2
+git checkout v0.3.3
 ```
 
 The code has been tested on Python `3.6.9`. We use a script to activate
@@ -64,7 +64,7 @@ Finally install fairseq without dependencies (installed above) and this repo.
 The `--editable` flag allows to modify the code without the need to reinstall.
 
 ```
-pip install --no-deps --editable fairseq-stack-transformer-v0.3.2
+pip install --no-deps --editable fairseq-stack-transformer-v0.3.3
 pip install --editable .
 ```
 
@@ -121,7 +121,3 @@ parser = AMRParser.from_checkpoint(in_checkpoint)
 annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
 print(annotations.toJAMRString())
 ```
-
-## Training your Model
-
-See the CCC training scripts as example `scripts/stack-transformer/jbsub_experiment.sh`
