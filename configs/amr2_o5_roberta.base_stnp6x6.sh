@@ -11,20 +11,24 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2016_AMR_CORPUS=$data_root/corpora/amr2.0/
+# original LDC corpora
+LDC_CORPUS=$data_root/corpora/abstract_meaning_representation_amr_2.0/data/amrs/split/
+
+# Normalized and aligned AMRs will be stored here
+CORPUS_FOLDER=$data_root/corpora/amr2.0/
 
 # AMR ORACLE
 # See transition_amr_parser/data_oracle.py:argument_parser
-# NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/train.no_wiki.aligned.txt
-AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.no_wiki.aligned.txt 
-AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.no_wiki.aligned.txt
+# NOTE: corpus_folder should be defined in set_envinroment.sh
+AMR_TRAIN_FILE=$CORPUS_FOLDER/train.no_wiki.aligned.txt
+AMR_DEV_FILE=$CORPUS_FOLDER/dev.no_wiki.aligned.txt 
+AMR_TEST_FILE=$CORPUS_FOLDER/test.no_wiki.aligned.txt
 # WIKI files
 # NOTE: If left empty no wiki will be added
-WIKI_DEV=$LDC2016_AMR_CORPUS/dev.wiki
-AMR_DEV_FILE_WIKI=$LDC2016_AMR_CORPUS/dev.txt 
-WIKI_TEST=$LDC2016_AMR_CORPUS/test.wiki
-AMR_TEST_FILE_WIKI=$LDC2016_AMR_CORPUS/test.txt
+WIKI_DEV=$CORPUS_FOLDER/dev.wiki
+AMR_DEV_FILE_WIKI=$CORPUS_FOLDER/dev.txt 
+WIKI_TEST=$CORPUS_FOLDER/test.wiki
+AMR_TEST_FILE_WIKI=$CORPUS_FOLDER/test.txt
 # Leave empty to create entity rules from the corpus
 ENTITY_RULES=""
 

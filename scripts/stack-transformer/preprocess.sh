@@ -12,11 +12,16 @@ config=$1
 
 # stage-1: Preprocess
 
-# ORACLE
+# NORMALIZE AND ALIGN DATA (AMR only)
+if [ "$TASK_TAG" == "AMR" ] && \
+   [ ! -f "$CORPUS_FOLDER/train.no_wiki.aligned.txt" ];then
+
+    bash preprocess/normalize_and_align.sh 
+
+fi
+
+# CREATE ORACLE DATA
 [ ! -d $ORACLE_FOLDER ] && mkdir -p $ORACLE_FOLDER
-
-
-# Create oracle data
 if [ "$TASK_TAG" == "dep-parsing" ];then
 
     # nothing to do since the oracle is given, just copy it locally
@@ -125,8 +130,7 @@ else
     echo -e "Unknown task $TASK"
 fi
 
-# PREPROCESSING
-# extract data
+# FEATURE EXTRACTION
 echo "fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS"
 
 # FIXME: Hotfix. We need to specify this flag on the configs
