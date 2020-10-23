@@ -244,7 +244,10 @@ class AMR:
                 amr_string = '('+amr_string+')'
             if len(self.nodes) == 0:
                 amr_string = '(a / amr-empty)'
-
+                
+            # ::short attribute from Revanth                                                    \
+                                                                                                 
+            output += f'# ::short\t{str(new_ids)}\t\n'
             output += amr_string + '\n\n'
 
         if only_penman:
