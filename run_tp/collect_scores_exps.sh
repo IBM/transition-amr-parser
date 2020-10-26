@@ -5,7 +5,8 @@ set -o pipefail
 # setup environment
 # . set_environment.sh
 
-rootdir=/dccstor/jzhou1/work/EXP
+# rootdir=/dccstor/jzhou1/work/EXP
+rootdir=EXP
 
 # exp_dirs=($rootdir/exp_o*)
 # exp_dirs=($rootdir/exp_o3*)
@@ -19,8 +20,12 @@ seed=""    # check all seeds
 # exp_dirs=($rootdir/exp_amr1*)
 # epoch_last=120
 
-exp_dirs=($rootdir/exp_depfix_o5*)
-epoch_last=150
+# exp_dirs=($rootdir/exp_depfix_o5*)
+# epoch_last=150
+
+exp_dirs=($rootdir/exp_o5*)
+epoch_last=120
+
 
 for exp_dir in "${exp_dirs[@]}"; do
 

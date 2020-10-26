@@ -47,8 +47,8 @@ actions_states_file_names = [
     'pos',
     # general states
     'vocab_masks',
-    'actnode_masks',
     'src_cursors',
+    'actnode_masks',
     # graph structure
     'actedge_masks',
     'actedge_1stnode_masks',

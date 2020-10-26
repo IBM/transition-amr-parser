@@ -33,13 +33,23 @@ seed=${seed:-42}
 # max_epoch=120
 # seed=42
 
+# $TASK is defined in the data configuration file
+# $arch is defined in the model configuration file
+TASK=${TASK:-amr_action_pointer}
 arch=${arch:-transformer_tgt_pointer}
 
 apply_tgt_input_src=${apply_tgt_input_src:-0}
 apply_tgt_actnode_masks=${apply_tgt_actnode_masks:-0}
+
 tgt_input_src_emb=${tgt_input_src_emb:-top}
 tgt_input_src_backprop=${tgt_input_src_backprop:-1}
 tgt_input_src_combine=${tgt_input_src_combine:-cat}
+
+if [[ $arch == "transformer_tgt_pointer_graphmp" ]]; then
+    tgt_graph_mask=${tgt_graph_mask:-1prev}
+fi
+
+tgt_graph_mask=${tgt_graph_mask:-e1c1p1}
 
 
 ##### TRAINING
@@ -61,7 +71,7 @@ else
         $DATA_FOLDER \
         --emb-dir $EMB_FOLDER \
         --user-dir ../fairseq_ext \
-        --task amr_action_pointer \
+        --task $TASK \
         --append-eos-to-target 0 \
         --collate-tgt-states 1 \
         --shift-pointer-value $shift_pointer_value \
@@ -116,7 +126,7 @@ else
         $DATA_FOLDER \
         --emb-dir $EMB_FOLDER \
         --user-dir ../fairseq_ext \
-        --task amr_action_pointer \
+        --task $TASK \
         --append-eos-to-target 0 \
         --collate-tgt-states 1 \
         --shift-pointer-value $shift_pointer_value \
@@ -142,6 +152,7 @@ else
         \
         --tgt-graph-layers $tgt_graph_layers \
         --tgt-graph-heads $tgt_graph_heads \
+        --tgt-graph-mask $tgt_graph_mask \
         \
         --max-epoch $max_epoch \
         --arch $arch \
