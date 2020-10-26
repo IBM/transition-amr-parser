@@ -40,7 +40,7 @@ share_decoder_embed=0
 arch=transformer_tgt_pointer_graphmp
 tgt_graph_layers="0 1 2"
 tgt_graph_heads=1
-tgt_graph_mask="1prev"
+tgt_graph_mask="allprev"
 
 pointer_dist_decoder_selfattn_layers="3 4 5"
 pointer_dist_decoder_selfattn_heads=1
@@ -141,14 +141,10 @@ else
 fi
 
 # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
+expdir=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
 
 # specific model directory name with a set random seed
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
-
-
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/exp_debug
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
 
 
 ###############################################################

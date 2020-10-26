@@ -32,12 +32,14 @@ def main(args):
     # to control what preprocessing needs to be run (as they take both time and storage so we avoid running repeatedly)
     run_basic = True
     # this includes:
-    # src: build src dictionary, copy the raw data to dir; build src binary data (need to refactor later if this is not needed)
-    # tgt: split target pointer values into a separate file; build tgt dictionary, binarize the actions and pointer values
+    # src: build src dictionary, copy the raw data to dir; build src binary data (need to refactor later if unneeded)
+    # tgt: split target non-pointer actions and pointer values into separate files; build tgt dictionary
     run_act_states = True
     # this includes:
-    # run the state machine in canonical mode to get states information to facilitate modeling;
-    # takes about 1 hour and 13G space
+    # run the state machine reformer to get
+    # a) training data: input and output, pointer values;
+    # b) states information to facilitate modeling;
+    # takes about 1 hour and 13G space on CCC
     run_roberta_emb = True
     # this includes:
     # for src sentences, use pre-trained RoBERTa model to extract contextual embeddings for each word;
@@ -242,17 +244,19 @@ def main(args):
         make_all(args.source_lang, src_dict, dataset_impl='mmap')
         # above: just leave for the sake of model to run without too much change
         # NOTE there are <unk> in valid and test set for target actions
-        if target:
-            make_all(args.target_lang_nopos, tgt_dict)
+        # if target:
+        #     make_all(args.target_lang_nopos, tgt_dict)
+
+        # NOTE targets (input, output, pointer values) are now all included in the state generation process
 
         # binarize pointer values and save to file
 
         # TODO make naming convention clearer
         # assume one training file, one validation file, and one test file
-        for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
-                                [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
-            out_pref = os.path.join(args.destdir, split)
-            task.binarize_actions_pointer_file(pos_file, out_pref)
+        # for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
+        #                         [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
+        #     out_pref = os.path.join(args.destdir, split)
+        #     task.binarize_actions_pointer_file(pos_file, out_pref)
 
     # save action states information to assist training with auxiliary info
     # assume one training file, one validation file, and one test file

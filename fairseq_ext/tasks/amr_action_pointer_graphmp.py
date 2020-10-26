@@ -19,7 +19,7 @@ from fairseq.data import (
 from fairseq.tasks import FairseqTask, register_task
 
 from fairseq_ext.data.language_pair_dataset import LanguagePairDataset
-from fairseq_ext.data.amr_action_pointer_dataset import AMRActionPointerDataset
+from fairseq_ext.data.amr_action_pointer_graphmp_dataset import AMRActionPointerGraphMPDataset
 from fairseq_ext.data.data_utils import load_indexed_dataset
 from fairseq_ext.amr_spec.action_info_binarize_graphmp import (
     ActionStatesBinarizer,
@@ -83,44 +83,62 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     src_wp2w = load_indexed_dataset(embfile_prefix + 'en.wp2w', None, dataset_impl)
 
     # tgt: actions (encoded by a vocabulary)
-    tgt_dataset = load_indexed_dataset(filename_prefix + tgt_nopos, tgt_dict, dataset_impl)
+    # tgt_dataset = load_indexed_dataset(filename_prefix + tgt_nopos, tgt_dict, dataset_impl)
 
     # tgt: actions pointers
-    tgt_pos = load_indexed_dataset(filename_prefix + tgt_pos, tgt_dict, dataset_impl)
+    # tgt_pos = load_indexed_dataset(filename_prefix + tgt_pos, tgt_dict, dataset_impl)
 
     # tgt: actions states information
     try:
-        tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
-            tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions = \
-            load_actstates_fromfile(filename_prefix + tgt, tgt_dict, dataset_impl)
+        tgt_actstates = load_actstates_fromfile(filename_prefix + tgt, tgt_dict, dataset_impl)
     except:
         assert not collate_tgt_states, ('the target actions states information does not exist --- '
                                         'collate_tgt_states must be 0')
 
     # build dataset
-    dataset = AMRActionPointerDataset(src_tokens=src_tokens, src=src_dataset, src_sizes=src_sizes,
-                                      src_dict=src_dict,
-                                      src_fix_emb=src_fixed_embeddings, src_fix_emb_sizes=src_fixed_embeddings.sizes,
-                                      src_wordpieces=src_wordpieces, src_wordpieces_sizes=src_wordpieces.sizes,
-                                      src_wp2w=src_wp2w, src_wp2w_sizes=src_wp2w.sizes,
-                                      tgt=tgt_dataset, tgt_sizes=tgt_dataset.sizes,
-                                      tgt_dict=tgt_dict,
-                                      tgt_pos=tgt_pos, tgt_pos_sizes=tgt_pos.sizes,
-                                      tgt_vocab_masks=tgt_vocab_masks,
-                                      tgt_actnode_masks=tgt_actnode_masks,
-                                      tgt_src_cursors=tgt_src_cursors,
-                                      tgt_actedge_masks=tgt_actedge_masks,
-                                      tgt_actedge_cur_nodes=tgt_actedge_cur_nodes,
-                                      tgt_actedge_pre_nodes=tgt_actedge_pre_nodes,
-                                      tgt_actedge_directions=tgt_actedge_directions,
-                                      left_pad_source=True,
-                                      left_pad_target=False,
-                                      max_source_positions=max_source_positions,
-                                      max_target_positions=max_target_positions,
-                                      shuffle=shuffle,
-                                      append_eos_to_target=append_eos_to_target,
-                                      collate_tgt_states=collate_tgt_states
-                                      )
+    dataset = AMRActionPointerGraphMPDataset(src_tokens=src_tokens,
+                                             src=src_dataset,
+                                             src_sizes=src_sizes,
+                                             src_dict=src_dict,
+                                             src_fix_emb=src_fixed_embeddings,
+                                             src_fix_emb_sizes=src_fixed_embeddings.sizes,
+                                             src_wordpieces=src_wordpieces,
+                                             src_wordpieces_sizes=src_wordpieces.sizes,
+                                             src_wp2w=src_wp2w,
+                                             src_wp2w_sizes=src_wp2w.sizes,
+                                             # tgt
+                                             tgt=tgt_actstates['tgt_nopos_out'],
+                                             tgt_sizes=tgt_actstates['tgt_nopos_out'].sizes,
+                                             tgt_in=tgt_actstates['tgt_nopos_in'],
+                                             tgt_in_sizes=tgt_actstates['tgt_nopos_in'].sizes,
+                                             tgt_dict=tgt_dict,
+                                             tgt_pos=tgt_actstates['tgt_pos'],
+                                             tgt_pos_sizes=tgt_actstates['tgt_pos'].sizes,
+                                             tgt_vocab_masks=tgt_actstates['tgt_vocab_masks'],
+                                             tgt_actnode_masks=tgt_actstates['tgt_actnode_masks'],
+                                             tgt_src_cursors=tgt_actstates['tgt_src_cursors'],
+                                             tgt_actedge_masks=tgt_actstates['tgt_actedge_masks'],
+                                             tgt_actedge_1stnode_masks=tgt_actstates['tgt_actedge_1stnode_masks'],
+                                             tgt_actedge_indexes=tgt_actstates['tgt_actedge_indexes'],
+                                             tgt_actedge_cur_node_indexes=tgt_actstates['tgt_actedge_cur_node_indexes'],
+                                             tgt_actedge_cur_1stnode_indexes=tgt_actstates['tgt_actedge_cur_'
+                                                                                           '1stnode_indexes'],
+                                             tgt_actedge_pre_node_indexes=tgt_actstates['tgt_actedge_pre_node_indexes'],
+                                             tgt_actedge_directions=tgt_actstates['tgt_actedge_directions'],
+                                             tgt_actedge_allpre_indexes=tgt_actstates['tgt_actedge_allpre_indexes'],
+                                             tgt_actedge_allpre_pre_node_indexes=tgt_actstates['tgt_actedge_allpre_'
+                                                                                               'pre_node_indexes'],
+                                             tgt_actedge_allpre_directions=tgt_actstates['tgt_actedge_allpre_'
+                                                                                         'directions'],
+                                             # batching
+                                             left_pad_source=True,
+                                             left_pad_target=False,
+                                             max_source_positions=max_source_positions,
+                                             max_target_positions=max_target_positions,
+                                             shuffle=shuffle,
+                                             append_eos_to_target=append_eos_to_target,
+                                             collate_tgt_states=collate_tgt_states
+                                             )
     return dataset
 
 
@@ -310,9 +328,19 @@ class AMRActionPointerGraphMPParsingTask(FairseqTask):
             # for reuse (e.g. train/valid/test data preprocessing) to avoid building the canonical action to
             # dictionary id mapping repeatedly
             self.action_state_binarizer = ActionStatesBinarizer(self.tgt_dict)
-        binarize_actstates_tofile_workers(en_file, actions_file, out_file_pref,
-                                          action_state_binarizer=self.action_state_binarizer,
-                                          impl='mmap', tokenize=self.tokenize, num_workers=num_workers)
+        res = binarize_actstates_tofile_workers(en_file, actions_file, out_file_pref,
+                                                action_state_binarizer=self.action_state_binarizer,
+                                                impl='mmap', tokenize=self.tokenize, num_workers=num_workers)
+        print(
+            "| [{}] {}: {} sents, {} tokens, {:.3}% replaced by {}".format(
+                'actions',
+                actions_file + '_nopos',
+                res['nseq'],
+                res['ntok'],
+                100 * res['nunk'] / res['ntok'],
+                self.tgt_dict.unk_word,
+            )
+        )
 
     def load_dataset(self, split, epoch=0, **kwargs):
         """Load a given dataset split.
@@ -346,7 +374,9 @@ class AMRActionPointerGraphMPParsingTask(FairseqTask):
             from fairseq.sequence_scorer import SequenceScorer
             return SequenceScorer(self.target_dictionary)
         else:
-            if 'graph' in model_args.arch:
+            if 'graphmp' in model_args.arch:
+                from fairseq_ext.sequence_generator_graphmp import SequenceGenerator
+            elif 'graph' in model_args.arch:
                 from fairseq_ext.sequence_generator_graph import SequenceGenerator
             else:
                 from fairseq_ext.sequence_generator import SequenceGenerator

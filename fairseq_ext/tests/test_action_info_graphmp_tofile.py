@@ -20,8 +20,8 @@ if __name__ == '__main__':
     else:
         num_workers = 1
 
-    split = 'dev'
-    # split = 'train'
+    # split = 'dev'
+    split = 'train'
 
     en_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.en'
     actions_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.actions'
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     print(
         "| [{}] {}: {} sents, {} tokens, {:.3}% replaced by {}".format(
             'actions',
-            split + '.actions',
+            actions_file,
             res['nseq'],
             res['ntok'],
             100 * res['nunk'] / res['ntok'],

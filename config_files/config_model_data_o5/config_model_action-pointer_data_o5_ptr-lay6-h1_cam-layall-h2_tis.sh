@@ -15,7 +15,7 @@ fi
 ##############################################################
 
 ##### load data config
-config_data=config_files/config_data/config_data_graphmp-swaparc-ptrlast_o5_roberta-large-top24.sh
+config_data=config_files/config_data/config_data_o5_roberta-large-top24.sh
 
 data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
 
@@ -37,12 +37,7 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-arch=transformer_tgt_pointer_graphmp
-tgt_graph_layers="0 1 2"
-tgt_graph_heads=1
-tgt_graph_mask="1prev"
-
-pointer_dist_decoder_selfattn_layers="3 4 5"
+pointer_dist_decoder_selfattn_layers="5"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
 pointer_dist_decoder_selfattn_infer=5
@@ -50,7 +45,7 @@ pointer_dist_decoder_selfattn_infer=5
 apply_tgt_src_align=1
 tgt_src_align_layers="0 1 2 3 4 5"
 tgt_src_align_heads=2
-tgt_src_align_focus="p0c1n0 p0c0n*"
+tgt_src_align_focus="p0c1n0"
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
 # current version: 'p0c1n1', 'p1c1n1', 'p*c1n0', 'p0c0n*', etc.
 #                  'p' - previous (prior to alignment), a number or '*' for all previous src tokens
@@ -79,15 +74,6 @@ else
     done
 fi
 
-if [[ $tgt_graph_layers == "0 1 2 3 4 5" ]]; then
-    grh_lay="all"
-else
-    grh_lay=""
-    for n in $tgt_graph_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'tgt_graph_layers' input: $tgt_graph_layers" && exit 1
-        grh_lay=$grh_lay$(( $n + 1 ))
-    done
-fi
 
 if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
     cam_lay="all"
@@ -99,7 +85,6 @@ else
     done
 fi
 
-grh_mask=-$tgt_graph_mask
 
 if [[ $tgt_src_align_focus == "p0c1n0" ]]; then
     cam_focus=""    # default
@@ -108,7 +93,7 @@ elif [[ $tgt_src_align_focus == "p0c1n0 p0c0n*" ]]; then
 fi
 
 # set the experiment directory name
-expdir=exp_${data_tag}_act-pos-grh_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
+expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
 
 # pointer distribution
 ptr_tag=_ptr-lay${lay}-h${pointer_dist_decoder_selfattn_heads}    # action-pointer
@@ -122,9 +107,6 @@ fi
 if [[ $apply_tgt_actnode_masks == 1 ]]; then
     ptr_tag=${ptr_tag}-pmask1
 fi
-
-# graph structure mask on the decoder self-attention
-grh_tag=_grh-lay${grh_lay}-h${tgt_graph_heads}${grh_mask}
 
 # cross-attention alignment
 if [[ $apply_tgt_src_align == 1 ]]; then
@@ -141,14 +123,12 @@ else
 fi
 
 # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}
+
 
 # specific model directory name with a set random seed
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
 
-
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/exp_debug
 
 
 ###############################################################
