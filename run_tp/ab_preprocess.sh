@@ -24,6 +24,8 @@ fi
 # [ -d $DATA_FOLDER ] && echo "Directory to processed data $DATA_FOLDER already exists." && exit 0
 # rm -Rf $DATA_FOLDER
 
+TASK=${TASK:-amr_action_pointer}
+
 if [[ (-d $DATA_FOLDER) && (-d $EMB_FOLDER) ]]; then
 
     echo "Directory to processed oracle data: $DATA_FOLDER"
@@ -32,9 +34,11 @@ if [[ (-d $DATA_FOLDER) && (-d $EMB_FOLDER) ]]; then
 
 else
 
+    if [[ $TASK == "amr_action_pointer" ]]; then
+
     python fairseq_ext/preprocess.py \
         --user-dir ../fairseq_ext \
-        --task amr_action_pointer \
+        --task $TASK \
         --source-lang en \
         --target-lang actions \
         --trainpref $ORACLE_FOLDER/train \
@@ -47,4 +51,23 @@ else
         --bert-layers $BERT_LAYERS
     #     --machine-type AMR \
     #     --machine-rules $ORACLE_FOLDER/train.rules.json
+
+    elif [[ $TASK == "amr_action_pointer_graphmp" ]]; then
+
+    python fairseq_ext/preprocess_graphmp.py \
+        --user-dir ../fairseq_ext \
+        --task $TASK \
+        --source-lang en \
+        --target-lang actions \
+        --trainpref $ORACLE_FOLDER/train \
+        --validpref $ORACLE_FOLDER/dev \
+        --testpref $ORACLE_FOLDER/test \
+        --destdir $DATA_FOLDER \
+        --embdir $EMB_FOLDER \
+        --workers 1 \
+        --pretrained-embed $PRETRAINED_EMBED \
+        --bert-layers $BERT_LAYERS
+
+    fi
+
 fi
