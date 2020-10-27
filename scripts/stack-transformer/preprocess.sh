@@ -13,10 +13,19 @@ config=$1
 # stage-1: Preprocess
 
 # NORMALIZE AND ALIGN DATA (AMR only)
-if [ "$TASK_TAG" == "AMR" ] && \
-   [ ! -f "$CORPUS_FOLDER/train.no_wiki.aligned.txt" ];then
+if [ "$TASK_TAG" == "AMR" ] && [ ! -f "$AMR_TRAIN_FILE" ];then
 
-    bash preprocess/normalize_and_align.sh $LDC_CORPUS
+    # Train
+    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_TRAIN_FILE_WIKI}.no_wiki $AMR_TRAIN_FILE
+    
+    # Dev
+    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_DEV_FILE_WIKI}.no_wiki $AMR_DEV_FILE
+    
+    # Test
+    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_TEST_FILE_WIKI}.no_wiki $AMR_TEST_FILE
 
 fi
 
@@ -33,29 +42,18 @@ if [ "$TASK_TAG" == "dep-parsing" ];then
 
 elif [ "$TASK_TAG" == "AMR" ];then
 
-    # FIXME: See end of the file. This can be reduced to a single if exists
-    # Use custom entity rules or create them
-    if [ -n "${ENTITY_RULES:-}" ] && [ "${ENTITY_RULES}" != "" ]; then
-        entity_rules=$ENTITY_RULES
-
-        # Exit with error if they do not exist
-        [ ! -f "$ENTITY_RULES" ] && echo "Missing $ENTITY_RULES" & exit 1
-
-    else
-        entity_rules=$ORACLE_FOLDER/entity_rules.json
-        if [ ! -f "$entity_rules" ];then
-            python scripts/extract_rules.py \
-                $AMR_TRAIN_FILE \
-                $ORACLE_FOLDER/entity_rules.json
-        fi
+    # Create entity rules if missing
+    if [ ! -f "$ENTITY_RULES" ];then
+        python scripts/extract_rules.py $AMR_TRAIN_FILE $ENTITY_RULES
     fi
 
+    # compute oracles if missing
     if [ ! -f "$ORACLE_FOLDER/test.rules.json" ];then
 
         # Train
         amr-oracle \
             --in-amr $AMR_TRAIN_FILE \
-            --entity-rules $entity_rules \
+            --entity-rules $ENTITY_RULES \
             --out-sentences $ORACLE_FOLDER/train.en \
             --out-actions $ORACLE_FOLDER/train.actions \
             --out-rule-stats $ORACLE_FOLDER/train.rules.json \
@@ -64,7 +62,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
         # Dev and test
         amr-oracle \
             --in-amr $AMR_DEV_FILE \
-	        --entity-rules $entity_rules \
+	        --entity-rules $ENTITY_RULES \
             --out-sentences $ORACLE_FOLDER/dev.en \
             --out-actions $ORACLE_FOLDER/dev.actions \
             --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
@@ -72,7 +70,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
     
         amr-oracle \
             --in-amr $AMR_TEST_FILE \
-	        --entity-rules $entity_rules \
+	        --entity-rules $ENTITY_RULES \
             --out-sentences $ORACLE_FOLDER/test.en \
             --out-actions $ORACLE_FOLDER/test.actions \
             --out-rule-stats $ORACLE_FOLDER/test.rules.json \
@@ -133,9 +131,4 @@ fi
 # FEATURE EXTRACTION
 echo "fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS"
 
-# FIXME: Hotfix. We need to specify this flag on the configs
-if [ "$TASK_TAG" == "AMR" ];then
-    fairseq-preprocess --entity-rules $entity_rules $FAIRSEQ_PREPROCESS_ARGS
-else    
-    fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS
-fi
+fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS
