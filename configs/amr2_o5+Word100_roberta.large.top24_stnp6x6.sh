@@ -11,22 +11,26 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2016_AMR_CORPUS=$data_root/corpora/amr2.0/
+# Original AMR files in PENMAN notation
+# see preprocess/README.md to create these from LDC folders
+# This step will be ignored if the aligned train file below exists
+CORPUS_TAG=amr2.0
+CORPUS_FOLDER=$data_root/corpora/$CORPUS_TAG/
+AMR_TRAIN_FILE_WIKI=$CORPUS_FOLDER/train.txt 
+AMR_DEV_FILE_WIKI=$CORPUS_FOLDER/dev.txt 
+AMR_TEST_FILE_WIKI=$CORPUS_FOLDER/test.txt
 
-# AMR ORACLE
-# See transition_amr_parser/data_oracle.py:argument_parser
-# NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/train.no_wiki.aligned.txt
-AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.no_wiki.aligned.txt 
-AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.no_wiki.aligned.txt
-# WIKI files
-# NOTE: If left empty no wiki will be added
-WIKI_DEV=$LDC2016_AMR_CORPUS/dev.wiki
-AMR_DEV_FILE_WIKI=$LDC2016_AMR_CORPUS/dev.txt 
-WIKI_TEST=$LDC2016_AMR_CORPUS/test.wiki
-AMR_TEST_FILE_WIKI=$LDC2016_AMR_CORPUS/test.txt
-# Leave empty to create entity rules from the corpus
-ENTITY_RULES=""
+# AMR files without wiki and aligned. This will be the ones fed to the oracle
+# JAMR alignments plus Pourdamghani's EM aligner plus force alignment of
+# unaligned nodes
+align_tag=combo-filled
+AMR_TRAIN_FILE=$CORPUS_FOLDER/train.no_wiki.aligned_${align_tag}.txt
+AMR_DEV_FILE=$CORPUS_FOLDER/dev.no_wiki.aligned_${align_tag}.txt 
+AMR_TEST_FILE=$CORPUS_FOLDER/test.no_wiki.aligned_${align_tag}.txt
+# wiki prediction files to recompose final AMR
+# FIXME: These are precomputed and have to be provided
+WIKI_DEV=$CORPUS_FOLDER/dev.wiki
+WIKI_TEST=$CORPUS_FOLDER/test.wiki
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
@@ -45,6 +49,9 @@ ORACLE_DEV_ARGS="
     --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
     --copy-lemma-action
 "
+# If this file does not exist, it will be created from the corpus on this
+# location
+ENTITY_RULES="$ORACLE_FOLDER/entity_rules.json"
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
