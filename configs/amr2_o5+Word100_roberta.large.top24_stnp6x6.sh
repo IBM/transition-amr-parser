@@ -38,7 +38,7 @@ WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=${CORPUS_TAG}-${align_tag}_o5+Word${MAX_WORDS}
+ORACLE_TAG=${corpus_tag}-${align_tag}_o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 

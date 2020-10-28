@@ -37,7 +37,7 @@ WIKI_TEST=""
 # --multitask-max-words --out-multitask-words --in-multitask-words
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
-ORACLE_TAG=${CORPUS_TAG}-${align_tag}_o5
+ORACLE_TAG=${corpus_tag}-${align_tag}_o5
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --copy-lemma-action
