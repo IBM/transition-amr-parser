@@ -1,4 +1,4 @@
-# Set variables and environment for a give experiment
+# Set variables and environment for a given experiment
 #
 # Variables intended to be use outside of this script are CAPITALIZED
 #
@@ -11,23 +11,26 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2014_AMR_CORPUS=$data_root/corpora/amr1.0/
+# Original AMR files in PENMAN notation
+# see preprocess/README.md to create these from LDC folders
+# This step will be ignored if the aligned train file below exists
+corpus_tag=amr1.0
+corpus_folder=$data_root/corpora/$corpus_tag/
+AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
+AMR_DEV_FILE_WIKI=$corpus_folder/dev.txt 
+AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
 
-# AMR ORACLE
-# See transition_amr_parser/data_oracle.py:argument_parser
-# NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2014_AMR_CORPUS/train.no_wiki.aligned.txt
-AMR_DEV_FILE=$LDC2014_AMR_CORPUS/dev.no_wiki.aligned.txt 
-AMR_TEST_FILE=$LDC2014_AMR_CORPUS/test.no_wiki.aligned.txt
-# WIKI files
-# NOTE: If left empty no wiki will be added
+# AMR files without wiki and aligned. This will be the ones fed to the oracle
+# JAMR alignments plus Pourdamghani's EM aligner plus force alignment of
+# unaligned nodes
+align_tag=cofill
+AMR_TRAIN_FILE=$corpus_folder/train.no_wiki.aligned_${align_tag}.txt
+AMR_DEV_FILE=$corpus_folder/dev.no_wiki.aligned_${align_tag}.txt 
+AMR_TEST_FILE=$corpus_folder/test.no_wiki.aligned_${align_tag}.txt
+# wiki prediction files to recompose final AMR
+# TODO: External cache
 WIKI_DEV=""
-AMR_DEV_FILE_WIKI=""
 WIKI_TEST=""
-AMR_TEST_FILE_WIKI=""
-# Entity rules
-# Leave empty to create entity rules from the corpus
-ENTITY_RULES=""
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
@@ -35,7 +38,7 @@ ENTITY_RULES=""
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=amr1_o5+Word${MAX_WORDS}
+ORACLE_TAG=${CORPUS_TAG}-${align_tag}_o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -43,12 +46,12 @@ ORACLE_TRAIN_ARGS="
     --copy-lemma-action
 "
 ORACLE_DEV_ARGS="
-    --in-multitask-words $ORACLE_FOLDER/train.multitask_words 
+    --in-multitask-words $ORACLE_FOLDER/train.multitask_words
     --copy-lemma-action
 "
-
-# GPU
-# k80, v100 (3 times faster)
+# If this file does not exist, it will be created from the corpus on this
+# location
+ENTITY_RULES="$ORACLE_FOLDER/entity_rules.json"
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
@@ -64,11 +67,12 @@ FAIRSEQ_PREPROCESS_ARGS="
     --validpref $ORACLE_FOLDER/dev
     --testpref $ORACLE_FOLDER/test
     --destdir $FEATURES_FOLDER
-    --workers 1 
+    --workers 1
     --pretrained-embed roberta.large
     --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
+    --entity-rules $ENTITY_RULES
 "
 
 # TRAINING
@@ -118,12 +122,13 @@ TEST_TAG="beam${beam_size}"
 CHECKPOINT=checkpoint_best.pt
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 TEST_GPU_TYPE=v100
-TEST_QUEUE=x86_12h
+TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
     $FEATURES_FOLDER 
     --gen-subset valid
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json
+    --entity-rules $ENTITY_RULES
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe

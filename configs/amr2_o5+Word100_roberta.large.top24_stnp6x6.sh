@@ -1,4 +1,4 @@
-# Set variables and environment for a give experiment
+# Set variables and environment for a given experiment
 #
 # Variables intended to be use outside of this script are CAPITALIZED
 #
@@ -14,23 +14,23 @@ data_root=DATA/$TASK_TAG/
 # Original AMR files in PENMAN notation
 # see preprocess/README.md to create these from LDC folders
 # This step will be ignored if the aligned train file below exists
-CORPUS_TAG=amr2.0
-CORPUS_FOLDER=$data_root/corpora/$CORPUS_TAG/
-AMR_TRAIN_FILE_WIKI=$CORPUS_FOLDER/train.txt 
-AMR_DEV_FILE_WIKI=$CORPUS_FOLDER/dev.txt 
-AMR_TEST_FILE_WIKI=$CORPUS_FOLDER/test.txt
+corpus_tag=amr2.0
+corpus_folder=$data_root/corpora/$corpus_tag/
+AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
+AMR_DEV_FILE_WIKI=$corpus_folder/dev.txt 
+AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
 
 # AMR files without wiki and aligned. This will be the ones fed to the oracle
 # JAMR alignments plus Pourdamghani's EM aligner plus force alignment of
 # unaligned nodes
-align_tag=combo-filled
-AMR_TRAIN_FILE=$CORPUS_FOLDER/train.no_wiki.aligned_${align_tag}.txt
-AMR_DEV_FILE=$CORPUS_FOLDER/dev.no_wiki.aligned_${align_tag}.txt 
-AMR_TEST_FILE=$CORPUS_FOLDER/test.no_wiki.aligned_${align_tag}.txt
+align_tag=cofill
+AMR_TRAIN_FILE=$corpus_folder/train.no_wiki.aligned_${align_tag}.txt
+AMR_DEV_FILE=$corpus_folder/dev.no_wiki.aligned_${align_tag}.txt 
+AMR_TEST_FILE=$corpus_folder/test.no_wiki.aligned_${align_tag}.txt
 # wiki prediction files to recompose final AMR
-# FIXME: These are precomputed and have to be provided
-WIKI_DEV=$CORPUS_FOLDER/dev.wiki
-WIKI_TEST=$CORPUS_FOLDER/test.wiki
+# TODO: External cache
+WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
+WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
@@ -38,7 +38,7 @@ WIKI_TEST=$CORPUS_FOLDER/test.wiki
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=amr2_o5+Word${MAX_WORDS}
+ORACLE_TAG=${CORPUS_TAG}-${align_tag}_o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -46,7 +46,7 @@ ORACLE_TRAIN_ARGS="
     --copy-lemma-action
 "
 ORACLE_DEV_ARGS="
-    --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
+    --in-multitask-words $ORACLE_FOLDER/train.multitask_words
     --copy-lemma-action
 "
 # If this file does not exist, it will be created from the corpus on this
@@ -72,6 +72,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
+    --entity-rules $ENTITY_RULES
 "
 
 # TRAINING
@@ -127,6 +128,7 @@ FAIRSEQ_GENERATE_ARGS="
     --gen-subset valid
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json
+    --entity-rules $ENTITY_RULES
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe
