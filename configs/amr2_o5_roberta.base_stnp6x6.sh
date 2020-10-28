@@ -14,19 +14,19 @@ data_root=DATA/$TASK_TAG/
 # Original AMR files in PENMAN notation
 # see preprocess/README.md to create these from LDC folders
 # This step will be ignored if the aligned train file below exists
-CORPUS_TAG=amr2.0
-CORPUS_FOLDER=$data_root/corpora/$CORPUS_TAG/
-AMR_TRAIN_FILE_WIKI=$CORPUS_FOLDER/train.txt 
-AMR_DEV_FILE_WIKI=$CORPUS_FOLDER/dev.txt 
-AMR_TEST_FILE_WIKI=$CORPUS_FOLDER/test.txt
+corpus_tag=amr2.0
+corpus_folder=$data_root/corpora/$corpus_tag/
+AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
+AMR_DEV_FILE_WIKI=$corpus_folder/dev.txt 
+AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
 
 # AMR files without wiki and aligned. This will be the ones fed to the oracle
 # JAMR alignments plus Pourdamghani's EM aligner plus force alignment of
 # unaligned nodes
-align_tag=combo-filled
-AMR_TRAIN_FILE=$CORPUS_FOLDER/train.no_wiki.aligned_${align_tag}.txt
-AMR_DEV_FILE=$CORPUS_FOLDER/dev.no_wiki.aligned_${align_tag}.txt 
-AMR_TEST_FILE=$CORPUS_FOLDER/test.no_wiki.aligned_${align_tag}.txt
+align_tag=cofill
+AMR_TRAIN_FILE=$corpus_folder/train.no_wiki.aligned_${align_tag}.txt
+AMR_DEV_FILE=$corpus_folder/dev.no_wiki.aligned_${align_tag}.txt 
+AMR_TEST_FILE=$corpus_folder/test.no_wiki.aligned_${align_tag}.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache
 WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
@@ -37,7 +37,7 @@ WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
 # --multitask-max-words --out-multitask-words --in-multitask-words
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
-ORACLE_TAG=amr2_o5
+ORACLE_TAG=${CORPUS_TAG}-${align_tag}_o5
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --copy-lemma-action

@@ -1,4 +1,4 @@
-# Set variables and environment for a give experiment
+# Set variables and environment for a given experiment
 #
 # Variables intended to be use outside of this script are CAPITALIZED
 #
@@ -14,21 +14,21 @@ data_root=DATA/$TASK_TAG/
 # Original AMR files in PENMAN notation
 # see preprocess/README.md to create these from LDC folders
 # This step will be ignored if the aligned train file below exists
-CORPUS_TAG=amr1.0
-CORPUS_FOLDER=$data_root/corpora/$CORPUS_TAG/
-AMR_TRAIN_FILE_WIKI=$CORPUS_FOLDER/train.txt 
-AMR_DEV_FILE_WIKI=$CORPUS_FOLDER/dev.txt 
-AMR_TEST_FILE_WIKI=$CORPUS_FOLDER/test.txt
+corpus_tag=amr1.0
+corpus_folder=$data_root/corpora/$corpus_tag/
+AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
+AMR_DEV_FILE_WIKI=$corpus_folder/dev.txt 
+AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
 
 # AMR files without wiki and aligned. This will be the ones fed to the oracle
 # JAMR alignments plus Pourdamghani's EM aligner plus force alignment of
 # unaligned nodes
-align_tag=combo-filled
-AMR_TRAIN_FILE=$CORPUS_FOLDER/train.no_wiki.aligned_${align_tag}.txt
-AMR_DEV_FILE=$CORPUS_FOLDER/dev.no_wiki.aligned_${align_tag}.txt 
-AMR_TEST_FILE=$CORPUS_FOLDER/test.no_wiki.aligned_${align_tag}.txt
+align_tag=cofill
+AMR_TRAIN_FILE=$corpus_folder/train.no_wiki.aligned_${align_tag}.txt
+AMR_DEV_FILE=$corpus_folder/dev.no_wiki.aligned_${align_tag}.txt 
+AMR_TEST_FILE=$corpus_folder/test.no_wiki.aligned_${align_tag}.txt
 # wiki prediction files to recompose final AMR
-# FIXME: These are precomputed and have to be provided
+# TODO: External cache
 WIKI_DEV=""
 WIKI_TEST=""
 
@@ -37,7 +37,7 @@ WIKI_TEST=""
 # --multitask-max-words --out-multitask-words --in-multitask-words
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
-ORACLE_TAG=amr1_o5
+ORACLE_TAG=${CORPUS_TAG}-${align_tag}_o5
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --copy-lemma-action
@@ -67,6 +67,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --pretrained-embed roberta.base
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
+    --entity-rules $ENTITY_RULES
 "
 
 # TRAINING
@@ -116,12 +117,13 @@ TEST_TAG="beam${beam_size}"
 CHECKPOINT=checkpoint_best.pt
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 TEST_GPU_TYPE=v100
-TEST_QUEUE=x86_12h
+TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
     $FEATURES_FOLDER 
     --gen-subset valid
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json
+    --entity-rules $ENTITY_RULES
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe
