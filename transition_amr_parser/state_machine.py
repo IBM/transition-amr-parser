@@ -96,11 +96,19 @@ def get_forbidden_actions(stack, amr):
         # this parent has already had one such edge and forbid repetition in
         # that case. 
 
-        # infor abouty this edge
         head_id = t[0]
-        head = amr.nodes[head_id]
         edge = t[1][1:]
         child_id = t[2]
+
+        # FIXME: There is some bug somewhere by which edges are pointing to
+        # unexisting nodes. We skip those cases
+        if head_id not in amr.nodes or child_id not in amr.nodes:
+            warning = yellow_font('WARNING')
+            print(f'{warning}: Edge node id missing from amr.nodes')
+            continue
+
+        # info about this edge
+        head = amr.nodes[head_id]
         child = amr.nodes[child_id]
 
         # unique constants
@@ -639,9 +647,7 @@ class AMRStateMachine:
 
         # Forbid actions given graph. Right now avoid some edge duplicates by
         # forbidding LA, RA and DEPENDENT
-        # TODO: Removed for now due to problems with beam (inconsistent
-        # self.amr
-        # invalid_actions.extend(get_forbidden_actions(self.stack, self.amr))
+        invalid_actions.extend(get_forbidden_actions(self.stack, self.amr))
 
         return valid_actions, invalid_actions
 
