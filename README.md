@@ -33,7 +33,7 @@ Then for `pip` only install do
 . set_environment.sh
 pip install -r scripts/stack-transformer/requirements.txt
 bash scripts/download_and_patch_fairseq.sh
-pip install --no-deps --editable fairseq-stack-transformer-v0.3.3
+pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
 ```
 
@@ -44,11 +44,11 @@ Alternatively for a `conda` install do
 conda env update -f scripts/stack-transformer/environment.yml
 pip install spacy==2.2.3 smatch==1.0.4 ipdb
 bash scripts/download_and_patch_fairseq.sh
-pip install --no-deps --editable fairseq-stack-transformer-v0.3.3
+pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
 ```
 
-the AMR aligner uses additional tools tha can be donwloaded and installed with
+the AMR aligner uses additional tools that can be donwloaded and installed with
 
 ```
 bash preprocess/install_alignment_tools.sh

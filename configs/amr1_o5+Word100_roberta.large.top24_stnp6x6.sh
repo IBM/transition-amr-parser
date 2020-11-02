@@ -133,5 +133,3 @@ FAIRSEQ_GENERATE_ARGS="
     --batch-size 128
     --remove-bpe
 "
-# TODO: It would be cleaner to use the checkpoint path for --machine-rules but
-# this can be externally provided on dcc/test.sh
