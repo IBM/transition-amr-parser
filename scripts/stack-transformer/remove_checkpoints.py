@@ -9,6 +9,34 @@ import argparse
 checkpoint_re = re.compile(r'checkpoint([0-9]+)\.pt')
 
 
+def get_best_checkpoints(model_folder, file_types, ignore_deleted):
+    best_checkpoints = dict()
+    for file_type in file_types:
+        best_checkpoints[file_type] = []
+        for label in ['best', 'second_best', 'third_best']:
+            link = f'{model_folder}/checkpoint_{label}_{file_type.upper()}.pt'
+
+            best_checkpoint = os.readlink(link)
+            original_checkpoint = f'{model_folder}/{best_checkpoint}'
+
+            # raise if best checkpoint was deleted
+            if (
+                not os.path.isfile(original_checkpoint)
+                and not ignore_deleted
+            ):
+                raise Exception(
+                    f'Best model was deleted: {original_checkpoint} '
+                    'use --ignore-deleted to ignore'
+                )
+
+            if os.path.islink(link):
+                best_checkpoints[file_type].append(best_checkpoint)
+            else:
+                return []
+
+    return best_checkpoints
+
+
 def argument_parser():
     parser = argparse.ArgumentParser(description='Checkpoint remover')
     parser.add_argument("model_folders", nargs='+', type=str)
@@ -26,32 +54,34 @@ if __name__ == '__main__':
         # Skip if it does tnot look like a model folder
         config_path =  f'{model_folder}/config.sh'
         if not os.path.isfile(config_path):
-           continue 
+            # Expected config.sh
+            continue 
 
-        # look for best* kind of checkpoints
-        best_checkpoints = defaultdict(list)
-        for label in ['best', 'second_best', 'third_best']:
-            for best_checkpoint in glob(
-                f'{model_folder}/checkpoint_{label}_*.pt'
-            ):
-                if os.path.islink(best_checkpoint):
-                    checkpoint = os.readlink(best_checkpoint)
-                    # link to a checkpoint
-                    original_checkpoint = \
-                        f'{model_folder}/{os.readlink(best_checkpoint)}'
-                    if (
-                        not os.path.isfile(original_checkpoint)
-                        and not args.ignore_deleted
-                    ):
-                        # Pointing to deleted checkpoint
-                        raise Exception(
-                            f'Best model was deleted: {original_checkpoint} '
-                            'use --ignore-deleted to ignore'
-                        )
-                    best_checkpoints[label].append(checkpoint)
+        # look for metrics used
+        file_types = set()
+        for dfile in glob(f'{model_folder}/epoch_tests/*'):
+            bname = os.path.basename(dfile)
+            file_types |= set(['.'.join(bname.split('.')[1:])])
+
+        # subtract known terminations    
+        file_types -= set(['en', 'actions', 'amr', 'wiki.amr', 'txt'])
+
+        if file_types == set():
+            # No results found for this model
+            continue
+
+        best_checkpoints = get_best_checkpoints(
+            model_folder, 
+            file_types,
+            args.ignore_deleted
+        )
+
+        if any(b == [] for b in best_checkpoints.values()):
+            # Some scores have no selected best checkpoints
+            continue
 
         checkpoints_to_save = [
-            cp for labels in best_checkpoints.values() for cp in labels
+            chp for score, chpts in best_checkpoints.items() for chp in chpts
         ]
 
         for checkpoint in checkpoints_to_save:

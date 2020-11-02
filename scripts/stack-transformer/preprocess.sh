@@ -15,10 +15,6 @@ config=$1
 # NORMALIZE AND ALIGN DATA (AMR only)
 if [ "$TASK_TAG" == "AMR" ] && [ ! -f "$AMR_TRAIN_FILE" ];then
 
-    # Train
-    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    bash preprocess/align.sh ${AMR_TRAIN_FILE_WIKI}.no_wiki $AMR_TRAIN_FILE
-    
     # Dev
     python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
     bash preprocess/align.sh ${AMR_DEV_FILE_WIKI}.no_wiki $AMR_DEV_FILE
@@ -26,6 +22,10 @@ if [ "$TASK_TAG" == "AMR" ] && [ ! -f "$AMR_TRAIN_FILE" ];then
     # Test
     python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
     bash preprocess/align.sh ${AMR_TEST_FILE_WIKI}.no_wiki $AMR_TEST_FILE
+
+    # Train
+    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_TRAIN_FILE_WIKI}.no_wiki $AMR_TRAIN_FILE
 
 fi
 

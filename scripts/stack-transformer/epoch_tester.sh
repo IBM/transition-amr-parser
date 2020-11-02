@@ -26,6 +26,34 @@ done
 
 # Rank and clean-up
 # After all tests are done, rank model and softlink the top 3 models according
-# to smatch
+# to the score metrics 
 # model linking (will also display table)
-python scripts/stack-transformer/rank_model.py --link-best --checkpoints $checkpoints_folder --score-names las smatch f-measure
+python scripts/stack-transformer/rank_model.py \
+    --link-best \
+    --checkpoints $checkpoints_folder \
+    --score-names las smatch f-measure
+
+# clean up checkpoints
+python scripts/stack-transformer/remove_checkpoints.py $checkpoints_folder
+
+# load config
+config="$checkpoints_folder/config.sh"
+[ ! -f $config ] && echo "Missing $config" && exit 1 
+. $config
+
+# Right now do ensemble and beam automatically only for AMR
+if [ "$TASK_TAG" == "AMR" ];then
+
+    if [ "$WIKI_DEV" == "" ];then
+        score_name="SMATCH"
+    else
+        score_name="WIKI.SMATCH"
+    fi
+
+    # checkpoint averaging of best three checkpoints
+    bash scripts/stack-transformer/get_weight_ensemble.sh $score_name $checkpoints_folder
+
+    # beam 10 tests
+    bash scripts/stack-transformer/get_beam_test.sh 10 top3-average $checkpoints_folder/checkpoint_top3-average.pt
+
+fi
