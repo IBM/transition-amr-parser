@@ -75,14 +75,41 @@ def get_graph_self_attn_mask(tgt_actedge_masks,
     elif tgt_graph_mask == '1prev_1in1out':
         # encode the 1 previous node based on the current edge, 1 head for incoming edges (RA)
         # and 1 head for outgoing edges (LA and LA(root))
-        mask = mask.unsqueeze(1).repeat(1, 2, 1, 1)
-        mask[:, 0, :, :].view(-1, mask.size(-1))[tgt_actedge_indexes[tgt_actedge_directions == 1],
-                                                 tgt_actedge_pre_node_indexes[tgt_actedge_directions == 1]] = 1
-        mask[:, 1, :, :].view(-1, mask.size(-1))[tgt_actedge_indexes[tgt_actedge_directions != 1],
-                                                 tgt_actedge_pre_node_indexes[tgt_actedge_directions != 1]] = 1
+        mask_in = mask.clone()
+        mask_in.view(-1, mask_in.size(-1))[
+            tgt_actedge_indexes[tgt_actedge_directions == 1],
+            tgt_actedge_pre_node_indexes[tgt_actedge_directions == 1]
+            ] = 1
+
+        mask_out = mask.clone()
+        mask_out.view(-1, mask_out.size(-1))[
+            tgt_actedge_indexes[tgt_actedge_directions != 1],
+            tgt_actedge_pre_node_indexes[tgt_actedge_directions != 1]
+            ] = 1
+
+        mask = torch.stack([mask_in, mask_out], dim=1)
+
     elif tgt_graph_mask == 'allprev_1in1out':
         # encode all previous nodes based on all the edges so far for the current node, 1 head for incoming edges (RA)
         # and 1 head for outgoing edges (LA and LA(root))
+        mask_in = mask.clone()
+        mask_in.view(-1, mask_in.size(-1))[
+            tgt_actedge_allpre_indexes[tgt_actedge_allpre_directions == 1],
+            tgt_actedge_allpre_pre_node_indexes[tgt_actedge_allpre_directions == 1]
+            ] = 1
+
+        mask_out = mask.clone()
+        mask_out.view(-1, mask_out.size(-1))[
+            tgt_actedge_allpre_indexes[tgt_actedge_allpre_directions != 1],
+            tgt_actedge_allpre_pre_node_indexes[tgt_actedge_allpre_directions != 1]
+            ] = 1
+
+        mask = torch.stack([mask_in, mask_out], dim=1)
+
+        """
+        # RuntimeError: view size is not compatible with input tensor's size and stride (at least one dimension spans
+        # across two contiguous subspaces). Use .reshape(...) instead.
+        # HOWEVER, .reshape(...) in this case does not change the original values.
         mask = mask.unsqueeze(1).repeat(1, 2, 1, 1)
         mask[:, 0, :, :].view(-1, mask.size(-1))[
             tgt_actedge_allpre_indexes[tgt_actedge_allpre_directions == 1],
@@ -92,6 +119,7 @@ def get_graph_self_attn_mask(tgt_actedge_masks,
             tgt_actedge_allpre_indexes[tgt_actedge_allpre_directions != 1],
             tgt_actedge_allpre_pre_node_indexes[tgt_actedge_allpre_directions != 1]
             ] = 1
+        """
     else:
         raise NotImplementedError
 
