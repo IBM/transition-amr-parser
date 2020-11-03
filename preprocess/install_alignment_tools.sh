@@ -9,7 +9,8 @@ cd preprocess
 
 # JAMR aligner
 echo -e "\nDownloading JAMR\n"
-[ ! -d jamr ] && git clone https://github.com/jflanigan/jamr.git
+rm -Rf jamr
+git clone https://github.com/jflanigan/jamr.git
 cd jamr
 git checkout Semeval-2016 
 ./setup 
@@ -19,7 +20,8 @@ cd ..
 # Kevin aligner
 echo -e "\nDownloading Kevin\n"
 # FIXME: This URL seems to be no longer active
-wget --no-check-certificate https://www.isi.edu/~damghani/papers/Aligner.zip
+# wget --no-check-certificate https://www.isi.edu/~damghani/papers/Aligner.zip
+cp /dccstor/multi-parse/amr/Aligner.zip .
 unzip Aligner.zip 
 mv Publish_Version kevin
 rm Aligner.zip

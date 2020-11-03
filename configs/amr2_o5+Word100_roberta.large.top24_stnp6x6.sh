@@ -13,7 +13,7 @@ data_root=DATA/$TASK_TAG/
 
 # Original AMR files in PENMAN notation
 # see preprocess/README.md to create these from LDC folders
-# This step will be ignored if the aligned train file below exists
+# This step will be ignored if the AMR_TRAIN_FILE file below exists
 corpus_tag=amr2.0
 corpus_folder=$data_root/corpora/$corpus_tag/
 AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
