@@ -30,8 +30,7 @@ done
 # model linking (will also display table)
 python scripts/stack-transformer/rank_model.py \
     --link-best \
-    --checkpoints $checkpoints_folder \
-    --score-names las smatch f-measure
+    --checkpoints $checkpoints_folder
 
 # clean up checkpoints
 python scripts/stack-transformer/remove_checkpoints.py $checkpoints_folder
