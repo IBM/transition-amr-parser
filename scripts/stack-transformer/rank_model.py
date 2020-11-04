@@ -436,8 +436,16 @@ def get_basic_table_info(items, checkpoints, score_name, split_name):
 def get_shortname(item, checkpoints):
     # name
     shortname = item['folder'].replace(checkpoints, '')
-    shortname = shortname[1:] if shortname[0] == '/' else shortname
-    return shortname[:-1] if shortname[-1] == '/' else shortname
+    # if we give model folder direcly, shortname will be empty, use the
+    # containing folder
+    if shortname == '':
+        if checkpoints[-1] == '/':
+            shortname = os.path.basename(checkpoints[:-1])
+        else:    
+            shortname = os.path.basename(checkpoints)
+    else:    
+        shortname = shortname[1:] if shortname[0] == '/' else shortname
+    return shortname
 
 
 def get_name_rows(split_name, item, checkpoints):
@@ -640,7 +648,6 @@ def link_top_models(items, score_name, ignore_deleted):
                 # If we ran remove_checkpoints.sh, we replaced the original
                 # link by copy of the checkpoint. We dont know if this is the
                 # correct checkpoint already
-                # import ipdb; ipdb.set_trace(context=30)
                 os.remove(target_best)
 
             if (
