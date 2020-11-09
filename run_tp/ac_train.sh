@@ -65,7 +65,9 @@ if [ -f $MODEL_FOLDER/checkpoint_last.pt ] && [ -f $MODEL_FOLDER/checkpoint${max
 
 else
 
-    if [[ $arch == "transformer_tgt_pointer" ]]; then
+    # if [[ $arch == "transformer_tgt_pointer" ]]; then
+    if [[ $arch != *"graph"* ]]; then
+    
     # python -m ipdb fairseq_ext/train.py \
     python fairseq_ext/train.py \
         $DATA_FOLDER \
