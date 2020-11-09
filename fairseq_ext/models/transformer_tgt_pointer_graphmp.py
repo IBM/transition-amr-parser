@@ -1277,3 +1277,263 @@ def transformer_pointer(args):
         raise TypeError
 
     base_architecture(args)
+
+
+@register_model_architecture('transformer_tgt_pointer_graphmp', 'transformer_tgt_pointer_graphmp_3x3')
+def transformer_pointer(args):
+    # args.encode_state_machine = getattr(args, 'encode_state_machine', "stack_top_nopos")
+    args.encode_state_machine = getattr(args, 'encode_state_machine', None)
+    #
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 256)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 512)
+    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 4)
+    args.encoder_layers = getattr(args, 'encoder_layers', 3)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 256)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 512)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
+    args.decoder_layers = getattr(args, 'decoder_layers', 3)
+    # additional control of whether to use various action states information in the model
+    args.apply_tgt_vocab_masks = getattr(args, 'apply_tgt_vocab_masks', 0)
+    args.apply_tgt_actnode_masks = getattr(args, 'apply_tgt_actnode_masks', 0)
+    args.apply_tgt_src_align = getattr(args, 'apply_tgt_src_align', 1)
+    args.apply_tgt_input_src = getattr(args, 'apply_tgt_input_src', 0)
+    # target source alignment masks for decoder cross-attention
+    args.tgt_src_align_layers = getattr(args, 'tgt_src_align_layers', list(range(args.decoder_layers)))
+    args.tgt_src_align_heads = getattr(args, 'tgt_src_align_heads', 1)
+    args.tgt_src_align_focus = getattr(args, 'tgt_src_align_focus', ['p0c1n0'])
+    # pointer distribution from decoder self-attention
+    args.pointer_dist_decoder_selfattn_layers = getattr(args, 'pointer_dist_decoder_selfattn_layers',
+                                                        list(range(args.decoder_layers)))
+    args.pointer_dist_decoder_selfattn_heads = getattr(args, 'pointer_dist_decoder_selfattn_heads',
+                                                       args.decoder_attention_heads)
+    args.pointer_dist_decoder_selfattn_avg = getattr(args, 'pointer_dist_decoder_selfattn_avg', 1)
+    args.pointer_dist_decoder_selfattn_infer = getattr(args, 'pointer_dist_decoder_selfattn_infer',
+                                                       args.pointer_dist_decoder_selfattn_layers[-1])
+    # combine source token embeddings into action embeddings for decoder input for node representation
+    args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
+    args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
+    args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # graph structure encoding into the decoder self-attention
+    args.tgt_graph_layers = getattr(args, 'tgt_graph_layers', list(range(args.decoder_layers)))
+    args.tgt_graph_heads = getattr(args, 'tgt_graph_heads', 1)
+    args.tgt_graph_mask = getattr(args, 'tgt_graph_mask', '1prev')
+
+    # process some of the args for compatibility issue with legacy versions
+    if isinstance(args.tgt_src_align_focus, str):
+        assert len(args.tgt_src_align_focus) == 4, 'legacy version has "p-n-" format'
+        args.tgt_src_align_focus = [args.tgt_src_align_focus[:2] + 'c1' + args.tgt_src_align_focus[-2:]]
+    elif isinstance(args.tgt_src_align_focus, list):
+        if len(args.tgt_src_align_focus) == 1 and len(args.tgt_src_align_focus[0]) == 4:
+            args.tgt_src_align_focus[0] = args.tgt_src_align_focus[0][:2] + 'c1' + args.tgt_src_align_focus[0][-2:]
+    else:
+        raise TypeError
+
+    base_architecture(args)
+
+
+@register_model_architecture('transformer_tgt_pointer_graphmp', 'transformer_tgt_pointer_graphmp_2x2')
+def transformer_pointer(args):
+    # args.encode_state_machine = getattr(args, 'encode_state_machine', "stack_top_nopos")
+    args.encode_state_machine = getattr(args, 'encode_state_machine', None)
+    #
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 256)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 512)
+    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 4)
+    args.encoder_layers = getattr(args, 'encoder_layers', 2)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 256)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 512)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
+    args.decoder_layers = getattr(args, 'decoder_layers', 2)
+    # additional control of whether to use various action states information in the model
+    args.apply_tgt_vocab_masks = getattr(args, 'apply_tgt_vocab_masks', 0)
+    args.apply_tgt_actnode_masks = getattr(args, 'apply_tgt_actnode_masks', 0)
+    args.apply_tgt_src_align = getattr(args, 'apply_tgt_src_align', 1)
+    args.apply_tgt_input_src = getattr(args, 'apply_tgt_input_src', 0)
+    # target source alignment masks for decoder cross-attention
+    args.tgt_src_align_layers = getattr(args, 'tgt_src_align_layers', list(range(args.decoder_layers)))
+    args.tgt_src_align_heads = getattr(args, 'tgt_src_align_heads', 1)
+    args.tgt_src_align_focus = getattr(args, 'tgt_src_align_focus', ['p0c1n0'])
+    # pointer distribution from decoder self-attention
+    args.pointer_dist_decoder_selfattn_layers = getattr(args, 'pointer_dist_decoder_selfattn_layers',
+                                                        list(range(args.decoder_layers)))
+    args.pointer_dist_decoder_selfattn_heads = getattr(args, 'pointer_dist_decoder_selfattn_heads',
+                                                       args.decoder_attention_heads)
+    args.pointer_dist_decoder_selfattn_avg = getattr(args, 'pointer_dist_decoder_selfattn_avg', 1)
+    args.pointer_dist_decoder_selfattn_infer = getattr(args, 'pointer_dist_decoder_selfattn_infer',
+                                                       args.pointer_dist_decoder_selfattn_layers[-1])
+    # combine source token embeddings into action embeddings for decoder input for node representation
+    args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
+    args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
+    args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # graph structure encoding into the decoder self-attention
+    args.tgt_graph_layers = getattr(args, 'tgt_graph_layers', list(range(args.decoder_layers)))
+    args.tgt_graph_heads = getattr(args, 'tgt_graph_heads', 1)
+    args.tgt_graph_mask = getattr(args, 'tgt_graph_mask', '1prev')
+
+    # process some of the args for compatibility issue with legacy versions
+    if isinstance(args.tgt_src_align_focus, str):
+        assert len(args.tgt_src_align_focus) == 4, 'legacy version has "p-n-" format'
+        args.tgt_src_align_focus = [args.tgt_src_align_focus[:2] + 'c1' + args.tgt_src_align_focus[-2:]]
+    elif isinstance(args.tgt_src_align_focus, list):
+        if len(args.tgt_src_align_focus) == 1 and len(args.tgt_src_align_focus[0]) == 4:
+            args.tgt_src_align_focus[0] = args.tgt_src_align_focus[0][:2] + 'c1' + args.tgt_src_align_focus[0][-2:]
+    else:
+        raise TypeError
+
+    base_architecture(args)
+
+
+@register_model_architecture('transformer_tgt_pointer_graphmp', 'transformer_tgt_pointer_graphmp_1x3')
+def transformer_pointer(args):
+    # args.encode_state_machine = getattr(args, 'encode_state_machine', "stack_top_nopos")
+    args.encode_state_machine = getattr(args, 'encode_state_machine', None)
+    #
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 256)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 512)
+    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 4)
+    args.encoder_layers = getattr(args, 'encoder_layers', 1)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 256)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 512)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 4)
+    args.decoder_layers = getattr(args, 'decoder_layers', 3)
+    # additional control of whether to use various action states information in the model
+    args.apply_tgt_vocab_masks = getattr(args, 'apply_tgt_vocab_masks', 0)
+    args.apply_tgt_actnode_masks = getattr(args, 'apply_tgt_actnode_masks', 0)
+    args.apply_tgt_src_align = getattr(args, 'apply_tgt_src_align', 1)
+    args.apply_tgt_input_src = getattr(args, 'apply_tgt_input_src', 0)
+    # target source alignment masks for decoder cross-attention
+    args.tgt_src_align_layers = getattr(args, 'tgt_src_align_layers', list(range(args.decoder_layers)))
+    args.tgt_src_align_heads = getattr(args, 'tgt_src_align_heads', 1)
+    args.tgt_src_align_focus = getattr(args, 'tgt_src_align_focus', ['p0c1n0'])
+    # pointer distribution from decoder self-attention
+    args.pointer_dist_decoder_selfattn_layers = getattr(args, 'pointer_dist_decoder_selfattn_layers',
+                                                        list(range(args.decoder_layers)))
+    args.pointer_dist_decoder_selfattn_heads = getattr(args, 'pointer_dist_decoder_selfattn_heads',
+                                                       args.decoder_attention_heads)
+    args.pointer_dist_decoder_selfattn_avg = getattr(args, 'pointer_dist_decoder_selfattn_avg', 1)
+    args.pointer_dist_decoder_selfattn_infer = getattr(args, 'pointer_dist_decoder_selfattn_infer',
+                                                       args.pointer_dist_decoder_selfattn_layers[-1])
+    # combine source token embeddings into action embeddings for decoder input for node representation
+    args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
+    args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
+    args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # graph structure encoding into the decoder self-attention
+    args.tgt_graph_layers = getattr(args, 'tgt_graph_layers', list(range(args.decoder_layers)))
+    args.tgt_graph_heads = getattr(args, 'tgt_graph_heads', 1)
+    args.tgt_graph_mask = getattr(args, 'tgt_graph_mask', '1prev')
+
+    # process some of the args for compatibility issue with legacy versions
+    if isinstance(args.tgt_src_align_focus, str):
+        assert len(args.tgt_src_align_focus) == 4, 'legacy version has "p-n-" format'
+        args.tgt_src_align_focus = [args.tgt_src_align_focus[:2] + 'c1' + args.tgt_src_align_focus[-2:]]
+    elif isinstance(args.tgt_src_align_focus, list):
+        if len(args.tgt_src_align_focus) == 1 and len(args.tgt_src_align_focus[0]) == 4:
+            args.tgt_src_align_focus[0] = args.tgt_src_align_focus[0][:2] + 'c1' + args.tgt_src_align_focus[0][-2:]
+    else:
+        raise TypeError
+
+    base_architecture(args)
+
+
+@register_model_architecture('transformer_tgt_pointer_graphmp', 'transformer_tgt_pointer_graphmp_3x3_2h')
+def transformer_pointer(args):
+    # args.encode_state_machine = getattr(args, 'encode_state_machine', "stack_top_nopos")
+    args.encode_state_machine = getattr(args, 'encode_state_machine', None)
+    #
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 256)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 512)
+    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 2)
+    args.encoder_layers = getattr(args, 'encoder_layers', 3)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 256)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 512)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 2)
+    args.decoder_layers = getattr(args, 'decoder_layers', 3)
+    # additional control of whether to use various action states information in the model
+    args.apply_tgt_vocab_masks = getattr(args, 'apply_tgt_vocab_masks', 0)
+    args.apply_tgt_actnode_masks = getattr(args, 'apply_tgt_actnode_masks', 0)
+    args.apply_tgt_src_align = getattr(args, 'apply_tgt_src_align', 1)
+    args.apply_tgt_input_src = getattr(args, 'apply_tgt_input_src', 0)
+    # target source alignment masks for decoder cross-attention
+    args.tgt_src_align_layers = getattr(args, 'tgt_src_align_layers', list(range(args.decoder_layers)))
+    args.tgt_src_align_heads = getattr(args, 'tgt_src_align_heads', 1)
+    args.tgt_src_align_focus = getattr(args, 'tgt_src_align_focus', ['p0c1n0'])
+    # pointer distribution from decoder self-attention
+    args.pointer_dist_decoder_selfattn_layers = getattr(args, 'pointer_dist_decoder_selfattn_layers',
+                                                        list(range(args.decoder_layers)))
+    args.pointer_dist_decoder_selfattn_heads = getattr(args, 'pointer_dist_decoder_selfattn_heads',
+                                                       args.decoder_attention_heads)
+    args.pointer_dist_decoder_selfattn_avg = getattr(args, 'pointer_dist_decoder_selfattn_avg', 1)
+    args.pointer_dist_decoder_selfattn_infer = getattr(args, 'pointer_dist_decoder_selfattn_infer',
+                                                       args.pointer_dist_decoder_selfattn_layers[-1])
+    # combine source token embeddings into action embeddings for decoder input for node representation
+    args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
+    args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
+    args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # graph structure encoding into the decoder self-attention
+    args.tgt_graph_layers = getattr(args, 'tgt_graph_layers', list(range(args.decoder_layers)))
+    args.tgt_graph_heads = getattr(args, 'tgt_graph_heads', 1)
+    args.tgt_graph_mask = getattr(args, 'tgt_graph_mask', '1prev')
+
+    # process some of the args for compatibility issue with legacy versions
+    if isinstance(args.tgt_src_align_focus, str):
+        assert len(args.tgt_src_align_focus) == 4, 'legacy version has "p-n-" format'
+        args.tgt_src_align_focus = [args.tgt_src_align_focus[:2] + 'c1' + args.tgt_src_align_focus[-2:]]
+    elif isinstance(args.tgt_src_align_focus, list):
+        if len(args.tgt_src_align_focus) == 1 and len(args.tgt_src_align_focus[0]) == 4:
+            args.tgt_src_align_focus[0] = args.tgt_src_align_focus[0][:2] + 'c1' + args.tgt_src_align_focus[0][-2:]
+    else:
+        raise TypeError
+
+    base_architecture(args)
+
+
+@register_model_architecture('transformer_tgt_pointer_graphmp', 'transformer_tgt_pointer_graphmp_3x3_3h')
+def transformer_pointer(args):
+    # args.encode_state_machine = getattr(args, 'encode_state_machine', "stack_top_nopos")
+    args.encode_state_machine = getattr(args, 'encode_state_machine', None)
+    #
+    args.encoder_embed_dim = getattr(args, 'encoder_embed_dim', 192)
+    args.encoder_ffn_embed_dim = getattr(args, 'encoder_ffn_embed_dim', 512)
+    args.encoder_attention_heads = getattr(args, 'encoder_attention_heads', 3)
+    args.encoder_layers = getattr(args, 'encoder_layers', 3)
+    args.decoder_embed_dim = getattr(args, 'decoder_embed_dim', 192)
+    args.decoder_ffn_embed_dim = getattr(args, 'decoder_ffn_embed_dim', 512)
+    args.decoder_attention_heads = getattr(args, 'decoder_attention_heads', 3)
+    args.decoder_layers = getattr(args, 'decoder_layers', 3)
+    # additional control of whether to use various action states information in the model
+    args.apply_tgt_vocab_masks = getattr(args, 'apply_tgt_vocab_masks', 0)
+    args.apply_tgt_actnode_masks = getattr(args, 'apply_tgt_actnode_masks', 0)
+    args.apply_tgt_src_align = getattr(args, 'apply_tgt_src_align', 1)
+    args.apply_tgt_input_src = getattr(args, 'apply_tgt_input_src', 0)
+    # target source alignment masks for decoder cross-attention
+    args.tgt_src_align_layers = getattr(args, 'tgt_src_align_layers', list(range(args.decoder_layers)))
+    args.tgt_src_align_heads = getattr(args, 'tgt_src_align_heads', 1)
+    args.tgt_src_align_focus = getattr(args, 'tgt_src_align_focus', ['p0c1n0'])
+    # pointer distribution from decoder self-attention
+    args.pointer_dist_decoder_selfattn_layers = getattr(args, 'pointer_dist_decoder_selfattn_layers',
+                                                        list(range(args.decoder_layers)))
+    args.pointer_dist_decoder_selfattn_heads = getattr(args, 'pointer_dist_decoder_selfattn_heads',
+                                                       args.decoder_attention_heads)
+    args.pointer_dist_decoder_selfattn_avg = getattr(args, 'pointer_dist_decoder_selfattn_avg', 1)
+    args.pointer_dist_decoder_selfattn_infer = getattr(args, 'pointer_dist_decoder_selfattn_infer',
+                                                       args.pointer_dist_decoder_selfattn_layers[-1])
+    # combine source token embeddings into action embeddings for decoder input for node representation
+    args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
+    args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
+    args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # graph structure encoding into the decoder self-attention
+    args.tgt_graph_layers = getattr(args, 'tgt_graph_layers', list(range(args.decoder_layers)))
+    args.tgt_graph_heads = getattr(args, 'tgt_graph_heads', 1)
+    args.tgt_graph_mask = getattr(args, 'tgt_graph_mask', '1prev')
+
+    # process some of the args for compatibility issue with legacy versions
+    if isinstance(args.tgt_src_align_focus, str):
+        assert len(args.tgt_src_align_focus) == 4, 'legacy version has "p-n-" format'
+        args.tgt_src_align_focus = [args.tgt_src_align_focus[:2] + 'c1' + args.tgt_src_align_focus[-2:]]
+    elif isinstance(args.tgt_src_align_focus, list):
+        if len(args.tgt_src_align_focus) == 1 and len(args.tgt_src_align_focus[0]) == 4:
+            args.tgt_src_align_focus[0] = args.tgt_src_align_focus[0][:2] + 'c1' + args.tgt_src_align_focus[0][-2:]
+    else:
+        raise TypeError
+
+    base_architecture(args)
