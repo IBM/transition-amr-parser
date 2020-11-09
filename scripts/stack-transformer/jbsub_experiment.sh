@@ -44,12 +44,9 @@ if [ ! -f "$FEATURES_FOLDER/train.en-actions.actions.bin" ];then
     mkdir -p "$ORACLE_FOLDER"
     mkdir -p "$FEATURES_FOLDER"
 
-    # run preprocessing
+    # Run preprocessing
     jbsub_tag="pr-${jbsub_basename}-$$"
-    jbsub -cores "1+1" \
-          -mem 50g \
-          -q "$PREPRO_QUEUE" \
-          -require "$PREPRO_GPU_TYPE" \
+    jbsub -cores "1+1" -mem 50g -q x86_6h -require k80 \
           -name "$jbsub_tag" \
           -out $FEATURES_FOLDER/${jbsub_tag}-%J.stdout \
           -err $FEATURES_FOLDER/${jbsub_tag}-%J.stderr \
@@ -79,10 +76,7 @@ for index in $(seq $NUM_SEEDS);do
 
         # run new training
         jbsub_tag="tr-${jbsub_basename}-s${seed}-$$"
-        jbsub -cores 1+1 \
-              -mem 50g \
-              -q "$TRAIN_QUEUE" \
-              -require "$TRAIN_GPU_TYPE" \
+        jbsub -cores 1+1 -mem 50g -q ppc_24h -require v100 \
               -name "$jbsub_tag" \
               $train_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
@@ -99,16 +93,33 @@ for index in $(seq $NUM_SEEDS);do
 
     fi
 
-    # test all available checkpoints and rank them
-    jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
-    jbsub -cores 1+1 \
-          -mem 50g \
-          -q "$TEST_QUEUE" \
-          -require "$TEST_GPU_TYPE" \
+    if [ ! -f "$CHECKPOINT" ];then
+
+        # test all available checkpoints and link the best model on dev to
+        # $CHECKPOINT
+        jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
+        jbsub -cores 1+1 -mem 50g -q x86_6h -require k80 \
+              -name "$jbsub_tag" \
+              $test_depends \
+              -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
+              -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
+              /bin/bash $tools_folder/epoch_tester.sh $checkpoints_dir/
+        test_depends="-depend $jbsub_tag"
+
+    else
+
+        # resume from best model on development set
+        test_depends=""
+
+    fi
+
+    # beam test 
+    jbsub_tag="beam-${jbsub_basename}-s${seed}-$$"
+    jbsub -cores 1+1 -mem 50g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           $test_depends \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash $tools_folder/epoch_tester.sh $checkpoints_dir/
+          /bin/bash $tools_folder/beam_test.sh $checkpoints_dir/
 
 done

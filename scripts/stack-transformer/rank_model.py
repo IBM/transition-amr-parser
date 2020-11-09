@@ -392,6 +392,7 @@ def get_basic_table_info(items, checkpoints, score_name, split_name):
     if split_name and any([
         len(get_shortname(item, checkpoints).split()[0].split('_')) != 4 
         for item in items
+        if get_shortname(item, checkpoints).split()
     ]):
         warn = yellow('WARNING:')
         split_name = False
@@ -453,7 +454,13 @@ def get_name_rows(split_name, item, checkpoints):
     row = []
     shortname = get_shortname(item, checkpoints)
 
-    if split_name and len(shortname.split()[0].split('_')) != 4:
+    if (
+        split_name 
+        and (
+            shortname.split() == []
+            or len(shortname.split()[0].split('_')) != 4
+        )
+    ):
         split_name = False
     
     if split_name:

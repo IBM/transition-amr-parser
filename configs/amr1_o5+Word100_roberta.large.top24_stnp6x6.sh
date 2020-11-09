@@ -13,7 +13,7 @@ data_root=DATA/$TASK_TAG/
 
 # Original AMR files in PENMAN notation
 # see preprocess/README.md to create these from LDC folders
-# This step will be ignored if the aligned train file below exists
+# This step will be ignored if the AMR_TRAIN_FILE file below exists
 corpus_tag=amr1.0
 corpus_folder=$data_root/corpora/$corpus_tag/
 AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
@@ -57,8 +57,6 @@ ENTITY_RULES="$ORACLE_FOLDER/entity_rules.json"
 # See fairseq/fairseq/options.py:add_preprocess_args
 PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
-PREPRO_GPU_TYPE=v100
-PREPRO_QUEUE=x86_6h
 FEATURES_FOLDER=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
 FAIRSEQ_PREPROCESS_ARGS="
     --source-lang en
@@ -83,8 +81,6 @@ base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
-TRAIN_GPU_TYPE=v100
-TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
 # NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
@@ -119,10 +115,8 @@ FAIRSEQ_TRAIN_ARGS="
 # --results-path is dirname from --path plus $TEST_TAG
 beam_size=1
 TEST_TAG="beam${beam_size}"
-CHECKPOINT=checkpoint_best.pt
+CHECKPOINT=checkpoint_best_SMATCH.pt
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
-TEST_GPU_TYPE=v100
-TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
     $FEATURES_FOLDER 
     --gen-subset valid

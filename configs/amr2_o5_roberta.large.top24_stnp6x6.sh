@@ -51,7 +51,7 @@ ENTITY_RULES="$ORACLE_FOLDER/entity_rules.json"
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
-PREPRO_TAG="RoBERTa-base"
+PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
 FEATURES_FOLDER=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
 FAIRSEQ_PREPROCESS_ARGS="
@@ -62,7 +62,8 @@ FAIRSEQ_PREPROCESS_ARGS="
     --testpref $ORACLE_FOLDER/test
     --destdir $FEATURES_FOLDER
     --workers 1
-    --pretrained-embed roberta.base
+    --pretrained-embed roberta.large
+    --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
     --entity-rules $ENTITY_RULES
@@ -91,7 +92,7 @@ FAIRSEQ_TRAIN_ARGS="
     --lr-scheduler inverse_sqrt
     --warmup-init-lr 1e-07
     --warmup-updates 4000
-    --pretrained-embed-dim 768
+    --pretrained-embed-dim 1024
     --lr 0.0005
     --min-lr 1e-09
     --dropout 0.3
