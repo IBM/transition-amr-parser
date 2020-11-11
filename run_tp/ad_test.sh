@@ -57,7 +57,6 @@ RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
 results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}
 model=$MODEL_FOLDER/checkpoint${model_epoch}.pt
 
-TASK=${TASK:-amr_action_pointer}
 
 ##### DECODING
 # rm -Rf $RESULTS_FOLDER
@@ -68,7 +67,7 @@ python fairseq_ext/generate.py \
     $DATA_FOLDER  \
     --emb-dir $EMB_FOLDER \
     --user-dir ../fairseq_ext \
-    --task $TASK \
+    --task amr_action_pointer \
     --gen-subset $data_split \
     --machine-type AMR  \
     --machine-rules $ORACLE_FOLDER/train.rules.json \
@@ -84,7 +83,7 @@ python fairseq_ext/generate.py \
 # exit 0
 
 ##### Create the AMR from the model obtained actions
-python transition_amr_parser/o7_fake_parse.py \
+python transition_amr_parser/o8_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/$data_split_amr.en \
     --in-actions $results_prefix.actions \
     --out-amr $results_prefix.amr \
