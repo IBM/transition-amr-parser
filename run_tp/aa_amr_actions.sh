@@ -49,8 +49,9 @@ else
     
     if [[ $MAX_WORDS == 100 ]]; then
     
-    python transition_amr_parser/o7_data_oracle.py \
+    python transition_amr_parser/o8_data_oracle.py \
         --in-amr $AMR_TRAIN_FILE \
+	--in-pred-entities $ENTITIES_WITH_PREDS \
         --out-sentences $ORACLE_FOLDER/train.en \
         --out-actions $ORACLE_FOLDER/train.actions \
         --out-rule-stats $ORACLE_FOLDER/train.rules.json \
@@ -58,16 +59,18 @@ else
         --out-multitask-words $ORACLE_FOLDER/train.multitask_words \
         --copy-lemma-action
 
-    python transition_amr_parser/o7_data_oracle.py \
+    python transition_amr_parser/o8_data_oracle.py \
         --in-amr $AMR_DEV_FILE \
+	--in-pred-entities $ENTITIES_WITH_PREDS\
         --out-sentences $ORACLE_FOLDER/dev.en \
         --out-actions $ORACLE_FOLDER/dev.actions \
         --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
         --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
         --copy-lemma-action
 
-    python transition_amr_parser/o7_data_oracle.py \
+    python transition_amr_parser/o8_data_oracle.py \
         --in-amr $AMR_TEST_FILE \
+	--in-pred-entities $ENTITIES_WITH_PREDS\
         --out-sentences $ORACLE_FOLDER/test.en \
         --out-actions $ORACLE_FOLDER/test.actions \
         --out-rule-stats $ORACLE_FOLDER/test.rules.json \
@@ -76,22 +79,25 @@ else
     
     elif [[ $MAX_WORDS == 0 ]]; then
     
-    python transition_amr_parser/o7_data_oracle.py \
+    python transition_amr_parser/o8_data_oracle.py \
         --in-amr $AMR_TRAIN_FILE \
+	--in-pred-entities $ENTITIES_WITH_PREDS\
         --out-sentences $ORACLE_FOLDER/train.en \
         --out-actions $ORACLE_FOLDER/train.actions \
         --out-rule-stats $ORACLE_FOLDER/train.rules.json \
         --copy-lemma-action
 
-    python transition_amr_parser/o7_data_oracle.py \
+    python transition_amr_parser/o8_data_oracle.py \
         --in-amr $AMR_DEV_FILE \
+	--in-pred-entities $ENTITIES_WITH_PREDS\
         --out-sentences $ORACLE_FOLDER/dev.en \
         --out-actions $ORACLE_FOLDER/dev.actions \
         --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
         --copy-lemma-action
 
-    python transition_amr_parser/o7_data_oracle.py \
+    python transition_amr_parser/o8_data_oracle.py \
         --in-amr $AMR_TEST_FILE \
+	--in-pred-entities $ENTITIES_WITH_PREDS\
         --out-sentences $ORACLE_FOLDER/test.en \
         --out-actions $ORACLE_FOLDER/test.actions \
         --out-rule-stats $ORACLE_FOLDER/test.rules.json \

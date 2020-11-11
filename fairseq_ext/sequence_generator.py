@@ -14,7 +14,7 @@ import torch
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
-from transition_amr_parser.o7_state_machine import AMRStateMachine
+from transition_amr_parser.o8_state_machine import AMRStateMachine
 
 
 class SequenceGenerator(object):
@@ -166,7 +166,7 @@ class SequenceGenerator(object):
             #     # exclude the EOS marker
             #     model.max_decoder_positions() - 1,    # model.max_decoder_positions() is 1024 by default
             # )
-            max_len = min(src_len * 4,    # the max ratio for train, dev and test is around 3
+            max_len = min(src_len * 5,    # the max ratio for train, dev and test is around 3
                           # exclude the EOS marker
                           model.max_decoder_positions() - 1)
             # model.max_decoder_positions() is 1024 by default; it also limits the max of model's positional embeddings
@@ -412,7 +412,7 @@ class SequenceGenerator(object):
         # mask for valid beams after search selection: size (bsz * beam_size, )
         # valid_bbsz_mask = tokens.new_ones(bsz * beam_size, dtype=torch.uint8)
         # for pytorch >= 1.2, bool is encouraged to mask index
-        valid_bbsz_mask = tokens.new_ones(bsz * beam_size, dtype=torch.bool)
+        valid_bbsz_mask = tokens.new_ones(bsz * beam_size, dtype=torch.uint8)
         valid_bbsz_idx = valid_bbsz_mask.nonzero().squeeze(-1)
         # index mapping from full bsz * beam_size vector to the valid-only vector with reduced size
         bbsz_to_valid_idxs = None
@@ -455,7 +455,7 @@ class SequenceGenerator(object):
 
             # restrict the action space for next candidate tokens
             # allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.uint8)  # only for pytorch <= 1.1
-            allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.bool)
+            allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.uint8)
             tok_cursors = tokens.new_zeros(valid_bbsz_num, dtype=torch.int64)
             if amr_state_machines is not None:
                 for i, j in enumerate(valid_bbsz_idx):
@@ -565,7 +565,7 @@ class SequenceGenerator(object):
             # mask for (previous + current) actions (generated tgt tokens) that are corresponding to AMR nodes
             # the mask includes the current action
             # tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1).byte()  # only for pytorch <= 1.1
-            tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.bool)
+            tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.uint8)
 
             if step == 0:
                 # do nothing to the mask, since we don't have any action history yet, no pointer is generated
@@ -718,7 +718,7 @@ class SequenceGenerator(object):
                 # NOTE the ending condition should never be max step reached; in principle our generation is contraint
                 # on the the source sequences, and we finish generation of an action sequence only when we have
                 # processed all the source words
-                raise ValueError('max step reached; we should set proper max step value so that this does not happen.')
+                #raise ValueError('max step reached; we should set proper max step value so that this does not happen.')
                 # make probs contain cumulative scores for each hypothesis
                 lprobs.add_(scores[:, step - 1].unsqueeze(-1))
 
@@ -730,7 +730,7 @@ class SequenceGenerator(object):
                     out=(eos_scores, eos_bbsz_idx),
                 )
                 num_remaining_sent -= len(finalize_hypos(step, eos_bbsz_idx, eos_scores))
-                assert num_remaining_sent == 0
+                #assert num_remaining_sent == 0
                 # stop the loop here
                 break
 
