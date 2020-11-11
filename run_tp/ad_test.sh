@@ -87,6 +87,7 @@ python transition_amr_parser/o8_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/$data_split_amr.en \
     --in-actions $results_prefix.actions \
     --out-amr $results_prefix.amr \
+    --in-pred-entities $ENTITIES_WITH_PREDS \
 
 # exit 0
 
