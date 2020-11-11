@@ -38,6 +38,7 @@ entity_rule_fails = Counter()
 
 # get path of provided entity_rules
 repo_root = os.path.realpath(f'{os.path.dirname(__file__)}')
+#entities_path = f'{repo_root}/o8_entity_rules.json'
 entities_path = f'{repo_root}/entity_rules.json'
 
 default_rel = ':rel'
@@ -134,7 +135,8 @@ class AMRStateMachine:
     def __init__(self, tokens=None, tokseq_len=None, verbose=False, add_unaligned=0,
                  actions_by_stack_rules=None, amr_graph=True,
                  canonical_mode=False,
-                 spacy_lemmatizer=None):
+                 spacy_lemmatizer=None,
+                 entities_with_preds=None):
         # TODO verbose not used, actions_by_stack_rules not used
 
         # check for canonical mode
@@ -143,10 +145,19 @@ class AMRStateMachine:
             amr_graph = False
             # spacy_lemmatizer = None
 
+        self.entities_with_preds = entities_with_preds
+
         self.canonical_mode = canonical_mode
         self.actions_canonical = []    # used in canonical mode
         self.actions_nodemask = []     # used in canonical mode
         self.actions_tokcursor = []    # used in canonical mode, as well as normal mode
+
+        # graph structure information to be used in the model; used in canonical mode
+        self.actions_edge_mask = []
+        self.actions_latest_node = None
+        self.actions_edge_cur_node = []
+        self.actions_edge_pre_node = []
+        self.actions_edge_direction = []
 
         if tokens is not None:
             # word tokens of sentence
@@ -263,8 +274,12 @@ class AMRStateMachine:
             # Compute lemmas for this sentence and cache it
             if self.lemmas is None:
                 assert self.spacy_lemmatizer, "No spacy_lemmatizer provided"
+                toks = [self.normalize_token(x) if self.normalize_token(x) != "" else x for x in self.tokens]
+                for tok in toks:
+                    if tok == "":
+                        import ipdb; ipdb.set_trace()
                 self.lemmas = [
-                    x.lemma_ for x in self.spacy_lemmatizer(self.tokens[:-1])
+                    x.lemma_ for x in self.spacy_lemmatizer(toks[:-1])
                 ] + ['ROOT']
             token = self.lemmas[self.tok_cursor]
         else:
@@ -324,6 +339,22 @@ class AMRStateMachine:
         return action
 
     @classmethod
+    def canonical_action_form_ptr(cls, action):
+        """Get the canonical form of an action with labels/properties, and return the pointer value for arcs."""
+        if action in cls.canonical_actions:
+            return action, None
+        action, properties = cls.read_action(action)
+        if action.startswith('LA'):
+            if properties[1] == 'root':
+                action = 'LA(root)'
+        if action.startswith('LA') or action.startswith('RA'):
+            arc_pos = properties[0]
+        else:
+            arc_pos = None
+        # assert action in cls.canonical_actions                                                                                                                                                          
+        return action, arc_pos
+
+    @classmethod
     def canonical_action_to_dict(cls, vocab):
         """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
 
@@ -349,7 +380,7 @@ class AMRStateMachine:
         We only return the prefix of the action (action labels, or canonical actions), which could be mapped to detailed
         actions.
         """
-        raise NotImplementedError
+        #raise NotImplementedError
 
         if self.canonical_mode:
             past_actions = self.actions_canonical
@@ -361,12 +392,21 @@ class AMRStateMachine:
         gen_node_actions = ['ENTITY', 'PRED', 'COPY_LEMMA', 'COPY_SENSE01']
         gen_arc_actions = ['LA', 'RA']
         pre_node_actions = ['REDUCE'] + gen_node_actions + ['MERGE']    # dependent on the remaining number of tokens
-        post_node_actions = ['DEPENDENT', 'SHIFT', 'LA', 'RA']
+        post_node_actions = ['SHIFT', 'LA', 'RA', 'DEPENDENT']
         post_merge_actions = gen_node_actions + ['MERGE']
         post_arc_actions = gen_arc_actions + ['SHIFT']
         cursor_moving_actions = ['REDUCE', 'MERGE', 'SHIFT']
         close_actions = ['CLOSE']
         root_token_actions = ['LA(root)', 'SHIFT']
+
+        inside_entity = False
+        for i in range(1,len(past_actions)+1):
+            if past_actions[-i] in ['REDUCE', 'SHIFT']:
+                break
+            if past_actions[-i] == 'ENTITY':  #in gen_node_actions: #== 'ENTITY':
+                inside_entity = True
+
+        #import ipdb; ipdb.set_trace()
 
         if self.tok_cursor == 0:
             # at the beginning
@@ -455,9 +495,14 @@ class AMRStateMachine:
                 cano_actions.remove('LA(root)')
                 # cano_actions = list(filter(lambda x: x != 'LA(root)', cano_actions))
 
+        if inside_entity:
+            for act in gen_node_actions:
+                if act not in cano_actions:
+                    cano_actions = cano_actions + [act]
+
         return cano_actions
 
-    def apply_canonical_action(self, action):
+    def apply_canonical_action(self, action, arc_pos=None):
         assert self.canonical_mode
         assert action in self.canonical_actions
 
@@ -479,6 +524,7 @@ class AMRStateMachine:
             self.actions_nodemask.append(0)
         elif action in ['PRED', 'COPY_LEMMA', 'COPY_SENSE01', 'ENTITY']:
             self.actions_nodemask.append(1)
+            self.actions_latest_node = len(self.actions_nodemask) - 1
         elif action in ['DEPENDENT']:
             self.actions_nodemask.append(0)    # TODO arc to dependent node is disallowed now. discuss
         elif action in ['LA', 'RA', 'LA(root)']:
@@ -491,6 +537,26 @@ class AMRStateMachine:
             raise Exception(f'Unrecognized canonical action: {action}')
 
         self.actions_canonical.append(action)
+
+        # graph structure: edge information
+        if action in ['LA', 'RA']:
+            self.actions_edge_mask.append(1)
+            self.actions_edge_cur_node.append(self.actions_latest_node)
+            self.actions_edge_pre_node.append(arc_pos)
+            if action == 'RA':
+                self.actions_edge_direction.append(1)
+            else:
+                self.actions_edge_direction.append(-1)
+        elif action == 'LA(root)':
+            self.actions_edge_mask.append(1)
+            self.actions_edge_cur_node.append(-2)    # NOTE root node is not added by any action
+            self.actions_edge_pre_node.append(arc_pos)
+            self.actions_edge_direction.append(-1)
+        else:
+            self.actions_edge_mask.append(0)
+            self.actions_edge_cur_node.append(-1)
+            self.actions_edge_pre_node.append(-1)
+            self.actions_edge_direction.append(0)
 
         # Increase time step
         self.time_step += 1
@@ -712,6 +778,19 @@ class AMRStateMachine:
         head_id = self.new_node_id
         self.new_node_id += 1
 
+        if self.entities_with_preds and entity_type in self.entities_with_preds:
+            if self.amr_graph:
+                self.amr.nodes[head_id] = entity_type
+            self.entity_tokens[head_id] = surface_tokens
+            self.entity_tokenids.append(self.tok_cursor)    # could have duplicates -> indicating how many ENTITY on it
+            self.current_node_id = head_id
+            self.tokid_to_nodeid[self.tok_cursor].append(head_id)
+            self.alignments[head_id] = self.merged_tokens.get(self.tok_cursor, self.tok_cursor)
+            self.actions.append(f'ENTITY({entity_type})')
+            self.actions_to_nodes.append(head_id)
+            self.actions_to_nlabels.append(entity_type)
+            return
+
         child_id = self.new_node_id
         self.new_node_id += 1
 
@@ -890,6 +969,9 @@ class AMRStateMachine:
             new_concepts = []
 
             entity_type = self.amr.nodes[entity_id]
+            if self.entities_with_preds and entity_type in self.entities_with_preds:
+                continue
+
             model_entity_alignments = None
             if entity_id in self.alignments:
                 model_entity_alignments = self.alignments[entity_id]
@@ -1258,7 +1340,8 @@ class AMRStateMachine:
         if string.endswith('s') and lstring[:-1] in units.values():
             return lstring[:-1]
 
-        return '"' + string + '"'
+        return string
+        #return '"' + string + '"'
 
     def clean_amr(self):
         if self.amr_graph:

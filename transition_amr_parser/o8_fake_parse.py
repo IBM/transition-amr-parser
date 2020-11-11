@@ -20,7 +20,6 @@ from transition_amr_parser.io import (
     read_rule_stats,
 )
 
-
 def argument_parser():
 
     parser = argparse.ArgumentParser(description='AMR parser')
@@ -34,6 +33,12 @@ def argument_parser():
         "--in-actions",
         help="file space with carriage return separated sentences",
         type=str
+    )
+    parser.add_argument(
+        "--in-pred-entities",
+        type=str,
+        default="person,thing",
+        help="comma separated list of entity types that can have pred"
     )
     parser.add_argument(
         "--out-amr",
@@ -216,7 +221,7 @@ class FakeAMRParser():
 
     def __init__(self, logger=None, machine_type='AMR',
                  from_sent_act_pairs=None, actions_by_stack_rules=None,
-                 no_whitespace_in_actions=False):
+                 no_whitespace_in_actions=False, entities_with_preds=None):
 
         assert not no_whitespace_in_actions, \
             '--no-whitespace-in-actions deprected'
@@ -231,7 +236,7 @@ class FakeAMRParser():
         self.actions_by_stack_rules = actions_by_stack_rules
         self.no_whitespace_in_actions = no_whitespace_in_actions
         self.machine_type = machine_type
-
+        self.entities_with_preds = entities_with_preds
         # initialize here for speed
         self.spacy_lemmatizer = get_spacy_lemmatizer()
 
@@ -250,13 +255,13 @@ class FakeAMRParser():
             "Fake parser has no actions for sentence: %s" % sentence_str
         actions = self.actions_by_sentence[sentence_str]
         tokens = sentence_str.split()
-
         # Initialize state machine
         if self.machine_type == 'AMR':
             state_machine = AMRStateMachine(
                 tokens,
                 actions_by_stack_rules=self.actions_by_stack_rules,
-                spacy_lemmatizer=self.spacy_lemmatizer
+                spacy_lemmatizer=self.spacy_lemmatizer,
+                entities_with_preds=self.entities_with_preds
             )
         elif self.machine_type == 'dep-parsing':
             state_machine = DepParsingStateMachine(tokens)
@@ -356,7 +361,8 @@ def main():
 
     # Get data
     sentences = read_tokenized_sentences(args.in_sentences, separator=args.separator)
-
+    entities_with_preds = args.in_pred_entities.split(",")
+    
     # Initialize logger/printer
     logger = Logger(
         step_by_step=args.step_by_step,
@@ -386,7 +392,8 @@ def main():
         machine_type=args.machine_type,
         logger=logger,
         actions_by_stack_rules=actions_by_stack_rules,
-        no_whitespace_in_actions=args.no_whitespace_in_actions
+        no_whitespace_in_actions=args.no_whitespace_in_actions,
+        entities_with_preds=entities_with_preds
     )
 
     # Get output AMR writer

@@ -120,7 +120,13 @@ def argument_parser():
         type=int
     )
 
-    #
+    parser.add_argument(
+        "--in-pred-entities",
+        type=str,
+        default="person,thing",
+        help="comma separated list of entity types that can have pred"
+    )
+    
     args = parser.parse_args()
 
     return args
@@ -129,6 +135,8 @@ def argument_parser():
 def yellow_font(string):
     return "\033[93m%s\033[0m" % string
 
+
+entities_with_preds = []
 
 def preprocess_amr(gold_amr, add_unaligned=None, included_unaligned=None, root_id=-1):
 
@@ -484,7 +492,7 @@ class AMROracleBuilder:
 
         self.gold_amr = gold_amr
         # initialize the state machine
-        self.machine = AMRStateMachine(gold_amr.tokens, spacy_lemmatizer=lemmatizer, amr_graph=True)
+        self.machine = AMRStateMachine(gold_amr.tokens, spacy_lemmatizer=lemmatizer, amr_graph=True, entities_with_preds=entities_with_preds)
 
         self.copy_lemma_action = copy_lemma_action
         self.multitask_words = multitask_words
@@ -523,19 +531,24 @@ class AMROracleBuilder:
         action = self.try_reduce()
         if not action:
             action = self.try_merge()
-        if not action:
-            action = self.try_dependent()
+        #if not action:
+        #    action = self.try_dependent()
         if not action:
             action = self.try_arcs()
+        #if not action:
+        #    action = self.try_named_entities()
         if not action:
-            action = self.try_named_entities()
+            action = self.try_entities_with_pred()
         if not action:
             action = self.try_entity()
         if not action:
             action = self.try_pred()
 
         if not action:
-            action = 'SHIFT'
+            if len(self.machine.actions) and self.machine.actions[-1] == 'SHIFT' and  self.machine.tok_cursor != self.machine.tokseq_len - 1 :
+                action = 'REDUCE'
+            else:
+                action = 'SHIFT'
 
         if action == 'SHIFT' and self.multitask_words is not None:
             action = label_shift(self.machine, self.multitask_words)
@@ -672,6 +685,76 @@ class AMROracleBuilder:
 
         return None
 
+    def try_entities_with_pred(self):
+        """
+        allow pred inside entities that frequently need it i.e. person, thing
+        """
+
+        machine = self.machine
+        gold_amr = self.gold_amr
+
+        tok_id = machine.tok_cursor
+
+        tok_alignment = gold_amr.alignmentsToken2Node(tok_id + 1)
+
+        # check if alignment empty (or singleton)
+        if len(tok_alignment) <= 1:
+            return None
+
+        # check if there is any edge with the aligned nodes
+        edges = gold_amr.findSubGraph(tok_alignment).edges
+        if not edges:
+            return None
+
+        is_dependent = False
+        for s, r, t in edges:
+            if r == ':name' and gold_amr.nodes[t] == 'name':
+                return None
+            if 'date' in gold_amr.nodes[t]:
+                return None
+            if r in [':polarity', ':mode']:
+                is_dependent = True
+
+        root = gold_amr.findSubGraph(tok_alignment).root
+        #import ipdb; ipdb.set_trace()
+        #if gold_amr.nodes[root] not in entities_with_preds and not is_dependent:
+        #    return None
+
+        if root not in self.built_gold_nodeids:
+            self.built_gold_nodeids.append(root)
+            self.nodeid_to_gold_nodeid.setdefault(machine.new_node_id, []).append(root)
+            return f'PRED({gold_amr.nodes[root]})'
+
+        new_id = None
+        for s, r, t in edges:
+            if s not in self.built_gold_nodeids:
+                new_id = s
+                break
+            if t not in self.built_gold_nodeids:
+                new_id = t
+                break
+            
+        if new_id != None:
+
+            self.built_gold_nodeids.append(new_id)
+            self.nodeid_to_gold_nodeid.setdefault(machine.new_node_id, []).append(new_id)
+            new_node = gold_amr.nodes[new_id]
+
+            if self.copy_lemma_action:
+                lemma = machine.get_current_token(lemma=True)
+                if lemma == new_node:
+                    action = 'COPY_LEMMA'
+                elif f'{lemma}-01' == new_node:
+                    action = 'COPY_SENSE01'
+                else:
+                    action = f'PRED({new_node})'
+            else:
+                action = f'PRED({new_node})'
+
+            return action
+                
+        return None
+
     def try_entity(self):
         """
         Check if the next action is ENTITY.
@@ -705,6 +788,24 @@ class AMROracleBuilder:
         edges = gold_amr.findSubGraph(tok_alignment).edges
         if not edges:
             return None
+
+        for s, r, t in edges:
+            if r in [':polarity', ':mode']:
+                return None
+        root = gold_amr.findSubGraph(tok_alignment).root
+        #if gold_amr.nodes[root] in entities_with_preds:
+        #    return None
+
+        is_entity = False
+        for s, r, t in edges:
+            if r == ':name' and gold_amr.nodes[t] == 'name':
+                is_entity = True
+            if 'date' in gold_amr.nodes[t]:
+                is_entity = True
+                
+        if not is_entity:
+            return None
+
 
         # check if named entity case: (entity_category, ':name', 'name')
         # no need, since named entity check happens first
@@ -844,7 +945,8 @@ class AMROracleBuilder:
             # the node has not been built at current step
             return None
 
-        for act_id, act_node_id in enumerate(machine.actions_to_nodes):
+        #for act_id, act_node_id in enumerate(machine.actions_to_nodes):
+        for act_id, act_node_id in reversed(list(enumerate(machine.actions_to_nodes))):
             if act_node_id is None:
                 continue
             # for multiple nodes out of one token --> need to use node id to check edges
@@ -964,6 +1066,8 @@ def main():
 
     # Argument handling
     args = argument_parser()
+    global entities_with_preds
+    entities_with_preds = args.in_pred_entities.split(",")
 
     # Load AMR (replace some unicode characters)
     # TODO: unicode fixes and other normalizations should be applied more
