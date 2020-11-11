@@ -8,8 +8,8 @@
 # Architecture dependent config
 # set conda path for each architecture if needed
 
-export CONDA_DIR=/dccstor/ykt-parse/AMR/jiawei2020/miniconda3
-export CONDA_DIR_PPC=/dccstor/ykt-parse/AMR/jiawei2020/ppc64/miniconda3
+export CONDA_DIR=/dccstor/multi-parse/anaconda3
+export CONDA_DIR_PPC=/dccstor/multi-parse/miniconda3
 export IBM_POWERAI_LICENSE_ACCEPT=yes
 
 if [[ "$HOSTNAME" =~ dccpc.* ]];then
@@ -28,17 +28,20 @@ elif [[ "$HOSTNAME" =~ dccx[cn].* ]];then
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/share/cuda-9.1/x86_64/lib64
 
     # Create env if missing
-    [ ! -d cenv_x86 ] && conda create -y -p ./cenv_x86 
-    echo "conda activate ./cenv_x86"
-    conda activate ./cenv_x86 
+    #[ ! -d cenv_x86 ] && conda create -y -p ./cenv_x86 
+    #echo "conda activate ./cenv_x86"
+    #conda activate ./cenv_x86 
+
+    echo "conda activate . venv/bin/activate"
+    . venv/bin/activate
 
 else
     echo -e "\nhost $HOSTNAME does not match CCC computing nodes (dccxc.*|dccpc.*)\n"
-    exit
+    #exit
 fi
 
 # exit if conda not found
-type conda >/dev/null 2>&1 || { echo >&2 "conda not found on PATH"; exit 1; }
+#type conda >/dev/null 2>&1 || { echo >&2 "conda not found on PATH"; exit 1; }
 
 # this is neded unless we install
 export PYTHONPATH=.
