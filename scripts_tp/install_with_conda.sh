@@ -35,9 +35,14 @@ cd ..
 # install fairseq from the official site
 # [ ! -d fairseq ] && git clone https://github.com/pytorch/fairseq
 # cd fairseq
-# git checkout v0.7.2 
+# git checkout v0.7.2
 # pip install --editable .
 # cd ..
+
+# install tensorboardX
+pip install tensorboardX
+# install packaging for compatibility of PyTorch < 1.2
+conda install packaging
 
 # install transition_amr_parser
 pip install spacy ipdb
@@ -59,4 +64,3 @@ pip install smatch/
 ## if the above doesn't work with due to an EnvironmentError: [Errno 13]
 # python setup.py install
 # cd ..
-
