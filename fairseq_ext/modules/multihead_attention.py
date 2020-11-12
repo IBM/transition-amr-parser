@@ -286,15 +286,15 @@ class MultiheadAttention(nn.Module):
         # mask out cross attention
         if cross_attention_mask is not None:
             # attn_weights[~cross_attention_mask[0]] = -float('inf')
-            attn_weights = attn_weights.masked_fill(~cross_attention_mask[0].byte(), float('-inf'))
+            attn_weights = attn_weights.masked_fill(~cross_attention_mask[0], float('-inf'))
 
         if ptr_self_attn_mask is not None:
-            attn_weights[:ptr_self_attn_mask[0].size(0)][~ptr_self_attn_mask[0].byte()] = -float('inf')
+            attn_weights[:ptr_self_attn_mask[0].size(0)][~ptr_self_attn_mask[0]] = -float('inf')
             # attn_weights[:ptr_self_attn_mask[0].size(0)].masked_fill(~ptr_self_attn_mask[0], float('-inf'))
 
         # graph structure encoding: decoder self-attention mask
         if graph_self_attn_mask is not None:
-            attn_weights = attn_weights.masked_fill(~graph_self_attn_mask[0].byte(), float('-inf'))
+            attn_weights = attn_weights.masked_fill(~graph_self_attn_mask[0], float('-inf'))
 
         if head_positions is not None:
             # if buffer/stack positions provided, add them to attention computation

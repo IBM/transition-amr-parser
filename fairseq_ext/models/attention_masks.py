@@ -1,3 +1,5 @@
+from packaging import version
+
 import torch
 
 
@@ -180,4 +182,7 @@ def get_cross_attention_mask_heads(tgt_src_cursors, src_max_len, src_pad_mask, t
     bsz_head_mask[(bsz_head_mask.sum(dim=2, keepdim=True) == 0).repeat(1, 1, src_max_len)] = 1
 
     # NOTE must use torch.bool for mask for PyTorch >= 1.2, otherwise there will be problems around ~mask
+    # for compatibility of PyTorch 1.1
+    if version.parse(torch.__version__) < version.parse('1.2.0'):
+        return bsz_head_mask, bsz_head_mask_post_softmax
     return bsz_head_mask.to(torch.bool), bsz_head_mask_post_softmax

@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
+from packaging import version
 
 import torch
 import torch.nn as nn
@@ -758,7 +759,11 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             ptr_self_attn_mask[(ptr_self_attn_mask.sum(dim=2, keepdim=True) == 0).
                                repeat(1, 1, tgt_actnode_masks.size(1))] = 1
             # NOTE must use torch.bool for mask for PyTorch >= 1.2, otherwise there will be problems around ~mask
-            ptr_self_attn_mask = (ptr_self_attn_mask.to(torch.bool), ptr_self_attn_mask_post_softmax)
+            # for compatibility of PyTorch 1.1
+            if version.parse(torch.__version__) < version.parse('1.2.0'):
+                ptr_self_attn_mask = (ptr_self_attn_mask, ptr_self_attn_mask_post_softmax)
+            else:
+                ptr_self_attn_mask = (ptr_self_attn_mask.to(torch.bool), ptr_self_attn_mask_post_softmax)
         else:
             ptr_self_attn_mask = None
         # ========================================================================

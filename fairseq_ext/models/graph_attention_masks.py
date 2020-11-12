@@ -1,4 +1,6 @@
 """Decoder self-attention masks, e.g. graph structure."""
+from packaging import version
+
 import torch
 
 
@@ -92,5 +94,9 @@ def get_graph_self_attn_mask(tgt_actedge_masks, tgt_actedge_cur_nodes,
 
     # NOTE after modification, the `bsz_head_mask` contains all 1 rows which are not causal; but this is fine since
     #      the post mask will 0 out whatever those rows generate as distributions to combine values
+
+    # for compatibility of PyTorch 1.1
+    if version.parse(torch.__version__) < version.parse('1.2.0'):
+        bsz_head_mask = bsz_head_mask.byte()
 
     return bsz_head_mask, bsz_head_mask_post_softmax
