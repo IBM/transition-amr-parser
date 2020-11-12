@@ -14,8 +14,8 @@ import torch
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
-from transition_amr_parser.o7_state_machine import AMRStateMachine
-from transition_amr_parser.o7_state_machine_reformer import AMRActionReformer
+from transition_amr_parser.o8_state_machine import AMRStateMachine
+from transition_amr_parser.o8_state_machine_reformer import AMRActionReformer
 
 
 class SequenceGenerator(object):
