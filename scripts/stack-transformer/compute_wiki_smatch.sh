@@ -19,7 +19,16 @@ for amr_file in $(find $model_folder -iname '*.amr' | grep -v 'wiki.amr');do
     wiki_smatch_file=$(dirname $amr_file)/${amr_basename}.wiki.smatch
 
     # Add AMR wiki 
-    python fairseq/dcc/add_wiki.py $amr_file $WIKI_DEV > $wiki_amr_file 
+#    python fairseq/dcc/add_wiki.py $amr_file $WIKI_DEV > $wiki_amr_file 
+    python scripts/retyper.py \
+        --inputfile $amr_file \
+        --outputfile $wiki_amr_file \
+        --skipretyper \
+        --wikify \
+#        --blinkmodels <<pathtoblinkmodels>> \
+        --blinkcachepath $BLINK_CACHE_PATH \
+        --blinkthreshold 0.0
+
 
     # Compute smatch
     smatch.py \
