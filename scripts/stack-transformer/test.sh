@@ -81,9 +81,18 @@ for single_task  in $(python -c "print(' '.join('$TASK_TAG'.split('+')))");do
     
             # Smatch evaluation with wiki
             # add wiki
-            python scripts/add_wiki.py \
-                ${results_path}.amr $WIKI_DEV \
-                > ${results_path}.wiki.amr
+#            python scripts/add_wiki.py \
+#                ${results_path}.amr $WIKI_DEV \
+#                > ${results_path}.wiki.amr
+            python scripts/retyper.py \
+                --inputfile ${results_path}.amr \
+                --outputfile ${results_path}.wiki.amr \
+                --skipretyper \
+                --wikify \
+#                --blinkmodels <<pathtoblinkmodels>> \
+                --blinkcachepath $BLINK_CACHE_PATH \
+                --blinkthreshold 0.0
+
             # Compute score in the background
             smatch.py \
                  --significant 4  \
