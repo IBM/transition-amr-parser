@@ -6,7 +6,7 @@ set -o pipefail
 . set_exps.sh    # general setup for experiments management (save dir, etc.)
 set -o nounset
 
-# set root directory 
+# set root directory
 # (the config script should be called within other scripts, where data root dir is defined)
 if [ -z ${ROOTDIR+x} ]; then
     ROOTDIR=EXP
@@ -34,16 +34,18 @@ LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed
 # AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/psuedo.txt
 # the above data has errors in alignments (o5-prefix)
 
-#AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/psuedo.txt
-AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/jkaln.txt
-AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.txt.removedWiki.noempty.JAMRaligned
-AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.txt.removedWiki.noempty.JAMRaligned
-# WIKI files                                                                                                                                                                              
-# NOTE: If left empty no wiki will be added                                                                                                                                               
-WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
-AMR_DEV_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/dev.txt
-WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
-AMR_TEST_FILE_WIKI=/dccstor/ykt-parse/AMR/2016data/test.txt
+AMR_TRAIN_FILE=amr_corpus/amr2.0/o5/jkaln.txt
+AMR_DEV_FILE=amr_corpus/amr2.0/o5/dev.txt.removedWiki.noempty.JAMRaligned
+AMR_TEST_FILE=amr_corpus/amr2.0/o5/test.txt.removedWiki.noempty.JAMRaligned
+
+
+### WIKI files
+# NOTE: If left empty no wiki will be added
+WIKI_DEV=amr_corpus/amr2.0/wiki/dev.wiki
+AMR_DEV_FILE_WIKI=amr_corpus/amr2.0/wiki/dev.txt
+WIKI_TEST=amr_corpus/amr2.0/wiki/test.wiki
+AMR_TEST_FILE_WIKI=amr_corpus/amr2.0/wiki/test.txt
+
 
 # NOTE: original dev set also same as below
 # AMR_DEV_FILE_WIKI=$LDC2016_AMR_CORPUS/dev.txt
@@ -56,7 +58,7 @@ EMBDIR=data/en_embeddings
 
 ORACLE_FOLDER=$ROOTDIR/$ORACLEDIR/oracle            # oracle actions, etc.
 DATA_FOLDER=$ROOTDIR/$ORACLEDIR/processed           # preprocessed actions states information, etc.
-EMB_FOLDER=$ROOTDIR/$EMBDIR/roberta_large_top24     # pre-stored pretrained en embeddings (not changing with oracle) 
+EMB_FOLDER=$ROOTDIR/$EMBDIR/roberta_large_top24     # pre-stored pretrained en embeddings (not changing with oracle)
 
 ENTITIES_WITH_PREDS="person,thing,government-organization,have-org-role-91,monetary-quantity"
 
