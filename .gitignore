@@ -34,6 +34,7 @@ fairseq-*
 venv*/
 cenv*/
 amr0.4_ody/
+amr0.4_o8/
 
 # debug
 PROGRESS
