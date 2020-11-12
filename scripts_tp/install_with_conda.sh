@@ -8,7 +8,8 @@ set -o pipefail
 # source activate amr0.4
 
 ### local env
-cenv_name=amr0.4_ody
+# cenv_name=amr0.4_ody
+cenv_name=amr0.4_o8
 [ ! -d $cenv_name ] && conda create -y -p ./$cenv_name
 echo "source activate ./$cenv_name"
 source activate ./$cenv_name
