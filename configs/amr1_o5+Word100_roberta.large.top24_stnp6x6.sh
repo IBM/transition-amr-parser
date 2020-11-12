@@ -31,6 +31,7 @@ AMR_TEST_FILE=$corpus_folder/test.no_wiki.aligned_${align_tag}.txt
 # TODO: External cache
 WIKI_DEV=""
 WIKI_TEST=""
+BLINK_CACHE_PATH=/dccstor/ykt-parse/SHARED/MODELS/ELT/EL/BLINK/linkcache
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by

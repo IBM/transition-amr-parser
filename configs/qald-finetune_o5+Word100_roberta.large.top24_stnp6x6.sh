@@ -37,6 +37,7 @@ WIKI_DEV=""
 AMR_DEV_FILE_WIKI="" 
 WIKI_TEST=""
 AMR_TEST_FILE_WIKI=""
+BLINK_CACHE_PATH=/dccstor/ykt-parse/SHARED/MODELS/ELT/EL/BLINK/linkcache
 # Leave empty to create entity rules from the corpus
 ENTITY_RULES=""
 
