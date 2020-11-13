@@ -531,8 +531,8 @@ class AMROracleBuilder:
         action = self.try_reduce()
         if not action:
             action = self.try_merge()
-        if not action:
-            action = self.try_dependent()
+        #if not action:
+        #    action = self.try_dependent()
         if not action:
             action = self.try_arcs()
         #if not action:
@@ -706,19 +706,16 @@ class AMROracleBuilder:
         if not edges:
             return None
 
+        is_dependent = False
         for s, r, t in edges:
             if r == ':name' and gold_amr.nodes[t] == 'name':
                 return None
+            if r in [':polarity', ':mode']:
+                is_dependent = True
 
         root = gold_amr.findSubGraph(tok_alignment).root
-        #import ipdb; ipdb.set_trace()
-        if gold_amr.nodes[root] not in entities_with_preds:
+        if gold_amr.nodes[root] not in entities_with_preds and not is_dependent:                                                                                 
             return None
-
-        if root not in self.built_gold_nodeids:
-            self.built_gold_nodeids.append(root)
-            self.nodeid_to_gold_nodeid.setdefault(machine.new_node_id, []).append(root)
-            return f'ENTITY({gold_amr.nodes[root]})'
 
         new_id = None
         for s, r, t in edges:
@@ -786,6 +783,18 @@ class AMROracleBuilder:
 
         # check if named entity case: (entity_category, ':name', 'name')
         # no need, since named entity check happens first
+
+        is_dependent = False
+        is_named = False
+        for s, r, t in edges:
+            if r == ':name' and gold_amr.nodes[t] == 'name':
+                is_named = True
+            if r in [':polarity', ':mode']:
+                is_dependent = True
+
+        root = gold_amr.findSubGraph(tok_alignment).root
+        if not is_named and ( gold_amr.nodes[root] in entities_with_preds or is_dependent):
+            return None
 
         gold_nodeids = [n for n in tok_alignment if any(s == n for s, r, t in edges)]
         new_nodes = ','.join([gold_amr.nodes[n] for n in gold_nodeids])

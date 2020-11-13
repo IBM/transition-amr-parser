@@ -392,7 +392,7 @@ class AMRStateMachine:
         gen_node_actions = ['ENTITY', 'PRED', 'COPY_LEMMA', 'COPY_SENSE01']
         gen_arc_actions = ['LA', 'RA']
         pre_node_actions = ['REDUCE'] + gen_node_actions + ['MERGE']    # dependent on the remaining number of tokens
-        post_node_actions = ['SHIFT', 'LA', 'RA', 'DEPENDENT']
+        post_node_actions = ['SHIFT', 'LA', 'RA'] #, 'DEPENDENT']
         post_merge_actions = gen_node_actions + ['MERGE']
         post_arc_actions = gen_arc_actions + ['SHIFT']
         cursor_moving_actions = ['REDUCE', 'MERGE', 'SHIFT']
@@ -403,7 +403,7 @@ class AMRStateMachine:
         for i in range(1,len(past_actions)+1):
             if past_actions[-i] in ['REDUCE', 'SHIFT']:
                 break
-            if past_actions[-i] == 'ENTITY':  #in gen_node_actions: #== 'ENTITY':
+            if past_actions[-i] in gen_node_actions: #== 'ENTITY':
                 inside_entity = True
 
         #import ipdb; ipdb.set_trace()
