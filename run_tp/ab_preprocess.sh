@@ -68,6 +68,25 @@ else
         --pretrained-embed $PRETRAINED_EMBED \
         --bert-layers $BERT_LAYERS
 
+    elif [[ $TASK == "amr_action_pointer_graphmp_amr1" ]]; then
+
+    # a separate route of code for preprocessing of AMR 1.0 data; the only difference is in o8 state machine
+    # get_valid_canonical_actions to deal with a single exmple in training set with self-loop
+
+    python fairseq_ext/preprocess_graphmp.py \
+        --user-dir ../fairseq_ext \
+        --task $TASK \
+        --source-lang en \
+        --target-lang actions \
+        --trainpref $ORACLE_FOLDER/train \
+        --validpref $ORACLE_FOLDER/dev \
+        --testpref $ORACLE_FOLDER/test \
+        --destdir $DATA_FOLDER \
+        --embdir $EMB_FOLDER \
+        --workers 1 \
+        --pretrained-embed $PRETRAINED_EMBED \
+        --bert-layers $BERT_LAYERS
+
     fi
 
 fi

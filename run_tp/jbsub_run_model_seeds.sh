@@ -32,8 +32,9 @@ train_queue=x86_12h
 gpu_type=v100
 
 num_seeds=3
-seeds=(43 44 0)
+# seeds=(43 44 0)
 # seeds=(0 123)
+seeds=(42 0 315)
 
 echo "number of seeds: $num_seeds"
 echo "seeds list: ${seeds[@]}"
@@ -43,19 +44,19 @@ echo
 for (( i=0; i<$num_seeds; i++ ))
 do
     echo "run seed -- ${seeds[i]}"
-    
+
     # set seed; this should be accepted both in config script and in running script
     seed=${seeds[i]}
-    
+
     # source config: for $MODEL_FOLDER to exist to save logs
     . $config_model
-    
+
     # check if the config script correctly set up seed
     [[ $seed != ${seeds[i]} ]] && echo "seed is not correctly set up in config file: $config_model; try setting seed default instead of fixing seed" && exit 1
-    
+
     # make model directory to save logs
     mkdir -p $MODEL_FOLDER
-    
+
     # submit job on CCC
     jbsub_info=$(jbsub \
                  -cores 1+1 \
@@ -89,4 +90,3 @@ while true; do
 done
 
 tail -f $MODEL_FOLDER/${jbsub_tag}-${jid}.std*
-

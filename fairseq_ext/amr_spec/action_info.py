@@ -161,9 +161,9 @@ if __name__ == '__main__':
         actions_file = f'/dccstor/jzhou1/work/EXP/data-amr1/depfix_o5_no-mw_act-states/oracle/{split}.actions'
         out_file_path = f'/dccstor/jzhou1/work/EXP/data-amr1/depfix_o5_no-mw_act-states/oracle/{split}.stats'
 
-        en_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.en'
-        actions_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.actions'
-        out_file_path = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.stats'
+        en_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.en'
+        actions_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.actions'
+        out_file_path = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.stats'
 
         out_file = open(out_file_path, 'w')
         check_actions_file(en_file, actions_file, out_file)

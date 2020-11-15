@@ -3,7 +3,7 @@ import sys
 
 from tqdm import tqdm
 
-from transition_amr_parser.o8_state_machine_reformer import AMRActionReformer
+from transition_amr_parser.o8_state_machine_reformer_amr1 import AMRActionReformer
 
 
 def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
@@ -36,7 +36,7 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
         actions.append('CLOSE')
 
     amr_state_machine = AMRActionReformer(tokens=tokens, tokseq_len=tokseq_len,
-                                          swap_arc_for_node=True,
+                                          swap_arc_for_node=False,
                                           original_node_pos=True,
                                           update_node_pos=True)
 
@@ -193,10 +193,6 @@ if __name__ == '__main__':
         en_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.en'
         actions_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.actions'
         out_file_path = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser/EXP/data/o5_act-states/oracle/{split}.stats'
-
-        en_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.en'
-        actions_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.actions'
-        out_file_path = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.stats'
 
         out_file = open(out_file_path, 'w')
         check_actions_file(en_file, actions_file, out_file)
