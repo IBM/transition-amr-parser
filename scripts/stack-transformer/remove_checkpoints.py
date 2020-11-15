@@ -16,12 +16,10 @@ def get_best_checkpoints(model_folder, file_types, ignore_deleted):
         for label in ['best', 'second_best', 'third_best']:
             link = f'{model_folder}/checkpoint_{label}_{file_type.upper()}.pt'
 
-            best_checkpoint = os.readlink(link)
-            original_checkpoint = f'{model_folder}/{best_checkpoint}'
-
             # raise if best checkpoint was deleted
             if (
-                not os.path.isfile(original_checkpoint)
+                os.path.islink(link)
+                and not os.path.isfile(f'{model_folder}/{os.readlink(link)}')
                 and not ignore_deleted
             ):
                 raise Exception(
@@ -30,9 +28,11 @@ def get_best_checkpoints(model_folder, file_types, ignore_deleted):
                 )
 
             if os.path.islink(link):
-                best_checkpoints[file_type].append(best_checkpoint)
+                best_checkpoints[file_type].append(
+                    f'{model_folder}/{os.readlink(link)}'
+                )
             else:
-                return []
+                return {}
 
     return best_checkpoints
 
