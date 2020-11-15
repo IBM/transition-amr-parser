@@ -10,11 +10,15 @@ from copy import deepcopy
 import json
 
 import torch
+from packaging import version
 
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
 from transition_amr_parser.o8_state_machine import AMRStateMachine
+
+
+BOOL_TENSOR_TYPE = torch.bool if version.parse(torch.__version__) >= version.parse('1.2.0') else torch.uint8
 
 
 class SequenceGenerator(object):
@@ -412,7 +416,7 @@ class SequenceGenerator(object):
         # mask for valid beams after search selection: size (bsz * beam_size, )
         # valid_bbsz_mask = tokens.new_ones(bsz * beam_size, dtype=torch.uint8)
         # for pytorch >= 1.2, bool is encouraged to mask index
-        valid_bbsz_mask = tokens.new_ones(bsz * beam_size, dtype=torch.bool)
+        valid_bbsz_mask = tokens.new_ones(bsz * beam_size, dtype=BOOL_TENSOR_TYPE)
         valid_bbsz_idx = valid_bbsz_mask.nonzero().squeeze(-1)
         # index mapping from full bsz * beam_size vector to the valid-only vector with reduced size
         bbsz_to_valid_idxs = None
@@ -455,14 +459,14 @@ class SequenceGenerator(object):
 
             # restrict the action space for next candidate tokens
             # allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.uint8)  # only for pytorch <= 1.1
-            allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.bool)
+            allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=BOOL_TENSOR_TYPE)
             tok_cursors = tokens.new_zeros(valid_bbsz_num, dtype=torch.int64)
             # graph structure information
-            tgt_actedge_masks = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.bool)
+            tgt_actedge_masks = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=BOOL_TENSOR_TYPE)
             tgt_actedge_cur_nodes = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.int64).fill_(-1)
             tgt_actedge_pre_nodes = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.int64).fill_(-1)
             tgt_actedge_directions = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.int64)
-            tgt_actnode_masks_shift = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.bool)
+            tgt_actnode_masks_shift = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=BOOL_TENSOR_TYPE)
 
             if amr_state_machines is not None:
                 for i, j in enumerate(valid_bbsz_idx):
@@ -592,7 +596,7 @@ class SequenceGenerator(object):
             # mask for (previous + current) actions (generated tgt tokens) that are corresponding to AMR nodes
             # the mask includes the current action
             # tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1).byte()  # only for pytorch <= 1.1
-            tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=torch.bool)
+            tgt_actions_nodemask = tokens.new_zeros(valid_bbsz_num, step + 1, dtype=BOOL_TENSOR_TYPE)
 
             if step == 0:
                 # do nothing to the mask, since we don't have any action history yet, no pointer is generated

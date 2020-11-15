@@ -484,10 +484,10 @@ class AMRStateMachine:
 
         # modify for arc actions based on the number of previous generated nodes
         num_prev_nodes = sum(actions_nodemask)
-        if num_prev_nodes < 2:
-            # for LA and RA there must have been at least 2 nodes generated (current one included)
-            # NOTE comment this for AMR1.0 data oracle, as there is a special of self-loop at the first arc
-            cano_actions = list(filter(lambda x: x not in gen_arc_actions, cano_actions))
+        # if num_prev_nodes < 2:
+        #     # for LA and RA there must have been at least 2 nodes generated (current one included)
+        #     # NOTE comment this for AMR1.0 data oracle, as there is a special of self-loop at the first arc
+        #     cano_actions = list(filter(lambda x: x not in gen_arc_actions, cano_actions))
         if num_prev_nodes < 1:
             # for LA(root) there must have been at least 1 node generated (root node is by default there)
             if 'LA(root)' in cano_actions:
