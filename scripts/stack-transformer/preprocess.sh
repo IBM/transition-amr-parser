@@ -7,6 +7,8 @@ set -o nounset
 # Argument handling
 config=$1
 
+[ ! -f "$config" ] && echo "Missing $config" && exit 1
+
 # Load config
 . "$config"
 
@@ -118,17 +120,47 @@ elif [ "$TASK_TAG" == "NER+AMR" ];then
     
     # oracle actions 
     # This is only avaliable in modular_semantic_parser/
-    python mixer.py \
+    python transition_amr_parser/mixer.py \
         --in-folders $AMR_ORACLE_FOLDER $NER_ORACLE_FOLDER \
         --in-tasks AMR NER \
         --out-folder $ORACLE_FOLDER \
         $ORACLE_MIXER_ARGS
-            
+
 else
-    echo -e "Unknown task $TASK"
+    echo -e "Unknown task $TASK_TAG"
 fi
 
-# FEATURE EXTRACTION
-echo "fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS"
+# Dictionary update for fine-tuning. We will add the words from the fine-tuning
+# vocabulary to the pretrained one. Note that there is a similar if in train.sh
+# to adjust pretrained model embeddings accordingly
+if [[ "$FAIRSEQ_TRAIN_ARGS" =~ .*"--restore-file".* ]];then
 
+    # Work with a copy of the pretrained dictionaries (will be modified)
+    mkdir -p $FEATURES_FOLDER
+
+    # source 
+    cp $PRETRAINED_SOURCE_DICT ${SRC_DICT}
+    python scripts/create_fairseq_dicts.py \
+        --in-pretrain-dict $SRC_DICT \
+        --in-fine-tune-data $ORACLE_FOLDER/train.en \
+    
+    # target
+    cp $PRETRAINED_TARGET_DICT ${TGT_DICT}
+    python scripts/create_fairseq_dicts.py \
+        --in-pretrain-dict $TGT_DICT \
+        --in-fine-tune-data $ORACLE_FOLDER/train.actions \
+
+fi
+
+# PREPROCESSING
+# extract data
+echo "fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS"
 fairseq-preprocess $FAIRSEQ_PREPROCESS_ARGS
+
+# In fine-tune mode, we may need to adjust model size
+if [[ "$FAIRSEQ_TRAIN_ARGS" =~ .*"--restore-file".* ]];then
+    # We will modify the checkpoint, so we need to copy it
+    [ ! -f "$RESTORE_FILE" ] && \
+        cp $PRETRAINED_MODEL $RESTORE_FILE
+    python scripts/merge_restored_vocabulary.py $FAIRSEQ_TRAIN_ARGS
+fi
