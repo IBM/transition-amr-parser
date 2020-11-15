@@ -8,9 +8,9 @@
 import math
 from copy import deepcopy
 import json
-from packaging import version
 
 import torch
+from packaging import version
 
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
