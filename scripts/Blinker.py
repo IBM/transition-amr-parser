@@ -9,15 +9,9 @@ import logging
 import string
 import json
 import numpy
-#import LDConvert
 import random
 import hashlib
 
-#BLINKMODULE = 'blink.main_dense'
-#BLINKMODULEPATH = '/dccstor/kjbarker1/dev/BLINK/blink/main_dense.py'
-#LDCONVERTMODULE = 'LDConverter'
-#LDCONVERTPATH = '/u/kjbarker/dev/util/LDConvert.py'
-#WPAPI = 'https://en.wikipedia.org/w/api.php'
 MENTIONSTART = '[unused1]'
 MENTIONEND = '[unused2]'
 CONTEXTLEFTKEY = 'context_left'
@@ -59,7 +53,7 @@ class LinkCache:
       gkslowhashed = self.hash_key(gkslow)
       gkfasthashed = self.hash_key(gkfast)
       gkl.append(gkslowhashed)      # allow cached results from slow mode even if caller is in fast mode
-      if self.fastmode:       # but don't allow fast mode results if caller is in slow mode
+      if self.fastmode:             # but don't allow fast mode results if caller is in slow mode
          gkl.append(gkfasthashed)
       for genkey in gkl:
          if self.localcache:
@@ -88,12 +82,6 @@ class LinkCache:
       retstr = f'{leftstr.lower()}#{mentionstr.lower()}#{rightstr.lower()}'
       return retstr
 
-#   def flush(self):
-#      if self.localcache and self.localcachename:
-#         cfil = open(self.localcachename, 'w')
-#         json.dump(self.localcache, cfil)
-#         cfil.close()
-
    def done(self):
       if self.localcache:
          jsonfileslist = glob.glob(f'{self.pathtocachedirectory}/{CACHEFILEPATTERN}')
@@ -108,7 +96,6 @@ class LinkCache:
             self.localcachename = f'{self.pathtocachedirectory}/linkcache_{self.uid}.json'
          self.localcache[CACHEIDKEY] = self.uid
          self.localcache[MODEKEY] = FASTTAG if self.fastmode else SLOWTAG
-#         self.flush()
          cfil = open(self.localcachename, 'w')
          json.dump(self.localcache, cfil)
          cfil.close()
@@ -119,10 +106,6 @@ CACHEPATHENVVAR = 'BLINKERCACHEPATH'
 
 class Blinker:
    def __init__(self, pathtocachedirectory=None, pathtomodeldirectory=None, fastmode=True, wikititleonly=False):
-#      spec = importlib.util.spec_from_file_location(LDCONVERTMODULE, LDCONVERTPATH)
-#      LDConvert = importlib.util.module_from_spec(spec)
-#      spec.loader.exec_module(LDConvert)
-
       if pathtocachedirectory:
          self.cachedir = pathtocachedirectory
       else:
@@ -144,7 +127,6 @@ class Blinker:
          self.cacheonlymode = True
          print('Not using BLINK (Blinker in cache-only mode)', file=sys.stderr)
 
-#      link_cache_directory = pathtomodeldirectory+"../linkcache"
       self.linkcache = LinkCache(self.cachedir, fastmode=fastmode)
 
       self.ldc = None
@@ -154,9 +136,9 @@ class Blinker:
 
       self.config = {
          "interactive": False,
-         "fast": fastmode, # set this to True if no gpu available or if no faiss available
+         "fast": fastmode,
          "top_k": 16,
-         "output_path": "logs/" # logging directory
+         "output_path": "logs/"
       }
       if not self.cacheonlymode:
          self.config['biencoder_model'] = pathtomodeldirectory+'biencoder_wiki_large.bin'
@@ -181,7 +163,6 @@ class Blinker:
    # enddef __init__
 
    def runblink(self, mentiondata):
-#      self.config['test_entities'] = mentiondata
       args = argparse.Namespace(**self.config)
 
       results = dict()
@@ -200,7 +181,6 @@ class Blinker:
          if not self.models:
             print('Loading BLINK models...', file=sys.stderr)
             self.models = self.run_blink.load_models(args, logger=self.logger)
-#            print('done.', file=sys.stderr)
 
          _, _, _, _, _, predictions, numpyscores = self.run_blink.run(args, self.logger, *self.models, test_data=mentions2blink)
          scores = list()
@@ -208,15 +188,13 @@ class Blinker:
             sl = list()
             for score in scoreslist:
                s = score
-               if isinstance(score, numpy.float32):	# stupid numpy/json hack
+               if isinstance(score, numpy.float32):	# stupid numpy/json hack (float32 not serializable even though other floats are)
                   s = score.item()
                sl.append(s)
             scores.append(sl)
 
          for i, mstru in enumerate(mentions2blink):
             s = scores[i]
-#            if not isinstance(scores[i], list):
-#               s = scores[i].tolist()
             self.linkcache.addtocache(mstru[CONTEXTLEFTKEY], mstru[MENTIONKEY], mstru[CONTEXTRIGHTKEY], predictions[i], s)
 
       j = 0
@@ -239,9 +217,6 @@ class Blinker:
             retpreds.append(currpreds)
             retscores.append(currscores)
             j += 1
-
-# debug tmp:
-#      self.linkcache.done()
 
       return retpreds, retscores
 
@@ -269,7 +244,6 @@ class Blinker:
       mentionstr = ' '.join(mention).lower()
 
       mstru = dict()
-#      mstru['id'] = f'{sentcount}.{mentcount}'
       mstru['label'] = 'unknown'
       mstru['label_id'] = -1
       mstru[CONTEXTLEFTKEY] = ' '.join(lcontext).lower()
@@ -322,10 +296,8 @@ def runtxt(blinker, inputfilename):
          sys.stdout.flush()
 
    txtfil.close()
-#   blinker.done()
-#   blinker.ldc.flush()
 
-# end runtxt()
+# end runtxt
 
 MAXMENTIONWINDOW = 5
 def runIOB(blinker, inputfilename):
@@ -355,10 +327,7 @@ def runIOB(blinker, inputfilename):
    if stoks:
       taganddumpiob(blinker, snum, stoks)
 
-#   blinker.done()
-#   blinker.ldc.flush()
-
-# end runIOB()
+# end runIOB
 
 def taganddumpiob(blinker, snum, stoks):
    toks = [t for (t, _) in stoks]
@@ -412,7 +381,7 @@ def taganddumpiob(blinker, snum, stoks):
 
    sys.stdout.flush()
 
-# end taganddumpiob()
+# end taganddumpiob
 
 def linksentenceall(blinker, sentence):
    sid = 0
@@ -510,9 +479,7 @@ def linksentenceall(blinker, sentence):
 
    return retstrus
 
-# end def linksentenceall()
-
-#BLINKMODELPATH = '/dccstor/ykt-parse/SHARED/MODELS/ELT/EL/BLINK/models'
+# end def linksentenceall
 
 def main():
 
@@ -524,11 +491,6 @@ def main():
    parser.add_argument('-r', '--rawoutput', action='store_true', help='output BLINK links (wikipedia titles) only (no mapping to other vocabularies)')
    parser.add_argument('-x', '--crossencoder', action='store_true', help='run cross-encoder reranking (slow mode)')
    args = parser.parse_args()
-
-# TODO: allow non-cache version if blink models specified
-#   if not args.blinkmodels and not args.cachedirectory:
-#      print(f'no cache directory or path to blinkmodels specified: nothing to do', file=sys.stderr)
-#      sys.exit(1)
 
    if args.blinkmodels:
       if not os.path.exists(args.blinkmodels):
