@@ -25,7 +25,6 @@ for amr_file in $(find $model_folder -iname '*.amr' | grep -v 'wiki.amr');do
         --outputfile $wiki_amr_file \
         --skipretyper \
         --wikify \
-#        --blinkmodels <<pathtoblinkmodels>> \
         --blinkcachepath $BLINK_CACHE_PATH \
         --blinkthreshold 0.0
 
