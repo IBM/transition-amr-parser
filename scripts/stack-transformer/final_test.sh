@@ -116,7 +116,6 @@ elif [ "$TASK_TAG" == "AMR" ];then
             --outputfile ${results_folder}.test.wiki.amr \
             --skipretyper \
             --wikify \
-#            --blinkmodels <<pathtoblinkmodels>> \
             --blinkcachepath $BLINK_CACHE_PATH \
             --blinkthreshold 0.0
 
