@@ -89,7 +89,6 @@ for single_task  in $(python -c "print(' '.join('$TASK_TAG'.split('+')))");do
                 --outputfile ${results_path}.wiki.amr \
                 --skipretyper \
                 --wikify \
-#                --blinkmodels <<pathtoblinkmodels>> \
                 --blinkcachepath $BLINK_CACHE_PATH \
                 --blinkthreshold 0.0
 
