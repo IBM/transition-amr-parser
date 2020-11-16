@@ -84,14 +84,6 @@ def parseclargs():
          printerr(f'labels file {args.labelsfile} not found')
          sys.exit(2)
 
-#   if args.wikify:
-#      if not args.blinkmodels:
-#         printerr('must specify a BLINK model directory when wikifying')
-#         sys.exit(1)
-#      if not os.path.exists(args.blinkmodels):
-#         printerr(f'BLINK model directory {args.modeldirectory} not found')
-#         sys.exit(2)
-
    if args.blinkmodels:
       if not os.path.exists(args.blinkmodels):
          printerr(f'BLINK model directory {args.modeldirectory} not found')
@@ -123,7 +115,7 @@ def printoutput(string, outputfile, **kwargs):
    else:
       print(string, **kwargs)
 
-# enddef writeoutput
+# enddef printoutput
 
 class ParamStore:
    def __init__(self):
@@ -302,7 +294,6 @@ def addnode(nodelinenum, line):
    nspan = fields[SPANFIELD]
    spanfields = nspan.split('-')
    if len(spanfields) != 2:
-#      printerr(f'bad nodespan: {nspan}')
       return None
    else:
       start = spanfields[0].strip()
@@ -349,9 +340,10 @@ def protectedcount(s, c):
 
    return count
 
-# end def protected count
+# end def protectedcount
 
 def protectedsplit(string, splitter):
+# don't split string on splitter if splitter is inside a double-quoted string
    DOUBLEQUOTE = '"'
 
    if not splitter in string:
@@ -383,7 +375,7 @@ def protectedsplit(string, splitter):
 
    return strlist
 
-# end def protectedsplit()
+# end def protectedsplit
 
 def getparsepieces(amrparse, params):
    parsepieces = dict()
@@ -398,7 +390,6 @@ def getparsepieces(amrparse, params):
    j = 0
    prevtail = ''
    for n in tmppp:
-#      tmppt = n.split(AMRTYPESPLITTER)
       tmppt = protectedsplit(n, AMRTYPESPLITTER)
 
       if params.getparam('debug'):
@@ -466,8 +457,10 @@ def getnespan(ppstr, edgelist, nodelist):
    if NESTRINGOP not in ppstr:
       return None
 
-# hack until I can figure out why bad parses with
-# really long NE strings are causing BLINK to crash
+# really long mention spans cause BLINK to crash
+# (there's a limit, but it's buried in the config
+# file of the BLINK model, and BLINK just allows
+# a fatal crash if the limit is exceeded)
    if NESTRINGOP+'10' in ppstr:
       return None
 
@@ -553,7 +546,7 @@ def expandiob(ioblist):
    insidemention = False
    for tok, tag in ioblist:
       if tag.startswith(BTAG):		# starting a new mention
-         if insidemention:		# but already in one, so close it
+         if insidemention:		      # but already in one, so close it
             iobexp.append((ENDMENTION, OTAG))
          else:
             insidemention = True
@@ -686,25 +679,22 @@ def dumpjsonmention(leftcontext, mention, tag, rightcontext, sentcount, mentcoun
 
    if elink:
       mstru['Wikipedia_URL'] = 'en.wikipedia.org/wiki/'+elink
-#      mstru['Wikipedia_title'] = elink.replace('_', ' ')
 
-# !!!HACK TO FORCE CONTEXT-FREE SPANS INTO CACHE!!!
+# Uncomment temporarily if you want to force context-free spans into the cache
 #   mstru['context_left'] = ''
 #   mstru['context_right'] = ''
-# !!!ENDHACK
 
    predictions = list()
    if blinker:
       predictions, scores = blinker.runblink([mstru])
-      if not predictions: 	# back off to no-context linking (should only happen in cache-only mode)
+      if not predictions: 	            # back off to no-context linking (should only happen in cache-only mode)
          mstru['context_left'] = ''
          mstru['context_right'] = ''
          predictions, scores = blinker.runblink([mstru])
 
    topscore = threshold - 1.0
    if len(predictions) > 0:
-#      wptitle = predictions[0][0]
-# hack because amr gold wiki links aren't titles, they're stripped uris
+      # BLINK returns wptitles, but amr gold wiki links are stripped uris
       wptitle = predictions[0][0].replace(' ', '_')
       topscore = scores[0][0]
       
@@ -760,6 +750,7 @@ def processparse(amrparse, toks, nodelist, edgelist, preamble, retyper, blinker,
          if parentidx >= 0:
             parsepieces[parentidx].setnespan(ppnestart, ppneend)
             parsepiecesneedingretyping.append(parentidx)
+
    # parsepieces are in the order of the edges (which I'm using to order the nodes needing retyping)
    parsepiecesneedingretyping = sorted(set(parsepiecesneedingretyping))
 
@@ -771,8 +762,8 @@ def processparse(amrparse, toks, nodelist, edgelist, preamble, retyper, blinker,
 
    nodeidsneedingretyping = [(edge.arg1id, edge.arg2id) for edge in edgelist if edge.arg1type == NAMETYPE and edge.arg2type == NAMETYPE]
 
-# this list comprehension puts the node indexes in order of nodelist, but I need them
-# to be in the order they appear in the edgelist
+# the list comprehension would put the node indexes in the order of nodelist, 
+# but I need them to be in the order they appear in the edgelist; so sad
 #   nodesneedingretyping = [nodeindex for nodeindex, node in nodelist.items() if node.aid in nodeidsneedingretyping]
    nodesneedingretyping = list()
    for (nodeid, nameid) in nodeidsneedingretyping:
@@ -967,7 +958,7 @@ def processparse(amrparse, toks, nodelist, edgelist, preamble, retyper, blinker,
 
    return numretypes, numretypesdiff, jadd
 
-# end def processparse()
+# end def processparse
 
 
 
@@ -1083,7 +1074,7 @@ def main():
       for line in ifil:
          current_input += line
 
-         if line == '\n':		# must have blank line between amr parses
+         if line == '\n':		   # must have blank line between amr parses
             if not processing:	# skip extra blank lines if already dumped previous parse
                continue
 
@@ -1146,7 +1137,6 @@ def main():
 
       printerr(f'{numparses} AMR parses processed')
       printerr(f'{numretypesdiff} / {numretypes} Named Entities processed')
-#      printerr(f'{dbgnumlastonebad} unaligned nodes')
 
       if bfil:
          bfil.close()
@@ -1157,8 +1147,7 @@ def main():
       if blinker:
          blinker.done()
 
-
-# enddef main()
+# enddef main
 
 
 if __name__ == '__main__':
