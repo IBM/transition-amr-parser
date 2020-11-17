@@ -171,7 +171,7 @@ class SequenceGenerator(object):
             #     # exclude the EOS marker
             #     model.max_decoder_positions() - 1,    # model.max_decoder_positions() is 1024 by default
             # )
-            max_len = min(src_len * 4,    # the max ratio for train, dev and test is around 3
+            max_len = min(src_len * 5,    # the max ratio for train, dev and test is around 3
                           # exclude the EOS marker
                           model.max_decoder_positions() - 1)
             # model.max_decoder_positions() is 1024 by default; it also limits the max of model's positional embeddings
