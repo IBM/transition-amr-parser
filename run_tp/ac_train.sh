@@ -51,6 +51,10 @@ fi
 
 tgt_graph_mask=${tgt_graph_mask:-e1c1p1}
 
+lr=${lr:-0.0005}
+max_tokens=${max_tokens:-3584}
+warmup=${warmup:-4000}
+dropout=${dropout:-0.3}
 
 ##### TRAINING
 # rm -Rf $MODEL_FOLDER
@@ -67,7 +71,7 @@ else
 
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then
-    
+
     # python -m ipdb fairseq_ext/train.py \
     python fairseq_ext/train.py \
         $DATA_FOLDER \
@@ -104,17 +108,17 @@ else
         --clip-norm 0.0 \
         --lr-scheduler inverse_sqrt \
         --warmup-init-lr 1e-07 \
-        --warmup-updates 4000 \
+        --warmup-updates $warmup \
         --pretrained-embed-dim $PRETRAINED_EMBED_DIM \
-        --lr 0.0005 \
+        --lr $lr \
         --min-lr 1e-09 \
-        --dropout 0.3 \
+        --dropout $dropout \
         --weight-decay 0.0 \
         --criterion label_smoothed_cross_entropy_pointer \
         --label-smoothing 0.01 \
         --loss-coef 1 \
         --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
-        --max-tokens 3584 \
+        --max-tokens $max_tokens \
         --log-format json \
         --seed $seed \
         --save-dir $MODEL_FOLDER \

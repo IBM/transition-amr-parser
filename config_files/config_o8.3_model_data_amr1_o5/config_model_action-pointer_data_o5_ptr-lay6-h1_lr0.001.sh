@@ -61,6 +61,8 @@ seed=${seed:-42}
 max_epoch=240
 eval_init_epoch=201
 
+lr=0.001
+
 
 ##### set the experiment dir name based on model configurations
 
@@ -127,7 +129,7 @@ expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}
 
 
 # specific model directory name with a set random seed
-MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_lr${lr}_seed${seed}
 
 
 
