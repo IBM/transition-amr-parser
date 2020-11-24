@@ -37,13 +37,16 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-pointer_dist_decoder_selfattn_layers="5"
+lay_cfg="_3x3"
+arch=transformer_tgt_pointer$lay_cfg
+
+pointer_dist_decoder_selfattn_layers="2"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=5
+pointer_dist_decoder_selfattn_infer=2
 
 apply_tgt_src_align=0
-tgt_src_align_layers="0 1 2 3 4 5"
+tgt_src_align_layers="0 1 2"
 tgt_src_align_heads=2
 tgt_src_align_focus="p0c1n0 p0c0n*"
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
@@ -58,29 +61,29 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 seed=${seed:-42}
-max_epoch=240
-eval_init_epoch=201
+max_epoch=120
+eval_init_epoch=81
 
 
 ##### set the experiment dir name based on model configurations
 
-if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
+if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2" ]]; then
     lay="all"
 else
     lay=""
     for n in $pointer_dist_decoder_selfattn_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
+        [[ $n < 0 || $n > 2 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
         lay=$lay$(( $n + 1 ))
     done
 fi
 
 
-if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
+if [[ $tgt_src_align_layers == "0 1 2" ]]; then
     cam_lay="all"
 else
     cam_lay=""
     for n in $tgt_src_align_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
+        [[ $n < 0 || $n > 2 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
         cam_lay=$cam_lay$(( $n + 1 ))
     done
 fi
@@ -93,7 +96,7 @@ elif [[ $tgt_src_align_focus == "p0c1n0 p0c0n*" ]]; then
 fi
 
 # set the experiment directory name
-expdir=exp_${data_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
+expdir=exp_${data_tag}${lay_cfg}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
 
 # pointer distribution
 ptr_tag=_ptr-lay${lay}-h${pointer_dist_decoder_selfattn_heads}    # action-pointer
