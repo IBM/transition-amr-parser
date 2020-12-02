@@ -1,4 +1,4 @@
-# Set variables and environment for a give experiment
+# Set variables and environment for a given experiment
 #
 # Variables intended to be use outside of this script are CAPITALIZED
 #
@@ -11,22 +11,26 @@ TASK_TAG=AMR
 # All data stored here
 data_root=DATA/$TASK_TAG/
 
-LDC2016_AMR_CORPUS=$data_root/corpora/amr2.0/
+# Original AMR files in PENMAN notation
+# see preprocess/README.md to create these from LDC folders
+# This step will be ignored if the AMR_TRAIN_FILE file below exists
+corpus_tag=amr3.0
+corpus_folder=$data_root/corpora/$corpus_tag/
+AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
+AMR_DEV_FILE_WIKI=$corpus_folder/dev.txt 
+AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
 
-# AMR ORACLE
-# See transition_amr_parser/data_oracle.py:argument_parser
-# NOTE: LDC2016_AMR_CORPUS should be defined in set_envinroment.sh
-AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/train.no_wiki.aligned.txt
-AMR_DEV_FILE=$LDC2016_AMR_CORPUS/dev.no_wiki.aligned.txt 
-AMR_TEST_FILE=$LDC2016_AMR_CORPUS/test.no_wiki.aligned.txt
-# WIKI files
-# NOTE: If left empty no wiki will be added
-WIKI_DEV=$LDC2016_AMR_CORPUS/dev.wiki
-AMR_DEV_FILE_WIKI=$LDC2016_AMR_CORPUS/dev.txt 
-WIKI_TEST=$LDC2016_AMR_CORPUS/test.wiki
-AMR_TEST_FILE_WIKI=$LDC2016_AMR_CORPUS/test.txt
-# Leave empty to create entity rules from the corpus
-ENTITY_RULES=""
+# AMR files without wiki and aligned. This will be the ones fed to the oracle
+# JAMR alignments plus Pourdamghani's EM aligner plus force alignment of
+# unaligned nodes
+align_tag=cofill
+AMR_TRAIN_FILE=$corpus_folder/train.no_wiki.aligned_${align_tag}.txt
+AMR_DEV_FILE=$corpus_folder/dev.no_wiki.aligned_${align_tag}.txt 
+AMR_TEST_FILE=$corpus_folder/test.no_wiki.aligned_${align_tag}.txt
+# wiki prediction files to recompose final AMR
+# TODO: External cache
+WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
+WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by
@@ -34,7 +38,7 @@ ENTITY_RULES=""
 # To have an action calling external lemmatizer (SpaCy)
 # --copy-lemma-action
 MAX_WORDS=100
-ORACLE_TAG=amr2_o5+Word${MAX_WORDS}
+ORACLE_TAG=${corpus_tag}-${align_tag}_o5+Word${MAX_WORDS}
 ORACLE_FOLDER=$data_root/oracles/${ORACLE_TAG}/
 ORACLE_TRAIN_ARGS="
     --multitask-max-words $MAX_WORDS 
@@ -42,16 +46,17 @@ ORACLE_TRAIN_ARGS="
     --copy-lemma-action
 "
 ORACLE_DEV_ARGS="
-    --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
+    --in-multitask-words $ORACLE_FOLDER/train.multitask_words
     --copy-lemma-action
 "
+# If this file does not exist, it will be created from the corpus on this
+# location
+ENTITY_RULES="$ORACLE_FOLDER/entity_rules.json"
 
 # PREPROCESSING
 # See fairseq/fairseq/options.py:add_preprocess_args
 PREPRO_TAG="RoBERTa-large-top24"
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
-PREPRO_GPU_TYPE=v100
-PREPRO_QUEUE=x86_6h
 FEATURES_FOLDER=$data_root/features/${ORACLE_TAG}_${PREPRO_TAG}/
 FAIRSEQ_PREPROCESS_ARGS="
     --source-lang en
@@ -65,6 +70,7 @@ FAIRSEQ_PREPROCESS_ARGS="
     --bert-layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json 
+    --entity-rules $ENTITY_RULES
 "
 
 # TRAINING
@@ -75,8 +81,6 @@ base_model=stack_transformer_6x6_nopos
 # number of random seeds trained at once
 NUM_SEEDS=3
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
-TRAIN_GPU_TYPE=v100
-TRAIN_QUEUE=ppc_24h
 # --lazy-load for very large corpora (data does not fit into RAM)
 # --bert-backprop do backprop though BERT
 # NOTE: --save-dir is specified inside dcc/train.sh to account for the seed
@@ -111,18 +115,15 @@ FAIRSEQ_TRAIN_ARGS="
 # --results-path is dirname from --path plus $TEST_TAG
 beam_size=1
 TEST_TAG="beam${beam_size}"
-CHECKPOINT=checkpoint_best.pt
+CHECKPOINT=checkpoint_best_WIKI.SMATCH.pt
 # CCC configuration in scripts/stack-transformer/jbsub_experiment.sh
-TEST_GPU_TYPE=v100
-TEST_QUEUE=x86_6h
 FAIRSEQ_GENERATE_ARGS="
     $FEATURES_FOLDER 
     --gen-subset valid
     --machine-type AMR 
     --machine-rules $ORACLE_FOLDER/train.rules.json
+    --entity-rules $ENTITY_RULES
     --beam ${beam_size}
     --batch-size 128
     --remove-bpe
 "
-# TODO: It would be cleaner to use the checkpoint path for --machine-rules but
-# this can be externally provided on dcc/test.sh

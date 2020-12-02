@@ -120,6 +120,12 @@ def argument_parser():
         action='store_true',
         help="Use copy action from Spacy lemmas"
     )
+    # skip empty amrs
+    parser.add_argument(
+        "--skip-empty",
+        action='store_true',
+        help="Skip empty AMRs (otherwise it will raise and error)"
+    )
     # copy lemma action
     parser.add_argument(
         "--addnode-count-cutoff",
@@ -241,7 +247,6 @@ def alert_inconsistencies(gold_amrs):
             collect_duplicates.extend(dupes)
 
         # hash of sentence
-        assert amr.tokens, "Tokens missing from amr file"
         skey = " ".join(amr.tokens)
 
         # count number of time sentence repeated
@@ -1142,6 +1147,9 @@ def main():
     print(f'Read {args.in_amr}')
     corpus = read_amr(args.in_amr, unicode_fixes=True)
     amrs = corpus.amrs
+    # Remove empty AMRS
+    if args.skip_empty:
+        amrs = [amr for amr in amrs if amr.tokens]
     # print general info and about inconsistencies in AMR annotations
     print_corpus_info(amrs)
     alert_inconsistencies(amrs)

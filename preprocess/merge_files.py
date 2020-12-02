@@ -31,5 +31,8 @@ def merge_dir(dir, outfile):
         print(amrs.count('# ::snt'))
 
 if __name__ == '__main__':
-    input_dir, output_file = sys.argv[1:]
-    merge_dir(input_dir, output_file)
+    input_dir, output_dir = sys.argv[1:]
+    os.makedirs(output_dir, exist_ok=True)
+    merge_dir(f'{input_dir}/training/', f'{output_dir}/train.txt')
+    merge_dir(f'{input_dir}/dev/', f'{output_dir}/dev.txt')
+    merge_dir(f'{input_dir}/test/', f'{output_dir}/test.txt')

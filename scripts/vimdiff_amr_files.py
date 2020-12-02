@@ -14,6 +14,8 @@ def get_one_amr(fid):
 def write(file_name, content):
     with open(file_name, 'w') as fid:
         fid.write(content)
+
+IGNORE_WHITESPACE = True
         
 
 if __name__ == '__main__':
@@ -28,6 +30,11 @@ if __name__ == '__main__':
             amr2 = get_one_amr(fid2)
             penman1 = ''.join([x for x in amr1 if x[0] != '#'])
             penman2 = ''.join([x for x in amr2 if x[0] != '#'])
+
+            if IGNORE_WHITESPACE:
+                penman1 = penman1.strip()
+                penman2 = penman2.strip()
+
             if penman1 != penman2:
                 different_amrs.append((num_amrs, penman1, penman2))
             num_amrs += 1
@@ -41,4 +48,8 @@ if __name__ == '__main__':
         input(f'\nPress any key to compare sentence {n}')
         write('tmp1', p1)
         write('tmp2', p2)
-        subprocess.call(['vimdiff', 'tmp1', 'tmp2'])        
+        if IGNORE_WHITESPACE:
+            #subprocess.call(["vimdiff", "-c 'set diffopt+=iwhite'", "tmp1', 'tmp2"])        
+            subprocess.call(['vimdiff', 'tmp1', 'tmp2'])        
+        else:
+            subprocess.call(['vimdiff', 'tmp1', 'tmp2'])        
