@@ -25,27 +25,33 @@ case).
 
 ```bash
 touch set_environment.sh
-# inside: your source venv/bin/activate or conda activate ./cenv
-. set_environment.sh
 ```
 
 Then for `pip` only install do
 
 ```
+. set_environment.sh
 pip install -r scripts/stack-transformer/requirements.txt
 bash scripts/download_and_patch_fairseq.sh
-pip install --no-deps --editable fairseq-stack-transformer-v0.3.3
+pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
 ```
 
 Alternatively for a `conda` install do
 
 ```
+. set_environment.sh
 conda env update -f scripts/stack-transformer/environment.yml
 pip install spacy==2.2.3 smatch==1.0.4 ipdb
 bash scripts/download_and_patch_fairseq.sh
-pip install --no-deps --editable fairseq-stack-transformer-v0.3.3
+pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
+```
+
+the AMR aligner uses additional tools that can be donwloaded and installed with
+
+```
+bash preprocess/install_alignment_tools.sh
 ```
 
 This code will download and patch fairseq before installing. The `--editable`
@@ -74,7 +80,7 @@ You first need to preprocess and align the data. See `preprocess/README.md`.
 Then just call a config to carry a desired experiment
 
 ```bash
-bash scripts/stack-transformer/experiment.sh scripts/stack-transformer/configs/amr2_o5+Word100_roberta.large.top24_stnp6x6.sh
+bash scripts/stack-transformer/experiment.sh configs/amr2_o5+Word100_roberta.large.top24_stnp6x6.sh
 ```
 
 Note that there is cluster version of this script, currently only supporting

@@ -5,165 +5,112 @@ set -o pipefail
 # Argument handling
 config=$1
 checkpoint=$2
-results_folder=$3
-[ -z "$config" ] && \
-    echo -e "\ntest.sh <config> <model_checkpoint> [<results_folder>]\n" && \
-    exit 1
-[ -z "$checkpoint" ] && \
-    echo -e "\ntest.sh <config> <model_checkpoint>[<results_folder>] \n" && \
-    exit 1
-[ -z "$results_folder" ] && \
-    results_folder=""
+results_path=$3
+HELP="\ntest.sh <config> <model_checkpoint> [<results_path>]\n"
+[ -z "$config" ] && echo -e $HELP && exit 1
+[ -z "$checkpoint" ] && echo -e $HELP && exit 1
+[ -z "$results_path" ] && results_path=""
 set -o nounset 
 
 # Load config
 . "$config"
 
-# If not provided as an argument, use the folder where the checkpoint is
-# contained to store the results
-if [ "$results_folder" == "" ];then
+# Default path
+if [ "$results_path" == "" ];then
     # fix for ensembles
     single_checkpoint=$(echo $checkpoint | sed 's@\.pt:.*@@')
-    results_folder=$(dirname $single_checkpoint)/$TEST_TAG/
+    results_path=$(dirname $single_checkpoint)/$TEST_TAG/valid
 fi
-mkdir -p $results_folder
+mkdir -p $(dirname $results_path)
 
 # to profile decoder
-# 1. pip install line_profiler
-# 2. decorate target function with @profile
-# 3. call instead of fairseq-generate
-# 4. then you can consult details with 
+# decorate target function with @profile
+# test_command="kernprof -o generate.lprof -l fairseq/generate.py"
 # python -m line_profiler generate.py.lprof
-#test_command="kernprof -o generate.lprof -l fairseq/generate.py"
 test_command=fairseq-generate
 
-if [ "$TASK_TAG" == "AMR" ] ; then
-
-    if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ] ; then
-	    echo "using given entity rules"
-    else
-	    echo "reading entity rules from oracle"
-	    ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
-    fi
-
-    # decode 
-    echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
-        --results-path $results_folder/valid --entity-rules $ENTITY_RULES"
-    
+# Decode to get predicted action sequence
+if [ ! -f "${results_path}.actions" ];then
+    echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint --results-path ${results_path}"
     $test_command $FAIRSEQ_GENERATE_ARGS \
         --path $checkpoint \
-        --results-path $results_folder/valid \
-        --entity-rules $ENTITY_RULES
-
-else
-
-    # decode 
-    echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
-        --results-path $results_folder/valid"
-
-    $test_command $FAIRSEQ_GENERATE_ARGS \
-        --path $checkpoint \
-        --results-path $results_folder/valid
-    
+        --results-path ${results_path} 
 fi
 
-model_folder=$(dirname $checkpoint)
+# Call state machine(s) with action sequence. For multi-task separate tasks
+# into different files
+if [ "$TASK_TAG" == "AMR" ];then
 
-# Create oracle data
-if [ "$TASK_TAG" == "dep-parsing" ];then
-
-    # Create the AMR from the model obtained actions
-    python scripts/dep_parsing_score.py \
-        --in-tokens $ORACLE_FOLDER/dev.en \
-        --in-actions $results_folder/valid.actions \
-        --in-gold-actions $ORACLE_FOLDER/dev.actions \
-        > $results_folder/valid.las
-    cat $results_folder/valid.las
-
-elif [ "$TASK_TAG" == "AMR" ];then
-
-    # Create the AMR from the model obtained actions
+    # AMR
     amr-fake-parse \
-    	--entity-rules $ENTITY_RULES \
+        --entity-rules $ENTITY_RULES \
         --in-sentences $ORACLE_FOLDER/dev.en \
-        --in-actions $results_folder/valid.actions \
-        --out-amr $results_folder/valid.amr 
-        # --sanity-check
+        --in-actions ${results_path}.actions \
+        --out-amr ${results_path}.amr 
 
-    if [ "$WIKI_DEV" == "" ];then
+elif [ "$TASK_TAG" == "dep-parsing" ];then
 
-        # Smatch evaluation without wiki
-        smatch.py \
-             --significant 4  \
-             -f $AMR_DEV_FILE \
-             $results_folder/valid.amr \
-             -r 10 \
-             > $results_folder/valid.smatch
-        
-        # plot score
-        cat $results_folder/valid.smatch
-
-    else
-
-        # Smatch evaluation with wiki
-
-        # add wiki
-        python scripts/add_wiki.py \
-            $results_folder/valid.amr $WIKI_DEV \
-            > $results_folder/valid.wiki.amr
-    
-        # Compute score
-        smatch.py \
-             --significant 4  \
-             -f $AMR_DEV_FILE_WIKI \
-             $results_folder/valid.wiki.amr \
-             -r 10 \
-             > $results_folder/valid.wiki.smatch
-    
-        cat $results_folder/valid.wiki.smatch
-
-    fi
-
-elif [ "$TASK_TAG" == "NER" ];then
-
-    # play actions to create annotations
-    python play.py \
-        --in-tokens $ORACLE_FOLDER/dev.en \
-        --in-actions $results_folder/valid.actions \
-        --machine-type NER \
-        --out-annotations-folder $results_folder/ \
-        --basename dev
-    
-    # measure performance
-    python bio_tags/metrics.py \
-        --in-annotations $results_folder/dev.dat \
-        --in-reference-annotations $NER_DEV_FILE \
-        --out-score $results_folder/dev.f-measure
-
-elif [ "$TASK_TAG" == "NER+AMR" ];then
-
-    # AMR scores
-    python play.py \
-        --in-tokens $ORACLE_FOLDER/dev.en \
-        --in-actions $results_folder/valid.actions \
-        --in-mixing-indices $ORACLE_FOLDER/dev.mixing_indices \
-        --out-annotations-folder $results_folder/ \
-        --basename dev \
-    
-    # compute F-measure for NER
-    python bio_tags/metrics.py \
-        --in-annotations $results_folder/dev.dat \
-        --in-reference-annotations $NER_DEV_FILE \
-        --out-score $results_folder/dev.f-measure
-    cat $results_folder/dev.f-measure
-
-    # compute smatch for AMR
-    smatch.py \
-     --significant 4  \
-         -f $AMR_DEV_FILE \
-         $results_folder/dev.amr \
-     -r 10 \
-         > $results_folder/dev.smatch
-    cat $results_folder/dev.smatch
+    # dependency parsing
+    # No need for playing state-machine
+    echo ""
 
 fi
+
+# FOR EACH TASK EVALUATE FOR EACH OF THE SUB TASKS INVOLVED e.g. AMR+NER
+for single_task  in $(python -c "print(' '.join('$TASK_TAG'.split('+')))");do
+
+    if [ "$single_task" == "AMR" ];then
+    
+        # AMR (Smatch)
+        # Create the AMR from the model obtained actions
+        if [ "$WIKI_DEV" == "" ];then
+            echo "$WIKI_DEV"
+    
+            # Smatch evaluation without wiki
+            # Compute score in the background
+            python smatch/smatch.py \
+                 --significant 4  \
+                 -f $AMR_DEV_FILE \
+                 ${results_path}.amr \
+                 -r 10 \
+                 > ${results_path}.smatch
+            # plot score
+            cat ${results_path}.smatch
+            
+        else
+    
+            # Smatch evaluation with wiki
+            # add wiki
+            python scripts/add_wiki.py \
+                ${results_path}.amr $WIKI_DEV \
+                > ${results_path}.wiki.amr
+            # Compute score in the background
+            smatch.py \
+                 --significant 4  \
+                 -f $AMR_DEV_FILE_WIKI \
+                 ${results_path}.wiki.amr \
+                 -r 10 \
+                 > ${results_path}.wiki.smatch
+            # plot score
+            cat ${results_path}.wiki.smatch
+        
+        fi
+
+    elif [ "$single_task" == "dep-parsing" ];then
+    
+        # dep-parsing (UAS/LAS)
+        python scripts/dep_parsing_score.py \
+            --in-tokens $ORACLE_FOLDER/dev.en \
+            --in-actions ${results_path}.actions \
+            --in-gold-actions $ORACLE_FOLDER/dev.actions \
+            > ${results_path}.las
+        cat ${results_path}.las
+
+    else
+ 
+        echo "Unsupported task $single_task"
+        exit 1
+
+    fi
+ 
+done

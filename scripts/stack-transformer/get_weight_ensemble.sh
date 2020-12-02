@@ -27,7 +27,7 @@ for checkpoints_folder in "${@:2}";do
     if [ ! -f "$ensemble_checkpoint" ];then
 
         # create average enpoint   
-        python fairseq/scripts/average_checkpoints.py \
+        python fairseq-stack-transformer/scripts/average_checkpoints.py \
             --input \
                 $checkpoints_folder/checkpoint_best_${score_name}.pt \
                 $checkpoints_folder/checkpoint_second_best_${score_name}.pt \
