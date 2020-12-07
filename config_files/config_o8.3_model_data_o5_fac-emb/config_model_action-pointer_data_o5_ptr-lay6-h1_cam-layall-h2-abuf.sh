@@ -131,15 +131,11 @@ else
     fe_tag=""
 fi
 
-# # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${fe_tag}
+# combine different model configuration tags to the name
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${fe_tag}
 
-# # specific model directory name with a set random seed
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
-
-
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/exp_debug
+# specific model directory name with a set random seed
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
 
 
 ###############################################################
