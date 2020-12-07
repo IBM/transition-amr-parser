@@ -51,6 +51,8 @@ fi
 
 tgt_graph_mask=${tgt_graph_mask:-e1c1p1}
 
+tgt_factored_emb_out=${tgt_factored_emb_out:-0}
+
 lr=${lr:-0.0005}
 max_tokens=${max_tokens:-3584}
 warmup=${warmup:-4000}
@@ -83,6 +85,7 @@ else
         --shift-pointer-value $shift_pointer_value \
         --apply-tgt-vocab-masks $tgt_vocab_masks \
         --share-decoder-input-output-embed $share_decoder_embed \
+        --tgt-factored-emb-out $tgt_factored_emb_out \
         \
         --apply-tgt-src-align $apply_tgt_src_align \
         --tgt-src-align-layers $tgt_src_align_layers \

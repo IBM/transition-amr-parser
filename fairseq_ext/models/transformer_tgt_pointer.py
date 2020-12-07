@@ -188,6 +188,9 @@ class TransformerTgtPointerModel(FairseqEncoderDecoderModel):
         parser.add_argument('--tgt-input-src-combine', type=str, choices=['cat', 'add'],
                             help='target input to include aligned source tokens: how to combine the source token '
                                  'embeddings and the action embeddings')
+        # additional: factored embeddings for the target actions
+        parser.add_argument('--tgt-factored-emb-out', type=int,
+                            help='whether to set target output embeddings to be factored')
         # fmt: on
 
     @classmethod
@@ -541,8 +544,14 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 tie_proj=args.tie_adaptive_proj,
             )
         elif not self.share_input_output_embed:
-            self.embed_out = nn.Parameter(torch.Tensor(len(dictionary), self.output_embed_dim))
-            nn.init.normal_(self.embed_out, mean=0, std=self.output_embed_dim ** -0.5)
+            if not args.tgt_factored_emb_out:
+                self.embed_out = nn.Parameter(torch.Tensor(len(dictionary), self.output_embed_dim))
+                nn.init.normal_(self.embed_out, mean=0, std=self.output_embed_dim ** -0.5)
+            else:
+                # factored embeddings for target actions on the decoder output side
+                from ..modules.factored_embeddings import FactoredEmbeddings
+                self.factored_embeddings = FactoredEmbeddings(dictionary, self.output_embed_dim)
+                self.dictionary_arange = torch.arange(len(dictionary)).unsqueeze(0)
 
         if args.decoder_normalize_before and not getattr(args, 'no_decoder_final_norm', False):
             self.layer_norm = LayerNorm(embed_dim)
@@ -819,7 +828,11 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             if self.share_input_output_embed:
                 emb_weights = self.embed_tokens.weight
             else:
-                emb_weights = self.embed_out
+                if not self.args.tgt_factored_emb_out:
+                    emb_weights = self.embed_out
+                else:
+                    # factored embeddings for target actions on the decoder output side
+                    emb_weights = self.factored_embeddings(self.dictionary_arange).squeeze(0)
             if logits_indices:
 
                 # indices of active logits
@@ -1216,6 +1229,8 @@ def transformer_pointer(args):
     args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
     args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
     args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # target factored embeddings
+    args.tgt_factored_emb_out = getattr(args, 'tgt_factored_emb_out', 0)
 
     # process some of the args for compatibility issue with legacy versions
     if isinstance(args.tgt_src_align_focus, str):
@@ -1264,6 +1279,8 @@ def transformer_pointer(args):
     args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
     args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
     args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # target factored embeddings
+    args.tgt_factored_emb_out = getattr(args, 'tgt_factored_emb_out', 0)
 
     # process some of the args for compatibility issue with legacy versions
     if isinstance(args.tgt_src_align_focus, str):
@@ -1312,6 +1329,8 @@ def transformer_pointer(args):
     args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
     args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
     args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # target factored embeddings
+    args.tgt_factored_emb_out = getattr(args, 'tgt_factored_emb_out', 0)
 
     # process some of the args for compatibility issue with legacy versions
     if isinstance(args.tgt_src_align_focus, str):
@@ -1360,6 +1379,8 @@ def transformer_pointer(args):
     args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
     args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
     args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # target factored embeddings
+    args.tgt_factored_emb_out = getattr(args, 'tgt_factored_emb_out', 0)
 
     # process some of the args for compatibility issue with legacy versions
     if isinstance(args.tgt_src_align_focus, str):
@@ -1408,6 +1429,8 @@ def transformer_pointer(args):
     args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
     args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
     args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # target factored embeddings
+    args.tgt_factored_emb_out = getattr(args, 'tgt_factored_emb_out', 0)
 
     # process some of the args for compatibility issue with legacy versions
     if isinstance(args.tgt_src_align_focus, str):
@@ -1456,6 +1479,8 @@ def transformer_pointer(args):
     args.tgt_input_src_emb = getattr(args, 'tgt_input_src_emb', 'top')
     args.tgt_input_src_backprop = getattr(args, 'tgt_input_src_backprop', 1)
     args.tgt_input_src_combine = getattr(args, 'tgt_input_src_combine', 'cat')
+    # target factored embeddings
+    args.tgt_factored_emb_out = getattr(args, 'tgt_factored_emb_out', 0)
 
     # process some of the args for compatibility issue with legacy versions
     if isinstance(args.tgt_src_align_focus, str):
