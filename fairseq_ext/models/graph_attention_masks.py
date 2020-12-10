@@ -81,7 +81,7 @@ def get_graph_self_attn_mask(tgt_actedge_masks, tgt_actedge_cur_nodes,
     # put the mask into heads
     bsz_head_mask = tgt_actedge_masks.new_ones(tgt_actedge_masks.size(0), num_heads,
                                                tgt_actedge_masks.size(1), tgt_actedge_masks.size(1),
-                                               dtype=torch.bool)
+                                               dtype=torch.uint8)
     bsz_head_mask[:, :mask_num_heads, :, :] = mask.unsqueeze(1)
     bsz_head_mask = bsz_head_mask.reshape(-1, tgt_actedge_masks.size(1), tgt_actedge_masks.size(1))
     # size (batch_size * num_heads, tgt_max_len, tgt_max_len)
@@ -96,7 +96,7 @@ def get_graph_self_attn_mask(tgt_actedge_masks, tgt_actedge_cur_nodes,
     #      the post mask will 0 out whatever those rows generate as distributions to combine values
 
     # for compatibility of PyTorch 1.1
-    if version.parse(torch.__version__) < version.parse('1.2.0'):
-        bsz_head_mask = bsz_head_mask.byte()
+    if version.parse(torch.__version__) >= version.parse('1.2.0'):
+        bsz_head_mask = bsz_head_mask.bool()
 
     return bsz_head_mask, bsz_head_mask_post_softmax
