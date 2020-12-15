@@ -1,35 +1,104 @@
-#!/bin/bash
-
+# Set variables and environment for a give experiment
+#
+# Variables intended to be use outside of this script are CAPITALIZED. For a
+# quick vim listing :g/^[A-Z]\+
+#
+# all paths are relative to repository root
+#
 set -o errexit
 set -o pipefail
-# . set_environment.sh
 set -o nounset
 
-##### root folder to store everything
-. set_exps.sh    # general setup for experiments management (save dir, etc.)
+##############################################################################
+# DATA
+##############################################################################
 
-if [ -z ${ROOTDIR+x} ]; then
-    ROOTDIR=EXP
-fi
+# Original AMR files in PENMAN notation
+# see preprocess/README.md to create these from LDC folders
+# This step will be ignored if the aligned train file below exists
 
-##############################################################
+# Example AMR2.0 AMR1.0 dep-parsing CFG
+TASK_TAG=AMR2.0
 
-##### load data config
-config_data=config_files/config_data/config_data_graphmp-swaparc-ptrlast_o8.3_roberta-large-top24.sh
+# All data in this step under
+corpus_folder=DATA/$TASK_TAG/corpora/
 
-data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
+# TODO: Omit these global vars and use CORPUS_FOLDER
+AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
+AMR_DEV_FILE_WIKI=$corpus_folder/dev.txt 
+AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
 
+##############################################################################
+# AMR ALIGNMENT
+##############################################################################
 
-dir=$(dirname $0)
-. $config_data   # $config_data should include its path
-# now we have
-# $ORACLE_FOLDER
-# $DATA_FOLDER
-# $EMB_FOLDER
-# $PRETRAINED_EMBED
-# $PRETRAINED_EMBED_DIM
+# cofill: combination of JAMR and EM plus filling of missing alignments
+align_tag=cofill
 
-###############################################################
+# All data in this step under (TODO)
+aligned_folder=DATA/$TASK_TAG/aligned/${align_tag}/
+
+# aligned AMR
+
+# TODO: Omit these and use ALIGNED_FOLDER
+AMR_TRAIN_FILE=$aligned_folder/train.txt
+AMR_DEV_FILE=$aligned_folder/dev.txt 
+AMR_TEST_FILE=$aligned_folder/test.txt
+
+# wiki prediction files to recompose final AMR
+# TODO: External cache, avoid external paths
+# TODO: Omit these global vars and use ALIGNED_FOLDER
+WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
+WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
+
+##############################################################################
+# ORACLE
+##############################################################################
+
+# oracle action sequences
+ORACLE_TAG=graphmp-swaparc-ptrlast_o8.3_act-states
+
+# All data in this step under 
+ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
+
+#TASK=amr_action_pointer_graphmp
+
+# Labeled SHIFT multi-task
+# Top MAX_WORDS used for multi-task
+MAX_WORDS=0
+# Entities that will not be splitted
+ENTITIES_WITH_PREDS="person,thing,government-organization,have-org-role-91,monetary-quantity"
+
+##############################################################################
+# PRETRAINED EMBEDDINGS
+##############################################################################
+
+embedding_tag=RoBERTa-large-top24
+
+# All data in this step under 
+# FIXME: alig/oracle may alter text, we have to watch out for this
+EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
+
+# Pretrained embeddings 
+PRETRAINED_EMBED=roberta.large
+PRETRAINED_EMBED_DIM=1024
+BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24"
+# pre-stored pretrained en embeddings (not changing with oracle)
+
+##############################################################################
+# EXTRACTED FEATURES
+##############################################################################
+
+# fairseq will extract all data into binary form
+
+features_tag=${align_tag}_${ORACLE_TAG}_${embedding_tag}/
+
+# all data in this step under
+DATA_FOLDER=DATA/$TASK_TAG/features/$features_tag/
+
+##############################################################################
+# MODEL ARCHITECTURE
+##############################################################################
 
 ##### model configuration
 shift_pointer_value=1
@@ -66,7 +135,7 @@ seed=${seed:-42}
 max_epoch=120
 eval_init_epoch=81
 
-
+# AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
 
 if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
@@ -108,7 +177,7 @@ elif [[ $tgt_src_align_focus == "p0c1n0 p0c0n*" ]]; then
 fi
 
 # set the experiment directory name
-expdir=exp_${data_tag}_act-pos-grh_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
+expdir=exp_${features_tag}_act-pos-grh_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
 
 # pointer distribution
 ptr_tag=_ptr-lay${lay}-h${pointer_dist_decoder_selfattn_heads}    # action-pointer
@@ -141,11 +210,10 @@ else
 fi
 
 # combine different model configuration tags to the name
-expdir=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
+model_tag=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
 
-# specific model directory name with a set random seed
-MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
-
+# All data in this step under
+MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${max_epoch}_seed${seed}
 
 ###############################################################
 
