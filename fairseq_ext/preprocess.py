@@ -45,11 +45,12 @@ def main(args):
     # this needs GPU and only needs to run once for the English sentences, which does not change for different oracles;
     # thus the embeddings are stored separately from the oracles.
 
-    if os.path.exists(args.destdir):
+    import ipdb; ipdb.set_trace(context=30)
+    if os.path.isfile(f'{args.destdir}/.done'):
         print(f'binarized actions and states directory {args.destdir} already exists; not rerunning.')
         run_basic = False
         run_act_states = False
-    if os.path.exists(args.embdir):
+    if os.path.isfile(f'{args.embdir}/.done'):
         print(f'pre-trained embedding directory {args.embdir} already exists; not rerunning.')
         run_roberta_emb = False
 

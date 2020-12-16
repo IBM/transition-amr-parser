@@ -36,14 +36,14 @@ AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
 align_tag=cofill
 
 # All data in this step under (TODO)
-aligned_folder=DATA/$TASK_TAG/aligned/${align_tag}/
+ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
 
 # aligned AMR
 
 # TODO: Omit these and use ALIGNED_FOLDER
-AMR_TRAIN_FILE=$aligned_folder/train.txt
-AMR_DEV_FILE=$aligned_folder/dev.txt 
-AMR_TEST_FILE=$aligned_folder/test.txt
+AMR_TRAIN_FILE=$ALIGNED_FOLDER/train.txt
+AMR_DEV_FILE=$ALIGNED_FOLDER/dev.txt 
+AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
@@ -60,8 +60,6 @@ ORACLE_TAG=graphmp-swaparc-ptrlast_o8.3_act-states
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
-
-#TASK=amr_action_pointer_graphmp
 
 # Labeled SHIFT multi-task
 # Top MAX_WORDS used for multi-task
@@ -99,6 +97,9 @@ DATA_FOLDER=DATA/$TASK_TAG/features/$features_tag/
 ##############################################################################
 # MODEL ARCHITECTURE
 ##############################################################################
+
+# TODO: This is a model variable, right?
+TASK=amr_action_pointer_graphmp
 
 ##### model configuration
 shift_pointer_value=1
