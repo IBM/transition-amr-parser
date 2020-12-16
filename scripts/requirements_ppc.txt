@@ -1,0 +1,7 @@
+# NOTE: For PPCs we wont have 2.2.3
+fairseq==0.8.0
+# for scoring
+smatch==1.0.4
+# for debugging
+ipdb
+pyinstrument

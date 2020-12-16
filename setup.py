@@ -4,21 +4,20 @@ from setuptools import setup, find_packages
 
 VERSION = '0.4.0'
 
-package_data = {
-    'transition_amr_parser': [
-        'config.json',
-        'entity_rules.json',
-        'train.rules.json'
-     ]
-}
-
 # this is what usually goes on requirements.txt
 install_requires = [
-    'torch',
+    'torch==1.1.0',
     'h5py',
+    # NOTE: For PPCs we wont have 2.2.3
     'spacy==2.2.3',
     'tqdm',
-    'fairseq'
+    'fairseq==0.8.0',
+    # for scoring
+    'smatch==1.0.4',
+    # for debugging
+    'ipdb',
+    'line_profiler',
+    'pyinstrument'
 ]
 
 # You need to pip install the requirements.txt first
@@ -36,5 +35,6 @@ setup(
             'amr-edit = transition_amr_parser.edit:main'
         ]
     },
-    packages=find_packages()
+    packages=find_packages(),
+    install_requires=install_requires,
 )
