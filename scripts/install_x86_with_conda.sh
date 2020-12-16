@@ -8,9 +8,9 @@ set -o nounset
 # install python version to be used
 conda install python=3.6.9 -y 
 
-# pre-install modules with conda and pip
-conda env update -f scripts/stack-transformer/environment.yml
-pip install spacy==2.2.3 smatch==1.0.4 ipdb
+# pre-install modules with conda 
+conda install pytorch=1.1.0 -y
+conda install -c conda-forge nvidia-apex -y
 
 # download fairseq
 # public branch and patch
@@ -26,7 +26,7 @@ pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
 
 # install alignment tools
-bash preprocess/install_alignment_tools.sh
+# bash preprocess/install_alignment_tools.sh
 
 # sanity check
 python tests/correctly_installed.py
