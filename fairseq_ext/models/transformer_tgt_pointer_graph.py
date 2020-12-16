@@ -30,7 +30,6 @@ from fairseq.modules import (
 from transition_amr_parser.stack_transformer.stack_state_machine import (
     state_machine_encoder
 )
-from torch_scatter import scatter_mean
 
 from ..modules.transformer_layer import TransformerEncoderLayer, TransformerDecoderLayer
 from .attention_masks import get_cross_attention_mask, get_cross_attention_mask_heads
@@ -362,6 +361,9 @@ class TransformerEncoder(FairseqEncoder):
         #     x += self.embed_positions(src_tokens)
 
         if self.bert_backprop or self.no_bert_precompute:
+
+            raise NotImplementedError("Deprecated to avoid scatter install")
+
             # extract roberta on the fly
             last_layer = self.roberta.extract_features(src_wordpieces)
             # remove sentence start

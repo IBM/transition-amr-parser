@@ -5,7 +5,7 @@
 
 set -o errexit
 set -o pipefail
-# . set_environment.sh
+. set_environment.sh
 
 ##### root folder to store everything
 . set_exps.sh    # set $ROOTDIR

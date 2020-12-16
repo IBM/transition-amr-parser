@@ -25,7 +25,7 @@ setup(
     name='transition_amr_parser',
     version=VERSION,
     description="Trasition-based AMR parser tools",
-    py_modules=['transition_amr_parser'],
+    py_modules=['transition_amr_parser', 'fairseq_ext'],
     entry_points={
         'console_scripts': [
             'amr-learn = transition_amr_parser.learn:main',
