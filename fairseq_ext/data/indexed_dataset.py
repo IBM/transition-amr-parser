@@ -479,7 +479,12 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
         # if self._index.dtype != np.int64:
         #     np_array = np_array.astype(np.int64)
 
-        return torch.from_numpy(np_array)
+        # FIXME: This casting fix may cause problems later
+        if np_array.size > 0 and type(np_array[0]) == np.uint16:
+            #return torch.from_numpy(np_array.astype(np.int16)).type(torch.ByteTensor)
+            return torch.from_numpy(np_array.astype(np.int16))
+        else:    
+            return torch.from_numpy(np_array)
 
     @property
     def sizes(self):

@@ -6,12 +6,13 @@ VERSION = '0.4.0'
 
 # this is what usually goes on requirements.txt
 install_requires = [
-    'torch==1.1.0',
-    'h5py',
-    # NOTE: For PPCs we wont have 2.2.3
-    'spacy==2.2.3',
-    'tqdm',
+    # NOTE: For PPCs we need to relax these two to 1.2 and 2.0.16
+    'torch<=1.2,<=1.3',
+    'spacy<=2.0.16,<=2.2.3',
+    #
     'fairseq==0.8.0',
+    'h5py',
+    'tqdm',
     # for scoring
     'smatch==1.0.4',
     # for debugging

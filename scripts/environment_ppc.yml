@@ -15,8 +15,9 @@ dependencies:
   - sacrebleu
 #
 # transition_amr_parser
-  - pytorch=1.1.0
-  - apex=0.1.0
+  - pytorch=1.2
+  #- cudatoolkit=10.1.168=533.g8d035fd
+  - apex
   - h5py
   - tqdm
 #    

@@ -6,10 +6,10 @@ set -o pipefail
 set -o nounset 
 
 # install python version to be used
-conda install python=3.6.9 -y 
+conda install python=3.7 -y 
 
 # pre-install modules with conda 
-conda install pytorch=1.1.0 -y
+conda install pytorch=1.3.0 -y -c pytorch
 conda install -c conda-forge nvidia-apex -y
 
 # download fairseq
