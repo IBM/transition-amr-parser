@@ -281,8 +281,6 @@ class MultiheadAttention(nn.Module):
         # attn_weights   (batch_size * num_heads, target_size, source_size)
         attn_weights = torch.bmm(q, k.transpose(1, 2))
 
-        # import pdb; pdb.set_trace()
-
         # mask out cross attention
         if cross_attention_mask is not None:
             # attn_weights[~cross_attention_mask[0]] = -float('inf')
@@ -411,8 +409,6 @@ class MultiheadAttention(nn.Module):
             # attn_weights = attn_weights.sum(dim=1) / self.num_heads
         else:
             attn_weights = None
-
-        # import pdb; pdb.set_trace()
 
         return attn, attn_weights
 

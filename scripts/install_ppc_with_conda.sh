@@ -13,6 +13,7 @@ conda install python=3.6.9 -y -c powerai
 conda env update -f scripts/environment_ppc.yml
 
 # install repos
+pip install pip --upgrade
 pip install -r scripts/requirements_ppc.txt
 pip install --no-deps --editable .
 
