@@ -14,6 +14,11 @@ config=$1
 
 set -o nounset
 
+# Load config
+echo "[Configuration file:]"
+echo $config
+. $config 
+
 # # FIXME: Remove this logic, really needed?
 # ##### check if the script is being sourced from other script or directly called
 # (return 0 2>/dev/null) && sourced=1 || sourced=0
