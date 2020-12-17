@@ -35,6 +35,12 @@ if [[ (-f $DATA_FOLDER/.done) && (-f $EMB_FOLDER/.done) ]]; then
 
 else
 
+    # If folder exists but its not .done, delete content (otherwise fairseq
+    # will complain)
+    [ -d "$DATA_FOLDER" ] && [ ! -f $DATA_FOLDER/.done ] && \
+        echo "Cleaning up partially completed $DATA_FOLDER" && \
+        rm $DATA_FOLDER/*
+
     if [[ $TASK == "amr_action_pointer" ]]; then
 
         python fairseq_ext/preprocess.py \

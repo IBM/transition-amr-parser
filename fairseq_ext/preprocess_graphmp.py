@@ -47,11 +47,11 @@ def main(args):
     # this needs GPU and only needs to run once for the English sentences, which does not change for different oracles;
     # thus the embeddings are stored separately from the oracles.
 
-    if os.path.exists(args.destdir):
+    if os.path.isfile(f'{args.destdir}/.done'):
         print(f'binarized actions and states directory {args.destdir} already exists; not rerunning.')
         run_basic = False
         run_act_states = False
-    if os.path.exists(args.embdir):
+    if os.path.isfile(f'{args.embdir}/.done'):
         print(f'pre-trained embedding directory {args.embdir} already exists; not rerunning.')
         run_roberta_emb = False
 
@@ -183,7 +183,7 @@ def main(args):
             pool.close()
 
         ds = indexed_dataset.make_builder(dataset_dest_file(args, output_prefix, lang, "bin"),
-                                          impl=args.dataset_impl, vocab_size=len(vocab), dtype=np.int64)
+                                          impl=args.dataset_impl, vocab_size=len(vocab))
         merge_result(
             Binarizer.binarize(
                 input_file, vocab, lambda t: ds.add_item(t),
