@@ -22,10 +22,10 @@ git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
 ```
 
-The code has been tested on Python `3.6.9`. We use a script to activate
-conda/pyenv and virtual environments. If you prefer to handle this yourself
-just create an empty file (the training scripts will assume it exists in any
-case).
+The code has been tested on Python `3.6` and `3.7` (x86 only). We use a script
+to activate conda/pyenv and virtual environments. If you prefer to handle this
+yourself just create an empty file (the training scripts will assume it exists
+in any case).
 
 ```bash
 touch set_environment.sh
