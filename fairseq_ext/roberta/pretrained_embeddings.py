@@ -1,6 +1,9 @@
 import torch
-
-from ..utils_font import yellow_font
+from transition_amr_parser.stack_transformer.amr_state_machine import (
+    yellow_font
+)
+from fairseq.data.data_utils import collate_tokens
+import copy
 
 
 def get_average_embeddings(final_layer, word2piece):
@@ -26,6 +29,16 @@ def get_average_embeddings(final_layer, word2piece):
 
 
 def get_wordpiece_to_word_map(sentence, roberta_bpe):
+    # replace all instances of 3-4 byte characters by '@'
+    converted_sentence = ''
+    for char in sentence:
+        if ord(char) < 2304:
+            converted_sentence += char
+        else:
+            converted_sentence += "@"
+        if sentence != converted_sentence:
+            sentence = converted_sentence
+    # 3-4 byte character conversion ends here
 
     # Get word and worpiece tokens according to RoBERTa
     word_tokens = sentence.split()
@@ -41,53 +54,137 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
     w_index = 0
     word_to_wordpiece = []
     subword_sequence = []
+    bad_unicode_flag = 0
+    overrun_sentence_flag = 0
     for wp_index in range(len(wordpiece_tokens)):
-        word = word_tokens[w_index]
-        if word == wordpiece_tokens[wp_index]:
-            word_to_wordpiece.append(wp_index)
-            w_index += 1
-        else:
-            subword_sequence.append(wp_index)
-            word_from_pieces = "".join([
-                # NOTE: Facebooks BPE signals SOW with whitesplace
-                wordpiece_tokens[i].lstrip()
-                for i in subword_sequence
-            ])
-            if word == word_from_pieces:
-                word_to_wordpiece.append(subword_sequence)
+        if w_index in range(len(word_tokens)):
+            word = word_tokens[w_index]
+            if word == wordpiece_tokens[wp_index]:
+                word_to_wordpiece.append(wp_index)
                 w_index += 1
-                subword_sequence = []
+            else:
+                subword_sequence.append(wp_index)
+                word_from_pieces = "".join([
+                    # NOTE: Facebooks BPE signals SOW with whitesplace
+                    wordpiece_tokens[i].lstrip()
+                    for i in subword_sequence
+                ])
+                if word == word_from_pieces:
+                    word_to_wordpiece.append(subword_sequence)
+                    w_index += 1
+                    subword_sequence = []
+                elif word_from_pieces not in word:
+                    word_to_wordpiece.append(subword_sequence)
+                    w_index += 1
+                    subword_sequence = []
+                    bad_unicode_flag = 1
+                # assert word_from_pieces in word, \
+                #    "wordpiece must be at least a segment of current word"
+    if bad_unicode_flag==0:
+        #assert len(word_tokens) == len(word_to_wordpiece)
+        if len(word_tokens) != len(word_to_wordpiece):
+            print("sentence: ", sentence)
+            print("wordpiecetokens: ", wordpiece_tokens)
+            print("word token count: ", len(word_tokens))
+            print("word_to_wordpiece count: ", len(word_to_wordpiece))
+        return word_to_wordpiece
+    else:
+        # remove extra bad token 'fffd' for oov 2-byte characters
+        wptok = []
+        i = 0
+        while(i < len(wordpiece_tokens)):
+            x = wordpiece_tokens[i]
+            if ord(x[-1:]) != 65533:
+                wptok.append(x)
+                i += 1
+            else:
+                print("X: ", x)
+                nx = wordpiece_tokens[i+1]
+                if ord(x[-1:])==65533:
+                    if ord(nx[-1:])==65533:
+                        wptok.append(x)
+                        i += 2
+                    else:
+                        wptok.append(x)
+                        i += 1
+        ### reimplementation of word_to_wordpiece with the modified roberta wordpieces
+        w_index = 0
+        word_to_wordpiece = []
+        subword_sequence = []
+        bad_match_flag = 0
+        for wp_index, wp in enumerate(wptok):
+            if w_index in range(len(word_tokens)):
+                word = word_tokens[w_index]
+                if word == wptok[wp_index]:
+                    word_to_wordpiece.append(wp_index)
+                    w_index += 1
+                else:
+                    subword_sequence.append(wp_index)
+                    word_from_pieces = "".join([
+                        wptok[i].lstrip()
+                        for i in subword_sequence
+                    ])
+                    if word == word_from_pieces:
+                        word_to_wordpiece.append(subword_sequence)
+                        w_index += 1
+                        subword_sequence = []
+                    elif word_from_pieces not in word:
+                        # compare the length instead of strings since there are offending 
+                        # characters in roberta wordpieces
+                        if len(word) == len(word_from_pieces):
+                            word_to_wordpiece.append(subword_sequence)
+                            w_index += 1
+                            subword_sequence = []
 
-            assert word_from_pieces in word, \
-                "wordpiece must be at least a segment of current word"
+        # assert len(word_tokens) == len(word_to_wordpiece)
+        if len(word_tokens) != len(word_to_wordpiece):
+            print("SENTENCE: ",sentence)
+            print("WPTOK: ", wptok, " ", len(wptok))
+            print("WORDPIECE: ", wordpiece_tokens, " ", len(wordpiece_tokens))
+            print("WORD token count: ",len(word_tokens))
+            print("WORD_to_wordpiece: ", word_to_wordpiece, " ", len(word_to_wordpiece))
+        return word_to_wordpiece
 
-    return word_to_wordpiece
-
+def get_scatter_indices(word2piece, reverse=False):
+    if reverse:
+        indices = range(len(word2piece))[::-1]
+    else:
+        indices = range(len(word2piece))
+    # we will need as well the wordpiece to word indices
+    wp_indices = [
+        [index] * (len(span) if isinstance(span, list) else 1)
+        for index, span in zip(indices, word2piece)
+    ]
+    wp_indices = [x for span in wp_indices for x in span]
+    return  torch.tensor(wp_indices)
 
 class PretrainedEmbeddings():
 
-    def __init__(self, name, bert_layers):
+    def __init__(self, name, bert_layers, model=None):
 
         # embedding type name
         self.name = name
         # select some layers for averaging
         self.bert_layers = bert_layers
 
-        if name in ['roberta.base', 'roberta.large']:
+        if model is None:
+            if name in ['roberta.base', 'roberta.large']:
 
-            # Extract
-            self.roberta = torch.hub.load('pytorch/fairseq', name)
-            self.roberta.eval()
-            if torch.cuda.is_available():
-                self.roberta.cuda()
-                print(f'Using {name} extraction in GPU')
-            else:
-                print(f'Using {name} extraction in cpu (slow, wont OOM)')
+                # Extract
+                self.roberta = torch.hub.load('pytorch/fairseq', name)
+                self.roberta.eval()
+                if torch.cuda.is_available():
+                    self.roberta.cuda()
+                    print(f'Using {name} extraction in GPU') 
+                else:
+                    print('Using {name} extraction in cpu (slow, wont OOM)')
 
+            else:    
+                raise Exception(
+                    f'Unknown --pretrained-embed {name}'
+                )
         else:
-            raise Exception(
-                f'Unknown --pretrained-embed {name}'
-            )
+            self.roberta = model
 
     def extract_features(self, worpieces):
         """Extract features from wordpieces"""
@@ -187,3 +284,32 @@ class PretrainedEmbeddings():
 #        assert np.allclose(word_features.cpu(), word_features2.cpu())
 
         return word_features, worpieces_roberta, word2piece
+
+    def extract_batch(self, sentence_string_batch):
+        bert_data = {}
+        bert_data["word_features"] = []
+        bert_data["wordpieces_roberta"] = []
+        bert_data["word2piece_scattered_indices"] = []
+        src_wordpieces = []
+        src_word2piece = []
+        for sentence in sentence_string_batch:
+            word2piece = get_wordpiece_to_word_map(sentence, self.roberta.bpe)
+            wordpieces_roberta = self.roberta.encode(sentence)
+            wordpieces_roberta = wordpieces_roberta[:512]
+            src_wordpieces.append(copy.deepcopy(wordpieces_roberta))
+            src_word2piece.append(copy.deepcopy(word2piece))
+
+        src_wordpieces_collated = collate_tokens(src_wordpieces, pad_idx=1)
+        roberta_batch_features = self.extract_features(src_wordpieces_collated)
+        roberta_batch_features = roberta_batch_features.detach().cpu()
+        for index,(word2piece, wordpieces_roberta) in enumerate(zip(src_word2piece, src_wordpieces)):
+            roberta_features = roberta_batch_features[index]
+            roberta_features = roberta_features[1:len(wordpieces_roberta)-1]
+            word_features = get_average_embeddings(roberta_features.unsqueeze(0), word2piece)
+            word2piece_scattered_indices = get_scatter_indices(word2piece, reverse=True)
+            bert_data["word_features"].append(word_features[0])
+            bert_data["wordpieces_roberta"].append(wordpieces_roberta)
+            bert_data["word2piece_scattered_indices"].append(word2piece_scattered_indices)
+
+        return bert_data
+        

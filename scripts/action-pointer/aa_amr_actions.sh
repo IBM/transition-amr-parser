@@ -6,6 +6,7 @@ set -o pipefail
 HELP="\nbash $0 <config>\n"
 [ -z "$1" ] && echo -e "$HELP" && exit 1
 config=$1
+[ ! -f "$config" ] && "Missing $config" && exit 1
 
 # activate virtualenenv and set other variables
 . set_environment.sh

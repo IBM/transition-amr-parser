@@ -6,6 +6,7 @@ set -o pipefail
 HELP="\nbash $0 <config>\n"
 [ -z "$1" ] && echo -e "$HELP" && exit 1
 config=$1
+[ ! -f "$config" ] && "Missing $config" && exit 1
 
 # activate virtualenenv and set other variables
 . set_environment.sh
@@ -36,10 +37,13 @@ if [[ (-f $DATA_FOLDER/.done) && (-f $EMB_FOLDER/.done) ]]; then
 else
 
     # If folder exists but its not .done, delete content (otherwise fairseq
-    # will complain)
-    [ -d "$DATA_FOLDER" ] && [ ! -f $DATA_FOLDER/.done ] && \
+    # will complain). Make sure its not an empty string
+    [ -d "$DATA_FOLDER" ] && [ ! -z "${DATA_FOLDER// }" ] && [ ! -f $DATA_FOLDER/.done ] && \
         echo "Cleaning up partially completed $DATA_FOLDER" && \
-        rm $DATA_FOLDER/*
+        for file in $(find $DATA_FOLDER -type f -maxdepth 1);do
+            echo "rm $file"
+            rm $file
+        done
 
     if [[ $TASK == "amr_action_pointer" ]]; then
 
@@ -77,8 +81,10 @@ else
 
     elif [[ $TASK == "amr_action_pointer_graphmp_amr1" ]]; then
 
-        # a separate route of code for preprocessing of AMR 1.0 data; the only difference is in o8 state machine
-        # get_valid_canonical_actions to deal with a single exmple in training set with self-loop
+        # a separate route of code for preprocessing of AMR 1.0 data; the only
+        # difference is in o8 state machine
+        # get_valid_canonical_actions to deal with a single exmple in training
+        # set with self-loop
     
         python fairseq_ext/preprocess_graphmp.py \
             --user-dir ../fairseq_ext \
@@ -94,12 +100,14 @@ else
             --pretrained-embed $PRETRAINED_EMBED \
             --bert-layers $BERT_LAYERS
 
-
     else
 
         echo -e "Unknown task $TASK"
         exit 1
 
     fi
+
+    touch $DATA_FOLDER/.done
+    touch $EMB_FOLDER/.done
 
 fi
