@@ -2,26 +2,31 @@
 
 set -o errexit
 set -o pipefail
-# . set_environment.sh
+
+# Argument handling
+HELP="\nbash $0 <config>\n"
+[ -z "$1" ] && echo -e "$HELP" && exit 1
+config=$1
+[ ! -f "$config" ] && "Missing $config" && exit 1
+
+# activate virtualenenv and set other variables
+. set_environment.sh
+
 set -o nounset
 
-##### check if the script is being sourced from other script or directly called
-(return 0 2>/dev/null) && sourced=1 || sourced=0
-# [[ "${BASH_SOURCE[0]}" != "${0}" ]] && echo "script ${BASH_SOURCE[0]} is being sourced ..." || echo "script ${BASH_SOURCE[0]} is NOT being sourced ..."
-# [[ "${BASH_SOURCE[0]}" != "${0}" ]] && sourced=1 || sourced=0
-# echo $sourced
-
-
-##### CONFIG
-if [[ $sourced == 0 ]]; then
-    dir=$(dirname $0)
-    if [ ! -z "${1+x}" ]; then
-        config=$1
-        . $config    # $config_model should always include its path
-    fi
-    # NOTE: when the first configuration argument is not provided, this script must
-    #       be called from other scripts
-fi
+# # FIXME: Remove this logic, really needed?
+# ##### check if the script is being sourced from other script or directly called
+# (return 0 2>/dev/null) && sourced=1 || sourced=0
+# 
+# if [[ $sourced == 0 ]]; then
+#     dir=$(dirname $0)
+#     if [ ! -z "${1+x}" ]; then
+#         config=$1
+#         . $config    # $config_model should always include its path
+#     fi
+#     # NOTE: when the first configuration argument is not provided, this script must
+#     #       be called from other scripts
+# fi
 
 
 ##### script specific config
@@ -187,5 +192,8 @@ else
         --tensorboard-logdir $MODEL_FOLDER
 
     fi
+
+    # Mark as finished
+    touch $MODEL_FOLDER/.done
 
 fi

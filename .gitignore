@@ -64,3 +64,6 @@ jbsub_logs/
 # vim
 .vim/
 *.swp
+
+# TMP notes
+PROGRESS
