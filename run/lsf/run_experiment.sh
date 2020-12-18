@@ -120,7 +120,7 @@ for index in $(seq $NUM_SEEDS);do
 
     else
 
-        echo "skiping $MODEL_FOLDER/.done"
+        echo "skiping $checkpoints_dir/.done"
 
         # resume from trained model, start test directly
         test_depends=""
@@ -145,6 +145,9 @@ for index in $(seq $NUM_SEEDS);do
           $test_depends \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash $tools_folder/beam_test.sh $checkpoints_dir/
+          /bin/bash run/ad_test.sh \
+            $checkpoints_dir/$DECODING_CHECKPOINT \
+            dev \
+            $BEAM_SIZE
 
 done

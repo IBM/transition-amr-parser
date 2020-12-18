@@ -223,7 +223,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 # TESTS 
 ###############################################################
 
-##### decoding configuration
-# model_epoch=_last
-# # beam_size=1
+##### decoding configuration for the final model
 BATCH_SIZE=128
+BEAM_SIZE=10
+DECODING_CHECKPOINT=checkpoint_last.pt

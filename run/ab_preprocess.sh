@@ -40,7 +40,7 @@ else
     # will complain). Make sure its not an empty string
     [ -d "$DATA_FOLDER" ] && [ ! -z "${DATA_FOLDER// }" ] && [ ! -f $DATA_FOLDER/.done ] && \
         echo "Cleaning up partially completed $DATA_FOLDER" && \
-        for file in $(find $DATA_FOLDER -type f -maxdepth 1);do
+        for file in $(find $DATA_FOLDER -maxdepth 1 -type f);do
             echo "rm $file"
             rm $file
         done
