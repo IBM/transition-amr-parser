@@ -16,6 +16,10 @@ fi
 # NOTE: when the first configuration argument is not provided, this script must
 #       be called from other scripts
 
+# extract config from checkpoint path
+model_folder=$(dirname $checkpoint)
+config=$model_folder/config.sh
+[ ! -f "$config" ] && "Missing $config" && exit 1
 
 ##### script specific config
 if [ -z "$2" ]; then
@@ -24,12 +28,13 @@ else
     data_split_amr=$2
 fi
 
-if [ $data_split_amr == "dev" ]; then
+# set data split parameters 
+if [ $data_split2 == "dev" ]; then
     data_split=valid
     reference_amr=$AMR_DEV_FILE
     wiki=$WIKI_DEV
     reference_amr_wiki=$AMR_DEV_FILE_WIKI
-elif [ $data_split_amr == "test" ]; then
+elif [ $data_split2 == "test" ]; then
     data_split=test
     reference_amr=$AMR_TEST_FILE
     wiki=$WIKI_TEST
@@ -38,29 +43,17 @@ else
     echo "$2 is invalid; must be dev or test"
 fi
 
-
-# data_split=valid
-# data_split_amr=dev    # TODO make the names consistent
-# reference_amr=$AMR_DEV_FILE
-
-# data_split=test
-# data_split_amr=test    # TODO make the names consistent
-# reference_amr=$AMR_TEST_FILE
-
-model_epoch=${model_epoch:-_last}
-beam_size=${beam_size:-5}
-batch_size=${batch_size:-128}
-use_pred_rules=${use_pred_rules:-0}
+# model_epoch=${model_epoch:-_last}
+# beam_size=${beam_size:-5}
+# batch_size=${batch_size:-128}
+# use_pred_rules=${use_pred_rules:-0}
 
 RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
-# results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}.nopos-score
-results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}
-model=$MODEL_FOLDER/checkpoint${model_epoch}.pt
+results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $checkpoint)
 
-TASK=${TASK:-amr_action_pointer}
+# TASK=${TASK:-amr_action_pointer}
 
 ##### DECODING
-# rm -Rf $RESULTS_FOLDER
 mkdir -p $RESULTS_FOLDER
 # --nbest 3 \
 # --quiet
@@ -73,11 +66,11 @@ python fairseq_ext/generate.py \
     --machine-type AMR  \
     --machine-rules $ORACLE_FOLDER/train.rules.json \
     --modify-arcact-score 1 \
-    --use-pred-rules $use_pred_rules \
+    --use-pred-rules $USE_PRED_RULES \
     --beam $beam_size \
-    --batch-size $batch_size \
+    --batch-size $BATCH_SIZE \
     --remove-bpe \
-    --path $model  \
+    --path $checkpoint \
     --quiet \
     --results-path $results_prefix \
 
@@ -85,9 +78,9 @@ python fairseq_ext/generate.py \
 
 ##### Create the AMR from the model obtained actions
 python transition_amr_parser/o8_fake_parse.py \
-    --in-sentences $ORACLE_FOLDER/$data_split_amr.en \
-    --in-actions $results_prefix.actions \
-    --out-amr $results_prefix.amr \
+    --in-sentences $ORACLE_FOLDER/${data_split2}.en \
+    --in-actions ${results_prefix}.actions \
+    --out-amr ${results_prefix}.amr \
     --in-pred-entities $ENTITIES_WITH_PREDS \
 
 # exit 0
@@ -114,18 +107,18 @@ else
     # add wiki
     echo "Add wiki ---"
     python scripts/add_wiki.py \
-        $results_prefix.amr $wiki \
-        > $results_prefix.wiki.amr
+        ${results_prefix}.amr $wiki \
+        > ${results_prefix}.wiki.amr
 
     # compute score
     echo "Computing SMATCH ---"
     python smatch/smatch.py \
          --significant 4  \
          -f $reference_amr_wiki \
-         $results_prefix.wiki.amr \
+         ${results_prefix}.wiki.amr \
          -r 10 \
-         > $results_prefix.wiki.smatch
+         > ${results_prefix}.wiki.smatch
 
-    cat $results_prefix.wiki.smatch
+    cat ${results_prefix}.wiki.smatch
 
 fi
