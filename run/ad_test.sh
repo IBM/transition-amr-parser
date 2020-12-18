@@ -5,6 +5,27 @@ set -o pipefail
 # . set_environment.sh
 set -o nounset
 
+# Argument handling
+# First argument must be checkpoint
+HELP="\nbash $0 <checkpoint> [-o results_prefix] [-s (dev/test)] [-b beam_size]\n"
+[ -z "$1" ] && echo -e "$HELP" && exit 1
+[ ! -f "$1" ] && "Missing $1" && exit 1
+# process the rest with argument parser
+results_prefix=""
+data_split2=dev
+beam_size=1
+shift 
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) results_prefix="$2"; shift 2;;
+    -s) data_split2="$2"; shift 2;;
+    -b) beam_size="$2"; shift 2;;
+    *) echo "unrecognized argument: $1"; exit 1;;
+  esac
+done
+
+# activate virtualenenv and set other variables
+. set_environment.sh
 
 ##### CONFIG
 dir=$(dirname $0)
@@ -49,7 +70,10 @@ fi
 # use_pred_rules=${use_pred_rules:-0}
 
 RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
-results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $checkpoint)
+# Generate results_prefix name if not provided
+if [ "$results_prefix" == "" ];then
+    results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $checkpoint)
+fi
 
 # TASK=${TASK:-amr_action_pointer}
 

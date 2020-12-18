@@ -77,8 +77,8 @@ while true; do
 
     else
 
-    # for non-first run: the first checkpoint to eval may have been deleted
-    # check if later checkpoints exit
+        # for non-first run: the first checkpoint to eval may have been deleted
+        # check if later checkpoints exit
         for test_model in $(find $MODEL_FOLDER -iname 'checkpoint[0-9]*.pt' | sort -r); do
             epoch=$(basename $test_model | sed 's@checkpoint\(.*\)\.pt@\1@g')
             if (( $epoch > $eval_init_epoch )); then
