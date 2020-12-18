@@ -67,6 +67,9 @@ MAX_WORDS=0
 # Entities that will not be splitted
 ENTITIES_WITH_PREDS="person,thing,government-organization,have-org-role-91,monetary-quantity"
 
+# TODO: Explain this
+USE_PRED_RULES=0
+
 ##############################################################################
 # PRETRAINED EMBEDDINGS
 ##############################################################################
@@ -132,9 +135,9 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-seed=${seed:-42}
-max_epoch=120
-eval_init_epoch=81
+seed=42
+MAX_EPOCH=10
+eval_init_epoch=5
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
@@ -214,11 +217,13 @@ fi
 model_tag=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${max_epoch}_seed${seed}
+MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 
+###############################################################
+# TESTS 
 ###############################################################
 
 ##### decoding configuration
 # model_epoch=_last
 # # beam_size=1
-# batch_size=128
+BATCH_SIZE=128

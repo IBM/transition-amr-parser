@@ -2,10 +2,20 @@ set -o errexit
 set -o pipefail
 set -o nounset 
 
-# mini full run
-bash tests/stack-transformer/overfit.sh
+# This simulates conventional corpora using the 25 wiki sentences
+rm -Rf DATA/wiki25/
+# Create original data
+mkdir -p DATA/wiki25/corpora/
+ln -s ../../wiki25.jkaln DATA/wiki25/corpora/train.txt 
+ln -s ../../wiki25.jkaln DATA/wiki25/corpora/dev.txt
+ln -s ../../wiki25.jkaln DATA/wiki25/corpora/test.txt 
+touch DATA/wiki25/corpora/.done
+# Simulate aligned data from wiki25
+mkdir -p DATA/wiki25/aligned/cofill/
+ln -s ../../../wiki25.jkaln DATA/wiki25/aligned/cofill/train.txt 
+ln -s ../../../wiki25.jkaln DATA/wiki25/aligned/cofill/dev.txt
+ln -s ../../../wiki25.jkaln DATA/wiki25/aligned/cofill/test.txt 
+touch DATA/wiki25/aligned/cofill/.done
 
-# oracle tests
-#bash tests/state_machine/o3+W.sh dev
-# this can take 30-40min due to smatch
-# bash tests/state_machine/o3+W.sh train  
+# Run local test
+bash run/run_experiment.sh configs/wiki25.sh  
