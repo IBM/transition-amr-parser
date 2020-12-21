@@ -10,6 +10,7 @@ set -o nounset
 HELP="\nbash $0 <checkpoint> [-o results_prefix] [-s (dev/test)] [-b beam_size]\n"
 [ -z "$1" ] && echo -e "$HELP" && exit 1
 [ ! -f "$1" ] && "Missing $1" && exit 1
+checkpoint=$1
 # process the rest with argument parser
 results_prefix=""
 data_split2=dev

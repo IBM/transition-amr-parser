@@ -146,8 +146,6 @@ for index in $(seq $NUM_SEEDS);do
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
           /bin/bash run/ad_test.sh \
-            $checkpoints_dir/$DECODING_CHECKPOINT \
-            dev \
-            $BEAM_SIZE
+            $checkpoints_dir/$DECODING_CHECKPOINT -b $BEAM_SIZE
 
 done
