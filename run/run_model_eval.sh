@@ -1,88 +1,36 @@
 #!/bin/bash
-
-# evaluation of checkpoints, model selection
-# and clean checkpoints
-
 set -o errexit
 set -o pipefail
-# . set_environment.sh
 
-##### root folder to store everything
-ROOTDIR=/dccstor/jzhou1/work/EXP
+# Argument handling
+HELP="\nbash $0 <checkpoints_folder>\n"
+[ -z "$1" ] && echo -e "$HELP" && exit 1
+checkpoints_folder=$1
+[ ! -d "$checkpoints_folder" ] && "Missing $checkpoints_folder" && exit 1
 
-
-##############################################################
-
-##### load model config
-if [ -z "$1" ]; then
-    config_model=run_tp/config_model_action-pointer.sh
-else
-    config_model=$1
-fi
-
-seed=$2
+# activate virtualenenv and set other variables
+. set_environment.sh
 
 set -o nounset
 
-dir=$(dirname $0)
-. $config_model   # $config_model should always include its path
-# now we have
-# $ORACLE_FOLDER
-# $DATA_FOLDER
-# $EMB_FOLDER
-# $PRETRAINED_EMBED
-# $PRETRAINED_EMBED_DIM
-#
-# $MODEL_FOLDER    # need $ROOTDIR set
-# $eval_init_epoch
+# extract config from checkpoint path
+config=$checkpoints_folder/config.sh
+[ ! -f "$config" ] && "Missing $config" && exit 1
 
-eval_init_epoch=${eval_init_epoch:-81}
-# for debug
-# eval_init_epoch=8
+# Load config
+echo "[Configuration file:]"
+echo $config
+. $config 
 
-###############################################################
-
-##### model selection decoding configuration
-beam_size=1
-batch_size=128
-use_pred_rules=0
-
-
+# determine scoring
 if [ "$WIKI_DEV" == "" ]; then
     score_name=smatch
 else
     score_name=wiki.smatch
 fi
-# best and average checkpoints'name are also associated with $score_name (e.g. checkpoint_wiki-smatch_*.pt)
+# best and average checkpoints'name are also associated with $score_name (e.g.
+# checkpoint_wiki-smatch_*.pt)
 score_name_tag=$(echo $score_name | sed 's/\./-/g')
-
-
-##### functions for evaluation process
-function eval_one_checkpoint {
-    # decoding for one checkpoint, and get the smatch scores
-    # then do model selection and link best models
-    local test_model=$1
-
-    echo -e "\n$test_model"
-    echo "[Decoding and computing smatch:]"
-
-    # or use the $MODEL_FOLDER from outside of the function set in the script
-    MODEL_FOLDER=$(dirname $test_model)
-
-    # decoding setup
-    model_epoch=$(basename $test_model | sed 's/checkpoint\(.*\).pt/\1/g')
-    # beam_size=1
-    # batch_size=128
-    # use_pred_rules=0
-
-    # run decoding
-    . run_tp/ad_test.sh "" dev
-
-    # this will reulst in:
-    # "$MODEL_FOLDER/beam${beam_size}/valid_checkpoint${model_epoch}.wiki.smatch" (when wiki is provided)
-    # or "$MODEL_FOLDER/beam${beam_size}/valid_checkpoint${model_epoch}.smatch" (when wiki is not provided)
-
-}
 
 
 function eval-new-checkpoint_and_rank-link-remove {
@@ -95,14 +43,13 @@ function eval-new-checkpoint_and_rank-link-remove {
     for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort -r); do
 
         epoch=$(basename $test_model | sed 's@checkpoint\(.*\)\.pt@\1@g')
+        results_prefix=$checkpoints_folder/beam${beam_size}/valid_checkpoint${epoch}
 
         if (( $epoch >= $eval_init_epoch )); then
 
             # decoding if not done before
-            if [[ ! -f "$checkpoints_folder/beam${beam_size}/valid_checkpoint${epoch}.${score_name}" ]]; then
-
-                eval_one_checkpoint $test_model
-
+            if [[ ! -f "${results_prefix}.${score_name}" ]]; then
+                bash run/ad_test.sh $test_model -o ${results_prefix}
             fi
 
         fi
@@ -111,8 +58,8 @@ function eval-new-checkpoint_and_rank-link-remove {
 
     # sanity check (this error should not raise)
     [[ ! -d $checkpoints_folder/beam${beam_size} ]] \
-    && echo "Decoding results folder [$checkpoints_folder/beam${beam_size}] does not exist"  \
-    && return 0    # NOTE with "set -e" return any value not 0 will cause the whole script to exit
+        && echo "Decoding results folder [$checkpoints_folder/beam${beam_size}] does not exist"  \
+        && return 0    # NOTE with "set -e" return any value not 0 will cause the whole script to exit
 
     # rank the models, link the best 5 models, and remove unuseful checkpoints
     echo "rank, link, and remove --- "
