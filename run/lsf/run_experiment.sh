@@ -125,16 +125,16 @@ for seed in $SEEDS;do
 
     fi
 
-#     # test all available checkpoints and link the best model on dev to
-#     # $CHECKPOINT
-#     jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
-#     jbsub -cores 1+1 -mem 50g -q x86_6h -require v100 \
-#           -name "$jbsub_tag" \
-#           $test_depends \
-#           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
-#           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-#           /bin/bash run/epoch_tester.sh $checkpoints_dir/
-#     test_depends="-depend $jbsub_tag"
+    # test all available checkpoints and link the best model on dev to
+    # $CHECKPOINT
+    jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
+    jbsub -cores 1+1 -mem 50g -q x86_6h -require v100 \
+          -name "$jbsub_tag" \
+          $test_depends \
+          -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
+          -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
+          /bin/bash run/epoch_tester.sh $config "$seed"
+    test_depends="-depend $jbsub_tag"
 
     # beam test 
     jbsub_tag="beam-${jbsub_basename}-s${seed}-$$"

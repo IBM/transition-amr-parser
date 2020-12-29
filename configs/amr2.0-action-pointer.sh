@@ -46,8 +46,8 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-WIKI_DEV=""
-WIKI_TEST=""
+WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
+WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
 ##############################################################################
 # ORACLE
@@ -226,4 +226,4 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 BATCH_SIZE=128
 BEAM_SIZE=10
 EVAL_METRIC=wiki.smatch
-DECODING_CHECKPOINT=checkpoint_top3-average_${EVAL_METRIC}.pt
+DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
