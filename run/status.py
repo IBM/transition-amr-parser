@@ -1,6 +1,9 @@
+import sys
+if int(sys.version[0]) < 3:
+    print("Needs at least Python 3")
+    exit(1)
 import subprocess
 import time
-import sys
 import re
 import os
 import argparse
@@ -129,6 +132,7 @@ def print_status(config_env_vars):
 
     # Inform about completed stages
     # pre-training ones
+    print()
     for variable in ['ALIGNED_FOLDER', 'ORACLE_FOLDER', 'EMB_FOLDER', 
                      'DATA_FOLDER']:
         print_step_status(config_env_vars[variable])

@@ -20,13 +20,11 @@ set -o nounset
 # Example AMR2.0 AMR1.0 dep-parsing CFG
 TASK_TAG=AMR2.0
 
-# All data in this step under
-corpus_folder=DATA/$TASK_TAG/corpora/
-
-# TODO: Omit these global vars and use CORPUS_FOLDER
-AMR_TRAIN_FILE_WIKI=$corpus_folder/train.txt 
-AMR_DEV_FILE_WIKI=$corpus_folder/dev.txt 
-AMR_TEST_FILE_WIKI=$corpus_folder/test.txt
+# TODO: Omit these global vars and use 
+# CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
+AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt 
+AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt 
+AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
 ##############################################################################
 # AMR ALIGNMENT
@@ -56,7 +54,7 @@ WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
 ##############################################################################
 
 # oracle action sequences
-ORACLE_TAG=graphmp-swaparc-ptrlast_o8.3_act-states
+ORACLE_TAG=o8.3_act-states
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -135,9 +133,9 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-seed=42
+SEEDS="42"
 MAX_EPOCH=10
-eval_init_epoch=5
+EVAL_INIT_EPOCH=5
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
@@ -226,4 +224,5 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
+EVAL_METRIC=smatch
 DECODING_CHECKPOINT=checkpoint_last.pt
