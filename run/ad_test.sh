@@ -65,18 +65,11 @@ else
     echo "$2 is invalid; must be dev or test"
 fi
 
-# model_epoch=${model_epoch:-_last}
-# beam_size=${beam_size:-5}
-# batch_size=${batch_size:-128}
-# use_pred_rules=${use_pred_rules:-0}
-
 RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
 # Generate results_prefix name if not provided
 if [ "$results_prefix" == "" ];then
     results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $checkpoint)
 fi
-
-# TASK=${TASK:-amr_action_pointer}
 
 ##### DECODING
 mkdir -p $RESULTS_FOLDER
@@ -99,8 +92,6 @@ python fairseq_ext/generate.py \
     --quiet \
     --results-path $results_prefix \
 
-# exit 0
-
 ##### Create the AMR from the model obtained actions
 python transition_amr_parser/o8_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/${data_split2}.en \
@@ -108,10 +99,8 @@ python transition_amr_parser/o8_fake_parse.py \
     --out-amr ${results_prefix}.amr \
     --in-pred-entities $ENTITIES_WITH_PREDS \
 
-# exit 0
-
 ##### SMATCH evaluation
-if [[ "$wiki" == "" ]]; then
+if [[ "$EVAL_METRIC" == "smatch" ]]; then
 
     # Smatch evaluation without wiki
 
@@ -125,7 +114,7 @@ if [[ "$wiki" == "" ]]; then
 
     cat $results_prefix.smatch
 
-else
+elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
     # Smatch evaluation with wiki
 
