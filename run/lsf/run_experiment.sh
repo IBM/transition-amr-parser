@@ -31,10 +31,9 @@ jbsub_basename=$(echo $jbsub_basename | sed "s@[+]@_@g")
 
 # create folder for each random seed and store a copy of the config there.
 # Refer to that config on all posterio calls
-for index in $(seq $NUM_SEEDS);do
+for seed in $SEEDS;do
 
     # define seed and working dir
-    seed=$((41 + $index))
     checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
 
     # create repo
@@ -96,10 +95,9 @@ fi
 
 echo "[Training:]"
 # Launch one training instance per seed
-for index in $(seq $NUM_SEEDS);do
+for seed in $SEEDS;do
 
     # define seed and working dir
-    seed=$((41 + $index))
     checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
 
     if [ ! -f "$checkpoints_dir/checkpoint${MAX_EPOCH}.pt" ];then
