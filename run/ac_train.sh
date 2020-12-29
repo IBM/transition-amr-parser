@@ -90,7 +90,7 @@ else
             --criterion label_smoothed_cross_entropy_pointer \
             --label-smoothing 0.01 \
             --loss-coef 1 \
-            --keep-last-epochs $(( $MAX_EPOCH - $eval_init_epoch + 1 )) \
+            --keep-last-epochs $(( $MAX_EPOCH - $EVAL_INIT_EPOCH + 1 )) \
             --max-tokens $max_tokens \
             --log-format json \
             --seed $seed \
@@ -149,7 +149,7 @@ else
             --criterion label_smoothed_cross_entropy_pointer \
             --label-smoothing 0.01 \
             --loss-coef 1 \
-            --keep-last-epochs $(( $MAX_EPOCH - $eval_init_epoch + 1 )) \
+            --keep-last-epochs $(( $MAX_EPOCH - $EVAL_INIT_EPOCH + 1 )) \
             --max-tokens 3584 \
             --log-format json \
             --seed $seed \
