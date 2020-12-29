@@ -100,20 +100,16 @@ You will also need to unzip the precomputed BLINK cache
 unzip /dccstor/ykt-parse/SHARED/CORPORA/EL/linkcache.zip
 ```
 
-Then just call a config to carry a desired experiment
-
-```bash
-bash scripts/stack-transformer/experiment.sh configs/amr2_o5+Word100_roberta.large.top24_stnp6x6.sh
-```
+## Mini Test
 
 To display the results use
 
-```bash
-python scripts/stack-transformer/rank_results.py --seed-average
-```
+    . set_environment.sh
+    bash tests/create_wiki25_mockup.sh
+    bash run/run_experiment.sh configs/wiki25.sh
 
-Note that there is cluster version of this script, currently only supporting
-LSF but easily adaptable to e.g. Slurm
+this should take around a minute to finish. Performance will be very low since
+it only uses 25 sentences
 
 ## Decode with Pre-trained model
 
