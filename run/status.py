@@ -16,10 +16,10 @@ checkpoint_re = re.compile('.*checkpoint([0-9]+)\.pt$')
 
 
 def argument_parser():
-    parser = argparse.ArgumentParser(description='Tool to handle AMR')
+    parser = argparse.ArgumentParser(description='Tool to check experiments')
     parser.add_argument(
-        "config",
-        help="config used in the experiment",
+        "-c", "--config",
+        help="select one experiment by a config",
         type=str,
     )
     parser.add_argument(
@@ -147,7 +147,7 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
     return checkpoints, target_epochs
 
 
-def print_status(config_env_vars):
+def print_status(config_env_vars, seed):
 
     # Inform about completed stages
     # pre-training ones
@@ -157,7 +157,14 @@ def print_status(config_env_vars):
         print_step_status(config_env_vars[variable])
     # training/eval ones
     model_folder = config_env_vars['MODEL_FOLDER']
-    for seed in config_env_vars['SEEDS'].split():
+    if seed is None:
+        seeds = config_env_vars['SEEDS'].split()
+    else:    
+        assert seed in config_env_vars['SEEDS'].split(), \
+            "{seed} is not a trained seed for the model"
+        seeds = [seed]
+    # loop over each model with a different random seed
+    for seed in seeds:
 
         # all checkpoints trained
         seed_folder = f'{model_folder}-seed{seed}'
@@ -285,7 +292,7 @@ def main(args):
     else:
 
         # TODO: Add support for --seed here
-        print_status(config_env_vars)
+        print_status(config_env_vars, args.seed)
 
     if args.link_best or args.remove:
         
