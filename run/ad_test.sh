@@ -75,22 +75,27 @@ fi
 mkdir -p $RESULTS_FOLDER
 # --nbest 3 \
 # --quiet
-python fairseq_ext/generate.py \
-    $DATA_FOLDER  \
-    --emb-dir $EMB_FOLDER \
-    --user-dir ../fairseq_ext \
-    --task $TASK \
-    --gen-subset $data_split \
-    --machine-type AMR  \
-    --machine-rules $ORACLE_FOLDER/train.rules.json \
-    --modify-arcact-score 1 \
-    --use-pred-rules $USE_PRED_RULES \
-    --beam $beam_size \
-    --batch-size $BATCH_SIZE \
-    --remove-bpe \
-    --path $checkpoint \
-    --quiet \
-    --results-path $results_prefix \
+
+if [ ! -f "${results_prefix}.actions" ];then
+
+    python fairseq_ext/generate.py \
+        $DATA_FOLDER  \
+        --emb-dir $EMB_FOLDER \
+        --user-dir ../fairseq_ext \
+        --task $TASK \
+        --gen-subset $data_split \
+        --machine-type AMR  \
+        --machine-rules $ORACLE_FOLDER/train.rules.json \
+        --modify-arcact-score 1 \
+        --use-pred-rules $USE_PRED_RULES \
+        --beam $beam_size \
+        --batch-size $BATCH_SIZE \
+        --remove-bpe \
+        --path $checkpoint \
+        --quiet \
+        --results-path $results_prefix 
+
+fi
 
 ##### Create the AMR from the model obtained actions
 python transition_amr_parser/o8_fake_parse.py \

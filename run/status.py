@@ -9,6 +9,9 @@ import os
 import argparse
 from glob import glob
 
+
+# results file content regex
+smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
 checkpoint_re = re.compile('.*checkpoint([0-9]+)\.pt$')
 
 
@@ -23,6 +26,22 @@ def argument_parser():
         "--seed",
         help="optional seed of the experiment",
         type=str,
+    )
+    parser.add_argument(
+        "--nbest",
+        help="Top-n best checkpoints to keep",
+        default=5
+    )
+    parser.add_argument(
+        "--link-best",
+        help="Link best model if all checkpoints are done",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--remove",
+        help="Remove checkpoints that have been evaluated and are not best "
+             "checkpoints",
+        action='store_true'
     )
     parser.add_argument(
         "--list-checkpoints-to-eval",
@@ -107,14 +126,14 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
     eval_metric = config_env_vars['EVAL_METRIC']
     eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
 
-    val_result_re = re.compile(f'dev-checkpoint([0-9]+)\.{eval_metric}')
+    val_result_re = re.compile(f'.*de[cv]-checkpoint([0-9]+)\.{eval_metric}')
     validation_folder = f'{seed_folder}/epoch_tests/'
-    epochs = {}
+    epochs = []
     for result in glob(f'{validation_folder}/*.{eval_metric}'):
         fetch = val_result_re.match(result)
         if fetch:
             epochs.append(int(fetch.groups()[0]))
-    target_epochs = range(eval_init_epoch, max_epoch+1) 
+    target_epochs = list(range(eval_init_epoch, max_epoch+1))
     missing_epochs = set(target_epochs) - set(epochs)
     missing_epochs = sorted(missing_epochs, reverse=True)
 
@@ -148,7 +167,8 @@ def print_status(config_env_vars):
         # all checkpoints evaluated
         checkpoints, target_epochs = get_checkpoints_to_eval(config_env_vars, seed)
         if checkpoints:
-            print(f"[\033[93m{len(target_epochs) - len(checkpoints)}/{len(target_epochs)}\033[0m] {seed_folder}")
+            delta = len(target_epochs) - len(checkpoints)
+            print(f"[\033[93m{delta}/{len(target_epochs)}\033[0m] {seed_folder}")
         else:
             print(f"[\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m] {seed_folder}")
 
@@ -161,6 +181,87 @@ def print_status(config_env_vars):
             print(f"[\033[93mpend\033[0m] {dec_checkpoint}")
     print()
 
+
+def get_score_from_log(file_path, score_name):
+
+    results = None
+
+    if 'smatch' in score_name:
+        regex = smatch_results_re
+    elif score_name == 'las':
+        regex = las_results_re
+    else:
+        raise Exception(f'Unknown score type {score_name}')
+
+    with open(file_path) as fid:
+        for line in fid:
+            if regex.match(line):
+                results = regex.match(line).groups()
+                results = list(map(float, results))
+                break
+
+    return results
+
+
+def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
+    model_folder = config_env_vars['MODEL_FOLDER']
+    seed_folder = f'{model_folder}-seed{seed}'
+    validation_folder = f'{seed_folder}/epoch_tests/'
+    eval_metric = config_env_vars['EVAL_METRIC']
+    scores = []
+    for epoch in target_epochs:
+        results_file = f'{validation_folder}/dec-checkpoint{epoch}.{eval_metric}'
+        assert os.path.isfile(results_file)
+        score = get_score_from_log(results_file, eval_metric)
+        # TODO: Support other scores
+        scores.append((score[0], epoch))
+
+    sorted_scores = sorted(scores, key=lambda x: x[0])
+    best_n_epochs = sorted_scores[-n_best:]
+    rest_epochs = sorted_scores[:-n_best]
+
+    best_n_checkpoints = [f'checkpoint{n}.pt' for _, n in best_n_epochs]
+    rest_checkpoints = sorted([
+        f'{model_folder}/checkpoint{n}.pt' for _, n in rest_epochs
+    ])
+    best_scores = [s for s, n in best_n_epochs]
+
+    return best_n_checkpoints, best_scores, rest_checkpoints 
+
+
+def link_best_model(best_n_checkpoints, config_env_vars, seed, nbest):
+
+    # link best model
+    model_folder = config_env_vars['MODEL_FOLDER']
+    eval_metric = config_env_vars['EVAL_METRIC']
+    for n, checkpoint in enumerate(best_n_checkpoints):
+
+        target_best = (f'{model_folder}-seed{seed}/'
+                       f'checkpoint_{eval_metric}_best{nbest-n}.pt')
+        source_best = checkpoint
+
+        # get current best model (if exists)
+        if os.path.islink(target_best):
+            current_best = os.path.basename(os.path.realpath(target_best))
+        else:
+            current_best =  None
+
+        # replace link/checkpoint or create a new one
+        if os.path.islink(target_best) and current_best != source_best:
+            # We created a link before to a worse model, remove it
+            os.remove(target_best)
+        elif os.path.isfile(target_best):
+            # If we ran remove_checkpoints.sh, we replaced the original
+            # link by copy of the checkpoint. We dont know if this is the
+            # correct checkpoint already
+            os.remove(target_best)
+
+        if (
+            not os.path.islink(target_best)
+            and not os.path.isfile(target_best)    
+        ):
+            os.symlink(source_best, target_best)
+            print(f'{source_best} -> {target_best}')
 
 def main(args):
 
@@ -185,6 +286,35 @@ def main(args):
 
         # TODO: Add support for --seed here
         print_status(config_env_vars)
+
+    if args.link_best or args.remove:
+        
+        # link best model and/or remove evaluated models that are not the best
+        assert args.seed, "Requires --seed"
+        checkpoints, target_epochs = get_checkpoints_to_eval(
+            config_env_vars,
+            args.seed, 
+        )
+        if checkpoints:
+            print('\nThere are {len(checkpoint)} missing checkpoints\n')
+            exit(1)
+
+        best_n_checkpoints, best_scores, rest_checkpoints = get_best_checkpoints(
+            config_env_vars,
+            args.seed,
+            target_epochs, 
+            n_best=args.nbest
+        )
+
+        # link best model
+        link_best_model(best_n_checkpoints, config_env_vars, args.seed, 
+                        args.nbest)
+
+        # remove rest of checkpoints
+        for checkpoint in rest_checkpoints:
+            if os.path.isfile(checkpoint):
+                print(f'rm {checkpoint}')
+                os.remove(checkpoint)
 
 
 if __name__ == '__main__':
