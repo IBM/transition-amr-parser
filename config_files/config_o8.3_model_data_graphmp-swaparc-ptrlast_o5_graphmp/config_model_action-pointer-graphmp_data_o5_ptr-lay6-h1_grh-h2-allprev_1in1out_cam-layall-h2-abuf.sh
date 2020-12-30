@@ -223,6 +223,6 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 
 ##### decoding configuration for the final model
 BATCH_SIZE=128
-BEAM_SIZE=10
+BEAM_SIZE=1
 EVAL_METRIC=smatch
 DECODING_CHECKPOINT=checkpoint_last.pt

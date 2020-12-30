@@ -29,8 +29,9 @@ checkpoints_folder=${MODEL_FOLDER}-seed${seed}/
 # Evaluate all required checkpoints with EVAL_METRIC
 if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
 
-    # TODO: Add --remove command here to remove completed checkpoints
-    # TODO: Maybe also --rank here?
+    mkdir -p "$checkpoints_folder/epoch_tests/"
+
+    # TODO: Add --link-best --remove command here to remove checkpoints on the fly
     while [ "$(python run/status.py $config --seed $seed --list-checkpoints-to-eval)" != "" ];do
     
         # get existing checkpoints
@@ -55,12 +56,8 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
 fi
 
 # rank and remove
-# TODO: Introduce in the code above
-python run/be_rank-link-remove.py \
-    --checkpoints $checkpoints_folder \
-    --link_best 5 \
-    --score_name $EVAL_METRIC \
-    --remove 1
+# TODO: We could move this above
+python run/status.py $config --seed $seed --link-best --remove
 
 # 3 checkpoint average
 if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt ]]; then
@@ -92,7 +89,8 @@ python fairseq/scripts/average_checkpoints.py \
         --output $checkpoints_folder/checkpoint_${EVAL_METRIC}_top5-avg.pt
 
 # Final run
-[ ! -f "$checkpoints_dir/$DECODING_CHECKPOINT" ] \
-    && echo -e "Missing $checkpoints_dir/$DECODING_CHECKPOINT" \
+[ ! -f "$checkpoints_folder/$DECODING_CHECKPOINT" ] \
+    && echo -e "Missing $checkpoints_folder/$DECODING_CHECKPOINT" \
     && exit 1
-bash run/ad_test.sh $checkpoints_dir/$DECODING_CHECKPOINT -b $BEAM_SIZE
+mkdir -p $checkpoints_folder/beam${BEAM_SIZE}/
+bash run/ad_test.sh $checkpoints_folder/$DECODING_CHECKPOINT -b $BEAM_SIZE
