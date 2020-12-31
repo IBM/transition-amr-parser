@@ -3,7 +3,7 @@ set -o pipefail
 set -o nounset 
 
 # Delete previous runs is exist
-rm -R DATA/wiki25/*
+rm -Rf DATA/wiki25/*
 
 # simulate completed corpora extraction and alignment
 bash tests/create_wiki25_mockup.sh
