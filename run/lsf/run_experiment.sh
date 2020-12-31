@@ -57,14 +57,14 @@ if [ ! -f "$ORACLE_FOLDER/.done" ];then
           /bin/bash run/aa_amr_actions.sh $config
 
     # train will wait for this to start
-    train_depends="-depend $jbsub_tag"
+    prepro_depends="-depend $jbsub_tag"
 
 else
 
     echo "skiping $ORACLE_FOLDER/.done"
 
     # resume from extracted
-    train_depends=""
+    prepro_depends=""
 
 fi
 
@@ -76,6 +76,7 @@ if [[ (! -f $DATA_FOLDER/.done) || (! -f $EMB_FOLDER/.done) ]]; then
     jbsub_tag="fe-${jbsub_basename}-$$"
     jbsub -cores "1+1" -mem 50g -q x86_6h -require k80 \
           -name "$jbsub_tag" \
+          $prepro_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
           -err $ORACLE_FOLDER/${jbsub_tag}-%J.stderr \
           /bin/bash run/ab_preprocess.sh $config
@@ -133,17 +134,6 @@ for seed in $SEEDS;do
           $test_depends \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash run/epoch_tester.sh $config "$seed"
-    test_depends="-depend $jbsub_tag"
-
-    # beam test 
-    jbsub_tag="beam-${jbsub_basename}-s${seed}-$$"
-    jbsub -cores 1+1 -mem 50g -q x86_6h -require v100 \
-          -name "$jbsub_tag" \
-          $test_depends \
-          -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
-          -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash run/ad_test.sh \
-            $checkpoints_dir/$DECODING_CHECKPOINT -b $BEAM_SIZE
+          /bin/bash run/run_model_eval.sh $config "$seed"
 
 done
