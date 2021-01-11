@@ -32,6 +32,7 @@ if [[ $MAX_WORDS == 0 ]]; then
 
     python transition_amr_parser/amr_oracle.py \
         --in-amr $train_amr \
+        --entity-rules $ORACLE_FOLDER/entity_rules.json \
         --in-pred-entities $ENTITIES_WITH_PREDS \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
@@ -41,6 +42,7 @@ else
 
     python transition_amr_parser/amr_oracle.py \
         --in-amr $train_amr \
+        --entity-rules $ORACLE_FOLDER/entity_rules.json \
         --in-pred-entities $ENTITIES_WITH_PREDS \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
         --out-actions $ORACLE_FOLDER/${test_set}.actions \
@@ -55,6 +57,7 @@ python transition_amr_parser/amr_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/${test_set}.en \
     --in-actions $ORACLE_FOLDER/${test_set}.actions \
     --out-amr $ORACLE_FOLDER/oracle_${test_set}.amr \
+    --entity-rules $ORACLE_FOLDER/entity_rules.json \
     --in-pred-entities $ENTITIES_WITH_PREDS
 
 echo -e "\nEvaluating SMATCH (may take ~40min for AMR 2.0 train)\n"
