@@ -98,7 +98,7 @@ if [ ! -f "${results_prefix}.actions" ];then
 fi
 
 ##### Create the AMR from the model obtained actions
-python transition_amr_parser/o8_fake_parse.py \
+python transition_amr_parser/amr_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/${data_split2}.en \
     --in-actions ${results_prefix}.actions \
     --out-amr ${results_prefix}.amr \

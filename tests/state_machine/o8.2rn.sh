@@ -30,7 +30,7 @@ python scripts/extract_rules.py $train_amr $ORACLE_FOLDER/entity_rules.json
 
 if [[ $MAX_WORDS == 0 ]]; then
 
-    python transition_amr_parser/o8_data_oracle.py \
+    python transition_amr_parser/amr_oracle.py \
         --in-amr $train_amr \
         --in-pred-entities $ENTITIES_WITH_PREDS \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
@@ -39,7 +39,7 @@ if [[ $MAX_WORDS == 0 ]]; then
     
 else
 
-    python transition_amr_parser/o8_data_oracle.py \
+    python transition_amr_parser/amr_oracle.py \
         --in-amr $train_amr \
         --in-pred-entities $ENTITIES_WITH_PREDS \
         --out-sentences $ORACLE_FOLDER/${test_set}.en \
@@ -51,7 +51,7 @@ fi
 
 # reconstruct AMR given sentence and oracle actions without being constrained
 # by training stats
-python transition_amr_parser/o8_fake_parse.py \
+python transition_amr_parser/amr_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/${test_set}.en \
     --in-actions $ORACLE_FOLDER/${test_set}.actions \
     --out-amr $ORACLE_FOLDER/oracle_${test_set}.amr \

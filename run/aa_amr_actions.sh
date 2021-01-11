@@ -50,7 +50,7 @@ else
     
     if [[ $MAX_WORDS == 100 ]]; then
     
-        python transition_amr_parser/o8_data_oracle.py \
+        python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TRAIN_FILE \
     	    --in-pred-entities $ENTITIES_WITH_PREDS \
             --out-sentences $ORACLE_FOLDER/train.en \
@@ -60,7 +60,7 @@ else
             --out-multitask-words $ORACLE_FOLDER/train.multitask_words \
             --copy-lemma-action
     
-        python transition_amr_parser/o8_data_oracle.py \
+        python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_DEV_FILE \
     	    --in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/dev.en \
@@ -69,7 +69,7 @@ else
             --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
             --copy-lemma-action
     
-        python transition_amr_parser/o8_data_oracle.py \
+        python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TEST_FILE \
     	    --in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/test.en \
@@ -80,7 +80,7 @@ else
     
     elif [[ $MAX_WORDS == 0 ]]; then
     
-        python transition_amr_parser/o8_data_oracle.py \
+        python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TRAIN_FILE \
     	    --in-pred-entities $ENTITIES_WITH_PREDS \
             --out-sentences $ORACLE_FOLDER/train.en \
@@ -88,7 +88,7 @@ else
             --out-rule-stats $ORACLE_FOLDER/train.rules.json \
             --copy-lemma-action
     
-        python transition_amr_parser/o8_data_oracle.py \
+        python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_DEV_FILE \
     	    --in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/dev.en \
@@ -96,7 +96,7 @@ else
             --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
             --copy-lemma-action
     
-        python transition_amr_parser/o8_data_oracle.py \
+        python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TEST_FILE \
         	--in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/test.en \

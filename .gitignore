@@ -9,6 +9,7 @@ set_environment.sh
 *.wiki/
 
 # data
+*.zip
 DATA*
 *oracles/
 EXP*

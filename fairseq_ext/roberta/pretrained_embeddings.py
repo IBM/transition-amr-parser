@@ -129,7 +129,7 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
                         w_index += 1
                         subword_sequence = []
                     elif word_from_pieces not in word:
-                        # compare the length instead of strings since there are offending 
+                        # compare the length instead of strings since there are offending
                         # characters in roberta wordpieces
                         if len(word) == len(word_from_pieces):
                             word_to_wordpiece.append(subword_sequence)
@@ -175,11 +175,11 @@ class PretrainedEmbeddings():
                 self.roberta.eval()
                 if torch.cuda.is_available():
                     self.roberta.cuda()
-                    print(f'Using {name} extraction in GPU') 
+                    print(f'Using {name} extraction in GPU')
                 else:
                     print('Using {name} extraction in cpu (slow, wont OOM)')
 
-            else:    
+            else:
                 raise Exception(
                     f'Unknown --pretrained-embed {name}'
                 )
@@ -222,42 +222,32 @@ class PretrainedEmbeddings():
         worpieces_roberta = self.roberta.encode(sentence_string)
 
         # Extract roberta, remove BOS/EOS
-        if torch.cuda.is_available():
+        # Hotfix for sequences above 512
+        if worpieces_roberta.shape[0] > 512:
+            excess = worpieces_roberta.shape[0] - 512
+            # first 512 tokens
+            last_layer = self.extract_features(
+                worpieces_roberta.to(self.roberta.device)[:512]
+            )
+            # last 512 tokens
+            last_layer2 = self.extract_features(
+                worpieces_roberta.to(self.roberta.device)[excess:]
+            )
+            # concatenate
+            shape = (last_layer, last_layer2[:, -excess:, :])
+            last_layer = torch.cat(shape, 1)
 
-            # Hotfix for sequences above 512
-            if worpieces_roberta.shape[0] > 512:
-                excess = worpieces_roberta.shape[0] - 512
-                # first 512 tokens
-                last_layer = self.extract_features(
-                    worpieces_roberta.to(self.roberta.device)[:512]
-                )
-                # last 512 tokens
-                last_layer2 = self.extract_features(
-                    worpieces_roberta.to(self.roberta.device)[excess:]
-                )
-                # concatenate
-                shape = (last_layer, last_layer2[:, -excess:, :])
-                last_layer = torch.cat(shape, 1)
+            assert worpieces_roberta.shape[0] == last_layer.shape[1]
 
-                assert worpieces_roberta.shape[0] == last_layer.shape[1]
-
-                # warn user about this
-                string = '\nMAX_POS overflow!! {worpieces_roberta.shape[0]}'
-                print(yellow_font(string))
-
-            else:
-
-                # Normal extraction
-                last_layer = self.extract_features(
-                    worpieces_roberta.to(self.roberta.device)
-                )
+            # warn user about this
+            string = '\nMAX_POS overflow!! {worpieces_roberta.shape[0]}'
+            print(yellow_font(string))
 
         else:
 
-            # Copy code above
-            raise NotImplementedError()
-            last_layer = self.roberta.extract_features(
-                worpieces_roberta
+            # Normal extraction
+            last_layer = self.extract_features(
+                worpieces_roberta.to(self.roberta.device)
             )
 
         # FIXME: this should not bee needed using roberta.eval()
@@ -312,4 +302,4 @@ class PretrainedEmbeddings():
             bert_data["word2piece_scattered_indices"].append(word2piece_scattered_indices)
 
         return bert_data
-        
+

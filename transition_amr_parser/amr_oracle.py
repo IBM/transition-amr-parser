@@ -6,7 +6,7 @@ import re
 from tqdm import tqdm
 
 from transition_amr_parser.io import read_propbank, read_amr, write_tokenized_sentences
-from transition_amr_parser.o8_state_machine import (
+from transition_amr_parser.amr_state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer
 )
@@ -126,7 +126,7 @@ def argument_parser():
         default="person,thing",
         help="comma separated list of entity types that can have pred"
     )
-    
+
     args = parser.parse_args()
 
     return args
@@ -714,7 +714,7 @@ class AMROracleBuilder:
                 is_dependent = True
 
         root = gold_amr.findSubGraph(tok_alignment).root
-        if gold_amr.nodes[root] not in entities_with_preds and not is_dependent:                                                                                 
+        if gold_amr.nodes[root] not in entities_with_preds and not is_dependent:
             return None
 
         new_id = None
@@ -725,7 +725,7 @@ class AMROracleBuilder:
             if t not in self.built_gold_nodeids:
                 new_id = t
                 break
-            
+
         if new_id != None:
 
             self.built_gold_nodeids.append(new_id)
@@ -744,7 +744,7 @@ class AMROracleBuilder:
                 action = f'PRED({new_node})'
 
             return action
-                
+
         return None
 
     def try_entity(self):
