@@ -16,6 +16,8 @@ EXP*
 checkpoints*
 amr_corpus*
 #!EXPR
+*/gigaword_ref.txt
+file.amr
 
 #
 preprocess/jamr
@@ -65,6 +67,3 @@ jbsub_logs/
 # vim
 .vim/
 *.swp
-
-# TMP notes
-PROGRESS
