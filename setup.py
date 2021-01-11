@@ -18,8 +18,10 @@ install_requires = [
     'line_profiler',
     'pyinstrument',
     'packaging'
-    # these may be missing
-    # dataclasses hydra-core omegaconf
+    # unclear why these are missing
+    'dataclasses',
+    'hydra-core',
+    'omegaconf'
 ]
 
 # You need to pip install the requirements.txt first

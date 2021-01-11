@@ -29,8 +29,21 @@ def get_average_embeddings(final_layer, word2piece):
 
 
 def get_wordpiece_to_word_map(sentence, roberta_bpe):
+    # replace all instances of 3-4 byte characters by '@'
+    converted_sentence = ''
+    for char in sentence:
+        if ord(char) < 2304:
+            converted_sentence += char
+        else:
+            converted_sentence += "@"
+        if sentence != converted_sentence:
+            sentence = converted_sentence
+    # 3-4 byte character conversion ends here
 
     # Get word and worpiece tokens according to RoBERTa
+    # sentence = sentence.replace(u'\x91', u' ')
+    # sentence = sentence.replace(u'\x98', u' ')
+
     word_tokens = sentence.split()
     wordpiece_tokens = [
         roberta_bpe.decode(wordpiece)
@@ -44,20 +57,13 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
     w_index = 0
     word_to_wordpiece = []
     subword_sequence = []
+    bad_unicode_flag = 0
+    overrun_sentence_flag = 0
     for wp_index in range(len(wordpiece_tokens)):
-        word = word_tokens[w_index]
-        if word == wordpiece_tokens[wp_index]:
-            word_to_wordpiece.append(wp_index)
-            w_index += 1
-        else:
-            subword_sequence.append(wp_index)
-            word_from_pieces = "".join([
-                # NOTE: Facebooks BPE signals SOW with whitesplace
-                wordpiece_tokens[i].lstrip()
-                for i in subword_sequence
-            ])
-            if word == word_from_pieces:
-                word_to_wordpiece.append(subword_sequence)
+        if w_index in range(len(word_tokens)):
+            word = word_tokens[w_index]
+            if word == wordpiece_tokens[wp_index]:
+                word_to_wordpiece.append(wp_index)
                 w_index += 1
             else:
                 subword_sequence.append(wp_index)
