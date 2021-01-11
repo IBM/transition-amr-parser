@@ -154,6 +154,7 @@ class SequenceGenerator(object):
             k: v for k, v in sample['net_input'].items()
             if k != 'prev_output_tokens'
         }
+        # breakpoint()
 
         src_tokens = encoder_input['src_tokens']
         src_lengths = (src_tokens.ne(self.eos) & src_tokens.ne(self.pad)).long().sum(dim=1)

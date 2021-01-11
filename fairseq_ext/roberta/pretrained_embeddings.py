@@ -1,5 +1,8 @@
+import copy
+
 import torch
 
+from ..data.data_utils import collate_tokens
 from ..utils_font import yellow_font
 
 
@@ -64,30 +67,47 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
     return word_to_wordpiece
 
 
+def get_scatter_indices(word2piece, reverse=False):
+    if reverse:
+        indices = range(len(word2piece))[::-1]
+    else:
+        indices = range(len(word2piece))
+    # we will need as well the wordpiece to word indices
+    wp_indices = [
+        [index] * (len(span) if isinstance(span, list) else 1)
+        for index, span in zip(indices, word2piece)
+    ]
+    wp_indices = [x for span in wp_indices for x in span]
+    return  torch.tensor(wp_indices)
+
+
 class PretrainedEmbeddings():
 
-    def __init__(self, name, bert_layers):
+    def __init__(self, name, bert_layers, model=None):
 
         # embedding type name
         self.name = name
         # select some layers for averaging
         self.bert_layers = bert_layers
 
-        if name in ['roberta.base', 'roberta.large']:
+        if model is None:
+            if name in ['roberta.base', 'roberta.large']:
 
-            # Extract
-            self.roberta = torch.hub.load('pytorch/fairseq', name)
-            self.roberta.eval()
-            if torch.cuda.is_available():
-                self.roberta.cuda()
-                print(f'Using {name} extraction in GPU')
+                # Extract
+                self.roberta = torch.hub.load('pytorch/fairseq', name)
+                self.roberta.eval()
+                if torch.cuda.is_available():
+                    self.roberta.cuda()
+                    print(f'Using {name} extraction in GPU')
+                else:
+                    print(f'Using {name} extraction in cpu (slow, wont OOM)')
+
             else:
-                print(f'Using {name} extraction in cpu (slow, wont OOM)')
-
+                raise Exception(
+                    f'Unknown --pretrained-embed {name}'
+                )
         else:
-            raise Exception(
-                f'Unknown --pretrained-embed {name}'
-            )
+            self.roberta = model
 
     def extract_features(self, worpieces):
         """Extract features from wordpieces"""
@@ -187,3 +207,31 @@ class PretrainedEmbeddings():
 #        assert np.allclose(word_features.cpu(), word_features2.cpu())
 
         return word_features, worpieces_roberta, word2piece
+
+    def extract_batch(self, sentence_string_batch):
+        bert_data = {}
+        bert_data["word_features"] = []
+        bert_data["wordpieces_roberta"] = []
+        bert_data["word2piece_scattered_indices"] = []
+        src_wordpieces = []
+        src_word2piece = []
+        for sentence in sentence_string_batch:
+            word2piece = get_wordpiece_to_word_map(sentence, self.roberta.bpe)
+            wordpieces_roberta = self.roberta.encode(sentence)
+            wordpieces_roberta = wordpieces_roberta[:512]
+            src_wordpieces.append(copy.deepcopy(wordpieces_roberta))
+            src_word2piece.append(copy.deepcopy(word2piece))
+
+        src_wordpieces_collated = collate_tokens(src_wordpieces, pad_idx=1)
+        roberta_batch_features = self.extract_features(src_wordpieces_collated)
+        roberta_batch_features = roberta_batch_features.detach().cpu()
+        for index,(word2piece, wordpieces_roberta) in enumerate(zip(src_word2piece, src_wordpieces)):
+            roberta_features = roberta_batch_features[index]
+            roberta_features = roberta_features[1:len(wordpieces_roberta)-1]
+            word_features = get_average_embeddings(roberta_features.unsqueeze(0), word2piece)
+            word2piece_scattered_indices = get_scatter_indices(word2piece, reverse=True)
+            bert_data["word_features"].append(word_features[0])
+            bert_data["wordpieces_roberta"].append(wordpieces_roberta)
+            bert_data["word2piece_scattered_indices"].append(word2piece_scattered_indices)
+
+        return bert_data
