@@ -45,6 +45,7 @@ PROGRESS
 debug*
 tmp*
 TMP*
+PROGRESS
 
 # other
 __pycache__/
