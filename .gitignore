@@ -11,6 +11,8 @@ EXP*
 checkpoints*
 amr_corpus*
 #!EXPR
+*/gigaword_ref.txt
+file.amr
 
 # run scripts logs
 logs*
