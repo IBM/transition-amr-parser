@@ -8,7 +8,7 @@ from collections import Counter
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.o8_state_machine import (
+from transition_amr_parser.amr_state_machine import (
     AMRStateMachine,
 #     DepParsingStateMachine,
     get_spacy_lemmatizer
@@ -362,7 +362,7 @@ def main():
     # Get data
     sentences = read_tokenized_sentences(args.in_sentences, separator=args.separator)
     entities_with_preds = args.in_pred_entities.split(",")
-    
+
     # Initialize logger/printer
     logger = Logger(
         step_by_step=args.step_by_step,

@@ -32,7 +32,7 @@ do
 
     if [ ! -s $ORACLE_FOLDER/oracle_$split.smatch ]; then
 
-        python transition_amr_parser/o8_fake_parse.py \
+        python transition_amr_parser/amr_fake_parse.py \
             --in-sentences $ORACLE_FOLDER/$split.en \
             --in-actions $ORACLE_FOLDER/$split.actions \
             --out-amr $ORACLE_FOLDER/oracle_$split.amr \

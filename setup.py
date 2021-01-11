@@ -1,5 +1,3 @@
-import os
-import subprocess
 from setuptools import setup, find_packages
 
 VERSION = '0.4.0'
@@ -18,7 +16,10 @@ install_requires = [
     # for debugging
     'ipdb',
     'line_profiler',
-    'pyinstrument'
+    'pyinstrument',
+    'packaging'
+    # these may be missing
+    # dataclasses hydra-core omegaconf
 ]
 
 # You need to pip install the requirements.txt first
