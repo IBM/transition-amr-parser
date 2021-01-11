@@ -102,6 +102,7 @@ python transition_amr_parser/amr_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/${data_split2}.en \
     --in-actions ${results_prefix}.actions \
     --out-amr ${results_prefix}.amr \
+    --entity-rules $ORACLE_FOLDER/entity_rules.json \
     --in-pred-entities $ENTITIES_WITH_PREDS \
 
 ##### SMATCH evaluation

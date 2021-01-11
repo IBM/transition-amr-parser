@@ -37,6 +37,9 @@ else
     cp $ALIGNED_FOLDER/train.txt $ORACLE_FOLDER/ref_train.amr
     cp $ALIGNED_FOLDER/dev.txt $ORACLE_FOLDER/ref_dev.amr
     cp $ALIGNED_FOLDER/test.txt $ORACLE_FOLDER/ref_test.amr
+
+    # Extract entity rules for the entire set
+    python scripts/extract_rules.py $ALIGNED_FOLDER/train.txt $ORACLE_FOLDER/entity_rules.json
     
     if [[ ! "$WIKI_DEV" == "" ]]; then
         # copy the original AMR data: wiki files and original AMR with wikification
@@ -52,6 +55,7 @@ else
     
         python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TRAIN_FILE \
+            --entity-rules $ORACLE_FOLDER/entity_rules.json \
     	    --in-pred-entities $ENTITIES_WITH_PREDS \
             --out-sentences $ORACLE_FOLDER/train.en \
             --out-actions $ORACLE_FOLDER/train.actions \
@@ -62,6 +66,7 @@ else
     
         python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_DEV_FILE \
+            --entity-rules $ORACLE_FOLDER/entity_rules.json \
     	    --in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/dev.en \
             --out-actions $ORACLE_FOLDER/dev.actions \
@@ -71,6 +76,7 @@ else
     
         python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TEST_FILE \
+            --entity-rules $ORACLE_FOLDER/entity_rules.json \
     	    --in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/test.en \
             --out-actions $ORACLE_FOLDER/test.actions \
@@ -82,6 +88,7 @@ else
     
         python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TRAIN_FILE \
+            --entity-rules $ORACLE_FOLDER/entity_rules.json \
     	    --in-pred-entities $ENTITIES_WITH_PREDS \
             --out-sentences $ORACLE_FOLDER/train.en \
             --out-actions $ORACLE_FOLDER/train.actions \
@@ -90,6 +97,7 @@ else
     
         python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_DEV_FILE \
+            --entity-rules $ORACLE_FOLDER/entity_rules.json \
     	    --in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/dev.en \
             --out-actions $ORACLE_FOLDER/dev.actions \
@@ -98,6 +106,7 @@ else
     
         python transition_amr_parser/amr_oracle.py \
             --in-amr $AMR_TEST_FILE \
+            --entity-rules $ORACLE_FOLDER/entity_rules.json \
         	--in-pred-entities $ENTITIES_WITH_PREDS\
             --out-sentences $ORACLE_FOLDER/test.en \
             --out-actions $ORACLE_FOLDER/test.actions \
