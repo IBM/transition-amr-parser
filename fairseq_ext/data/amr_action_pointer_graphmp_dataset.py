@@ -60,6 +60,7 @@ def collate(
 
     prev_output_tokens = None
     target = None
+    tgt_pos = None
     if samples[0].get('target', None) is not None:
         target = merge('target', left_pad=left_pad_target)
         # we will need for sanity check further down

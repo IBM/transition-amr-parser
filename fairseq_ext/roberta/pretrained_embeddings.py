@@ -1,9 +1,9 @@
-import torch
-from transition_amr_parser.stack_transformer.amr_state_machine import (
-    yellow_font
-)
-from fairseq.data.data_utils import collate_tokens
 import copy
+
+import torch
+
+from ..data.data_utils import collate_tokens
+from ..utils_font import yellow_font
 
 
 def get_average_embeddings(final_layer, word2piece):
@@ -29,16 +29,6 @@ def get_average_embeddings(final_layer, word2piece):
 
 
 def get_wordpiece_to_word_map(sentence, roberta_bpe):
-    # replace all instances of 3-4 byte characters by '@'
-    converted_sentence = ''
-    for char in sentence:
-        if ord(char) < 2304:
-            converted_sentence += char
-        else:
-            converted_sentence += "@"
-        if sentence != converted_sentence:
-            sentence = converted_sentence
-    # 3-4 byte character conversion ends here
 
     # Get word and worpiece tokens according to RoBERTa
     word_tokens = sentence.split()
@@ -54,13 +44,20 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
     w_index = 0
     word_to_wordpiece = []
     subword_sequence = []
-    bad_unicode_flag = 0
-    overrun_sentence_flag = 0
     for wp_index in range(len(wordpiece_tokens)):
-        if w_index in range(len(word_tokens)):
-            word = word_tokens[w_index]
-            if word == wordpiece_tokens[wp_index]:
-                word_to_wordpiece.append(wp_index)
+        word = word_tokens[w_index]
+        if word == wordpiece_tokens[wp_index]:
+            word_to_wordpiece.append(wp_index)
+            w_index += 1
+        else:
+            subword_sequence.append(wp_index)
+            word_from_pieces = "".join([
+                # NOTE: Facebooks BPE signals SOW with whitesplace
+                wordpiece_tokens[i].lstrip()
+                for i in subword_sequence
+            ])
+            if word == word_from_pieces:
+                word_to_wordpiece.append(subword_sequence)
                 w_index += 1
             else:
                 subword_sequence.append(wp_index)
@@ -158,6 +155,7 @@ def get_scatter_indices(word2piece, reverse=False):
     wp_indices = [x for span in wp_indices for x in span]
     return  torch.tensor(wp_indices)
 
+
 class PretrainedEmbeddings():
 
     def __init__(self, name, bert_layers, model=None):
@@ -177,7 +175,7 @@ class PretrainedEmbeddings():
                     self.roberta.cuda()
                     print(f'Using {name} extraction in GPU')
                 else:
-                    print('Using {name} extraction in cpu (slow, wont OOM)')
+                    print(f'Using {name} extraction in cpu (slow, wont OOM)')
 
             else:
                 raise Exception(

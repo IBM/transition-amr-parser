@@ -25,7 +25,7 @@ config_model=EXP/exp_graphmp-swaparc-ptrlast_o8.3_roberta-large-top24_act-pos-gr
 # model_epoch=_last
 # model_epoch=_wiki-smatch_top3-avg
 model_epoch=_wiki-smatch_top5-avg
-beam_size=6
+beam_size=1
 batch_size=128
 use_pred_rules=0
 

@@ -657,6 +657,10 @@ class AMRStateMachine:
         self.is_postprocessed = True
         return
 
+    def get_annotations(self):
+        assert self.amr_graph, ".toJAMRString() requires amr_graph = True"
+        return self.amr.toJAMRString()
+
     def REDUCE(self):
         """REDUCE : delete token when there is no alignment"""
         self._shift()    # shift to next position in the token sequence

@@ -6,7 +6,7 @@ from pdb import set_trace
 from datetime import timedelta
 from fairseq.tokenizer import tokenize_line
 from transition_amr_parser.io import read_sentences
-from transition_amr_parser.stack_transformer_amr_parser import AMRParser
+from transition_amr_parser.apt_amr_parser import AMRParser
 
 
 def argument_parsing():
@@ -62,7 +62,7 @@ def argument_parsing():
         default=False
     )
     args = parser.parse_args()
-    
+
     # sanity checks
     assert bool(args.in_tokenized_sentences) or bool(args.service), \
         "Must either specify --in-tokenized-sentences or set --service"
@@ -87,7 +87,7 @@ def parse_sentences(parser, in_tokenized_sentences, batch_size,
     
     # parse
     start = time.time()
-    result = parser.parse_sentences(
+    result, pred_dicts = parser.parse_sentences(
         split_sentences,
         batch_size=batch_size,
         roberta_batch_size=roberta_batch_size,
@@ -96,7 +96,7 @@ def parse_sentences(parser, in_tokenized_sentences, batch_size,
     print(len(result))
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to parse sentences: {time_secs}')
-    
+
     # write annotations
     if out_amr:
         with open(out_amr, 'w') as fid:
@@ -160,7 +160,7 @@ def main():
                 batch_size=args.batch_size,
                 roberta_batch_size=args.roberta_batch_size,
             )
-            # 
+            #
             os.system('clear')
             print('\n')
             print(result[0])
@@ -168,5 +168,5 @@ def main():
     else:
 
         # Parse sentences
-        parse_sentences(parser, args.in_tokenized_sentences, args.batch_size, 
+        parse_sentences(parser, args.in_tokenized_sentences, args.batch_size,
                         args.roberta_batch_size, args.out_amr)
