@@ -4,7 +4,7 @@ set -o errexit
 set -o pipefail
 
 # Argument handling
-HELP="\nbash $0 <config>\n"
+HELP="\nbash $0 <config> <seed>\n"
 [ -z "$1" ] && echo -e "$HELP" && exit 1
 [ ! -f "$1" ] && "Missing $1" && exit 1
 config=$1
@@ -22,11 +22,6 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
-# ##### script specific config
-# if [ -z ${max_epoch+x} ]; then
-#     max_epoch=120
-# fi
-# eval_init_epoch=${eval_init_epoch:-81}
 
 ##### TRAINING
 # rm -Rf $MODEL_FOLDER
@@ -34,6 +29,7 @@ echo $config
 # if [ -f $MODEL_FOLDER/checkpoint_last.pt ]; then
 
 #     echo "Model checkpoint $MODEL_FOLDER/checkpoint_last.pt already exists --- do nothing."
+
 
 if [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint_last.pt ] && [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt ]; then
 
@@ -44,7 +40,6 @@ else
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then
 
-        # python -m ipdb fairseq_ext/train.py \
         python fairseq_ext/train.py \
             $DATA_FOLDER \
             --emb-dir $EMB_FOLDER \
