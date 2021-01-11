@@ -35,6 +35,11 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
+        "--entity-rules",
+        help="entity rules",
+        type=str
+    )
+    parser.add_argument(
         "--in-pred-entities",
         type=str,
         default="person,thing",
@@ -98,6 +103,11 @@ def argument_parser():
         "--no-whitespace-in-actions",
         action='store_true',
         help="Assume whitespaces normalized to _ in PRED"
+    )
+    parser.add_argument(
+        "--sanity-check",
+        action='store_true',
+        help="Sanity check produced AMRs"
     )
     parser.add_argument(
         "--out-bio-tags",
@@ -221,7 +231,8 @@ class FakeAMRParser():
 
     def __init__(self, logger=None, machine_type='AMR',
                  from_sent_act_pairs=None, actions_by_stack_rules=None,
-                 no_whitespace_in_actions=False, entities_with_preds=None):
+                 no_whitespace_in_actions=False, entity_rules=None, 
+                 entities_with_preds=None):
 
         assert not no_whitespace_in_actions, \
             '--no-whitespace-in-actions deprected'
@@ -236,6 +247,7 @@ class FakeAMRParser():
         self.actions_by_stack_rules = actions_by_stack_rules
         self.no_whitespace_in_actions = no_whitespace_in_actions
         self.machine_type = machine_type
+        self.entity_rules = entity_rules
         self.entities_with_preds = entities_with_preds
         # initialize here for speed
         self.spacy_lemmatizer = get_spacy_lemmatizer()
@@ -261,6 +273,7 @@ class FakeAMRParser():
                 tokens,
                 actions_by_stack_rules=self.actions_by_stack_rules,
                 spacy_lemmatizer=self.spacy_lemmatizer,
+                entity_rules=self.entity_rules,
                 entities_with_preds=self.entities_with_preds
             )
         elif self.machine_type == 'dep-parsing':
@@ -393,6 +406,7 @@ def main():
         logger=logger,
         actions_by_stack_rules=actions_by_stack_rules,
         no_whitespace_in_actions=args.no_whitespace_in_actions,
+        entity_rules=args.entity_rules,
         entities_with_preds=entities_with_preds
     )
 

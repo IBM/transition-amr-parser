@@ -69,7 +69,7 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
-        "--out-rule-stats",         # TODO this is accessed by replacing '-' to '_'
+        "--out-rule-stats",
         help="statistics about alignments",
         type=str
     )
@@ -113,13 +113,24 @@ def argument_parser():
         action='store_true',
         help="Use copy action from Spacy lemmas"
     )
+    # skip empty amrs
+    parser.add_argument(
+        "--skip-empty",
+        action='store_true',
+        help="Skip empty AMRs (otherwise it will raise and error)"
+    )
     # copy lemma action
     parser.add_argument(
         "--addnode-count-cutoff",
         help="forbid all addnode actions appearing less times than count",
         type=int
     )
-
+    # path to entity rules generated from the train file
+    parser.add_argument(
+        "--entity-rules",
+        type=str,
+        help="entity rules"
+    )
     parser.add_argument(
         "--in-pred-entities",
         type=str,
@@ -488,11 +499,11 @@ def print_corpus_info(amrs):
 
 class AMROracleBuilder:
     """Build AMR oracle for one sentence."""
-    def __init__(self, gold_amr, lemmatizer, copy_lemma_action, multitask_words):
+    def __init__(self, gold_amr, entity_rules, lemmatizer, copy_lemma_action, multitask_words):
 
         self.gold_amr = gold_amr
         # initialize the state machine
-        self.machine = AMRStateMachine(gold_amr.tokens, spacy_lemmatizer=lemmatizer, amr_graph=True, entities_with_preds=entities_with_preds)
+        self.machine = AMRStateMachine(gold_amr.tokens, spacy_lemmatizer=lemmatizer, amr_graph=True, entities_with_preds=entities_with_preds, entity_rules=entity_rules)
 
         self.copy_lemma_action = copy_lemma_action
         self.multitask_words = multitask_words
@@ -1003,7 +1014,7 @@ class AMROracleBuilder:
         return None
 
 
-def run_oracle(gold_amrs, copy_lemma_action, multitask_words):
+def run_oracle(gold_amrs, entity_rules, copy_lemma_action, multitask_words):
 
     # Initialize lemmatizer as this is slow
     lemmatizer = get_spacy_lemmatizer()
@@ -1028,7 +1039,7 @@ def run_oracle(gold_amrs, copy_lemma_action, multitask_words):
         gold_amr = preprocess_amr(gold_amr)
 
         # Initialize oracle builder
-        oracle_builder = AMROracleBuilder(gold_amr, lemmatizer, copy_lemma_action, multitask_words)
+        oracle_builder = AMROracleBuilder(gold_amr, entity_rules, lemmatizer, copy_lemma_action, multitask_words)
         # build the oracle actions sequence
         actions = oracle_builder.build_oracle_actions()
 
@@ -1082,7 +1093,7 @@ def main():
     )
 
     # run the oracle for the entire corpus
-    stats = run_oracle(gold_amrs, args.copy_lemma_action, multitask_words)
+    stats = run_oracle(gold_amrs, args.entity_rules, args.copy_lemma_action, multitask_words)
 
     # print stats about actions
     sanity_check_actions(stats['sentence_tokens'], stats['oracle_actions'])
