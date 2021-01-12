@@ -65,11 +65,12 @@ else
     echo "$2 is invalid; must be dev or test"
 fi
 
-RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
+RESULTS_FOLDER=$(dirname $checkpoint)/beam${beam_size}
 # Generate results_prefix name if not provided
 if [ "$results_prefix" == "" ];then
     results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $checkpoint)
 fi
+echo "Generating ${results_prefix}.actions"
 
 ##### DECODING
 mkdir -p $RESULTS_FOLDER

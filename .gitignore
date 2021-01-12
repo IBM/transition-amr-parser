@@ -10,7 +10,7 @@ set_environment.sh
 
 # data
 *.zip
-#DATA*
+DATA*
 *oracles/
 EXP*
 checkpoints*

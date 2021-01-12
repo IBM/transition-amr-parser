@@ -65,12 +65,14 @@ if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt ]]; then
     exit 1
 fi
 
-python fairseq_ext/average_checkpoints.py \
-    --input \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best1.pt \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best2.pt \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt \
-    --output $checkpoints_folder/checkpoint_${EVAL_METRIC}_top3-avg.pt
+if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_top3-avg.pt ]]; then
+    python fairseq_ext/average_checkpoints.py \
+        --input \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best1.pt \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best2.pt \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt \
+        --output $checkpoints_folder/checkpoint_${EVAL_METRIC}_top3-avg.pt
+fi
 
 
 # 5 checkpoint average
@@ -79,14 +81,17 @@ if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_best5.pt ]]; then
     exit 1
 fi
 
-python fairseq_ext/average_checkpoints.py \
-    --input \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best1.pt \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best2.pt \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best4.pt \
-        $checkpoints_folder/checkpoint_${EVAL_METRIC}_best5.pt \
-    --output $checkpoints_folder/checkpoint_${EVAL_METRIC}_top5-avg.pt
+
+if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_top5-avg.pt ]]; then
+    python fairseq_ext/average_checkpoints.py \
+        --input \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best1.pt \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best2.pt \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best4.pt \
+            $checkpoints_folder/checkpoint_${EVAL_METRIC}_best5.pt \
+        --output $checkpoints_folder/checkpoint_${EVAL_METRIC}_top5-avg.pt
+fi
 
 # Final run
 [ ! -f "$checkpoints_folder/$DECODING_CHECKPOINT" ] \
