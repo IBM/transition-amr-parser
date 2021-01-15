@@ -2,11 +2,9 @@ import numpy as np
 import torch
 from fairseq.data import FairseqDataset
 
-from transition_amr_parser.stack_transformer.data_utils import (
+from transition_amr_parser.data_utils import (
     collate_embeddings,
     collate_wp_idx,
-    # collate_target_masks,
-    # collate_masks
 )
 from fairseq_ext.data import data_utils
 

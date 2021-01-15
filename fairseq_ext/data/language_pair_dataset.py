@@ -9,7 +9,7 @@ import torch
 from fairseq.data import FairseqDataset
 
 from fairseq_ext.data import data_utils
-from transition_amr_parser.stack_transformer.data_utils import (
+from transition_amr_parser.data_utils import (
     collate_embeddings,
     collate_target_masks,
     collate_wp_idx,
