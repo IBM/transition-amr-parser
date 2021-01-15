@@ -17,7 +17,7 @@ install_requires = [
     'ipdb',
     'line_profiler',
     'pyinstrument',
-    'packaging'
+    'packaging',
     # unclear why these are missing
     'dataclasses',
     'hydra-core',
