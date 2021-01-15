@@ -134,8 +134,8 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 SEEDS="42"
-MAX_EPOCH=20
-EVAL_INIT_EPOCH=10
+MAX_EPOCH=10
+EVAL_INIT_EPOCH=5
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations

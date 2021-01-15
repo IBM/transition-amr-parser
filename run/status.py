@@ -184,7 +184,7 @@ def print_status(config_env_vars, seed):
         else:
             print(
                 f"[\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m] "
-                "{seed_folder}"
+                f"{seed_folder}"
             )
 
         # Final model and results
