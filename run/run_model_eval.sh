@@ -39,7 +39,7 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
     
         # if there are no checkpoints at this moment, wait and restart loop
         if [ "$ready_checkpoints" == "" ];then
-            printf "\rWaiting for checkpoints of ${config}:$seed"
+            printf "\r$$ is waiting for checkpoints of ${config}:$seed"
             sleep 1m
             continue
         fi    
