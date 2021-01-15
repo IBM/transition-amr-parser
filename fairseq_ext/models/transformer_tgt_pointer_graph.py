@@ -27,9 +27,7 @@ from fairseq.modules import (
     # TransformerEncoderLayer,
 )
 
-from transition_amr_parser.stack_transformer.stack_state_machine import (
-    state_machine_encoder
-)
+from transition_amr_parser.stack_state_machine import state_machine_encoder
 
 from ..modules.transformer_layer import TransformerEncoderLayer, TransformerDecoderLayer
 from .attention_masks import get_cross_attention_mask, get_cross_attention_mask_heads
