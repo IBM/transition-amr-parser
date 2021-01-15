@@ -15,7 +15,9 @@ else
 fi
 set -o nounset
 
-NUM_SEEDS=1
+# decode in paralel to training. ATTENTION: In that case we can not kill this
+# script until first model appears
+on_the_fly_decoding=true
 
 # Load config
 echo "[Configuration file:]"
@@ -114,8 +116,14 @@ for seed in $SEEDS;do
               -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
               /bin/bash run/ac_train.sh $config "$seed"
 
-        # testing will wait for this name to start
-        test_depends="-depend $jbsub_tag"
+        if [ "$on_the_fly_decoding" = true ];then
+            # testing will wait for training to be finished
+            test_depends="-depend $jbsub_tag"
+        else
+            # testing will be launched on the fly
+            # to avoid consumng ressources script will wait
+            test_depends=""
+        fi    
 
     else
 
@@ -126,8 +134,17 @@ for seed in $SEEDS;do
 
     fi
 
-    # test all available checkpoints and link the best model on dev to
-    # $CHECKPOINT
+    # test all available checkpoints and link the best model on dev too
+    if [ "$on_the_fly_decoding" = true ];then
+        # wait until first model is available
+        while [ "$(python run/status.py -c $config --seed $seed --list-checkpoints-ready-to-eval)" == "" ];do
+            clear
+            echo "Waiting for first checkpoint to be evaluated (dont stop this)"
+            python run/status.py $config
+            sleep 1m
+        done
+    fi
+
     jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
     jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
           -name "$jbsub_tag" \
