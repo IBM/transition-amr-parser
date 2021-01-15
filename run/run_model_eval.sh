@@ -32,7 +32,7 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
     mkdir -p "$checkpoints_folder/epoch_tests/"
 
     # TODO: Add --link-best --remove command here to remove checkpoints on the fly
-    while [ "$(python run/status.py -c $config --seed $seed --list-checkpoints-to-eval)" != "" ];do
+    while [ "$(python run/status.py -c $config --seed $seed --list-checkpoints-to-eval --link-best --remove)" != "" ];do
     
         # get existing checkpoints
         ready_checkpoints=$(python run/status.py -c $config --seed $seed --list-checkpoints-ready-to-eval)
@@ -55,9 +55,8 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
     
 fi
 
-# rank and remove
-# TODO: We could move this above
-python run/status.py -c $config --seed $seed --link-best --remove
+# This should not be needed, but its a sanity check
+python run/status.py -c $config --seed $seed --list-checkpoints-to-eval --link-best --remove
 
 # 3 checkpoint average
 if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt ]]; then
