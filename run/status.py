@@ -90,9 +90,9 @@ def print_step_status(step_folder):
     if os.path.isfile(f'{step_folder}/.done'):
         print(f"[\033[92mdone\033[0m] {step_folder}")
     elif os.path.isdir(step_folder):
-        print(f"[\033[91mpart\033[0m] {step_folder}")
+        print(f"[\033[93mpart\033[0m] {step_folder}")
     else:
-        print(f"[\033[93mpend\033[0m] {step_folder}")
+        print(f"[pend] {step_folder}")
 
 
 def check_model_training(seed_folder, max_epoch):
@@ -110,9 +110,10 @@ def check_model_training(seed_folder, max_epoch):
                 epochs.append(int(fetch.groups()[0]))
         if epochs:
             curr_epoch = max(epochs)
+            print(f"[\033[93m{curr_epoch}/{max_epoch}\033[0m] {seed_folder}")
         else:
             curr_epoch = 0
-        print(f"[\033[93m{curr_epoch}/{max_epoch}\033[0m] {seed_folder}")
+            print(f"[{curr_epoch}/{max_epoch}] {seed_folder}")
 
 
 def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
@@ -178,12 +179,17 @@ def print_status(config_env_vars, seed):
             get_checkpoints_to_eval(config_env_vars, seed)
         if checkpoints:
             delta = len(target_epochs) - len(checkpoints)
-            print(
-                f"[\033[93m{delta}/{len(target_epochs)}\033[0m] {seed_folder}"
-            )
+            if delta > 0:
+                print(
+                    f"[\033[93m{delta}/{len(target_epochs)}\033[0m] "
+                    f"{seed_folder}"
+                )
+            else:
+                print(f"[{delta}/{len(target_epochs)}] {seed_folder}")
+
         else:
             print(
-                f"[\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m] "
+                f"[{len(target_epochs)}/{len(target_epochs)}] "
                 f"{seed_folder}"
             )
 
@@ -193,7 +199,7 @@ def print_status(config_env_vars, seed):
         if os.path.isfile(dec_checkpoint):
             print(f"[\033[92mdone\033[0m] {dec_checkpoint}")
         else:
-            print(f"[\033[93mpend\033[0m] {dec_checkpoint}")
+            print(f"[pend] {dec_checkpoint}")
     print()
 
 
