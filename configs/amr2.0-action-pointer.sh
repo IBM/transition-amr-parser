@@ -134,7 +134,7 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 #SEEDS="42 43 44"
-SEEDS="42"
+SEEDS="42 43 44"
 MAX_EPOCH=120
 EVAL_INIT_EPOCH=81
 
