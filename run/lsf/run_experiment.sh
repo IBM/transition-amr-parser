@@ -13,6 +13,9 @@ else
     # identify experiment by given tag
     jbsub_basename=$2
 fi
+# set environment (needed for the python code below)
+# NOTE: Old set_environment.sh forbids launching in login node.
+. set_environment.sh
 set -o nounset
 
 # decode in paralel to training. ATTENTION: In that case we can not kill this
@@ -109,21 +112,15 @@ for seed in $SEEDS;do
 
         # run new training
         jbsub_tag="tr-${jbsub_basename}-s${seed}-$$"
-        jbsub -cores 1+1 -mem 50g -q ppc_24h -require v100 \
+        jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
               -name "$jbsub_tag" \
               $train_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
               -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
               /bin/bash run/ac_train.sh $config "$seed"
 
-        if [ "$on_the_fly_decoding" = true ];then
-            # testing will wait for training to be finished
-            test_depends="-depend $jbsub_tag"
-        else
-            # testing will be launched on the fly
-            # to avoid consumng ressources script will wait
-            test_depends=""
-        fi    
+        # testing will wait for training to be finished
+        test_depends="-depend $jbsub_tag"
 
     else
 
@@ -134,23 +131,53 @@ for seed in $SEEDS;do
 
     fi
 
-    # test all available checkpoints and link the best model on dev too
-    if [ "$on_the_fly_decoding" = true ];then
+    if [ "$on_the_fly_decoding" = false ];then
+
+        # test all available checkpoints and link the best model on dev too
+        jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
+        jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
+              -name "$jbsub_tag" \
+              $test_depends \
+              -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
+              -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
+              /bin/bash run/run_model_eval.sh $config "$seed"
+
+    fi
+
+done
+
+# If we are doing on the fly decoding, we need to wait in this script until all
+# seeds have produced a model to launch the testers
+if [ "$on_the_fly_decoding" = true ];then
+    for seed in $SEEDS;do
+
         # wait until first model is available
         while [ "$(python run/status.py -c $config --seed $seed --list-checkpoints-ready-to-eval)" == "" ];do
             clear
-            echo "Waiting for first checkpoint to be evaluated (dont stop this)"
-            python run/status.py $config
-            sleep 1m
+            echo "Waiting for first checkpoint for seed $seed to be evaluated"
+            echo ""
+            echo "If you stop this evaluation wont be carried out!. set on_the_fly_decoding = false to avoid this"
+            python run/status.py -c $config --seed $seed
+            sleep 10
         done
-    fi
 
-    jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
-    jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
-          -name "$jbsub_tag" \
-          $test_depends \
-          -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
-          -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash run/run_model_eval.sh $config "$seed"
+        # test all available checkpoints and link the best model on dev too
+        jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
+        jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
+              -name "$jbsub_tag" \
+              -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
+              -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
+              /bin/bash run/run_model_eval.sh $config "$seed"
 
+    done
+fi
+
+# inform of progress 
+while true;do
+    clear
+    echo "Status of experiment $config"
+    echo ""
+    echo "(you can close this any time, use python run/status.py -c $config to check status)"
+    python run/status.py -c $config
+    sleep 10
 done
