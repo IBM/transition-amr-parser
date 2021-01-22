@@ -3,7 +3,6 @@ import torch
 import shutil
 import time
 
-from .pretrained_embeddings import PretrainedEmbeddings
 from ..data import indexed_dataset
 from ..utils import time_since
 
@@ -38,10 +37,22 @@ def get_scatter_indices(word2piece, reverse=False):
 def make_binary_bert_features(args, input_prefix, output_prefix, tokenize):
 
     # Load pretrained embeddings extractor
-    pretrained_embeddings = PretrainedEmbeddings(
-        args.pretrained_embed,
-        args.bert_layers
-    )
+    if args.pretrained_embed.startswith('roberta'):
+        from .pretrained_embeddings import PretrainedEmbeddings
+
+        pretrained_embeddings = PretrainedEmbeddings(
+            args.pretrained_embed,
+            args.bert_layers
+        )
+    elif args.pretrained_embed.startswith('bert'):
+        from .pretrained_embeddings_bert import PretrainedEmbeddings
+
+        pretrained_embeddings = PretrainedEmbeddings(
+            args.pretrained_embed,
+            args.bert_layers
+        )
+    else:
+        raise ValueError('arg.pretrained_embed should be either roberta.* or bert-*')
 
     # will store pre-extracted BERT layer
     indexed_data = indexed_dataset.make_builder(
