@@ -78,7 +78,7 @@ def read_config_variables(config_path):
         'echo "DECODING_CHECKPOINT=$DECODING_CHECKPOINT"'
     )
     config_env_vars = {}
-    proc = subprocess.Popen(bash_script, stdout=subprocess.PIPE, shell=True)
+    proc = subprocess.Popen(bash_script, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
     for line in proc.stdout:
         (key, _, value) = line.decode('utf-8').strip().partition("=")
         config_env_vars[key] = value
