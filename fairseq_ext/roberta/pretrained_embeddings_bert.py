@@ -152,7 +152,7 @@ class PretrainedEmbeddings():
 
         # NOTE: We need to re-extract BPE inside bert. Token indices
         # will also be different. [CLS] and [SEP] added
-        encoded_input = self.tokenizer(sentence_string)
+        encoded_input = self.tokenizer(sentence_string, return_tensors='pt')
         worpieces_bert = encoded_input['input_ids'].squeeze(0)
 
         # Extract bert, remove [CLS]/[SEP]
@@ -228,14 +228,14 @@ class PretrainedEmbeddings():
         src_word2piece = []
         for sentence in sentence_string_batch:
             word2piece = get_wordpiece_to_word_map(sentence, self.tokenizer)
-            encoded_input = self.tokenizer(sentence)
+            encoded_input = self.tokenizer(sentence, return_tensors='pt')
             wordpieces_roberta = encoded_input['input_ids'].squeeze(0)
             wordpieces_roberta = wordpieces_roberta[:512]
             src_wordpieces.append(copy.deepcopy(wordpieces_roberta))
             src_word2piece.append(copy.deepcopy(word2piece))
 
         raise NotImplementedError
-    
+
         src_wordpieces_collated = collate_tokens(src_wordpieces, pad_idx=1)
         roberta_batch_features = self.extract_features(src_wordpieces_collated)
         roberta_batch_features = roberta_batch_features.detach().cpu()
