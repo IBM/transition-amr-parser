@@ -27,6 +27,7 @@ install_requires = [
 # You need to pip install the requirements.txt first
 setup(
     name='transition_amr_parser',
+    # python_requires='>=3.7',
     version=VERSION,
     description="Trasition-based AMR parser tools",
     py_modules=['transition_amr_parser', 'fairseq_ext'],
