@@ -68,8 +68,11 @@ def get_wordpiece_to_word_map(sentence, tokenizer):
                 w_index += 1
                 subword_sequence = []
 
-            assert word_from_pieces in word, \
-                "wordpiece must be at least a segment of current word"
+            try:
+                assert word_from_pieces in word, \
+                    "wordpiece must be at least a segment of current word"
+            except:
+                breakpoint()
 
     return word_to_wordpiece
 
