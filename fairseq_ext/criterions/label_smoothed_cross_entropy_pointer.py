@@ -9,6 +9,7 @@ import torch
 from fairseq import utils
 
 from fairseq.criterions import FairseqCriterion, register_criterion
+from fairseq.criterions import LegacyFairseqCriterion    # for version >= 10.0.0
 
 
 def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=True):
@@ -72,7 +73,7 @@ def label_smoothed_nll_loss_pointer(lprobs, target, epsilon, ignore_index=None, 
 
 
 @register_criterion('label_smoothed_cross_entropy_pointer')
-class LabelSmoothedCrossEntropyPointerCriterion(FairseqCriterion):
+class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
 
     def __init__(self, args, task):
         super().__init__(args, task)

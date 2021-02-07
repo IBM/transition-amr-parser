@@ -37,7 +37,7 @@ else
     if [[ $TASK == "amr_action_pointer" ]]; then
 
     python fairseq_ext/preprocess.py \
-        --user-dir ../fairseq_ext \
+        --user-dir ./fairseq_ext \
         --task $TASK \
         --source-lang en \
         --target-lang actions \
@@ -55,7 +55,7 @@ else
     elif [[ $TASK == "amr_action_pointer_graphmp" ]]; then
 
     python fairseq_ext/preprocess_graphmp.py \
-        --user-dir ../fairseq_ext \
+        --user-dir ./fairseq_ext \
         --task $TASK \
         --source-lang en \
         --target-lang actions \
@@ -74,7 +74,7 @@ else
     # get_valid_canonical_actions to deal with a single exmple in training set with self-loop
 
     python fairseq_ext/preprocess_graphmp.py \
-        --user-dir ../fairseq_ext \
+        --user-dir ./fairseq_ext \
         --task $TASK \
         --source-lang en \
         --target-lang actions \

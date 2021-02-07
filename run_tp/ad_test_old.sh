@@ -33,7 +33,7 @@ elif [ $data_split_amr == "test" ]; then
 else
     echo "$2 is invalid; must be dev or test"
 fi
-    
+
 
 # data_split=valid
 # data_split_amr=dev    # TODO make the names consistent
@@ -61,7 +61,7 @@ mkdir -p $RESULTS_FOLDER
 python fairseq_ext/generate.py \
     $DATA_FOLDER  \
     --emb-dir $EMB_FOLDER \
-    --user-dir ../fairseq_ext \
+    --user-dir ./fairseq_ext \
     --task amr_action_pointer \
     --gen-subset $data_split \
     --machine-type AMR  \
@@ -74,7 +74,7 @@ python fairseq_ext/generate.py \
     --results-path $results_prefix \
 
 # exit 0
-    
+
 ##### Create the AMR from the model obtained actions
 python transition_amr_parser/o7_fake_parse.py \
     --in-sentences $ORACLE_FOLDER/$data_split_amr.en \

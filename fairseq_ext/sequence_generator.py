@@ -1064,4 +1064,4 @@ class EnsembleModel(torch.nn.Module):
         if self.incremental_states is None:
             return
         for model in self.models:
-            model.decoder.reorder_incremental_state(self.incremental_states[model], new_order)
+            model.decoder.reorder_incremental_state_scripting(self.incremental_states[model], new_order)

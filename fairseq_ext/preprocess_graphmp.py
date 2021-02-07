@@ -14,18 +14,20 @@ from collections import Counter
 
 import numpy as np
 # from fairseq import options, tasks, utils
-from fairseq import tasks, utils
-from fairseq.data import indexed_dataset
+from fairseq import tasks
+# from fairseq.data import indexed_dataset
 from fairseq.binarizer import Binarizer
 from multiprocessing import Pool
 from fairseq.tokenizer import tokenize_line
 
+from fairseq_ext.utils_import import import_user_module
+from fairseq_ext.data import indexed_dataset
 from fairseq_ext import options
 from fairseq_ext.roberta.binarize_embeddings import make_roberta_embeddings
 
 
 def main(args):
-    utils.import_user_module(args)
+    import_user_module(args)
 
     print(args)
 

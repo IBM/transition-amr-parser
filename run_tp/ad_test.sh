@@ -67,7 +67,7 @@ mkdir -p $RESULTS_FOLDER
 python fairseq_ext/generate.py \
     $DATA_FOLDER  \
     --emb-dir $EMB_FOLDER \
-    --user-dir ../fairseq_ext \
+    --user-dir ./fairseq_ext \
     --task $TASK \
     --gen-subset $data_split \
     --machine-type AMR  \

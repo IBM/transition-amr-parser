@@ -22,7 +22,7 @@ python run_tp/bb_rank_model.py \
 # average checkpoint
 if [[ -f $checkpoints_folder/checkpoint_wiki-smatch_best3.pt ]]; then
 
-    python fairseq/scripts/average_checkpoints.py \
+    python fairseq_ext/average_checkpoints.py \
             --input \
                 $checkpoints_folder/checkpoint_wiki-smatch_best1.pt \
                 $checkpoints_folder/checkpoint_wiki-smatch_best2.pt \
@@ -34,7 +34,7 @@ fi
 
 if [[ -f $checkpoints_folder/checkpoint_wiki-smatch_best5.pt ]]; then
 
-    python fairseq/scripts/average_checkpoints.py \
+    python fairseq_ext/average_checkpoints.py \
             --input \
                 $checkpoints_folder/checkpoint_wiki-smatch_best1.pt \
                 $checkpoints_folder/checkpoint_wiki-smatch_best2.pt \
@@ -46,5 +46,3 @@ if [[ -f $checkpoints_folder/checkpoint_wiki-smatch_best5.pt ]]; then
 fi
 
 touch $checkpoints_folder/model-selection_stage2-done
-
-

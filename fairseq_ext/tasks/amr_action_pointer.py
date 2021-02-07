@@ -372,7 +372,7 @@ class AMRActionPointerParsingTask(FairseqTask):
                 stats_rules=getattr(args, 'machine_rules', None)
             )
 
-    def train_step(self, sample, model, criterion, optimizer, ignore_grad=False):
+    def train_step(self, sample, model, criterion, optimizer, update_num, ignore_grad=False):
         """
         Do forward and backward, and return the loss as computed by *criterion*
         for the given *model* and *sample*.
@@ -393,6 +393,7 @@ class AMRActionPointerParsingTask(FairseqTask):
                 - logging outputs to display while training
         """
         model.train()
+        model.set_num_updates(update_num)
 
         # import pdb; pdb.set_trace()
 
