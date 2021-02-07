@@ -131,7 +131,7 @@ function average_best_checkpoints {
 
     if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best3.pt ]]; then
 
-        python fairseq/scripts/average_checkpoints.py \
+        python fairseq_ext/average_checkpoints.py \
                 --input \
                     $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt \
                     $checkpoints_folder/checkpoint_${score_name_tag}_best2.pt \
@@ -143,7 +143,7 @@ function average_best_checkpoints {
 
     if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best5.pt ]]; then
 
-        python fairseq/scripts/average_checkpoints.py \
+        python fairseq_ext/average_checkpoints.py \
                 --input \
                     $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt \
                     $checkpoints_folder/checkpoint_${score_name_tag}_best2.pt \
@@ -358,4 +358,3 @@ else
     echo "Done"
 
 fi
-

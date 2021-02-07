@@ -8,8 +8,10 @@ import argparse
 import torch
 import sys
 
-from fairseq import utils
+# from fairseq import utils
 from fairseq.data.indexed_dataset import get_available_dataset_impl
+
+from fairseq_ext.utils_import import import_user_module
 
 
 def get_preprocessing_parser(default_task='translation'):
@@ -153,7 +155,7 @@ def get_parser(desc, default_task='translation'):
     usr_parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     usr_parser.add_argument('--user-dir', default=None)
     usr_args, _ = usr_parser.parse_known_args()
-    utils.import_user_module(usr_args)
+    import_user_module(usr_args)
 
     parser = argparse.ArgumentParser(allow_abbrev=False)
     # fmt: off
@@ -185,6 +187,14 @@ def get_parser(desc, default_task='translation'):
                         help='threshold FP16 loss scale from below')
     parser.add_argument('--user-dir', default=None,
                         help='path to a python module containing custom extensions (tasks and/or architectures)')
+    parser.add_argument('--profile', default=False, action='store_true',
+                        help='enable autograd profiler emit_nvtx')
+    parser.add_argument('--model-parallel-size', default=1, type=int,
+                        help='total number of GPUs to parallelize model over')
+    parser.add_argument('--quantization-config-path', default=None,
+                        help='path to quantization config file')
+    parser.add_argument('--bf16', default=False, action='store_true',
+                        help='use bfloat16; implies --tpu')
 
     from fairseq.registry import REGISTRIES
     for registry_name, REGISTRY in REGISTRIES.items():
@@ -269,8 +279,12 @@ def add_dataset_args(parser, train=False, gen=False):
                        help='ignore too long or too short lines in valid and test set')
     group.add_argument('--max-tokens', type=int, metavar='N',
                        help='maximum number of tokens in a batch')
-    group.add_argument('--max-sentences', '--batch-size', type=int, metavar='N',
+    group.add_argument('--max-sentences', type=int, metavar='N',
                        help='maximum number of sentences in a batch')
+    group.add_argument('--batch-size', default=None, type=int, metavar='N',
+                       help='number of examples in a batch')
+    group.add_argument('--data-buffer-size', default=10, type=int,
+                       help='Number of batches to preload')
     group.add_argument('--required-batch-size-multiple', default=8, type=int, metavar='N',
                        help='batch size will be a multiplier of this value')
     parser.add_argument('--dataset-impl', metavar='FORMAT',
@@ -337,6 +351,8 @@ def add_distributed_training_args(parser):
     group.add_argument('--find-unused-parameters', default=False, action='store_true',
                        help='disable unused parameter detection (not applicable to '
                        'no_c10d ddp-backend')
+    group.add_argument('--pipeline-model-parallel', default=False, action='store_true',
+                       help="if set, use pipeline model parallelism across GPUs")
     # fmt: on
     return group
 

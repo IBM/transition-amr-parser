@@ -37,7 +37,7 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-tgt_factored_emb_out=1
+tgt_factored_emb_out=0
 
 pointer_dist_decoder_selfattn_layers="5"
 pointer_dist_decoder_selfattn_heads=1
@@ -60,8 +60,10 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 seed=${seed:-42}
-max_epoch=120
-eval_init_epoch=81
+# max_epoch=120
+# eval_init_epoch=81
+max_epoch=5
+eval_init_epoch=1
 
 
 ##### set the experiment dir name based on model configurations

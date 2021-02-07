@@ -11,9 +11,11 @@ from collections import defaultdict
 
 import torch
 
-from fairseq import bleu, checkpoint_utils, progress_bar, tasks, utils
+from fairseq import checkpoint_utils, progress_bar, tasks, utils
+from fairseq.scoring import bleu
 from fairseq.meters import StopwatchMeter, TimeMeter
 
+from fairseq_ext.utils_import import import_user_module
 from fairseq_ext import options
 from fairseq_ext.utils import post_process_action_pointer_prediction, clean_pointer_arcs
 
@@ -82,7 +84,7 @@ def main(args):
     assert args.replace_unk is None or args.raw_text, \
         '--replace-unk requires a raw text dataset (--raw-text)'
 
-    utils.import_user_module(args)
+    import_user_module(args)
 
     if args.max_tokens is None and args.max_sentences is None:
         args.max_tokens = 12000
@@ -146,7 +148,7 @@ def main(args):
         num_shards=args.num_shards,
         shard_id=args.shard_id,
         num_workers=args.num_workers,
-        large_sent_first=False
+        # large_sent_first=False        # not in fairseq
     ).next_epoch_itr(shuffle=False)
 
     # Initialize generator

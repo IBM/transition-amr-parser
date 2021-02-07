@@ -78,7 +78,7 @@ else
     python fairseq_ext/train.py \
         $DATA_FOLDER \
         --emb-dir $EMB_FOLDER \
-        --user-dir ../fairseq_ext \
+        --user-dir fairseq_ext \
         --task $TASK \
         --append-eos-to-target 0 \
         --collate-tgt-states 1 \
@@ -134,7 +134,7 @@ else
     python fairseq_ext/train.py \
         $DATA_FOLDER \
         --emb-dir $EMB_FOLDER \
-        --user-dir ../fairseq_ext \
+        --user-dir fairseq_ext \
         --task $TASK \
         --append-eos-to-target 0 \
         --collate-tgt-states 1 \

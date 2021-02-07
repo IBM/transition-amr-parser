@@ -3,14 +3,18 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Dict, Optional, Tuple
+
 import torch
-from torch import nn
+from torch import Tensor, nn
 from torch.nn import Parameter
 import torch.nn.functional as F
 
 from fairseq import utils
+from fairseq.incremental_decoding_utils import with_incremental_state
 
 
+@with_incremental_state
 class MultiheadAttention(nn.Module):
     """Multi-headed attention.
 
@@ -464,20 +468,37 @@ class MultiheadAttention(nn.Module):
                 input_buffer[k] = input_buffer[k].index_select(0, new_order)
             self._set_input_buffer(incremental_state, input_buffer)
 
-    def _get_input_buffer(self, incremental_state):
-        return utils.get_incremental_state(
-            self,
-            incremental_state,
-            'attn_state',
-        ) or {}
+    # def _get_input_buffer(self, incremental_state):
+    #     return utils.get_incremental_state(
+    #         self,
+    #         incremental_state,
+    #         'attn_state',
+    #     ) or {}
 
-    def _set_input_buffer(self, incremental_state, buffer):
-        utils.set_incremental_state(
-            self,
-            incremental_state,
-            'attn_state',
-            buffer,
-        )
+    # def _set_input_buffer(self, incremental_state, buffer):
+    #     utils.set_incremental_state(
+    #         self,
+    #         incremental_state,
+    #         'attn_state',
+    #         buffer,
+    #     )
+
+    def _get_input_buffer(
+        self, incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]]
+    ) -> Dict[str, Optional[Tensor]]:
+        result = self.get_incremental_state(incremental_state, "attn_state")
+        if result is not None:
+            return result
+        else:
+            empty_result: Dict[str, Optional[Tensor]] = {}
+            return empty_result
+
+    def _set_input_buffer(
+        self,
+        incremental_state: Dict[str, Dict[str, Optional[Tensor]]],
+        buffer: Dict[str, Optional[Tensor]],
+    ):
+        return self.set_incremental_state(incremental_state, "attn_state", buffer)
 
     def apply_sparse_mask(self, attn_weights, tgt_len, src_len, bsz):
         return attn_weights
