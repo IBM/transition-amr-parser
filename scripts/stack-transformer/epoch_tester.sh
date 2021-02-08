@@ -13,7 +13,7 @@ set -o nounset
     exit 1
 
 # Test all existing checkpoints
-for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort -r);do
+for test_model in $(find $checkpoints_folder -maxdepth 1 -iname 'checkpoint[0-9]*.pt' | sort -r);do
 
     # pytorch model folder and basename for this checkpoints data
     model_folder=$(dirname $test_model)

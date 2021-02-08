@@ -26,6 +26,7 @@ venv*/
 cenv*/
 
 # debug
+PROGRESS 
 *.lprof
 debug*
 tmp*
