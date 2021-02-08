@@ -64,11 +64,6 @@ fairseq-preprocess \
 # TRAINING
 rm -Rf DATA.tests/models/$experiment_tag/
 model_arch=stack_transformer_6x6_nopos 
-#model_arch=stack_transformer_6x6_top_nopos 
-#model_arch=stack_transformer_6x6_tops_nopos 
-#model_arch=stack_transformer_6x6_topb_nopos 
-#model_arch=stack_transformer_6x6_only_buffer_nopos 
-#model_arch=stack_transformer_6x6_only_stack_nopos 
 fairseq-train \
     $FEATURES_FOLDER \
     --max-epoch $max_epoch \
