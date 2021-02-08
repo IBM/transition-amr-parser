@@ -125,17 +125,17 @@ class AMR:
             subgraph_node_ids |= set([e[0]])
             subgraph_node_ids |= set([e[2]])
 
-        # get nodes 
+        # get nodes
         subgraph_nodes = {
-            node_id: node 
-            for node_id, node in self.nodes.items() 
+            node_id: node
+            for node_id, node in self.nodes.items()
             if node_id in subgraph_node_ids
         }
 
         # get alignments
         subgraph_alignments = {
-            node_id: alignments 
-            for node_id, alignments in self.alignments.items() 
+            node_id: alignments
+            for node_id, alignments in self.alignments.items()
             if node_id in subgraph_node_ids
         }
 
@@ -143,9 +143,9 @@ class AMR:
         # Also alignments refer to absolute positions.
 
         return AMR(
-            root=root_id, 
+            root=root_id,
             tokens=self.tokens,
-            edges=subgraph_edges, 
+            edges=subgraph_edges,
             nodes=subgraph_nodes,
             alignments=subgraph_alignments
         )
@@ -244,15 +244,15 @@ class AMR:
                 amr_string = '('+amr_string+')'
             if len(self.nodes) == 0:
                 amr_string = '(a / amr-empty)'
-                
+
             # ::short attribute from Revanth                                                    \
-                                                                                                 
+
             output += f'# ::short\t{str(new_ids)}\t\n'
             output += amr_string + '\n\n'
 
         if only_penman:
             output = '\n'.join([
-                line 
+                line
                 for line in output.split('\n') if line and line[0] != '#'
             ])
 
@@ -399,7 +399,7 @@ def get_duplicate_edges(amr):
             continue
         edge_child_count.update(keys)
 
-    return [(t, c) for t, c in edge_child_count.items() if c > 1] 
+    return [(t, c) for t, c in edge_child_count.items() if c > 1]
 
 
 def main():

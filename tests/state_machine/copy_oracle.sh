@@ -51,20 +51,13 @@ echo -e "\nEvaluating SMATCH (may take ~40min for AMR 2.0 train)\n"
 # evaluate reconstruction performance
 smatch="$(smatch.py --significant 3 -r 10 -f $train_amr $ORACLE_FOLDER/oracle_train.amr)"
 
+echo ""
+echo "$smatch"
+echo "$ref_smatch"
+echo ""
+
 if [ "$ref_smatch" != "" ];then
     
-    # Given sentences and oracle actions, recover AMR
-    amr-fake-parse \
-        --in-sentences $ORACLE_FOLDER/train.en \
-        --in-actions $ORACLE_FOLDER/train.actions \
-        --entity-rules $ORACLE_FOLDER/entity_rules.json \
-        --out-amr $ORACLE_FOLDER/oracle_train.amr
-    
-    # evaluate reconstruction performance
-    smatch="$(smatch.py --significant 3 -r 10 -f $train_amr $ORACLE_FOLDER/oracle_train.amr)"
-    
-    echo "$smatch"
-    echo "$ref_smatch"
     
     if [ "$smatch" != "F-score: $ref_smatch" ];then
         echo -e "[\033[91mFAILED\033[0m] Oracle ${train_amr} F-score not $ref_smatch"
