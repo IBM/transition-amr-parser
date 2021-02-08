@@ -62,9 +62,6 @@ def read_frame(xml_file):
     return propbank
 
 
-
-
-
 def read_action_scores(file_path):
     """
     Reads scores to judge the optimality of an action set, comprise

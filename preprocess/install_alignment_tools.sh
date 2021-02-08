@@ -19,12 +19,8 @@ cd ..
 
 # Kevin aligner
 echo -e "\nDownloading Kevin\n"
-# FIXME: This URL seems to be no longer active
-# wget --no-check-certificate https://www.isi.edu/~damghani/papers/Aligner.zip
-cp /dccstor/multi-parse/amr/Aligner.zip .
-unzip Aligner.zip 
-mv Publish_Version kevin
-rm Aligner.zip
+git clone https://github.com/damghani/AMR_Aligner
+mv AMR_Aligner kevin
 cd kevin
 git clone https://github.com/moses-smt/mgiza.git
 cd mgiza/mgizapp
