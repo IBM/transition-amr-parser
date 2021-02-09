@@ -58,4 +58,7 @@ for index in $(seq $NUM_SEEDS);do
     # test all available checkpoints and rank them
     bash $tools_folder/epoch_tester.sh $checkpoints_dir/
 
+    # beam test 
+    bash $tools_folder/beam_test.sh $checkpoints_dir/
+
 done

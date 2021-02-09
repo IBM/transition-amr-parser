@@ -48,19 +48,9 @@ pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
 ```
 
-the AMR aligner uses additional tools that can be donwloaded and installed with
-
-```
-bash preprocess/install_alignment_tools.sh
-```
-
-This code will download and patch fairseq before installing. The `--editable`
-flag allows to modify the code without the need to reinstall. The spacy tools
-will be updated on first use. You can force this manually with 
-
-```bash
-python -m spacy download en
-```
+If you are installing in PowerPCs, you will have to use the conda option. Also
+spacy has to be installed with conda instead of pip (2.2.3 version will not be
+available, which affects the lematizer behaviour)
 
 To check if install worked do
 
@@ -69,13 +59,36 @@ To check if install worked do
 python tests/correctly_installed.py
 ```
 
-If you are installing in PowerPCs, you will have to use the conda option. Also
-spacy has to be installed with conda instead of pip (2.2.3 version will not be
-available, which affects the lematizer behaviour)
+As a further check, you can do a mini test with 25 annotated sentences that we
+provide under DATA/, you can use this
+
+```bash
+bash tests/minimal_test.sh
+```
+
+This runs a full train test excluding alignment and should take around a
+minute. Note that the model will not be able to learn from only 25 sentences.
+
+The AMR aligner uses additional tools that can be donwloaded and installed with
+
+```
+bash preprocess/install_alignment_tools.sh
+```
 
 ## Training a model
 
-You first need to preprocess and align the data. See `preprocess/README.md`. 
+You first need to preprocess and align the data. For AMR2.0 do
+
+```bash
+. set_environment.sh
+python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR/corpora/amr2.0/
+```
+
+The same for AMR1.0
+
+```
+python preprocess/merge_files.py /path/to/LDC2014T12/data/amrs/split/ DATA/AMR/corpora/amr1.0/
+```
 
 Then just call a config to carry a desired experiment
 
@@ -92,8 +105,8 @@ To use from the command line with a trained model do
 
 ```bash
 amr-parse \
-  --in-tokenized-sentences $input_file \
   --in-checkpoint $in_checkpoint \
+  --in-tokenized-sentences $input_file \
   --out-amr file.amr
 ```
 

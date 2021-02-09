@@ -122,7 +122,7 @@ smatch.py \
 
 cat $RESULTS_FOLDER/valid.smatch
 
-if [ "$(cat $RESULTS_FOLDER/valid.smatch)" != "F-score: 0.1865" ];then 
+if [ "$(cat $RESULTS_FOLDER/valid.smatch)" != "F-score: 0.1866" ];then 
         echo -e "[\033[91mFAILED\033[0m] overfitting test"
         exit 1
 else
