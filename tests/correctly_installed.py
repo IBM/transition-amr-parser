@@ -30,27 +30,28 @@ if __name__ == '__main__':
 
     # Pytorch and CUDA
     print()
-    assert torch.cuda.is_available(), "No CUDA available"
-    print(f'pytorch {torch.__version__}') 
-    print(f'cuda {torch.version.cuda}') 
-    # happens for torch 1.2.0
-    assert torch.cuda.device_count(), "0 GPUs found"
-    try:
-        import apex
-        print("Apex installed")
-    except ImportError:
-        print("Apex not installed")
-    check_cuda_torch_binary_vs_bare_metal()
-    if torch.cuda.get_device_capability(0)[0] < 7:
-        print("GPU wont support --fp")
+    print(f'pytorch {torch.__version__}')
+    if torch.cuda.is_available():
+        print(f'cuda {torch.version.cuda}')
+        # happens when CUDA missconfigured
+        assert torch.cuda.device_count(), "0 GPUs found"
+        try:
+            import apex
+            print("Apex installed")
+        except ImportError:
+            print("Apex not installed")
+        check_cuda_torch_binary_vs_bare_metal()
+        if torch.cuda.get_device_capability(0)[0] < 7:
+            print("GPU wont support --fp")
 
 
     # fairseq
     from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
-    print('fairseq installed')
+    import fairseq
+    print(f'fairseq {fairseq.__version__}')
     # spacy
     import spacy
-    print('spacy installed')
-    
+    print(f'spacy {spacy.__version__}')
+
     # If we get here we passed
-    print(f'[\033[92mOK\033[0m] correctly installed')
+    print(f'[\033[92mOK\033[0m] correctly installed\n')
