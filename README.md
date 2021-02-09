@@ -97,7 +97,7 @@ bash scripts/stack-transformer/experiment.sh configs/amr2_o5+Word100_roberta.lar
 ```
 
 Note that there is cluster version of this script, currently only supporting
-LSF but easily adaptable.
+LSF but easily adaptable to e.g. Slurm
 
 ## Decode with Pre-trained model
 
