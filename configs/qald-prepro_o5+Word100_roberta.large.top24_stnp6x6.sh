@@ -22,11 +22,10 @@ AMR_DEV_FILE=$AMR_CORPORA/QB20200305/qald_dev2_pass3.jaln
 AMR_TEST_FILE=$AMR_CORPORA/QB20200305/blindtest.jkaln
 # WIKI files
 # NOTE: If left empty no wiki will be added
-WIKI_DEV=""
 AMR_DEV_FILE_WIKI="" 
-WIKI_TEST=""
 AMR_TEST_FILE_WIKI=""
-BLINK_CACHE_PATH=/dccstor/ykt-parse/SHARED/MODELS/ELT/EL/BLINK/linkcache
+# wiki cache to recompose final AMR
+BLINK_CACHE_PATH=""
 # Leave empty to create entity rules from the corpus
 ENTITY_RULES=""
 

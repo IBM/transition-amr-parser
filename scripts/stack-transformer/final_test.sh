@@ -89,7 +89,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
         --in-actions $results_folder/test.actions \
         --out-amr $results_folder/test.amr \
 
-    if [ "$WIKI_TEST" == "" ];then
+    if [ "$BLINK_CACHE_PATH" == "" ];then
 
         # Smatch evaluation without wiki
         smatch.py \
@@ -107,10 +107,6 @@ elif [ "$TASK_TAG" == "AMR" ];then
         # Smatch evaluation with wiki
 
         # add wiki
-#        python scripts/add_wiki.py \
-#            $results_folder/test.amr $WIKI_TEST \
-#            > $results_folder/test.wiki.amr
-    
         python scripts/retyper.py \
             --inputfile ${results_folder}/test.amr \
             --outputfile ${results_folder}.test.wiki.amr \

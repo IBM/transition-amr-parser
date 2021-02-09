@@ -63,8 +63,7 @@ for single_task  in $(python -c "print(' '.join('$TASK_TAG'.split('+')))");do
     
         # AMR (Smatch)
         # Create the AMR from the model obtained actions
-        if [ "$WIKI_DEV" == "" ];then
-            echo "$WIKI_DEV"
+        if [ "$BLINK_CACHE_PATH" == "" ];then
     
             # Smatch evaluation without wiki
             # Compute score in the background
@@ -81,9 +80,6 @@ for single_task  in $(python -c "print(' '.join('$TASK_TAG'.split('+')))");do
     
             # Smatch evaluation with wiki
             # add wiki
-#            python scripts/add_wiki.py \
-#                ${results_path}.amr $WIKI_DEV \
-#                > ${results_path}.wiki.amr
             python scripts/retyper.py \
                 --inputfile ${results_path}.amr \
                 --outputfile ${results_path}.wiki.amr \
