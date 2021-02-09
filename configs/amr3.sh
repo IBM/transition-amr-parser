@@ -27,10 +27,8 @@ align_tag=cofill
 AMR_TRAIN_FILE=$corpus_folder/train.no_wiki.aligned_${align_tag}.txt
 AMR_DEV_FILE=$corpus_folder/dev.no_wiki.aligned_${align_tag}.txt 
 AMR_TEST_FILE=$corpus_folder/test.no_wiki.aligned_${align_tag}.txt
-# wiki prediction files to recompose final AMR
-# TODO: External cache
-WIKI_DEV=/dccstor/multi-parse/amr/dev.wiki
-WIKI_TEST=/dccstor/multi-parse/amr/test.wiki
+# wiki cache to recompose final AMR
+BLINK_CACHE_PATH=DATA/EL/BLINK/linkcache
 
 # Labeled shift: each time we shift, we also predict the word being shited
 # but restrict this to top MAX_WORDS. Controlled by

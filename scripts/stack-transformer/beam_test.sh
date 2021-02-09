@@ -21,7 +21,7 @@ config="$checkpoints_folder/config.sh"
 # Right now do ensemble and beam automatically only for AMR
 if [ "$TASK_TAG" == "AMR" ];then
 
-    if [ "$WIKI_DEV" == "" ];then
+    if [ "$BLINK_CACHE_PATH" == "" ];then
         score_name="SMATCH"
     else
         score_name="WIKI.SMATCH"
