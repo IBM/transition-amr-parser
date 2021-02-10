@@ -37,33 +37,31 @@ mkdir -p $results_folder
 #test_command="kernprof -o generate.lprof -l fairseq/generate.py"
 test_command=fairseq-generate
 
-if [ "$TASK_TAG" == "AMR" ] ; then
 
-    if [ -n "${ENTITY_RULES:-}" ] && [ -f "$ENTITY_RULES" ] ; then
-	    echo "using given entity rules"
-    else
-	    echo "reading entity rules from oracle"
-	    ENTITY_RULES=$ORACLE_FOLDER/entity_rules.json
-    fi
-
-    # decode 
-    echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
-        --results-path $results_folder/test --entity-rules $ENTITY_RULES"
+if [ ! -f "$results_folder/test.actions" ];then
     
-    $test_command $FAIRSEQ_GENERATE_ARGS \
-        --path $checkpoint \
-        --results-path $results_folder/test \
-        --entity-rules $ENTITY_RULES
-
-else
-
-    # decode 
-    echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
-        --results-path $results_folder/test"
-
-    $test_command $FAIRSEQ_GENERATE_ARGS \
-        --path $checkpoint \
-        --results-path $results_folder/test
+    if [ "$TASK_TAG" == "AMR" ] ; then
+    
+        # decode 
+        echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
+            --results-path $results_folder/test --entity-rules $ENTITY_RULES"
+        
+        $test_command $FAIRSEQ_GENERATE_ARGS \
+            --path $checkpoint \
+            --results-path $results_folder/test \
+            --entity-rules $ENTITY_RULES
+    
+    else
+    
+        # decode 
+        echo "$test_command $FAIRSEQ_GENERATE_ARGS --path $checkpoint
+            --results-path $results_folder/test"
+    
+        $test_command $FAIRSEQ_GENERATE_ARGS \
+            --path $checkpoint \
+            --results-path $results_folder/test
+        
+    fi
     
 fi
 
@@ -109,7 +107,7 @@ elif [ "$TASK_TAG" == "AMR" ];then
         # add wiki
         python scripts/retyper.py \
             --inputfile ${results_folder}/test.amr \
-            --outputfile ${results_folder}.test.wiki.amr \
+            --outputfile ${results_folder}/test.wiki.amr \
             --skipretyper \
             --wikify \
             --blinkcachepath $BLINK_CACHE_PATH \

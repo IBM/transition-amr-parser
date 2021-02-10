@@ -81,21 +81,16 @@ if __name__ == '__main__':
             continue
 
         checkpoints_to_save = [
-            chp for score, chpts in best_checkpoints.items() for chp in chpts
+            os.path.basename(chp) 
+            for score, chpts in best_checkpoints.items() for chp in chpts
         ]
-
-        for checkpoint in checkpoints_to_save:
-            if args.check:
-                print(f'Would save {model_folder}/{checkpoint}')
-            else:
-                print(f'Saved {model_folder}/{checkpoint}')
 
         # sanity check, there should be 3 models to save
         sanity_checkpoints_to_save = []
         for checkpoint in glob(f'{model_folder}/checkpoint*.pt'):
-            cp_basename = os.path.basename(checkpoint)
-            if cp_basename in checkpoints_to_save:
-                sanity_checkpoints_to_save.append(cp_basename)
+            checkpoint_bname = os.path.basename(checkpoint)
+            if checkpoint_bname in checkpoints_to_save:
+                sanity_checkpoints_to_save.append(checkpoint)
         if len(sanity_checkpoints_to_save) < 3:
             print(
                 f"Expected at least 3 models to save, skipping {model_folder}"
@@ -106,12 +101,12 @@ if __name__ == '__main__':
         # delete checkpoints if the match regex, the are not pointed to by a
         # best softlink and they have been evaluated
         for checkpoint in glob(f'{model_folder}/checkpoint*.pt'):
-            cp_basename = os.path.basename(checkpoint)
+            checkpoint_bname = os.path.basename(checkpoint)
             if (
-                checkpoint_re.match(cp_basename) 
-                and cp_basename not in checkpoints_to_save
+                checkpoint_re.match(checkpoint_bname) 
+                and checkpoint_bname not in checkpoints_to_save
              ):
-                epoch = checkpoint_re.match(cp_basename).groups()[0] 
+                epoch = checkpoint_re.match(checkpoint_bname).groups()[0] 
                 actions = f'{model_folder}/epoch_tests/dec-checkpoint{epoch}.actions'
                 if os.path.isfile(actions):
                     # Then remove
@@ -120,3 +115,6 @@ if __name__ == '__main__':
                         os.remove(checkpoint)
                     else:    
                         print(f'Would rm {checkpoint}')
+            else:
+                print(f'Saving {checkpoint}')
+
