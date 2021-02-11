@@ -5,9 +5,9 @@ Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch. Th
 
 1. A State machine and oracle transforming the sequence-to-graph task into a sequence-to-sequence problem. This follows the AMR oracles in [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/abs/1707.07755v1) with improvements from [(Naseem et al 2019)](https://arxiv.org/abs/1905.13370) and [(Fernandez Astudillo et al 2020)](https://openreview.net/pdf?id=b36spsuUAde)
 
-2. Two structured sequence-to-sequence models able to encode the parser state. This includes stack-LSTM [(Dyer et al)](https://arxiv.org/pdf/1505.08075.pdf) and the stack-Transformer [(Fernandez Astudillo et al 2020)](https://openreview.net/pdf?id=b36spsuUAde). 
+2. The stack-Transformer [(Fernandez Astudillo et al 2020)](https://openreview.net/pdf?id=b36spsuUAde). A sequence to sequence model that also encodes stack and buffer state of the parser into its attention heads.
 
-Current version is `0.3.3rc`. Initial commit developed by Miguel Ballesteros and Austin Blodgett while at IBM.
+Current version is `0.3.3`. Aside from listed collaborators, the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 ## Manual Installation
 
@@ -94,6 +94,12 @@ Then just call a config to carry a desired experiment
 
 ```bash
 bash scripts/stack-transformer/experiment.sh configs/amr2_o5+Word100_roberta.large.top24_stnp6x6.sh
+```
+
+To display the results use
+
+```bash
+python scripts/stack-transformer/rank_results.py --seed-average
 ```
 
 Note that there is cluster version of this script, currently only supporting
