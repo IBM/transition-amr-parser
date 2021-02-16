@@ -20,6 +20,11 @@ checkpoint_re = re.compile(r'.*checkpoint([0-9]+)\.pt$')
 def argument_parser():
     parser = argparse.ArgumentParser(description='Tool to check experiments')
     parser.add_argument(
+        "--results",
+        help="print results for all complete models",
+        type=str,
+    )
+    parser.add_argument(
         "-c", "--config",
         help="select one experiment by a config",
         type=str,
@@ -78,7 +83,9 @@ def read_config_variables(config_path):
         'echo "DECODING_CHECKPOINT=$DECODING_CHECKPOINT"'
     )
     config_env_vars = {}
-    proc = subprocess.Popen(bash_script, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
+    proc = subprocess.Popen(
+        bash_script, stdout=subprocess.PIPE, shell=True, executable='/bin/bash'
+    )
     for line in proc.stdout:
         (key, _, value) = line.decode('utf-8').strip().partition("=")
         config_env_vars[key] = value
@@ -287,6 +294,9 @@ def link_best_model(best_n_checkpoints, config_env_vars, seed, nbest):
 
 
 def main(args):
+
+    if args.results:
+        exit(1)
 
     config_env_vars = read_config_variables(args.config)
     if args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
