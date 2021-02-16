@@ -2,6 +2,11 @@ set -o errexit
 set -o pipefail 
 # See README for instructions on how to define this. You can comment this if
 # you are ok with instal on your active python version
+
+# Clean previous env
+mv cenv_ppc/ cenv_ppc.saved
+rm -Rf cenv_ppc.saved* &
+
 . set_environment.sh
 set -o nounset 
 
@@ -11,6 +16,10 @@ conda install python=3.6.9 -y -c powerai
 # pre-install modules with conda 
 # Note spacy only available with conda. Version will not match x86 one
 conda env update -f scripts/environment_ppc.yml
+
+python -c "import torch; torch.zeros((100, 100)).cuda()"
+
+exit
 
 # install repos
 pip install pip --upgrade
