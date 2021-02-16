@@ -1,8 +1,10 @@
 import sys
+from glob import glob
 import subprocess
 import re
 import os
 import argparse
+from collections import defaultdict
 from glob import glob
 
 
@@ -22,7 +24,7 @@ def argument_parser():
     parser.add_argument(
         "--results",
         help="print results for all complete models",
-        type=str,
+        action='store_true',
     )
     parser.add_argument(
         "-c", "--config",
@@ -68,20 +70,16 @@ def argument_parser():
 def read_config_variables(config_path):
 
     # Read variables into dict
-    # TODO: Read all ^[A-Z_]+= in the file (?)
-    bash_script = (
-        f'source {config_path};'
-        'echo "ALIGNED_FOLDER=$ALIGNED_FOLDER";'
-        'echo "ORACLE_FOLDER=$ORACLE_FOLDER";'
-        'echo "EMB_FOLDER=$EMB_FOLDER";'
-        'echo "DATA_FOLDER=$DATA_FOLDER";'
-        'echo "MODEL_FOLDER=$MODEL_FOLDER";'
-        'echo "SEEDS=$SEEDS";'
-        'echo "MAX_EPOCH=$MAX_EPOCH";'
-        'echo "EVAL_INIT_EPOCH=$EVAL_INIT_EPOCH";'
-        'echo "EVAL_METRIC=$EVAL_METRIC";'
-        'echo "DECODING_CHECKPOINT=$DECODING_CHECKPOINT"'
-    )
+    # Read all variables of this pattern
+    variable_regex = re.compile('^ *([A-Za-z0-9_]+)=.*$')
+    # find variables in text and prepare evaluation script
+    bash_script = f'source {config_path};'
+    with open(config_path) as fid:
+        for line in fid:
+            if variable_regex.match(line.strip()):
+                varname = variable_regex.match(line.strip()).groups()[0]
+                bash_script += f'echo "{varname}=${varname}";'
+    # Execute script to get variable's value
     config_env_vars = {}
     proc = subprocess.Popen(
         bash_script, stdout=subprocess.PIPE, shell=True, executable='/bin/bash'
@@ -123,6 +121,20 @@ def check_model_training(seed_folder, max_epoch):
             print(f"[{curr_epoch}/{max_epoch}] {seed_folder}")
 
 
+def read_results(seed_folder, eval_metric, target_epochs):
+
+    val_result_re = re.compile(r'.*de[cv]-checkpoint([0-9]+)\.' + eval_metric)
+    validation_folder = f'{seed_folder}/epoch_tests/'
+    epochs = []
+    for result in glob(f'{validation_folder}/*.{eval_metric}'):
+        fetch = val_result_re.match(result)
+        if fetch:
+            epochs.append(int(fetch.groups()[0]))
+    missing_epochs = set(target_epochs) - set(epochs)
+    missing_epochs = sorted(missing_epochs, reverse=True)
+
+    return target_epochs, missing_epochs
+
 def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
     """
     List absolute paths of checkpoints needed for evaluation. Restrict to
@@ -136,16 +148,11 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
     eval_metric = config_env_vars['EVAL_METRIC']
     eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
 
-    val_result_re = re.compile(r'.*de[cv]-checkpoint([0-9]+)\.' + eval_metric)
-    validation_folder = f'{seed_folder}/epoch_tests/'
-    epochs = []
-    for result in glob(f'{validation_folder}/*.{eval_metric}'):
-        fetch = val_result_re.match(result)
-        if fetch:
-            epochs.append(int(fetch.groups()[0]))
+    # read results
     target_epochs = list(range(eval_init_epoch, max_epoch+1))
-    missing_epochs = set(target_epochs) - set(epochs)
-    missing_epochs = sorted(missing_epochs, reverse=True)
+    target_epochs, missing_epochs = read_results(
+        seed_folder, eval_metric, target_epochs
+    )
 
     # construct paths
     checkpoints = []
@@ -293,9 +300,100 @@ def link_best_model(best_n_checkpoints, config_env_vars, seed, nbest):
             os.symlink(source_best, target_best)
 
 
+def display_results(models_folder):
+
+    # Table header
+    header = ['data', 'oracle', 'features', 'model', 'best', 'dev', 'dev top5-beam10']
+    results = []
+    for model_folder in glob('DATA/AMR2.0/models/*/*'):
+        for seed_folder in glob(f'{model_folder}/*'):
+
+            # Read config contents and seed
+            config_env_vars = read_config_variables(f'{seed_folder}/config.sh')
+            seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
+    
+            # get experiments info
+            _, target_epochs = get_checkpoints_to_eval(
+                config_env_vars,
+                seed,
+                ready=True
+            )
+            checkpoints, scores, _, missing_epochs = get_best_checkpoints(
+                config_env_vars, seed, target_epochs, n_best=5
+            )
+            best_checkpoint, best_score = sorted(
+                zip(checkpoints, scores), key=lambda x: x[1]
+            )[-1]
+            max_epoch = config_env_vars['MAX_EPOCH']
+            best_epoch = re.match(
+                'checkpoint([0-9]+).pt', best_checkpoint
+            ).groups()[0]
+
+            # get top-5 beam result
+            # TODO: More granularity here. We may want to add many different
+            # metrics and sets
+            eval_metric = config_env_vars['EVAL_METRIC']
+            sset = 'valid'
+            cname = 'checkpoint_wiki.smatch_top5-avg'
+            results_file = \
+                f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
+            if os.path.isfile(results_file):
+                best_top5_beam10_score = \
+                    get_score_from_log(results_file, eval_metric)[0]
+            else:    
+                best_top5_beam10_score = ''
+    
+            # Append result
+            results.append([
+                config_env_vars['TASK_TAG'],
+                os.path.basename(config_env_vars['ORACLE_FOLDER'][:-1]),
+                os.path.basename(config_env_vars['EMB_FOLDER']),
+                config_env_vars['TASK'],
+                f'{best_epoch}/{max_epoch}',
+                f'{best_score:.3f}',
+                f'{best_top5_beam10_score:.3f}'
+            ])
+
+    # TODO: average over seeds
+
+    # sort by last row
+    results = sorted(results, key=lambda x: float(x[-2]))
+
+    # print
+    print_table([header] + results)
+
+
+def print_table(rows):
+
+    # data structure checks
+    assert isinstance(rows, list)
+    assert all(isinstance(row, list) for row in rows)
+    assert all(isinstance(item, str) for row in rows for item in row)
+    assert len(set([len(row) for row in rows])) == 1
+
+    # find largest elemend per column
+    num_col = len(rows[0]) 
+    max_col_size = []
+    bash_scape = re.compile('\\x1b\[\d+m|\\x1b\[0m')
+    for n in range(num_col):
+        max_col_size.append(
+            max(len(bash_scape.sub('', row[n])) for row in rows)
+        )
+
+    # format
+    print('')
+    col_sep = ' '
+    for row in rows:
+        row_str = []
+        for n, cell in enumerate(row):
+            row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
+        print(col_sep.join(row_str))
+    print('')
+
 def main(args):
 
     if args.results:
+        display_results('DATA/AMR2.0/models/')
         exit(1)
 
     config_env_vars = read_config_variables(args.config)
