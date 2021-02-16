@@ -7,7 +7,7 @@ Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch. Th
 
 2. The stack-Transformer [(Fernandez Astudillo et al 2020)](https://openreview.net/pdf?id=b36spsuUAde). A sequence to sequence model that also encodes stack and buffer state of the parser into its attention heads.
 
-Current version is `0.3.3`. Aside from listed collaborators, the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
+Current version is `0.3.3` and yields `80.5` Smatch on the AMR2.0 test-set using the default stack-Transformer configuration. Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 ## Manual Installation
 
@@ -90,6 +90,12 @@ The same for AMR1.0
 python preprocess/merge_files.py /path/to/LDC2014T12/data/amrs/split/ DATA/AMR/corpora/amr1.0/
 ```
 
+You will also need to unzip the precomputed BLINK cache
+
+```
+unzip /dccstor/ykt-parse/SHARED/CORPORA/EL/linkcache.zip
+```
+
 Then just call a config to carry a desired experiment
 
 ```bash
@@ -125,7 +131,7 @@ To use from other Python code with a trained model do
 
 ```python
 from transition_amr_parser.stack_transformer_amr_parser import AMRParser
-parser = AMRParser.from_checkpoint(in_checkpoint) 
+parser = AMRParser.from_checkpoint(in_checkpoint)
 annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
 print(annotations.toJAMRString())
 ```

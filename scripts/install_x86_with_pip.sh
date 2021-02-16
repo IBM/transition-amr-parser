@@ -20,7 +20,7 @@ bash scripts/download_and_patch_fairseq.sh
 # cd ..
 
 # install repos
-pip install --no-deps --editable fairseq-stack-transformer-v0.3.2
+pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
 
 # install alignment tools
