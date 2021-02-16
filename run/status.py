@@ -4,8 +4,6 @@ import subprocess
 import re
 import os
 import argparse
-from collections import defaultdict
-from glob import glob
 
 
 # Sanity check python3
@@ -134,6 +132,7 @@ def read_results(seed_folder, eval_metric, target_epochs):
     missing_epochs = sorted(missing_epochs, reverse=True)
 
     return target_epochs, missing_epochs
+
 
 def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
     """
@@ -303,7 +302,9 @@ def link_best_model(best_n_checkpoints, config_env_vars, seed, nbest):
 def display_results(models_folder):
 
     # Table header
-    header = ['data', 'oracle', 'features', 'model', 'best', 'dev', 'dev top5-beam10']
+    header = [
+        'data', 'oracle', 'features', 'model', 'best', 'dev', 'dev top5-beam10'
+    ]
     results = []
     for model_folder in glob('DATA/AMR2.0/models/*/*'):
         for seed_folder in glob(f'{model_folder}/*'):
@@ -311,7 +312,7 @@ def display_results(models_folder):
             # Read config contents and seed
             config_env_vars = read_config_variables(f'{seed_folder}/config.sh')
             seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
-    
+
             # get experiments info
             _, target_epochs = get_checkpoints_to_eval(
                 config_env_vars,
@@ -340,9 +341,9 @@ def display_results(models_folder):
             if os.path.isfile(results_file):
                 best_top5_beam10_score = \
                     get_score_from_log(results_file, eval_metric)[0]
-            else:    
+            else:
                 best_top5_beam10_score = ''
-    
+
             # Append result
             results.append([
                 config_env_vars['TASK_TAG'],
@@ -372,15 +373,15 @@ def print_table(rows):
     assert len(set([len(row) for row in rows])) == 1
 
     # find largest elemend per column
-    num_col = len(rows[0]) 
+    num_col = len(rows[0])
     max_col_size = []
-    bash_scape = re.compile('\\x1b\[\d+m|\\x1b\[0m')
+    bash_scape = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
     for n in range(num_col):
         max_col_size.append(
             max(len(bash_scape.sub('', row[n])) for row in rows)
         )
 
-    # format
+    # format and print
     print('')
     col_sep = ' '
     for row in rows:
@@ -389,6 +390,7 @@ def print_table(rows):
             row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
         print(col_sep.join(row_str))
     print('')
+
 
 def main(args):
 
