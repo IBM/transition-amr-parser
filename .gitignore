@@ -13,6 +13,7 @@ amr_corpus*
 #!EXPR
 */gigaword_ref.txt
 file.amr
+fairseq_ext/tests_data/*
 
 # run scripts logs
 logs*
