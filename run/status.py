@@ -234,7 +234,7 @@ def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
 
     best_n_checkpoints = [f'checkpoint{n}.pt' for _, n in best_n_epochs]
     rest_checkpoints = sorted([
-        f'{model_folder}/checkpoint{n}.pt' for _, n in rest_epochs
+        f'{seed_folder}/checkpoint{n}.pt' for _, n in rest_epochs
     ])
     best_scores = [s for s, n in best_n_epochs]
 
