@@ -1317,6 +1317,8 @@ class AMRStateMachine:
         global entity_rules_json
 
         if not entity_rules_json:
+            assert self.entity_rules_path is not None, \
+                "Need to entity_rules_path"
             with open(self.entity_rules_path, 'r', encoding='utf8') as f:
                 entity_rules_json = json.load(f)
 

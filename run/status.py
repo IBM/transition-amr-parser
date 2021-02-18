@@ -1,9 +1,9 @@
 import sys
 from glob import glob
-import subprocess
 import re
 import os
 import argparse
+from transition_amr_parser.io import read_config_variables
 
 
 # Sanity check python3
@@ -63,30 +63,6 @@ def argument_parser():
     )
     args = parser.parse_args()
     return args
-
-
-def read_config_variables(config_path):
-
-    # Read variables into dict
-    # Read all variables of this pattern
-    variable_regex = re.compile('^ *([A-Za-z0-9_]+)=.*$')
-    # find variables in text and prepare evaluation script
-    bash_script = f'source {config_path};'
-    with open(config_path) as fid:
-        for line in fid:
-            if variable_regex.match(line.strip()):
-                varname = variable_regex.match(line.strip()).groups()[0]
-                bash_script += f'echo "{varname}=${varname}";'
-    # Execute script to get variable's value
-    config_env_vars = {}
-    proc = subprocess.Popen(
-        bash_script, stdout=subprocess.PIPE, shell=True, executable='/bin/bash'
-    )
-    for line in proc.stdout:
-        (key, _, value) = line.decode('utf-8').strip().partition("=")
-        config_env_vars[key] = value
-
-    return config_env_vars
 
 
 def print_step_status(step_folder):
