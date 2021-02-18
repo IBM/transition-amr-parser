@@ -18,6 +18,7 @@ from fairseq_ext.utils import post_process_action_pointer_prediction, clean_poin
 from transition_amr_parser.amr_state_machine import AMRStateMachine, get_spacy_lemmatizer
 from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.io import read_config_variables
 
 
 def load_models_and_task(args, use_cuda, task=None):
@@ -183,34 +184,31 @@ class AMRParser:
         else:
             raise ValueError
 
-        checkpoint_folder = os.path.dirname(checkpoint.split(':')[0])
-        model_folder = os.path.dirname(checkpoint_folder)
+        model_folder = os.path.dirname(checkpoint.split(':')[0])
         config_data_path = None
         for dfile in os.listdir(model_folder):
-            if dfile.startswith('config_data'):
-                config_data_path = dfile
+            if dfile.startswith('config.sh'):
+                config_data_path = os.path.join(model_folder, dfile)
                 break
-        if config_data_path is None:
-            raise ValueError('data configuration file not found')
-        else:
-            config_data_path = os.path.join(model_folder, config_data_path)
+        assert config_data_path is not None, \
+            'data configuration file not found'
 
-        config_data_dict = load_args_from_config(config_data_path)
+        config_data_dict = read_config_variables(config_data_path)
         bert_layers = list(map(int, config_data_dict['BERT_LAYERS'].split()))
-
+        roberta = load_roberta(name=pretrained_embed,
+                               roberta_cache_path=roberta_cache_path,
+                               roberta_use_gpu=use_cuda)
         embeddings = PretrainedEmbeddings(name=pretrained_embed,
                                           bert_layers=bert_layers,
-                                          model=load_roberta(name=pretrained_embed,
-                                                             roberta_cache_path=roberta_cache_path,
-                                                             roberta_use_gpu=use_cuda))
+                                          model=roberta)
 
         print("Finished loading models")
 
         # ===== load other args =====
         # TODO adapt to the new path organization, or allow feeding from outside
         machine_type = args.machine_type
-        machine_rules = os.path.join(config_data_dict['ROOTDIR'], config_data_dict['ORACLEDIR'],
-                                     'oracle', 'train.rules.json')
+        machine_rules = os.path.join(config_data_dict['ORACLE_FOLDER'],
+                                     'train.rules.json')
         assert os.path.isfile(machine_rules), f"Missing {machine_rules}"
         args.machine_rules = machine_rules
 
