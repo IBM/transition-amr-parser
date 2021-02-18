@@ -17,10 +17,6 @@ conda install python=3.6.9 -y -c powerai
 # Note spacy only available with conda. Version will not match x86 one
 conda env update -f scripts/environment_ppc.yml
 
-python -c "import torch; torch.zeros((100, 100)).cuda()"
-
-exit
-
 # install repos
 pip install pip --upgrade
 pip install -r scripts/requirements_ppc.txt

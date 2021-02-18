@@ -1,5 +1,6 @@
 import re
 import json
+import subprocess
 from collections import Counter
 from transition_amr_parser.amr import JAMR_CorpusReader
 import ast
@@ -60,6 +61,33 @@ def read_frame(xml_file):
 
 
     return propbank
+
+
+def read_config_variables(config_path):
+    """
+    Read an experiment bash config (e.g. the ones in configs/ )
+    """
+
+    # Read variables into dict
+    # Read all variables of this pattern
+    variable_regex = re.compile('^ *([A-Za-z0-9_]+)=.*$')
+    # find variables in text and prepare evaluation script
+    bash_script = f'source {config_path};'
+    with open(config_path) as fid:
+        for line in fid:
+            if variable_regex.match(line.strip()):
+                varname = variable_regex.match(line.strip()).groups()[0]
+                bash_script += f'echo "{varname}=${varname}";'
+    # Execute script to get variable's value
+    config_env_vars = {}
+    proc = subprocess.Popen(
+        bash_script, stdout=subprocess.PIPE, shell=True, executable='/bin/bash'
+    )
+    for line in proc.stdout:
+        (key, _, value) = line.decode('utf-8').strip().partition("=")
+        config_env_vars[key] = value
+
+    return config_env_vars
 
 
 def read_action_scores(file_path):
