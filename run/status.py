@@ -2,7 +2,9 @@ import sys
 from glob import glob
 import re
 import os
+from datetime import datetime
 import argparse
+from statistics import mean
 from transition_amr_parser.io import read_config_variables
 
 
@@ -131,6 +133,7 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
 
     # construct paths
     checkpoints = []
+    timestamps = []
     for epoch in missing_epochs:
         checkpoint = f'{seed_folder}/checkpoint{epoch}.pt'
         if os.path.isfile(checkpoint) or not ready:
@@ -275,19 +278,76 @@ def link_best_model(best_n_checkpoints, config_env_vars, seed, nbest):
             os.symlink(source_best, target_best)
 
 
-def display_results(models_folder):
+def get_average_time_between_write(files):
+
+    timestamps = []
+    for dfile in files:
+        timestamps.append((
+            os.path.basename(dfile),
+            datetime.fromtimestamp(os.stat(dfile).st_mtime)
+        ))
+    timestamps = sorted(timestamps, key=lambda x: x[1])
+    deltas = [
+        (x[1] - y[1]).seconds / 60. 
+        for x, y in zip(timestamps[1:], timestamps[:-1])
+    ]
+    if len(deltas) < 5:
+       return  None
+    else:
+        return mean(deltas[2:-2])
+
+
+def get_speed_statistics(seed_folder):
+
+    files = []
+    for checkpoint in glob(f'{seed_folder}/checkpoint*.pt'):
+        if checkpoint_re.match(checkpoint):
+            files.append(checkpoint)
+
+    minutes_per_epoch = get_average_time_between_write(files)
+
+    files = []
+    for checkpoint in glob(f'{seed_folder}/epoch_tests/*.actions'):
+        files.append(checkpoint)
+
+    minutes_per_test = get_average_time_between_write(files)
+
+    return minutes_per_epoch, minutes_per_test
+
+
+def display_results(models_folder, set_seed):
 
     # Table header
     header = [
-        'data', 'oracle', 'features', 'model', 'best', 'dev', 'dev top5-beam10'
+        'data', 'oracle', 'features', 'model', 'best', 'dev', 
+        'dev top5-beam10', 'train time (h)', 'test time (m)'
     ]
     results = []
-    for model_folder in glob('DATA/AMR2.0/models/*/*'):
+
+
+    for model_folder in glob(f'{models_folder}/*/*'):
         for seed_folder in glob(f'{model_folder}/*'):
+
+            if set_seed and f'seed{set_seed}' not in seed_folder:
+                continue
+            else:
+                seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
 
             # Read config contents and seed
             config_env_vars = read_config_variables(f'{seed_folder}/config.sh')
-            seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
+
+            # Get speed stats
+            minutes_per_epoch, minutes_per_test = \
+                get_speed_statistics(seed_folder)
+            max_epoch = int(config_env_vars['MAX_EPOCH'])
+            if minutes_per_epoch and minutes_per_epoch > 1:
+                epoch_time = f'{minutes_per_epoch/60.*max_epoch:.1f}'
+            else:
+                epoch_time = 'N/A'
+            if minutes_per_test and minutes_per_test > 1:
+                test_time = f'{minutes_per_test:.1f}'
+            else:
+                test_time = 'N/A'
 
             # get experiments info
             _, target_epochs = get_checkpoints_to_eval(
@@ -298,6 +358,9 @@ def display_results(models_folder):
             checkpoints, scores, _, missing_epochs = get_best_checkpoints(
                 config_env_vars, seed, target_epochs, n_best=5
             )
+            if scores == []:
+                continue
+
             best_checkpoint, best_score = sorted(
                 zip(checkpoints, scores), key=lambda x: x[1]
             )[-1]
@@ -328,13 +391,15 @@ def display_results(models_folder):
                 config_env_vars['TASK'],
                 f'{best_epoch}/{max_epoch}',
                 f'{best_score:.3f}',
-                f'{best_top5_beam10_score:.3f}'
+                f'{best_top5_beam10_score:.3f}',
+                epoch_time,
+                test_time
             ])
 
     # TODO: average over seeds
 
     # sort by last row
-    results = sorted(results, key=lambda x: float(x[-2]))
+    results = sorted(results, key=lambda x: float(x[-4]))
 
     # print
     print_table([header] + results)
@@ -371,7 +436,7 @@ def print_table(rows):
 def main(args):
 
     if args.results:
-        display_results('DATA/AMR2.0/models/')
+        display_results('DATA/AMR2.0/models/', args.seed)
         exit(1)
 
     config_env_vars = read_config_variables(args.config)
