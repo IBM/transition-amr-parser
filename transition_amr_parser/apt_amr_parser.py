@@ -1,9 +1,14 @@
 # Standalone AMR parser from an existing trained APT model
 
 import os
+import time
 import math
 import copy
+import signal
+import argparse
+from datetime import timedelta
 
+from ipdb import set_trace
 from tqdm import tqdm
 import torch
 from fairseq import checkpoint_utils, utils
@@ -19,6 +24,72 @@ from transition_amr_parser.amr_state_machine import AMRStateMachine, get_spacy_l
 from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.utils import yellow_font
 from transition_amr_parser.io import read_config_variables
+
+
+def argument_parsing():
+
+    # Argument hanlding
+    parser = argparse.ArgumentParser(
+        description='Call parser from the command line'
+    )
+    parser.add_argument(
+        '-i', '--in-tokenized-sentences',
+        type=str,
+        help='File with one __tokenized__ sentence per line'
+    )
+    parser.add_argument(
+        '--service',
+        action='store_true',
+        help='Prompt user for sentences'
+    )
+    parser.add_argument(
+        '-c', '--in-checkpoint',
+        type=str,
+        required=True,
+        help='one fairseq model checkpoint (or various, separated by :)'
+    )
+    parser.add_argument(
+        '-o', '--out-amr',
+        type=str,
+        help='File to store AMR in PENNMAN format'
+    )
+    parser.add_argument(
+        '--roberta-batch-size',
+        type=int,
+        default=10,
+        help='Batch size for roberta computation (watch for OOM)'
+    )
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=128,
+        help='Batch size for decoding (excluding roberta)'
+    )
+    # step by step parameters
+    parser.add_argument(
+        "--step-by-step",
+        help="pause after each action",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--set-trace",
+        help="breakpoint after each action",
+        action='store_true',
+        default=False
+    )
+    args = parser.parse_args()
+
+    # sanity checks
+    assert bool(args.in_tokenized_sentences) or bool(args.service), \
+        "Must either specify --in-tokenized-sentences or set --service"
+
+    return args
+
+
+def ordered_exit(signum, frame):
+    print("\nStopped by user\n")
+    exit(0)
 
 
 def load_models_and_task(args, use_cuda, task=None):
@@ -90,6 +161,7 @@ class AMRParser:
         model_args,       # args read from the saved model checkpoint
         to_amr=True,      # whether to output the final AMR graph
         entities_with_preds=None,        # special entities in the data oracle
+        entity_rules=None,               # entity rules file path for postprocessing to recover amr
         embeddings=None,  # PyTorch RoBERTa model (if dealing with token input)
         inspector=None    # function to call after each step
     ):
@@ -116,6 +188,7 @@ class AMRParser:
             # Initialize lemmatizer as this is slow
             self.lemmatizer = get_spacy_lemmatizer()
             self.entities_with_preds = entities_with_preds
+            self.entity_rules = entity_rules
 
     @classmethod
     def default_args(cls, checkpoint=None, fp16=False):
@@ -213,9 +286,11 @@ class AMRParser:
         args.machine_rules = machine_rules
 
         entities_with_preds = config_data_dict['ENTITIES_WITH_PREDS'].split(',')
+        entity_rules = os.path.join(config_data_dict['ORACLE_FOLDER'], 'entity_rules.json')
 
         return cls(models,task, task.src_dict, task.tgt_dict, machine_rules, machine_type,
                    use_cuda, args, model_args, to_amr=True, entities_with_preds=entities_with_preds,
+                   entity_rules=entity_rules,
                    embeddings=embeddings, inspector=inspector)
 
     def get_bert_features_batched(self, sentences, batch_size):
@@ -309,9 +384,12 @@ class AMRParser:
                 if to_amr:
                     machine = AMRStateMachine(tokens=src_tokens, amr_graph=True,
                                               spacy_lemmatizer=self.lemmatizer,
-                                              entities_with_preds=self.entities_with_preds)
+                                              entities_with_preds=self.entities_with_preds,
+                                              entity_rules=self.entity_rules)
                     # CLOSE action is internally managed
-                    machine.apply_actions(actions if actions[-1] == 'CLOSE' else actions + ['CLOSE'])
+                    machine.apply_actions(actions if actions[-1] == 'CLOSE' else actions + ['CLOSE'], inspector=self.inspector)
+
+
                 else:
                     machine = None
 
@@ -391,3 +469,69 @@ class AMRParser:
             results.append(amr_annotations[i])
 
         return results, predictions
+
+
+def simple_inspector(machine):
+    '''
+    print the first machine
+    '''
+    os.system('clear')
+    print(machine)
+    input("")
+
+
+def breakpoint_inspector(machine):
+    '''
+    call set_trace() on the first machine
+    '''
+    os.system('clear')
+    print(machine)
+    set_trace()
+
+
+def main():
+
+    # argument handling
+    args = argument_parsing()
+
+    # set inspector to use on action loop
+    inspector = None
+    if args.set_trace:
+        inspector = breakpoint_inspector
+    if args.step_by_step:
+        inspector = simple_inspector
+
+    # load parser
+    start = time.time()
+    parser = AMRParser.from_checkpoint(args.in_checkpoint, inspector=inspector)
+    end = time.time()
+    time_secs = timedelta(seconds=float(end-start))
+    print(f'Total time taken to load parser: {time_secs}')
+
+    # TODO: max batch sizes could be computed from max sentence length
+    if args.service:
+
+        # set orderd exit
+        signal.signal(signal.SIGINT, ordered_exit)
+        signal.signal(signal.SIGTERM, ordered_exit)
+
+        while True:
+            sentence = input("Write sentence:\n")
+            os.system('clear')
+            if not sentence.strip():
+                continue
+            result = parser.parse_sentences(
+                [sentence.split()],
+                batch_size=args.batch_size,
+                roberta_batch_size=args.roberta_batch_size,
+            )
+            #
+            os.system('clear')
+            print('\n')
+            print(''.join(result[0]))
+
+    else:
+
+        # Parse sentences
+        parse_sentences(parser, args.in_tokenized_sentences, args.batch_size,
+                        args.roberta_batch_size, args.out_amr)

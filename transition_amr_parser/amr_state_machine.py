@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from copy import deepcopy
 
 import spacy
@@ -104,6 +104,46 @@ def get_spacy_lemmatizer():
         lemmatizer = spacy.load('en', disable=['parser', 'ner'])
     lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
     return lemmatizer
+
+
+def get_graph_str(amr, alignments):
+
+    # nodes
+    graph_str = ''
+    nodes = []
+    for stack0, token_pos in alignments.items():
+        if stack0 in amr.nodes:
+            nodes.append(stack0)
+    
+    # directed edges
+    child2parents = defaultdict(list)        
+    parent2child = defaultdict(list)        
+    edge_labels = {}
+    for parent, label, child in amr.edges:
+        child2parents[child].append(parent)
+        parent2child[parent].append(child)
+        edge_labels[(parent, child)] = label
+    
+    # root nodes
+    root_nodes = [node for node in nodes if node not in child2parents]
+    
+    # transverse depth first and print graph
+    pad = '    '
+    for node in root_nodes:
+        graph_str += f'{amr.nodes[node]}\n'
+        path = [node]
+        while path:
+            if len(parent2child[path[-1]]):
+                new_node = parent2child[path[-1]].pop()
+                depth = len(path) 
+                edge = blue_font(edge_labels[(path[-1], new_node)])
+                graph_str += f'{pad*depth} {edge} {amr.nodes[new_node]}\n'
+                path.append(new_node)
+            else:
+                # leaf found
+                path.pop()
+
+    return graph_str
 
 
 class AMRStateMachine:
@@ -233,18 +273,56 @@ class AMRStateMachine:
 
     def __str__(self):
         """Command line styling"""
-        display_str = ""
-        # Tokens
-        tokens_str = ""
-        for position, token in enumerate(self.tokens):
-            pad = ' ' if position > 0 else ''
-            if position == self.tok_cursor:
-                tokens_str += f'{pad}{stack_style(token)}'
-            else:
-                tokens_str += f'{pad}{token}'
+
         # Actions
         action_str = ' '.join([a for a in self.actions])
-        return tokens_str + '\n\n' + action_str
+        # update display str
+        display_str = f'{action_str}\n'
+
+        # keep track of merged tokens
+        merged_pos = self.merged_tokens.get(self.tok_cursor, [])
+
+        # mask view
+        mask_view = []
+        pointer_view = []
+        for position in range(len(self.tokens)):
+            # token
+            token = str(self.tokens[position])
+            len_token = len(token)
+            # color depending on position
+            if position == self.tok_cursor:
+                token = stack_style(token) + ' '
+            elif position in merged_pos:
+                token = stack_style(token + ' ')
+            else:
+                token += ' '
+            mask_view.append(token)
+
+        mask_view_str = "".join(mask_view)
+        pointer_view_str = "".join(pointer_view)
+        # update display str
+        display_str += "%s\n%s\n\n" % (pointer_view_str, mask_view_str)
+
+        # nodes
+        node_items = []
+        for stack0, token_pos in self.alignments.items():
+            if stack0 not in self.amr.nodes:
+                continue
+            node = self.amr.nodes[stack0]
+            if isinstance(token_pos, list):
+                tokens = " ".join(self.tokens[p] for p in token_pos)
+            else:
+                tokens = self.tokens[token_pos]
+            node_items.append(f'{tokens}, {node}')
+        nodes_str = "  ".join(node_items)
+        # update display str
+        display_str += f"{nodes_str}\n\n" 
+
+        # Graph 
+        if self.amr_graph:
+            display_str += get_graph_str(self.amr, self.alignments)
+
+        return display_str
 
     def __deepcopy__(self, memo):
         """
@@ -625,9 +703,11 @@ class AMRStateMachine:
 
         return
 
-    def apply_actions(self, actions, **kwargs):
+    def apply_actions(self, actions, inspector=None,**kwargs):
         # no special extra actions such as CLOSE, thus `apply_actions` can be applied multiple times sequentially
         for action in actions:
+            if inspector:
+                inspector(self)
             self.apply_action(action, **kwargs)
 
     def _close(self):
