@@ -1,12 +1,29 @@
-import time
+# Standalone AMR parser from an existing trained APT model
+
 import os
+import time
+import math
+import copy
 import signal
 import argparse
-from pdb import set_trace
 from datetime import timedelta
+
+from ipdb import set_trace
+from tqdm import tqdm
+import torch
+from fairseq import checkpoint_utils, utils
+from fairseq.models.roberta import RobertaModel
 from fairseq.tokenizer import tokenize_line
-from transition_amr_parser.io import read_sentences
-from transition_amr_parser.apt_amr_parser import AMRParser
+
+from fairseq_ext import options    # this is key to recognizing the customized arguments
+from fairseq_ext.roberta.pretrained_embeddings import PretrainedEmbeddings
+from fairseq_ext.data.amr_action_pointer_dataset import collate
+# OR (same results) from fairseq_ext.data.amr_action_pointer_graphmp_dataset import collate
+from fairseq_ext.utils import post_process_action_pointer_prediction, clean_pointer_arcs
+from transition_amr_parser.amr_state_machine import AMRStateMachine, get_spacy_lemmatizer
+from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
+from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.io import read_config_variables
 
 
 def argument_parsing():
@@ -97,11 +114,7 @@ def parse_sentences(parser, in_tokenized_sentences, batch_size,
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to parse sentences: {time_secs}')
 
-    # write annotations
-    if out_amr:
-        with open(out_amr, 'w') as fid:
-            for i in range(0, len(sentences)):
-                fid.write(result[i])
+        return results, predictions
 
 
 def simple_inspector(machine):
@@ -109,7 +122,6 @@ def simple_inspector(machine):
     print the first machine
     '''
     os.system('clear')
-    machine = machine.machines[0]
     print(machine)
     input("")
 
@@ -119,7 +131,6 @@ def breakpoint_inspector(machine):
     call set_trace() on the first machine
     '''
     os.system('clear')
-    machine = machine.machines[0]
     print(machine)
     set_trace()
 
@@ -163,7 +174,7 @@ def main():
             #
             os.system('clear')
             print('\n')
-            print(result[0])
+            print(''.join(result[0]))
 
     else:
 
