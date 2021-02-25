@@ -23,7 +23,7 @@ from fairseq_ext.utils import post_process_action_pointer_prediction, clean_poin
 from transition_amr_parser.amr_state_machine import AMRStateMachine, get_spacy_lemmatizer
 from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.utils import yellow_font
-from transition_amr_parser.io import read_config_variables
+from transition_amr_parser.io import read_config_variables, read_tokenized_sentences
 
 
 def argument_parsing():
@@ -179,5 +179,11 @@ def main():
     else:
 
         # Parse sentences
-        parse_sentences(parser, args.in_tokenized_sentences, args.batch_size,
-                        args.roberta_batch_size, args.out_amr)
+        result = parser.parse_sentences(
+            read_tokenized_sentences(args.in_tokenized_sentences),
+            batch_size=args.batch_size, 
+            roberta_batch_size=args.roberta_batch_size
+        )
+
+        with open(args.out_amr, 'w') as fid:
+            fid.write(''.join(result[0]))
