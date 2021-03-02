@@ -73,7 +73,10 @@ class CompositeEmbeddingBART(CompositeEmbedding):
     def __init__(self, bart, bart_embeddings, dictionary):
         super().__init__(bart.task.target_dictionary, bart_embeddings)
 
-        self.model = bart    # fairseq.models.bart.hub_interface.BARTHubInterface
+        # self.register_buffer('model', bart, persistent=False)  # persistent flag is only available for PyTorch >= 1.6
+        # self.register_buffer('model', bart)    # does not work: could only be Tensor or None
+        self.model = [bart]    # NOTE workaround to make it a List, so that it does not appear in state_dict
+        # fairseq.models.bart.hub_interface.BARTHubInterface
         # `bart_embeddings` is typically `bart.model.decoder.embed_tokens` (torch.nn.Embedding)
 
         self.dictionary = dictionary
@@ -97,7 +100,7 @@ class CompositeEmbeddingBART(CompositeEmbedding):
             if transform is not None:
                 sym = transform(sym)
             # remove BOS and EOS symbols
-            base_indices = self.model.encode(sym)[1:-1].tolist()
+            base_indices = self.model[0].encode(sym)[1:-1].tolist()
         return base_indices
 
     def sub_tokens(self, sym, transform=None):
@@ -108,7 +111,7 @@ class CompositeEmbeddingBART(CompositeEmbedding):
             if transform is not None:
                 sym = transform(sym)
             # split the tokens based on the bart bpe
-            splitted = list(map(self.model.bpe.decode, self.model.bpe.encode(sym).split()))
+            splitted = list(map(self.model[0].bpe.decode, self.model[0].bpe.encode(sym).split()))
         # return type is List
         return splitted
 

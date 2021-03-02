@@ -30,7 +30,7 @@ def collate_embeddings(values, pad_idx, eos_idx=None, left_pad=False, move_eos_t
 
     for i, v in enumerate(values):
         copy_tensor(
-            v, 
+            v,
             res[i][size - len(v):, :] if left_pad else res[i][:len(v), :]
         )
     return res
@@ -111,14 +111,14 @@ def collate_target_masks(sentence_batch, pad_idx, eos_idx=None, left_pad_target=
 
     # store active indices mapping
     logit_indices_batch = {
-        abs_idx: rel_idx 
+        abs_idx: rel_idx
         for rel_idx, abs_idx in enumerate(logit_indices_batch)
     }
 
     return batch_logits_mask, logit_indices_batch
 
 
-def collate_wp_idx(values, pad_idx, eos_idx, left_pad, 
+def collate_wp_idx(values, pad_idx, eos_idx, left_pad,
                    move_eos_to_beginning=False, reverse=False):
     """
     Convert a list of 1d tensor indices into a padded 2d tensor.
@@ -153,7 +153,7 @@ def collate_wp_idx(values, pad_idx, eos_idx, left_pad,
                 index = torch.arange(
                     source_tensor[0] + 1,
                     source_tensor[0] + pad_size + 1
-                ).flip(0) 
+                ).flip(0)
                 pad_size = 0
             else:
                 index = torch.arange(pad_size)
@@ -224,24 +224,24 @@ class Examples():
         # make sure right number of examples
         assert all(len(x) == self.nbest for x in results.values())
 
-        # Write data 
+        # Write data
         dirname = os.path.dirname(self.path.split(':')[0])
         if self.results_path:
-            file_path = f'{self.results_path}' 
+            file_path = f'{self.results_path}'
         else:
-            file_path = f'{dirname}/{self.gen_subset}' 
+            file_path = f'{dirname}/{self.gen_subset}'
         # Write actions
         for n in range(self.nbest):
             if n > 0:
                 dfile_path = f'{file_path}.{n}'
-            else:    
+            else:
                 dfile_path = file_path
             with open(f'{dfile_path}.actions', 'w') as fid:
                 for sid in sample_ids:
                     fid.write(
                         "{}\n".format(results[sid][n]['hypothesis'])
                     )
-        # Write source sentences            
+        # Write source sentences
         with open(f'{file_path}.en', 'w') as fid:
             for sid in sample_ids:
                 fid.write("{}\n".format(results[sid][0]['src_str']))

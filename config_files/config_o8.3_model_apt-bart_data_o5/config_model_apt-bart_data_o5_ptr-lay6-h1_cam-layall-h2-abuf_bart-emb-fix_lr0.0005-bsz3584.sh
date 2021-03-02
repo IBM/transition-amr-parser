@@ -37,10 +37,10 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=1
 
-tgt_factored_emb_out=0
-
 arch=transformer_tgt_pointer_bart_base
 initialize_with_bart=1
+bart_encoder_backprop=1
+bart_emb_backprop=0
 
 pointer_dist_decoder_selfattn_layers="5"
 pointer_dist_decoder_selfattn_heads=1
@@ -68,10 +68,10 @@ eval_init_epoch=81
 # max_epoch=5
 # eval_init_epoch=1
 
-lr=${lr:-0.00005}
-max_tokens=2048
-warmup=${warmup:-4000}
-dropout=${dropout:-0.3}
+lr=0.0005
+max_tokens=3584
+warmup=4000
+dropout=0.3
 
 
 ##### set the experiment dir name based on model configurations
@@ -134,22 +134,36 @@ else
     tis_tag=""
 fi
 
-# target factored embeddings
-if [[ $tgt_factored_emb_out == 1 ]]; then
-    fe_tag=_fac-emb${tgt_factored_emb_out}
+# initialize with bart
+if [[ $initialize_with_bart == 0 ]]; then
+    init_tag=_bart-init${initialize_with_bart}
 else
-    fe_tag=""
+    init_tag=""
 fi
 
-# # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${fe_tag}
+# fix bart encoder
+if [[ $bart_encoder_backprop == 0 ]]; then
+    [[ $initialize_with_bart == 0 ]] && echo "must initialize with bart to fix encoder" && exit 1
+    enc_fix_tag=_bart-enc-fix
+else
+    enc_fix_tag=""
+fi
 
-# # specific model directory name with a set random seed
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}
+# fix bart embedding
+if [[ $bart_emb_backprop == 0 ]]; then
+    [[ $initialize_with_bart == 0 ]] && echo "must initialize with bart to fix encoder" && exit 1
+    emb_fix_tag=_bart-emb-fix
+else
+    emb_fix_tag=""
+fi
+
+# combine different model configuration tags to the name
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
 
 
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/exp_debug6
+# specific model directory name with a set random seed
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}_lr${lr}-mt${max_tokens}-wm${warmup}-dp${dropout}
+
 
 
 ###############################################################
