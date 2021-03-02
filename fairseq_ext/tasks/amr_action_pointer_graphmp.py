@@ -142,7 +142,27 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     return dataset
 
 
-@ register_task('amr_action_pointer_graphmp')
+def sanity_check_dirs(feat_path, models_path, lang):
+
+    #
+    model_dict_path = os.path.join(models_path, 'dict.{}.txt'.format(lang))
+    features_dict_path = os.path.join(feat_path, 'dict.{}.txt'.format(lang))
+    if (
+        not os.path.isfile(model_dict_path)
+        and not os.path.isfile(features_dict_path)
+    ):
+        raise Exception(
+            'This model seems to have been created with an older code '
+            f'version. Its missing {model_dict_path}'
+        )
+    elif not os.path.isfile(model_dict_path):
+        raise Exception(
+            'This model seems to have been created with an older code '
+            f'version. Copy {features_dict_path} to {model_dict_path}'
+        )
+
+
+@register_task('amr_action_pointer_graphmp')
 class AMRActionPointerGraphMPParsingTask(FairseqTask):
     """
     Translate from one (source) language to another (target) language.
@@ -227,8 +247,13 @@ class AMRActionPointerGraphMPParsingTask(FairseqTask):
         assert args.target_lang == 'actions', 'target extension must be "actions"'
         args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
         args.target_lang_pos = 'actions_pos'
-        src_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.source_lang)))
-        tgt_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.target_lang_nopos)))
+
+        # Check the model is recient enough to support standalone (v0.4.0 will)
+        sanity_check_dirs(paths[0], args.save_dir, args.source_lang)
+        sanity_check_dirs(paths[0], args.save_dir, args.target_lang_nopos)
+
+        src_dict = cls.load_dictionary(os.path.join(args.save_dir, 'dict.{}.txt'.format(args.source_lang)))
+        tgt_dict = cls.load_dictionary(os.path.join(args.save_dir, 'dict.{}.txt'.format(args.target_lang_nopos)))
         # TODO target dictionary 'actions_nopos' is hard coded now; change it later
         assert src_dict.pad() == tgt_dict.pad()
         assert src_dict.eos() == tgt_dict.eos()
