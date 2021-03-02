@@ -1,18 +1,9 @@
 from concurrent import futures
 import logging
-
-import grpc
 import torch
-import json
-import amr_pb2
-import amr_pb2_grpc
 
-from transition_amr_parser.amr_parser import AMRParser
-import transition_amr_parser.utils as utils
-from transition_amr_parser.utils import print_log
-from transition_amr_parser.learn import get_bert_embeddings
+from transition_amr_parser.parse import AMRParser
 
-from fairseq.models.roberta import RobertaModel
 import argparse
 
 def argument_parser():
@@ -20,7 +11,8 @@ def argument_parser():
     parser.add_argument(
         "--in-model",
         help="path to the AMR parsing model",
-        type=str
+        type=str,
+        required=True
     )
     parser.add_argument(
         "--roberta-cache-path",
@@ -32,40 +24,65 @@ def argument_parser():
         help="GRPC port",
         type=str
     )
+    parser.add_argument(
+        "--max-workers",
+        help="Maximum nonumber of threads",
+        default=10,
+        type=int
+    )
+    parser.add_argument(
+        "--debug",
+        help="Sentence for local debugging",
+        type=str
+    )
     args = parser.parse_args()
 
     # Sanity checks
-    assert args.in_model
-    assert args.port
+    if not args.debug:
+        assert args.port, "Must provide --port"
 
     return args
 
 class Parser():
 
-    def __init__(self, model_path, roberta_cache_path=None, roberta_use_gpu=False, model_use_gpu=False):
-        if torch.cuda.is_available():
-            roberta_use_gpu = True
-            model_use_gpu = True
-        self.parser = AMRParser(model_path, roberta_cache_path=roberta_cache_path, roberta_use_gpu=roberta_use_gpu, model_use_gpu=model_use_gpu)
+    def __init__(self, model_path, roberta_cache_path=None):
+        self.parser = AMRParser.from_checkpoint(
+            model_path,
+            roberta_cache_path=roberta_cache_path
+        )
 
     def process(self, request, context):
         word_tokens = request.word_infos
         tokens = [word_token.token for word_token in word_tokens]
-        amr = self.parser.parse_sentence(tokens)
-        return amr_pb2.AMRResponse(amr_parse=amr.toJAMRString())
+        amr = self.parser.parse_sentences(tokens)[0][0]
+        return amr_pb2.AMRResponse(amr_parse=amr)
 
-def serve():
-    # Argument handling
-    args = argument_parser()
+    def debug_process(self, tokens):
+        amr = self.parser.parse_sentences([tokens])[0][0]
+        return amr
 
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    amr_pb2_grpc.add_AMRServerServicer_to_server(Parser(model_path=args.in_model, roberta_cache_path=args.roberta_cache_path), server)
+
+def serve(args):
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
+    model = Parser(model_path=args.in_model, roberta_cache_path=args.roberta_cache_path)
+    amr_pb2_grpc.add_AMRServerServicer_to_server(model, server)
     server.add_insecure_port('[::]:' + args.port)
     server.start()
     server.wait_for_termination()
 
+
 if __name__ == '__main__':
+
+    # Argument handling
+    args = argument_parser()
+
     logging.basicConfig()
-    serve()
-
-
+    if args.debug:
+        model = Parser(
+            model_path=args.in_model, roberta_cache_path=args.roberta_cache_path)
+        print(model.debug_process(args.debug.split()))
+    else:
+        import grpc
+        import amr_pb2
+        import amr_pb2_grpc
+        serve()
