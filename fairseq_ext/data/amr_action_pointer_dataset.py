@@ -44,7 +44,7 @@ def collate(
         src_tokens = src_tokens.index_select(0, sort_order)
     else:
         # source tokens are original string form, which is only a place holder since the embeddings are directly used
-        assert samples[0].get('source_fix_emb', None) is not None
+        # assert samples[0].get('source_fix_emb', None) is not None
         src_tokens = [s['source'] for s in samples]
         src_lengths = torch.LongTensor([len(s['source']) for s in samples])
         # sort by descending source length
@@ -95,8 +95,11 @@ def collate(
             pad_idx, eos_idx, left_pad_source, move_eos_to_beginning
         )
 
-    source_fix_emb = merge_embeddings('source_fix_emb', left_pad_source)
-    source_fix_emb = source_fix_emb.index_select(0, sort_order)
+    if samples[0].get('source_fix_emb', None) is not None:
+        source_fix_emb = merge_embeddings('source_fix_emb', left_pad_source)
+        source_fix_emb = source_fix_emb.index_select(0, sort_order)
+    else:
+        source_fix_emb = None
 
     # Word-pieces
     src_wordpieces = merge('src_wordpieces', left_pad=left_pad_source)
@@ -229,15 +232,9 @@ def collate(
         'net_input': {
             'src_tokens': src_tokens,
             'src_lengths': src_lengths,
-            'source_fix_emb': source_fix_emb,
+            'src_fix_emb': source_fix_emb,
             'src_wordpieces': src_wordpieces,
             'src_wp2w': src_wp2w,
-            # not used below
-            'memory': memory,
-            'memory_pos': memory_pos,
-            'logits_mask': logits_mask,
-            'logits_indices': logits_indices,
-            # not used above
             # AMR actions states
             'tgt_vocab_masks': tgt_vocab_masks,
             'tgt_actnode_masks': tgt_actnode_masks,
@@ -275,7 +272,7 @@ class AMRActionPointerDataset(FairseqDataset):
     def __init__(self, *,
                  src_tokens=None,
                  src=None, src_sizes=None, src_dict=None,
-                 src_fix_emb=None, src_fix_emb_sizes=None,
+                 src_fix_emb=None, src_fix_emb_sizes=None, src_fix_emb_use=False,
                  src_wordpieces=None, src_wordpieces_sizes=None,
                  src_wp2w=None, src_wp2w_sizes=None,
                  tgt=None, tgt_sizes=None, tgt_dict=None,
@@ -321,6 +318,9 @@ class AMRActionPointerDataset(FairseqDataset):
         # src RoBERTa embeddings
         self.src_fix_emb = src_fix_emb
         self.src_fix_emb_sizes = src_fix_emb_sizes
+
+        self.src_fix_emb_use = src_fix_emb_use    # whether to use fix pretrained embeddings for src
+
         self.src_wordpieces = src_wordpieces
         self.src_wordpieces_sizes = src_wordpieces_sizes
         self.src_wp2w = src_wp2w
@@ -378,9 +378,12 @@ class AMRActionPointerDataset(FairseqDataset):
         tgt_pos_item = self.tgt_pos[index]
 
         # Deduce pretrained embeddings size
-        pretrained_embed_dim = self.src_fix_emb[index].shape[0] // len(src_item)
-        shape_factor = (self.src_fix_emb[index].shape[0] // pretrained_embed_dim, pretrained_embed_dim)
-        src_fix_emb_item = self.src_fix_emb[index].view(*shape_factor)
+        if self.src_fix_emb_use:
+            pretrained_embed_dim = self.src_fix_emb[index].shape[0] // len(src_item)
+            shape_factor = (self.src_fix_emb[index].shape[0] // pretrained_embed_dim, pretrained_embed_dim)
+            src_fix_emb_item = self.src_fix_emb[index].view(*shape_factor)
+        else:
+            src_fix_emb_item = None
         src_wordpieces_item = self.src_wordpieces[index].type(torch.long)    # TODO type conversion here is needed
         src_wp2w_item = self.src_wp2w[index].type(torch.long)
         # TODO type conversion above is needed; change in preprocessing while saving data
@@ -571,6 +574,7 @@ class AMRActionPointerDataset(FairseqDataset):
         if self.tgt is not None:
             self.tgt.prefetch(indices)
             self.tgt_pos.prefetch(indices)
-        self.src_fix_emb.prefetch(indices)
+        if self.src_fix_emb is not None:
+            self.src_fix_emb.prefetch(indices)
         # self.memory.prefetch(indices)
         # self.mem_pos.prefetch(indices)

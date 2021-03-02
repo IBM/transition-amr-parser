@@ -53,6 +53,11 @@ tgt_graph_mask=${tgt_graph_mask:-e1c1p1}
 
 tgt_factored_emb_out=${tgt_factored_emb_out:-0}
 
+initialize_with_bart=${initialize_with_bart:-1}
+bart_encoder_backprop=${bart_encoder_backprop:-1}
+bart_emb_backprop=${bart_emb_backprop:-1}
+bart_emb_decoder=${bart_emb_decoder:-1}
+
 lr=${lr:-0.0005}
 max_tokens=${max_tokens:-3584}
 warmup=${warmup:-4000}
@@ -86,6 +91,11 @@ else
         --apply-tgt-vocab-masks $tgt_vocab_masks \
         --share-decoder-input-output-embed $share_decoder_embed \
         --tgt-factored-emb-out $tgt_factored_emb_out \
+        \
+        --initialize-with-bart $initialize_with_bart \
+        --bart-encoder-backprop $bart_encoder_backprop \
+        --bart-emb-backprop $bart_emb_backprop \
+        --bart-emb-decoder $bart_emb_decoder \
         \
         --apply-tgt-src-align $apply_tgt_src_align \
         --tgt-src-align-layers $tgt_src_align_layers \

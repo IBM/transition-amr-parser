@@ -107,6 +107,25 @@ def main(args):
         )
     )
 
+    # ========== initialize the model with pretrained BART parameters ==========
+    if args.initialize_with_bart:
+        logger.info('-' * 10 + ' initializing model parameters with pretrained BART model ' + '-' * 10)
+        if not args.bart_emb_decoder:
+            logger.info('-' * 10 + ' build a separate decoder dictionary embedding ' + '-' * 10)
+            import copy
+            new_state_dict = copy.deepcopy(task.bart.model.state_dict())
+            ignore_keys = set(['decoder.embed_tokens.weight',
+                               'decoder.output_projection.weight'])
+            for k in ignore_keys:
+                del new_state_dict[k]
+        else:
+            new_state_dict = task.bart.model.state_dict()
+
+        model.load_state_dict(new_state_dict, strict=False, args=args)
+    # ==========================================================================
+
+    # breakpoint()
+
     # (optionally) Configure quantization
     if args.quantization_config_path is not None:
         quantizer = quantization_utils.Quantizer(
@@ -229,6 +248,8 @@ def train(args, trainer, task, epoch_itr):
     should_stop = False
     num_updates = trainer.get_num_updates()
     for i, samples in enumerate(progress):
+        # debug: batch samples
+        # breakpoint()
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
         ):
