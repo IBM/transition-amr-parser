@@ -37,6 +37,11 @@ if [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint_last.pt ] && [ -f ${MODEL_FOLDER}
 
 else
 
+    # Copy variables that we will need for standalone
+    cp $DATA_FOLDER/dict.* ${MODEL_FOLDER}-seed${seed}/
+    cp $DATA_FOLDER/train.rules.json ${MODEL_FOLDER}-seed${seed}/
+    cp $DATA_FOLDER/entity_rules.json ${MODEL_FOLDER}-seed${seed}/
+
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then
 
