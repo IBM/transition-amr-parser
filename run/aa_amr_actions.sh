@@ -18,26 +18,33 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
-if [ "$TASK_TAG" == "AMR" ] && [ ! -f "$AMR_TRAIN_FILE" ];then
 
-    # Dev
-    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
-    bash preprocess/align.sh ${AMR_DEV_FILE_WIKI}.no_wiki $AMR_DEV_FILE
-    
-    # Test
-    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
-    bash preprocess/align.sh ${AMR_TEST_FILE_WIKI}.no_wiki $AMR_TEST_FILE
+###### AMR Alignment
+if [ -f $ALIGNED_FOLDER/.done ]; then
+
+    echo "Directory to aligner: $ALIGNED_FOLDER already exists --- do nothing."
+
+else
+
+    mkdir -p $ALIGNED_FOLDER
 
     # Train
     python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    bash preprocess/align.sh ${AMR_TRAIN_FILE_WIKI}.no_wiki $AMR_TRAIN_FILE
+    bash preprocess/align.sh ${AMR_TRAIN_FILE_WIKI}.no_wiki $ALIGNED_FOLDER/train.txt
+
+    # Dev
+    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_DEV_FILE_WIKI}.no_wiki $ALIGNED_FOLDER/dev.txt
+    
+    # Test
+    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_TEST_FILE_WIKI}.no_wiki $ALIGNED_FOLDER/test.txt
+
+    # Mark as done
+    touch $ALIGNED_FOLDER/.done
 
 fi
 
-# Require aligned AMR
-[ ! -f "$ALIGNED_FOLDER/.done" ] && \
-    echo -e "\nRequires amr alignment in $ALIGNED_FOLDER\n" && \
-    exit 1
 
 ##### ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
