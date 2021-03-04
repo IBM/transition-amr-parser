@@ -117,19 +117,25 @@ You first need to preprocess and align the data. For AMR2.0 do
 
 ```bash
 . set_environment.sh
-python preprocess/merge_files.py /path/to/LDC2017T10/ DATA/AMR2.0/corpora/
+python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
 
 The same for AMR1.0
 
 ```
-python preprocess/merge_files.py /path/to/LDC2014T12/ DATA/AMR1.0/corpora/
+python preprocess/merge_files.py /path/to/LDC2014T12/data/amrs/split/ DATA/AMR1.0/corpora/
 ```
 
 and then call
 
 ```
 bash run/run_experiment.sh configs/amr2.0-action-pointer.sh
+```
+
+you can check training status with
+
+```
+python run/status.py --config configs/amr2.0-action-pointer.sh
 ```
 
 ## Decode with Pre-trained model
