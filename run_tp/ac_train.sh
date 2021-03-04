@@ -54,9 +54,13 @@ tgt_graph_mask=${tgt_graph_mask:-e1c1p1}
 tgt_factored_emb_out=${tgt_factored_emb_out:-0}
 
 initialize_with_bart=${initialize_with_bart:-1}
+initialize_with_bart_enc=${initialize_with_bart_enc:-1}
+initialize_with_bart_dec=${initialize_with_bart_dec:-1}
 bart_encoder_backprop=${bart_encoder_backprop:-1}
 bart_emb_backprop=${bart_emb_backprop:-1}
 bart_emb_decoder=${bart_emb_decoder:-1}
+bart_emb_decoder_input=${bart_emb_decoder_input:-1}
+bart_emb_init_composition=${bart_emb_init_composition:-0}
 
 lr=${lr:-0.0005}
 max_tokens=${max_tokens:-3584}
@@ -93,9 +97,13 @@ else
         --tgt-factored-emb-out $tgt_factored_emb_out \
         \
         --initialize-with-bart $initialize_with_bart \
+        --initialize-with-bart-enc $initialize_with_bart_enc \
+        --initialize-with-bart-dec $initialize_with_bart_dec \
         --bart-encoder-backprop $bart_encoder_backprop \
         --bart-emb-backprop $bart_emb_backprop \
         --bart-emb-decoder $bart_emb_decoder \
+        --bart-emb-decoder-input $bart_emb_decoder_input \
+        --bart-emb-init-composition $bart_emb_init_composition \
         \
         --apply-tgt-src-align $apply_tgt_src_align \
         --tgt-src-align-layers $tgt_src_align_layers \

@@ -38,11 +38,13 @@ def make_binary_bert_features(args, input_prefix, output_prefix, tokenize):
 
     # Load pretrained embeddings extractor
     if args.pretrained_embed.startswith('roberta'):
-        from ..roberta.pretrained_embeddings import PretrainedEmbeddings
+        from .sentence_encoding import SentenceEmbeddingRoberta
 
-        pretrained_embeddings = PretrainedEmbeddings(
+        pretrained_embeddings = SentenceEmbeddingRoberta(
             args.pretrained_embed,
-            args.bert_layers
+            args.bert_layers,
+            remove_be=False,
+            avg_word=False
         )
         no_embeddings = False
     elif args.pretrained_embed.startswith('bert'):
@@ -105,10 +107,12 @@ def make_binary_bert_features(args, input_prefix, output_prefix, tokenize):
             # note that data needs to be stored as a 1d array. Also check
             # that number nof woprds matches with embedding size
             if not no_embeddings:
-                assert word_features.shape[1] == len(sentence.split())
+                assert word_features.shape[1] == len(wordpieces_roberta)    # not average to words and keep BOS/EOS
+                # assert word_features.shape[1] == len(sentence.split())    # average to words and remove BOS/EOS
                 indexed_data.add_item(word_features.cpu().view(-1))
 
-            # just store the wordpiece indices, ignore BOS/EOS tokens
+            # just store the `wordpieces_roberta` indices, including BOS/EOS tokens
+            # `word2piece` excluding BOS/EOS tokens
             indexed_wordpieces.add_item(wordpieces_roberta)
             indexed_wp2w.add_item(
                 get_scatter_indices(word2piece, reverse=True)

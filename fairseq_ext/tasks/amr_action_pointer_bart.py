@@ -183,6 +183,10 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                             help='whether to collate target actions states information')
         parser.add_argument('--initialize-with-bart', default=1, type=int,
                             help='whether to initialize the model parameters with pretrained BART')
+        parser.add_argument('--initialize-with-bart-enc', default=1, type=int,
+                            help='whether to initialize the model parameters with pretrained BART encoder')
+        parser.add_argument('--initialize-with-bart-dec', default=1, type=int,
+                            help='whether to initialize the model parameters with pretrained BART decoder')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None):
         super().__init__(args)
@@ -244,6 +248,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                 raise ValueError
         else:
             # inference time: pretrained BART is only used for dictionary related things; size does not matter
+            # NOTE size does matter; update this later
             print('-' * 10 + ' (only for bpe vocab at inference time) loading pretrained bart.base model ' + '-' * 10)
             bart = torch.hub.load('pytorch/fairseq', 'bart.base')
 

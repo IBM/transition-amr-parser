@@ -78,7 +78,7 @@ def get_scatter_indices(word2piece, reverse=False):
         for index, span in zip(indices, word2piece)
     ]
     wp_indices = [x for span in wp_indices for x in span]
-    return  torch.tensor(wp_indices)
+    return torch.tensor(wp_indices)
 
 
 class PretrainedEmbeddings():
