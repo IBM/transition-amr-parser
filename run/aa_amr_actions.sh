@@ -18,6 +18,22 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
+if [ "$TASK_TAG" == "AMR" ] && [ ! -f "$AMR_TRAIN_FILE" ];then
+
+    # Dev
+    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_DEV_FILE_WIKI}.no_wiki $AMR_DEV_FILE
+    
+    # Test
+    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_TEST_FILE_WIKI}.no_wiki $AMR_TEST_FILE
+
+    # Train
+    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    bash preprocess/align.sh ${AMR_TRAIN_FILE_WIKI}.no_wiki $AMR_TRAIN_FILE
+
+fi
+
 # Require aligned AMR
 [ ! -f "$ALIGNED_FOLDER/.done" ] && \
     echo -e "\nRequires amr alignment in $ALIGNED_FOLDER\n" && \

@@ -111,6 +111,27 @@ To display the results use
 this should take around a minute to finish. Performance will be very low since
 it only uses 25 sentences
 
+## Training a model
+
+You first need to preprocess and align the data. For AMR2.0 do
+
+```bash
+. set_environment.sh
+python preprocess/merge_files.py /path/to/LDC2017T10/ DATA/AMR2.0/corpora/
+```
+
+The same for AMR1.0
+
+```
+python preprocess/merge_files.py /path/to/LDC2014T12/ DATA/AMR1.0/corpora/
+```
+
+and then call
+
+```
+bash run/run_experiment.sh configs/amr2.0-action-pointer.sh
+```
+
 ## Decode with Pre-trained model
 
 To use from the command line with a trained model do
