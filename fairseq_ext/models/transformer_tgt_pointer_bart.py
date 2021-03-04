@@ -203,6 +203,11 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                             help='whether to backprop through BART embeddings')
         parser.add_argument('--bart-emb-decoder', type=int,
                             help='whether to use BART bpe dictionary embeddings for the decoder (compositionally)')
+        parser.add_argument('--bart-emb-decoder-input', type=int,
+                            help='whether to use BART bpe dictionary embeddings for the decoder input (compositionally')
+        parser.add_argument('--bart-emb-init-composition', type=int,
+                            help='whether to initialize the decoder embeddings with composed sub-tokens '
+                                 'from BART vocabulary')
         # additional: structure control
         parser.add_argument('--apply-tgt-vocab-masks', type=int,
                             help='whether to apply target (actions) vocabulary mask for output')
@@ -302,10 +307,18 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
             )
             if not args.bart_emb_decoder:
                 # separate embedding for the tgt actions
-                decoder_embed_tokens = cls.build_embedding(
-                    args, tgt_dict_raw, args.decoder_embed_dim, args.decoder_embed_path
-                )
+                if not args.bart_emb_decoder_input:
+                    # do not use the BART embedding for target input and output
+                    decoder_embed_tokens = cls.build_embedding(
+                        args, tgt_dict_raw, args.decoder_embed_dim, args.decoder_embed_path
+                    )
+                else:
+                    # still use the BART embedding for target input
+                    decoder_embed_tokens = cls.build_embedding(
+                        args, tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
+                    )
             else:
+                assert args.bart_emb_decoder_input
                 # compositional embeddings for the tgt actions on top of BART bpe embeddings
                 decoder_embed_tokens = cls.build_embedding(
                     args, tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
@@ -822,7 +835,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             self.output_projection.weight = self.embed_tokens.weight
         else:
             if not args.bart_emb_decoder:
-                # separate embedding for the tgt actions
+                # separate embedding for the tgt actions (output embedding here)
                 self.output_projection = nn.Linear(
                     self.output_embed_dim, len(dictionary_raw), bias=False
                 )
@@ -838,7 +851,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         # ========== pooling embedding ==========
         self.dictionary_raw = dictionary_raw
         if not args.bart_emb_decoder:
-            self.composite_embed = None
+            if not args.bart_emb_decoder_input:
+                self.composite_embed = None
+            else:
+                self.composite_embed = CompositeEmbeddingBART(bart, self.embed_tokens, dictionary_raw)
         else:
             self.composite_embed = CompositeEmbeddingBART(bart, self.embed_tokens, dictionary_raw)
         # =======================================
@@ -986,7 +1002,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         # ========== apply composite embeddings on the raw tgt tokens ==========
         if not self.args.bart_emb_decoder:
             # separate embeddings
-            x = self.embed_scale * self.embed_tokens(prev_output_tokens)
+            if not self.args.bart_emb_decoder_input:
+                x = self.embed_scale * self.embed_tokens(prev_output_tokens)
+            else:
+                x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
         else:
             # compositional embeddings based on BART embeddings
             x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
@@ -1372,8 +1391,13 @@ def transformer_pointer(args):
     args.bart_emb_backprop = getattr(args, 'bart_emb_backprop', 1)
     args.bart_emb_decoder = getattr(args, 'bart_emb_decoder', 1)
     if not args.bart_emb_decoder:
-        # explicitly update
+        # explicitly update setup to guarantee consistency
         args.share_all_embeddings = False
+    args.bart_emb_decoder_input = getattr(args, 'bart_emb_decoder_input', 1)
+    if not args.bart_emb_decoder and args.bart_emb_decoder_input:
+        # explicitly update setup to guarantee consistency
+        args.share_decoder_input_output_embed = False
+    args.bart_emb_init_composition = getattr(args, 'bart_emb_init_composition', 0)
 
     base_architecture(args)
 

@@ -4,6 +4,7 @@ import torch
 
 from ..data.data_utils import collate_tokens
 from ..utils_font import yellow_font
+from fairseq_ext.roberta.pretrained_embeddings import PretrainedEmbeddings
 
 
 def get_average_embeddings(final_layer, word2piece):
@@ -123,3 +124,95 @@ class SentenceEncodingBART:
         )
 
         return wordpiece_ids, word2piece
+
+
+class SentenceEmbeddingRoberta(PretrainedEmbeddings):
+    def __init__(self, name, bert_layers, model=None, remove_be=False, avg_word=False):
+        super().__init__(name, bert_layers, model)
+        self.remove_be = remove_be    # whether to remove <s> and </s>
+        self.avg_word = avg_word      # whether to average the embeddings from subtokens to words
+
+    def extract(self, sentence_string):
+        """
+        sentence_string (not tokenized)
+        """
+
+        # get words, wordpieces and mapping
+        # FIXME: PTB oracle already tokenized
+        word2piece = get_wordpiece_to_word_map(
+            sentence_string,
+            self.roberta.bpe
+        )
+
+        # NOTE: We need to re-extract BPE inside roberta. Token indices
+        # will also be different. BOS/EOS added
+        wordpieces_roberta = self.roberta.encode(sentence_string)
+
+        # Extract roberta, remove BOS/EOS
+        if torch.cuda.is_available():
+
+            # Hotfix for sequences above 512
+            if wordpieces_roberta.shape[0] > 512:
+                excess = wordpieces_roberta.shape[0] - 512
+                # first 512 tokens
+                last_layer = self.extract_features(
+                    wordpieces_roberta.to(self.roberta.device)[:512]
+                )
+                # last 512 tokens
+                last_layer2 = self.extract_features(
+                    wordpieces_roberta.to(self.roberta.device)[excess:]
+                )
+                # concatenate
+                shape = (last_layer, last_layer2[:, -excess:, :])
+                last_layer = torch.cat(shape, 1)
+
+                assert wordpieces_roberta.shape[0] == last_layer.shape[1]
+
+                # warn user about this
+                string = '\nMAX_POS overflow!! {wordpieces_roberta.shape[0]}'
+                print(yellow_font(string))
+
+            else:
+
+                # Normal extraction
+                last_layer = self.extract_features(
+                    wordpieces_roberta.to(self.roberta.device)
+                )
+
+        else:
+
+            # Copy code above
+            raise NotImplementedError()
+            last_layer = self.roberta.extract_features(
+                wordpieces_roberta
+            )
+
+        # FIXME: this should not bee needed using roberta.eval()
+        last_layer = last_layer.detach()
+
+        # Ignore start and end symbols
+        if self.remove_be:
+            last_layer = last_layer[0:1, 1:-1, :]
+
+        # average over wordpieces of same word
+        if self.avg_word:
+            assert self.remove_be
+            word_features = get_average_embeddings(
+                last_layer,
+                word2piece
+            )
+        else:
+            word_features = last_layer
+
+#        # sanity check differentiable and non differentiable averaging
+#        match
+#        from torch_scatter import scatter_mean
+#        word_features2 = scatter_mean(
+#            last_layer[0, :, :],
+#            get_scatter_indices(word2piece).to(roberta.device),
+#            dim=0
+#        )
+#        # This works
+#        assert np.allclose(word_features.cpu(), word_features2.cpu())
+
+        return word_features, wordpieces_roberta, word2piece

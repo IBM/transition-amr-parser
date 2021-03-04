@@ -13,6 +13,7 @@ import math
 import os
 import random
 import sys
+import copy
 
 import numpy as np
 # =========================================================================================
@@ -55,6 +56,7 @@ from fairseq.trainer import Trainer
 
 from fairseq_ext.utils_import import import_user_module
 from fairseq_ext import options_train as options
+from fairseq_ext.extract_bart.composite_embeddings import CompositeEmbeddingBART
 
 
 logging.basicConfig(
@@ -110,18 +112,50 @@ def main(args):
     # ========== initialize the model with pretrained BART parameters ==========
     if args.initialize_with_bart:
         logger.info('-' * 10 + ' initializing model parameters with pretrained BART model ' + '-' * 10)
+
+        new_state_dict = copy.deepcopy(task.bart.model.state_dict())
         if not args.bart_emb_decoder:
             logger.info('-' * 10 + ' build a separate decoder dictionary embedding ' + '-' * 10)
-            import copy
-            new_state_dict = copy.deepcopy(task.bart.model.state_dict())
-            ignore_keys = set(['decoder.embed_tokens.weight',
-                               'decoder.output_projection.weight'])
+            if not args.bart_emb_decoder_input:
+                ignore_keys = set(['decoder.embed_tokens.weight',
+                                   'decoder.output_projection.weight'])
+            else:
+                logger.info('-' * 10 + ' use BART dictionary embedding for target input ' + '-' * 10)
+                ignore_keys = set(['decoder.output_projection.weight'])
             for k in ignore_keys:
                 del new_state_dict[k]
-        else:
-            new_state_dict = task.bart.model.state_dict()
+
+        if not args.initialize_with_bart_enc:
+            logger.info('-' * 10 + ' do not initialize with BART encoder parameters ' + '-' * 10)
+            for k in list(new_state_dict.keys()):
+                if k.startswith('encoder'):
+                    del new_state_dict[k]
+
+        if not args.initialize_with_bart_dec:
+            logger.info('-' * 10 + ' do not initialize with BART decoder parameters ' + '-' * 10)
+            for k in list(new_state_dict.keys()):
+                if k.startswith('decoder'):
+                    del new_state_dict[k]
 
         model.load_state_dict(new_state_dict, strict=False, args=args)
+
+    # initialize the target embeddings with average of subtoken embeddings in BART vocabulary
+    if args.bart_emb_init_composition:
+        assert not args.bart_emb_decoder, 'should not use the compositional embeddings on top of BART vocabulary here'
+        logger.info('-' * 10 + ' initialize target embeddings with compositional embeddings from BART vocabulary '
+                    + '-' * 10)
+        composite_embed = CompositeEmbeddingBART(task.bart,
+                                                 task.bart.model.decoder.embed_tokens,
+                                                 task.target_dictionary)
+        if args.bart_emb_decoder_input:
+            # only initialize the decoder output embeddings
+            with torch.no_grad():
+                model.decoder.output_projection.weight.copy_(composite_embed.embedding_weight)
+        else:
+            # initialize both the decoder input and output embeddings
+            with torch.no_grad():
+                model.decoder.embed_tokens.weight.copy_(composite_embed.embedding_weight)
+                model.decoder.output_projection.weight.copy_(composite_embed.embedding_weight)
     # ==========================================================================
 
     # breakpoint()
