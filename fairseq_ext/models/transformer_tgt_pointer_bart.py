@@ -208,6 +208,15 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         parser.add_argument('--bart-emb-init-composition', type=int,
                             help='whether to initialize the decoder embeddings with composed sub-tokens '
                                  'from BART vocabulary')
+        # additional: use pretrained roberta embeddings
+        parser.add_argument('--src-roberta-emb', type=int,
+                            help='src tokens: whether to use pretrained (fix) RoBERTa embeddings to input to encoder')
+        parser.add_argument('--src-pool-wp2w', type=str, choices=['none', 'bot', 'top'],
+                            help='src tokens: where to pool the wordpiece embeddings to words; '
+                                 '"none": keep the wordpiece embeddings; '
+                                 '"bot": pool at the bottom of the encoder; '
+                                 '"top": pool at the top of the encoder.'
+                                 'NOTE this removes the BOS <s> and EOS </s> positions.')
         # additional: structure control
         parser.add_argument('--apply-tgt-vocab-masks', type=int,
                             help='whether to apply target (actions) vocabulary mask for output')
@@ -273,6 +282,17 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
             args.max_source_positions = DEFAULT_MAX_SOURCE_POSITIONS
         if getattr(args, "max_target_positions", None) is None:
             args.max_target_positions = DEFAULT_MAX_TARGET_POSITIONS
+
+        # ========== at inference time, update the auxiliary BART model if it is bart.large as a workaround
+        # NOTE reason: `arch` is not input from outside to `args` from outside at inference time; `args` is loaded from
+        # checkpoint to initialize the model, thus containing `arch`.
+        # but `task.bart` is initialized first before the checkpoint is loaded with model `args`
+        if 'bart_large' in args.arch:
+            print('-' * 10 + ' task bart rewind: loading pretrained bart.large model ' + '-' * 10)
+            bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+            task.bart = bart
+            task.bart_dict = bart.task.target_dictionary    # src dictionary is the same
+        # ================================================================================================
 
         # overwrite the src and tgt dictionary used to build learnable embeddings
         # src_dict, tgt_dict = task.source_dictionary, task.target_dictionary
@@ -489,6 +509,13 @@ class TransformerEncoder(FairseqEncoder):
         if not args.bart_emb_backprop:
             self.embed_tokens.weight.requires_grad = False
 
+        # use fixed pretrained embeddings
+        self.src_roberta_emb = args.src_roberta_emb
+        if args.src_roberta_emb:
+            self.fix_emb_proj = Linear(args.pretrained_embed_dim, embed_dim, bias=False)
+
+        self.src_pool_wp2w = args.src_pool_wp2w
+
     def build_encoder_layer(self, args):
         return TransformerEncoderLayer(args)
 
@@ -589,19 +616,44 @@ class TransformerEncoder(FairseqEncoder):
                   hidden states of shape `(src_len, batch, embed_dim)`.
                   Only populated if *return_all_hiddens* is True.
         """
-        # x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
 
-        # we do not use the vocabulary built on the fly; we use the pretrained vocabulary
-        # `src_wordpieces` is the actual input here (instead of `src_tokens`)
-        x, encoder_embedding = self.forward_embedding(src_wordpieces, token_embeddings)
+        if not self.src_roberta_emb:
+            # x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
+
+            # we do not use the vocabulary built on the fly; we use the pretrained vocabulary
+            # `src_wordpieces` is the actual input here (instead of `src_tokens`)
+            x, encoder_embedding = self.forward_embedding(src_wordpieces, token_embeddings)
+        else:
+            # use pretrained fix RoBERTa embeddings
+            x = src_fix_emb
+            x = self.fix_emb_proj(x)    # to map the dimension of the encoder
+            encoder_embedding = None
+            # further process
+            if self.layernorm_embedding is not None:
+                x = self.layernorm_embedding(x)
+            x = self.dropout_module(x)
+            if self.quant_noise is not None:
+                x = self.quant_noise(x)
 
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
 
-        # compute padding mask
-        # encoder_padding_mask = src_tokens.eq(self.padding_idx)
-        # NOTE `src_tokens` -> `src_wordpieces`
-        encoder_padding_mask = src_wordpieces.eq(self.padding_idx)
+        if self.src_pool_wp2w == 'bot':
+            # pool the hidden states from bpe to original word
+            x = self.pool_wp2w(x, src_tokens, src_wordpieces, src_wp2w)
+            # compute padding mask
+            encoder_padding_mask = src_tokens.eq(self.padding_idx)
+        elif self.src_pool_wp2w == 'top':
+            # compute padding mask
+            # encoder_padding_mask = src_tokens.eq(self.padding_idx)
+            # NOTE `src_tokens` -> `src_wordpieces`
+            encoder_padding_mask = src_wordpieces.eq(self.padding_idx)
+        elif self.src_pool_wp2w == 'none':
+            # NOTE `src_tokens` -> `src_wordpieces`
+            encoder_padding_mask = src_wordpieces.eq(self.padding_idx)
+            raise NotImplementedError('need to take care of the alignment indexes')
+        else:
+            raise ValueError
 
         encoder_states = [] if return_all_hiddens else None
 
@@ -617,10 +669,11 @@ class TransformerEncoder(FairseqEncoder):
         if self.layer_norm is not None:
             x = self.layer_norm(x)
 
-        # pool the hidden states from bpe to original word
-        x = self.pool_wp2w(x, src_tokens, src_wordpieces, src_wp2w)
-        # update the padding mask
-        encoder_padding_mask = src_tokens.eq(self.padding_idx)
+        if self.src_pool_wp2w == 'top':
+            # pool the hidden states from bpe to original word
+            x = self.pool_wp2w(x, src_tokens, src_wordpieces, src_wp2w)
+            # update the padding mask
+            encoder_padding_mask = src_tokens.eq(self.padding_idx)
 
         if not self.bart_encoder_backprop:
             x = x.detach()
@@ -1390,14 +1443,29 @@ def transformer_pointer(args):
     args.bart_encoder_backprop = getattr(args, 'bart_encoder_backprop', 1)
     args.bart_emb_backprop = getattr(args, 'bart_emb_backprop', 1)
     args.bart_emb_decoder = getattr(args, 'bart_emb_decoder', 1)
+
     if not args.bart_emb_decoder:
         # explicitly update setup to guarantee consistency
         args.share_all_embeddings = False
-    args.bart_emb_decoder_input = getattr(args, 'bart_emb_decoder_input', 1)
+
+    args.bart_emb_decoder_input = getattr(args, 'bart_emb_decoder_input', None)
+    if args.bart_emb_decoder_input is None:
+        if not args.bart_emb_decoder:
+            # default to not using compositional BART embeddings for decoder input
+            args.bart_emb_decoder_input = 0
+        else:
+            # use compositional BART embeddings for both decoder input and output
+            args.bart_emb_decoder_input = 1
+
     if not args.bart_emb_decoder and args.bart_emb_decoder_input:
         # explicitly update setup to guarantee consistency
         args.share_decoder_input_output_embed = False
+
     args.bart_emb_init_composition = getattr(args, 'bart_emb_init_composition', 0)
+
+    # RoBERTa embedding and pooling
+    args.src_roberta_emb = getattr(args, 'src_roberta_emb', 0)
+    args.src_pool_wp2w = getattr(args, 'src_pool_wp2w', 'top')
 
     base_architecture(args)
 
