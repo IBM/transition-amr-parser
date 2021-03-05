@@ -377,16 +377,17 @@ class AMRActionPointerDataset(FairseqDataset):
         tgt_item = self.tgt[index]
         tgt_pos_item = self.tgt_pos[index]
 
-        # Deduce pretrained embeddings size
+        src_wordpieces_item = self.src_wordpieces[index].type(torch.long)    # TODO type conversion here is needed
+        src_wp2w_item = self.src_wp2w[index].type(torch.long)
+        # TODO type conversion above is needed; change in preprocessing while saving data
+
+        # Deduce pretrained embeddings size; the src_fix_emb is NOT averaged to words
         if self.src_fix_emb_use:
-            pretrained_embed_dim = self.src_fix_emb[index].shape[0] // len(src_item)
+            pretrained_embed_dim = self.src_fix_emb[index].shape[0] // len(src_wordpieces_item)
             shape_factor = (self.src_fix_emb[index].shape[0] // pretrained_embed_dim, pretrained_embed_dim)
             src_fix_emb_item = self.src_fix_emb[index].view(*shape_factor)
         else:
             src_fix_emb_item = None
-        src_wordpieces_item = self.src_wordpieces[index].type(torch.long)    # TODO type conversion here is needed
-        src_wp2w_item = self.src_wp2w[index].type(torch.long)
-        # TODO type conversion above is needed; change in preprocessing while saving data
 
         # shape_factor = (tgt_item.shape[0], src_item.shape[0])
         # memory_item = self.memory[index].view(*shape_factor).transpose(0, 1)

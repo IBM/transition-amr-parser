@@ -59,6 +59,8 @@ model=$MODEL_FOLDER/checkpoint${model_epoch}.pt
 
 TASK=${TASK:-amr_action_pointer}
 
+src_fix_emb_use=${src_roberta_emb:-0}
+
 ##### DECODING
 # rm -Rf $RESULTS_FOLDER
 mkdir -p $RESULTS_FOLDER
@@ -70,6 +72,7 @@ python fairseq_ext/generate.py \
     --user-dir ./fairseq_ext \
     --task $TASK \
     --gen-subset $data_split \
+    --src-fix-emb-use $src_fix_emb_use \
     --machine-type AMR  \
     --machine-rules $ORACLE_FOLDER/train.rules.json \
     --modify-arcact-score 1 \

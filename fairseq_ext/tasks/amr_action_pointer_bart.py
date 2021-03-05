@@ -187,6 +187,8 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                             help='whether to initialize the model parameters with pretrained BART encoder')
         parser.add_argument('--initialize-with-bart-dec', default=1, type=int,
                             help='whether to initialize the model parameters with pretrained BART decoder')
+        parser.add_argument('--src-fix-emb-use', default=0, type=int,
+                            help='whether to use fixed pretrained RoBERTa contextual embeddings for src')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None):
         super().__init__(args)
@@ -242,14 +244,15 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                 print('-' * 10 + ' loading pretrained bart.base model ' + '-' * 10)
                 bart = torch.hub.load('pytorch/fairseq', 'bart.base')
             elif 'bart_large' in args.arch:
-                print('loading pretrained bart.large model ' + '-' * 10)
+                print('-' * 10 + 'loading pretrained bart.large model ' + '-' * 10)
                 bart = torch.hub.load('pytorch/fairseq', 'bart.large')
             else:
                 raise ValueError
         else:
             # inference time: pretrained BART is only used for dictionary related things; size does not matter
-            # NOTE size does matter; update this later
-            print('-' * 10 + ' (only for bpe vocab at inference time) loading pretrained bart.base model ' + '-' * 10)
+            # NOTE size does matter; update this later in model initialization if model is with "bart.large"
+            print('-' * 10 + ' (for bpe vocab and embed size at inference time) loading pretrained bart.base model '
+                  + '-' * 10)
             bart = torch.hub.load('pytorch/fairseq', 'bart.base')
 
         bart.eval()    # the pretrained BART model is only for assistance
@@ -372,7 +375,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                                                                shuffle=True,
                                                                append_eos_to_target=self.args.append_eos_to_target,
                                                                collate_tgt_states=self.args.collate_tgt_states,
-                                                               src_fix_emb_use=False
+                                                               src_fix_emb_use=self.args.src_fix_emb_use
                                                                )
 
     def build_dataset_for_inference(self, src_tokens, src_lengths):

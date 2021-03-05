@@ -62,6 +62,10 @@ bart_emb_decoder=${bart_emb_decoder:-1}
 bart_emb_decoder_input=${bart_emb_decoder_input:-1}
 bart_emb_init_composition=${bart_emb_init_composition:-0}
 
+src_roberta_emb=${src_roberta_emb:-0}
+src_fix_emb_use=$src_roberta_emb
+src_pool_wp2w=${src_pool_wp2w:-top}
+
 lr=${lr:-0.0005}
 max_tokens=${max_tokens:-3584}
 warmup=${warmup:-4000}
@@ -91,6 +95,7 @@ else
         --task $TASK \
         --append-eos-to-target 0 \
         --collate-tgt-states 1 \
+        --src-fix-emb-use $src_fix_emb_use \
         --shift-pointer-value $shift_pointer_value \
         --apply-tgt-vocab-masks $tgt_vocab_masks \
         --share-decoder-input-output-embed $share_decoder_embed \
@@ -104,6 +109,9 @@ else
         --bart-emb-decoder $bart_emb_decoder \
         --bart-emb-decoder-input $bart_emb_decoder_input \
         --bart-emb-init-composition $bart_emb_init_composition \
+        \
+        --src-roberta-emb $src_roberta_emb \
+        --src-pool-wp2w $src_pool_wp2w \
         \
         --apply-tgt-src-align $apply_tgt_src_align \
         --tgt-src-align-layers $tgt_src_align_layers \
