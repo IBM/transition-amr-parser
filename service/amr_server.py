@@ -85,4 +85,4 @@ if __name__ == '__main__':
         import grpc
         import amr_pb2
         import amr_pb2_grpc
-        serve()
+        serve(args)
