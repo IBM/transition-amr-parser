@@ -10,6 +10,6 @@ input_file=$2
 set -o nounset
 
 amr-parse \
-    --in-checkpoint $in_checkpoint \
+    --in-checkpoint $train_amr \
     --in-tokenized-sentences $input_file \
     --out-amr $(basename $input_file).amr
