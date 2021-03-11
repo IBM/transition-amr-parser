@@ -10,12 +10,17 @@ ENV LC_ALL en_US.UTF-8
 ## Install grpc for python3
 RUN python3 -m pip install --upgrade pip && python3 -m pip install protobuf grpcio grpcio-tools && python3 -m pip install statsd
 
+RUN useradd -u 1001 -m worker
+WORKDIR /home/worker/amr-parser
+RUN chown -R worker:worker /home/worker
+ENV AMR_PARSER "/home/worker/amr-parser"
+
 # Set up python
-ADD setup.py /amr_parser/setup.py
-WORKDIR /amr_parser
+ADD --chown=worker:worker setup.py ./
 # Install the packages
-RUN python3 -m pip install --editable .
+RUN python3 -m pip install --upgrade pip && python3 -m pip install --editable .
 RUN python3 -m spacy download en
+USER worker
 
 # Set cache paths
 ENV CACHE_DIR "cache"
@@ -24,18 +29,19 @@ ENV ROBERTA_CACHE_PATH ${CACHE_DIR}/roberta.large
 RUN mkdir -p ${CACHE_DIR} && curl -L https://dl.fbaipublicfiles.com/fairseq/models/roberta.large.tar.gz | tar -xzv -C ${CACHE_DIR}
 
 # Copy the code
-ADD . /amr_parser
+ADD --chown=worker:worker . ./
 
 # Compile the protos
 RUN python3 -m grpc_tools.protoc -I./service/  --python_out=./service/ --grpc_python_out=./service/ ./service/wordvec.proto
 RUN python3 -m grpc_tools.protoc -I./service/  --python_out=./service/ --grpc_python_out=./service/ ./service/amr2.proto
 
+# Temporary fix
+ENV MODEL_DIR "EXP2/exp_amr3questions_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/models_ep120_seed43"
 # Path adjustemts, to be revised
-RUN mkdir -p DATA/AMR2.0/models/exp_cofill_o8.3_act-states_RoBERTa-large-top24/_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/ep120-seed42 && \
-    ln -s /amr_parser/models/* DATA/AMR2.0/models/exp_cofill_o8.3_act-states_RoBERTa-large-top24/_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/ep120-seed42
+RUN mkdir -p ${MODEL_DIR} && ln -s ${AMR_PARSER}/models/* ${MODEL_DIR} 
 
 # Model Location
-ENV MODEL_PATH "models/checkpoint_wiki.smatch_top5-avg.pt"
+ENV MODEL_PATH "models/checkpoint_smatch_top3-avg.pt"
 # GRPC Port (so that it can be set during run time)
 ENV GRPC_PORT "50051"
 
