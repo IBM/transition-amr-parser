@@ -257,7 +257,6 @@ class AMR:
                 amr_string = '(a / amr-empty)'
 
             # ::short attribute from Revanth                                                    \
-
             output += f'# ::short\t{str(new_ids)}\t\n'
             output += amr_string + '\n\n'
 
