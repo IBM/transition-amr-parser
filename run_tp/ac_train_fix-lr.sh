@@ -142,8 +142,7 @@ else
         --optimizer adam \
         --adam-betas '(0.9,0.98)' \
         --clip-norm 0.0 \
-        --lr-scheduler inverse_sqrt \
-        --warmup-init-lr 1e-07 \
+        --lr-scheduler fixed \
         --warmup-updates $warmup \
         --pretrained-embed-dim $PRETRAINED_EMBED_DIM \
         --lr $lr \
