@@ -31,6 +31,11 @@ config_model=EXP/exp_o8.3_bart-base_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-lay
 config_model=EXP/exp_o8.3_bart-base_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-enc0/models_ep120_seed42_lr0.0005-mt3584-wm4000-dp0.3/config_model_apt-bart_*.sh
 
 config_model=EXP/exp_o8.3_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0/models_ep120_seed42_lr0.0005-mt3584-wm4000-dp0.3/config_model_apt-bart_*.sh
+
+config_model=EXP/exp_o8.3_roberta-base-top12-wp_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_enc-pool-top/models_ep120_seed42_lr0.0005-mt3584-wm4000-dp0.3/config_model_apt-bart_*.sh
+
+config_model=EXP/exp_o8.3_bart-base_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_enc-roberta-base/models_ep120_seed42_lr0.0001-mt3584-wm4000-dp0.3/config_model_apt-bart_*.sh
+config_model=EXP/exp_o8.3_bart-base_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init0_enc-roberta-base/models_ep120_seed42_lr0.0001-mt3584-wm4000-dp0.3/config_model_apt-bart_*.sh
 # config_model=EXP/exp_graphmp-swaparc-ptrlast_o8.3_roberta-large-top24_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/models_ep120_seed42/config_model_action-pointer-graphmp_data_o5_ptr-lay6-h1_grh-h2-allprev_1in1out_cam-layall-h2-abuf.sh
 
 . $config_model

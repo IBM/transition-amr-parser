@@ -22,14 +22,13 @@ seed=$2
 set -o nounset
 
 dir=$(dirname $0)
-. $config_model   # we should always call from one level up
+. $config_model   # $config_model should always include its path
 # now we have
 # $ORACLE_FOLDER
 # $DATA_FOLDER
 # $EMB_FOLDER
 # $PRETRAINED_EMBED
 # $PRETRAINED_EMBED_DIM
-
 
 ##############################################################
 
@@ -50,23 +49,30 @@ echo "[Preprocessing data:]"
 . $dir/ab_preprocess.sh ""
 
 # change path to original data as we have copied in processing
-AMR_TRAIN_FILE=$ORACLE_FOLDER/ref_train.amr
-AMR_DEV_FILE=$ORACLE_FOLDER/ref_dev.amr
-AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
+# AMR_TRAIN_FILE=$ORACLE_FOLDER/ref_train.amr
+# AMR_DEV_FILE=$ORACLE_FOLDER/ref_dev.amr
+# AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 
 # exit 0
 ###############################################################
 
 ##### train model (will do nothing if $MODEL_FOLDER exists)
 
-# echo "[Training:]"
+echo "[Training:]"
 
-# cp $config_data $ROOTDIR/$expdir/
-# cp $config_model $MODEL_FOLDER/
-# cp $0 $MODEL_FOLDER/
-# cp $dir/ac_train.sh $MODEL_FOLDER/train.sh
+mkdir -p $MODEL_FOLDER
 
-# . $dir/ac_train.sh
+cp $config_data $ROOTDIR/$expdir/ || true
+# to skip cp error (e.g. when $config_model already exists and cp the same file)
+cp $config_model $MODEL_FOLDER/ || true
+
+# change the seed name in the particular model configuration copied
+sed -i "s/seed:-42/seed:-${seed}/g" $MODEL_FOLDER/$(basename $config_model)
+
+cp $0 $MODEL_FOLDER/
+cp $dir/ac_train_fix-lr.sh $MODEL_FOLDER/train.sh
+
+. $dir/ac_train_fix-lr.sh
 
 # exit 0
 ###############################################################
@@ -75,6 +81,7 @@ AMR_TEST_FILE=$ORACLE_FOLDER/ref_test.amr
 model_epoch=_last
 # beam_size=1
 batch_size=128
+use_pred_rules=0
 
 echo "[Decoding and computing smatch:]"
 for beam_size in 1 5 10

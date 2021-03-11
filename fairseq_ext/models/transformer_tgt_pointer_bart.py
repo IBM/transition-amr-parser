@@ -217,6 +217,10 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                                  '"bot": pool at the bottom of the encoder; '
                                  '"top": pool at the top of the encoder.'
                                  'NOTE this removes the BOS <s> and EOS </s> positions.')
+        parser.add_argument('--src-avg-layers', type=int, nargs='*',
+                            help='average encoder layers for src contextual embeddings')
+        parser.add_argument('--src-roberta-enc', type=int,
+                            help='whether to use RoBERTa encoder to replace BART encoder')
         # additional: structure control
         parser.add_argument('--apply-tgt-vocab-masks', type=int,
                             help='whether to apply target (actions) vocabulary mask for output')
@@ -516,6 +520,18 @@ class TransformerEncoder(FairseqEncoder):
 
         self.src_pool_wp2w = args.src_pool_wp2w
 
+        # average encoder layers
+        self.src_avg_layers = args.src_avg_layers
+
+        # use roberta encoder to replace bart encoder directly
+        self.src_roberta_enc = args.src_roberta_enc
+        if args.src_roberta_enc:
+            print('-' * 10 + ' loading RoBERTa base model to replace BART encoder directly ' + '-' * 10)
+            self.roberta = torch.hub.load('pytorch/fairseq', 'roberta.base')
+            if not args.bart_encoder_backprop:
+                self.roberta.eval()
+            assert args.src_pool_wp2w == 'top', 'currently for RoBERTa encoder we only support pooling to words on top'
+
     def build_encoder_layer(self, args):
         return TransformerEncoderLayer(args)
 
@@ -617,6 +633,30 @@ class TransformerEncoder(FairseqEncoder):
                   Only populated if *return_all_hiddens* is True.
         """
 
+        # ========== use RoBERTa (base) encoder instead of BART encoder ==========
+        if self.src_roberta_enc:
+            # directly use RoBERTa encoder
+            x = self.roberta.extract_features(src_wordpieces)
+            # B x T x C -> T x B x C
+            x = x.transpose(0, 1)
+            # pool the hidden states from bpe to original word
+            x = self.pool_wp2w(x, src_tokens, src_wordpieces, src_wp2w)
+            # update the padding mask
+            encoder_padding_mask = src_tokens.eq(self.padding_idx)
+
+            if not self.bart_encoder_backprop:
+                x = x.detach()
+
+            return EncoderOut(
+                encoder_out=x,  # T x B x C
+                encoder_padding_mask=encoder_padding_mask,  # B x T
+                encoder_embedding=None,  # B x T x C    # NOTE since we pool, T here would be inconsistent
+                encoder_states=None,  # List[T x B x C]
+                src_tokens=None,
+                src_lengths=None,
+            )
+        # ===================================================================
+
         if not self.src_roberta_emb:
             # x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
 
@@ -655,6 +695,9 @@ class TransformerEncoder(FairseqEncoder):
         else:
             raise ValueError
 
+        if self.src_avg_layers:
+            return_all_hiddens = True
+
         encoder_states = [] if return_all_hiddens else None
 
         # breakpoint()
@@ -665,6 +708,12 @@ class TransformerEncoder(FairseqEncoder):
             if return_all_hiddens:
                 assert encoder_states is not None
                 encoder_states.append(x)
+
+        # average across layers
+        if self.src_avg_layers:
+            # e.g. [1, 2, 3, 4, 5, 6]
+            x_layers = [encoder_states[i - 1] for i in self.src_avg_layers]
+            x = sum(x_layers) / len(self.src_avg_layers)
 
         if self.layer_norm is not None:
             x = self.layer_norm(x)
@@ -1466,6 +1515,10 @@ def transformer_pointer(args):
     # RoBERTa embedding and pooling
     args.src_roberta_emb = getattr(args, 'src_roberta_emb', 0)
     args.src_pool_wp2w = getattr(args, 'src_pool_wp2w', 'top')
+
+    args.src_avg_layers = getattr(args, 'src_avg_layers', None)
+
+    args.src_roberta_enc = getattr(args, 'src_roberta_enc', 0)
 
     base_architecture(args)
 
