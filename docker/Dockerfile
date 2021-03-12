@@ -1,5 +1,5 @@
 ## install cuda 
-FROM nvidia/cuda as ubuntu-pytorch
+FROM nvidia/cuda:11.2.1-base as ubuntu-pytorch
 ## some basic utilities
 RUN apt-get -q -y update && DEBIAN_FRONTEND=noninteractive apt-get -q -y install curl vim locales lsb-release python3-pip ssh && apt-get clean
 ## add locale
@@ -36,14 +36,13 @@ RUN python3 -m grpc_tools.protoc -I./service/  --python_out=./service/ --grpc_py
 RUN python3 -m grpc_tools.protoc -I./service/  --python_out=./service/ --grpc_python_out=./service/ ./service/amr2.proto
 
 # Temporary fix
-ENV MODEL_DIR "EXP2/exp_amr3questions_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/models_ep120_seed43"
+#ENV MODEL_DIR "EXP2/exp_amr3questions_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/models_ep120_seed43"
 # Path adjustemts, to be revised
-RUN mkdir -p ${MODEL_DIR} && ln -s ${AMR_PARSER}/models/* ${MODEL_DIR} 
+#RUN mkdir -p ${MODEL_DIR} && ln -s ${AMR_PARSER}/models/* ${MODEL_DIR} 
 
 # Model Location
-ENV MODEL_PATH "models/checkpoint_smatch_top3-avg.pt"
+ENV MODEL_PATH "EXP2/exp_amr3questions_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/models_ep120_seed42/checkpoint_smatch_top3-avg.pt"
 # GRPC Port (so that it can be set during run time)
 ENV GRPC_PORT "50051"
-
-# start the server
+# Start the server
 CMD python3 -u service/amr_server.py --in-model ${MODEL_PATH} --roberta-cache-path ${ROBERTA_CACHE_PATH} --port ${GRPC_PORT}
