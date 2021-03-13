@@ -12,7 +12,8 @@ def read_amr(file_path, ibm_format=False, tokenize=False):
     with open(file_path) as fid:
         raw_amr = []
         raw_amrs = []
-        for line in tqdm(fid.readlines(), desc='Reading AMR'):
+        # for line in tqdm(fid.readlines(), desc='Reading AMR'):
+        for line in fid.readlines():
             if line.strip() == '':
                 if ibm_format:
                     # From ::node, ::edge etc
@@ -491,12 +492,13 @@ def get_print_paths(amr, paths):
 
 
 def greedy_matching(print_pred_paths, print_gold_paths):
+    print_pred_paths2 = list(print_pred_paths)
     hits = []
     for gold_path in print_gold_paths:
-        if gold_path in print_pred_paths:
+        if gold_path in print_pred_paths2:
             hits.append(gold_path)
-            print_pred_paths.remove(gold_path)
-    return hits, print_pred_paths
+            print_pred_paths2.remove(gold_path)
+    return hits, print_pred_paths2
 
 
 def get_path_kb_ids(amr):
@@ -523,11 +525,19 @@ def get_path_kb_ids(amr):
             new_entity_ids.append(ner_id)
     entity_ids = new_entity_ids
 
-    # Loop over unknown nodes
+    unknown_ids, utype = get_unknown_id(amr)
+
+    unknown_ids2 = []
     for uid, nname in amr.nodes.items():
         if nname != 'amr-unknown':
             continue
-        unknown_ids.append(uid)
+        unknown_ids2.append(uid)
+
+    if not set(unknown_ids2) <= set(unknown_ids):
+        set_trace(context=30)
+
+    # Loop over unknown nodes
+    for uid in unknown_ids:
 
         # Loop over NER nodes
         for src in entity_ids:
@@ -587,6 +597,45 @@ def get_ancestor_path(amr, node_id, ancestor_ids):
     return final_paths
 
 
+def get_unknown_id(amr):
+
+    # Look for amr-unknown
+    unknown_type = 'select'
+    unknown_id = [k for k, v in amr.nodes.items() if v == 'amr-unknown']
+    if unknown_id == []:
+        # Look for imperative constructions
+        for t in amr.edges:
+            if t[0] == amr.root:
+                if t[1] == ':mode':
+                    if amr.nodes[t[2]] == 'imperative':
+                        unknown_type = 'imperative'
+                    elif amr.nodes[t[2]] == 'interrogative':
+                        unknown_type = 'boolean'
+                elif t[1] in [':ARG1']:
+                    unknown_id = t[2]
+                    # special rule for counting
+                    if t[2] == 'count-01':
+                        unknown_id = [
+                            t2 for t2 in amr.edges
+                            if t2[0] == t[2] and t2[1] == ':ARG1'
+                        ][0]
+
+                elif t[1] in [':rel']:
+                    unknown_id = t[2]
+                    # special rule for counting
+                    if t[2] == 'count-01':
+                        unknown_id = [
+                            t2 for t2 in amr.edges
+                            if t2[0] == t[2] and t2[1] == ':rel'
+                        ][0]
+
+        # If this is imperative, its just imperative mode
+        if unknown_type != 'imperative':
+            unknown_id = None
+
+    return unknown_id, unknown_type
+
+
 def main():
 
     # argument handling
@@ -604,7 +653,8 @@ def main():
     # accumulate stats
     stats = []
     kb_stats = []
-    for index in tqdm(range(num_amrs), desc='scoring'):
+    # for index in tqdm(range(num_amrs), desc='scoring'):
+    for index in range(num_amrs):
 
         pred_amr = pred_amrs[index]
         gold_amr = gold_amrs[index]
@@ -620,37 +670,41 @@ def main():
         stats.append([len(print_pred_paths), len(print_gold_paths), len(hits),
                       len(misses)])
 
-        if 'amr-unknown' not in gold_amr.nodes.values():
+        if get_unknown_id(gold_amr)[0] is None:
             continue
 
         # KB path stats
         # print them into paths with nodes and edges
-        # if index == 117:
-        #    set_trace(context=30)
         print_gold_paths = get_print_paths(
             gold_amr,
             get_path_kb_ids(gold_amr)[2],
         )
-        print_pred_paths = get_print_paths(
-            pred_amr,
-            get_path_kb_ids(pred_amr)[2],
-        )
+
+        if get_unknown_id(pred_amr)[0] is None:
+            print_pred_paths = get_print_paths(pred_amr, [])
+            found_unknown = 0
+        else:
+            print_pred_paths = get_print_paths(
+                pred_amr,
+                get_path_kb_ids(pred_amr)[2],
+            )
+            found_unknown = 1
 
         hits, misses = greedy_matching(print_pred_paths, print_gold_paths)
+        set_trace(context=30)
 
         # Tries, hits, misses
         kb_stats.append([len(print_pred_paths), len(print_gold_paths),
-                         len(hits), len(misses)])
+                         len(hits), len(misses), found_unknown])
 
     hits = sum([x[2] for x in stats])
     tries = sum([x[0] for x in stats])
-    print(f'GGPA {hits * 100. /tries:.1f} %')
+    print(f'GGPA: {hits/tries:.3f}')
 
     hits = sum([x[2] for x in kb_stats])
     tries = sum([x[0] for x in kb_stats])
-    print(f'GGPA-KB {hits * 100. /tries:.1f} %')
-    set_trace(context=30)
-    print()
+    foundu = sum([x[-1] for x in kb_stats])
+    print(f'GGPA-KB: {foundu}/{len(kb_stats)}/{num_amrs} {hits/tries:.3f}')
 
 
 if __name__ == '__main__':
