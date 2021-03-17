@@ -1,8 +1,7 @@
-import sys
+import argparse
 from collections import defaultdict
 import re
 # pip install
-from tqdm import tqdm
 from ipdb import set_trace
 import penman
 from penman.layout import Push
@@ -434,7 +433,7 @@ def get_reentrancy_edges(amr):
         parents = amr.parents(nid, edges=False)
         if len(parents) > 1:
             sorted_edges = sorted(parents, key=first_alignment)
-            reentrancy_edges.extend(sorted_edges[1:])
+            reentrancy_edges.append(nid)
             originals.append(sorted_edges[0])
 
     return reentrancy_edges, originals
@@ -443,7 +442,8 @@ def get_reentrancy_edges(amr):
 def get_path_ids(amr):
 
     # get children by parent index, removing re-entrancies
-    reentrancy_edges, _ = get_reentrancy_edges(amr)
+    # reentrancy_edges, _ = get_reentrancy_edges(amr)
+    reentrancy_edges = []
     children_by_nid = defaultdict(list)
     for (src, label, tgt) in amr.edges:
         if tgt not in reentrancy_edges:
@@ -469,6 +469,40 @@ def get_path_ids(amr):
     return paths
 
 
+def path_filter(amr, gid):
+    unk_ids, utype = get_unknown_ids(amr)
+    ner_ids = get_ner_ids(amr)
+    new_gid = []
+    for path in gid:
+        if any(x in path for x in unk_ids) or any(x in path for x in ner_ids):
+            # contains both unknown and entity
+            new_gid.append(path)
+    return new_gid
+
+
+def save_print_path(out_paths, amrs, print_paths):
+    with open(out_paths, 'w') as fid:
+        for amr, ppaths in zip(amrs, print_paths):
+            tokens = amr.tokens
+            if '<ROOT>' in tokens:
+                tokens.remove('<ROOT>')
+            tokens = ' '.join(tokens)
+            fid.write(f'# ::tok {tokens}\n')
+            for ppath in ppaths:
+                fid.write(f'{ppath}\n')
+            fid.write(f'\n')
+
+
+def get_print_paths_corpus(amrs, kb_only):
+    print_paths = []
+    for amr in amrs:
+        gid = get_path_ids(amr)
+        if kb_only:
+            gid = path_filter(amr, gid)
+        print_paths.append(get_print_paths(amr, gid))
+    return print_paths
+
+
 def get_print_paths(amr, paths):
 
     def path2str(path):
@@ -488,28 +522,49 @@ def get_print_paths(amr, paths):
             print_paths.append(' + '.join(subpaths))
         else:
             print_paths.append(path2str(path))
-    return sorted(print_paths, key=len, reverse=True)
 
+    # leaf unique paths
+    unique_paths = []
+    def cost(item):
+        i, _ = item
+        return len(paths[i])
+    for _, path in sorted(enumerate(print_paths), key=cost, reverse=True):
+        if any(x.startswith(path) for x in unique_paths):
+            continue
+        unique_paths.append(path)
+
+    # join name entity leaves
+    trunk = defaultdict(list)
+    for path in unique_paths:
+        items = path.split()
+        if items[-4:-2] == [':name', 'name']:
+            trunk[' '.join(items[:-3])].append(items[-2:])
+        else:
+            trunk[' '.join(items)] = None
+    unique_paths = []
+    for paths, leaves in trunk.items():
+        if leaves is None:
+            unique_paths.append(paths)
+        else:
+            path_str = ' '.join([
+                x[1].replace('"', '')
+                for x in sorted(leaves, key=lambda x: x[0])
+            ])
+            unique_paths.append(f'{paths} "{path_str}"')
+    unique_paths = sorted(unique_paths, key=len, reverse=True)
+
+    return unique_paths
 
 def greedy_matching(print_pred_paths, print_gold_paths):
-    print_pred_paths2 = list(print_pred_paths)
+    print_pred_paths2 = [x.lower() for x in print_pred_paths]
     hits = []
     for gold_path in print_gold_paths:
-        if gold_path in print_pred_paths2:
+        if gold_path.lower() in print_pred_paths2:
             hits.append(gold_path)
-            print_pred_paths2.remove(gold_path)
+            print_pred_paths2.remove(gold_path.lower())
     return hits, print_pred_paths2
 
-
-def get_path_kb_ids(amr):
-
-    # get children by parent index, removing re-entrancies
-    # reentrancy_edges, _ = get_reentrancy_edges(amr)
-
-    # Find all paths
-    unknown_ids = []
-    entity_ids = []
-    kb_paths = []
+def get_ner_ids(amr):
 
     # Find NERs
     entity_ids = []
@@ -523,19 +578,20 @@ def get_path_kb_ids(amr):
         ancestor = get_ancestor_path(amr, ner_id, other)
         if any(a[-1] not in entity_ids for a in ancestor):
             new_entity_ids.append(ner_id)
-    entity_ids = new_entity_ids
 
-    unknown_ids, utype = get_unknown_id(amr)
+    return new_entity_ids
 
-    unknown_ids2 = []
-    for uid, nname in amr.nodes.items():
-        if nname != 'amr-unknown':
-            continue
-        unknown_ids2.append(uid)
 
-    if not set(unknown_ids2) <= set(unknown_ids):
-        set_trace(context=30)
+def get_path_kb_ids(amr):
 
+    # get children by parent index, removing re-entrancies
+    # reentrancy_edges, _ = get_reentrancy_edges(amr)
+
+    entity_ids = get_ner_ids(amr)
+    unknown_ids, utype = get_unknown_ids(amr)
+
+    # Find all paths
+    kb_paths = []
     # Loop over unknown nodes
     for uid in unknown_ids:
 
@@ -551,7 +607,7 @@ def get_path_kb_ids(amr):
                 else:
                     kb_paths.append(path[::-1])
 
-    return unknown_ids, entity_ids, kb_paths
+    return kb_paths
 
 
 def get_ancestor_path(amr, node_id, ancestor_ids):
@@ -597,7 +653,7 @@ def get_ancestor_path(amr, node_id, ancestor_ids):
     return final_paths
 
 
-def get_unknown_id(amr):
+def get_unknown_ids(amr):
 
     # Look for amr-unknown
     unknown_type = 'select'
@@ -612,7 +668,7 @@ def get_unknown_id(amr):
                     elif amr.nodes[t[2]] == 'interrogative':
                         unknown_type = 'boolean'
                 elif t[1] in [':ARG1']:
-                    unknown_id = t[2]
+                    unknown_id = [t[2]]
                     # special rule for counting
                     if t[2] == 'count-01':
                         unknown_id = [
@@ -621,7 +677,7 @@ def get_unknown_id(amr):
                         ][0]
 
                 elif t[1] in [':rel']:
-                    unknown_id = t[2]
+                    unknown_id = [t[2]]
                     # special rule for counting
                     if t[2] == 'count-01':
                         unknown_id = [
@@ -631,81 +687,84 @@ def get_unknown_id(amr):
 
         # If this is imperative, its just imperative mode
         if unknown_type != 'imperative':
-            unknown_id = None
+            unknown_id = [None]
 
     return unknown_id, unknown_type
 
 
-def main():
-
-    # argument handling
-    if len(sys.argv) != 3:
-        print(f'\npython {sys.argv[0]} /path/to/pred_amr /path/to/gold_amr\n')
-        exit(1)
-    pred_amr_file, gold_amr_file = sys.argv[1:]
-
-    # Read files
-    pred_amrs = read_amr(pred_amr_file, ibm_format=True)
-    gold_amrs = read_amr(gold_amr_file, ibm_format=True)
-    assert len(pred_amrs) == len(gold_amrs)
-    num_amrs = len(pred_amrs)
+def compute_scores(pred_amrs, gold_amrs, kb_only):
 
     # accumulate stats
     stats = []
-    kb_stats = []
-    # for index in tqdm(range(num_amrs), desc='scoring'):
-    for index in range(num_amrs):
+    for index in range(len(gold_amrs)):
 
         pred_amr = pred_amrs[index]
         gold_amr = gold_amrs[index]
 
         # get the paths in forms of lists of ids
-        print_gold_paths = get_print_paths(gold_amr, get_path_ids(gold_amr))
-        print_pred_paths = get_print_paths(pred_amr, get_path_ids(pred_amr))
+        gold_gid = get_path_ids(gold_amr)
+        pred_gid = get_path_ids(pred_amr)
+        if kb_only:
+            gold_gid = path_filter(gold_amr, gold_gid)
+            pred_gid = path_filter(pred_amr, pred_gid)
+        print_gold_paths = get_print_paths(gold_amr, gold_gid)
+        print_pred_paths = get_print_paths(pred_amr, pred_gid)
 
         # print them into paths with nodes and edges
         hits, misses = greedy_matching(print_pred_paths, print_gold_paths)
 
         # Tries, hits, misses
         stats.append([len(print_pred_paths), len(print_gold_paths), len(hits),
-                      len(misses)])
-
-        if get_unknown_id(gold_amr)[0] is None:
-            continue
-
-        # KB path stats
-        # print them into paths with nodes and edges
-        print_gold_paths = get_print_paths(
-            gold_amr,
-            get_path_kb_ids(gold_amr)[2],
-        )
-
-        if get_unknown_id(pred_amr)[0] is None:
-            print_pred_paths = get_print_paths(pred_amr, [])
-            found_unknown = 0
-        else:
-            print_pred_paths = get_print_paths(
-                pred_amr,
-                get_path_kb_ids(pred_amr)[2],
-            )
-            found_unknown = 1
-
-        hits, misses = greedy_matching(print_pred_paths, print_gold_paths)
-        set_trace(context=30)
-
-        # Tries, hits, misses
-        kb_stats.append([len(print_pred_paths), len(print_gold_paths),
-                         len(hits), len(misses), found_unknown])
+                      len(misses), len(hits) == len(print_gold_paths)])
 
     hits = sum([x[2] for x in stats])
     tries = sum([x[0] for x in stats])
-    print(f'GGPA: {hits/tries:.3f}')
+    em = sum([x[4] for x in stats]) * 1.0 / len(stats)
+    if kb_only:
+        print(f'GPGA-KB: {hits/tries:.3f} (EM {em:.3f})')
+    else:
+        print(f'GPGA: {hits/tries:.3f} (EM {em:.3f})')
 
-    hits = sum([x[2] for x in kb_stats])
-    tries = sum([x[0] for x in kb_stats])
-    foundu = sum([x[-1] for x in kb_stats])
-    print(f'GGPA-KB: {foundu}/{len(kb_stats)}/{num_amrs} {hits/tries:.3f}')
+
+def argument_parser():
+
+    parser = argparse.ArgumentParser(
+        description='Additional AMR peformance metrics'
+    )
+    # Single input parameters
+    parser.add_argument("--in-amr", type=str, required=True,
+                        help="AMR notation in penman format")
+    parser.add_argument("--in-gold-amr", type=str,
+                        help="REFERENCE AMR notation in penman format")
+    parser.add_argument("--out-paths", type=str, help="Paths from AMR graph")
+    parser.add_argument("--kb-only", help="Use only KB paths",
+                        action='store_true')
+    args = parser.parse_args()
+
+    if args.out_paths:
+        assert bool(args.in_amr), "--out-paths requires only --in-amr"
+        assert not bool(args.in_gold_amr), "--out-paths requires only --in-amr"
+
+    return args
+
+
+def main(args):
+
+    # Read files
+    amrs = read_amr(args.in_amr, ibm_format=True)
+    num_amrs = len(amrs)
+    if args.in_gold_amr:
+        gold_amrs = read_amr(args.in_gold_amr, ibm_format=True)
+        assert len(gold_amrs) == num_amrs
+
+    if args.in_gold_amr:
+        # Compute and print scores
+        compute_scores(amrs, gold_amrs, args.kb_only)
+    elif args.out_paths:
+        # save paths
+        print_paths = get_print_paths_corpus(amrs, args.kb_only)
+        save_print_path(args.out_paths, amrs, print_paths)
 
 
 if __name__ == '__main__':
-    main()
+    main(argument_parser())
