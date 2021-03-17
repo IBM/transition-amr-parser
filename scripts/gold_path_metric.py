@@ -505,6 +505,8 @@ def get_print_paths_corpus(amrs, kb_only):
 
 def get_print_paths(amr, paths):
 
+    ignore_ne_types = False
+
     def path2str(path):
         str_path = f'{amr.nodes[path[0]]}'
         for n in range(len(path) - 1):
@@ -525,9 +527,11 @@ def get_print_paths(amr, paths):
 
     # leaf unique paths
     unique_paths = []
+
     def cost(item):
         i, _ = item
         return len(paths[i])
+
     for _, path in sorted(enumerate(print_paths), key=cost, reverse=True):
         if any(x.startswith(path) for x in unique_paths):
             continue
@@ -538,7 +542,10 @@ def get_print_paths(amr, paths):
     for path in unique_paths:
         items = path.split()
         if items[-4:-2] == [':name', 'name']:
-            trunk[' '.join(items[:-3])].append(items[-2:])
+            if ignore_ne_types:
+                trunk[' '.join(items[:-5] + [items[-4]])].append(items[-2:])
+            else:
+                trunk[' '.join(items[:-3])].append(items[-2:])
         else:
             trunk[' '.join(items)] = None
     unique_paths = []
@@ -551,7 +558,7 @@ def get_print_paths(amr, paths):
                 for x in sorted(leaves, key=lambda x: x[0])
             ])
             unique_paths.append(f'{paths} "{path_str}"')
-    unique_paths = sorted(unique_paths, key=len, reverse=True)
+    unique_paths = sorted(unique_paths, reverse=True)
 
     return unique_paths
 
