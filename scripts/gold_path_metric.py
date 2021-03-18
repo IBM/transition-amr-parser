@@ -702,11 +702,21 @@ def get_unknown_ids(amr):
 def compute_scores(pred_amrs, gold_amrs, kb_only):
 
     # accumulate stats
-    stats = []
+    stats = dict(
+        num_pred_paths=0,
+        num_gold_paths=0,
+        hits=0,
+        misses=0,
+        exact_paths=[],
+        exact_unknowns=[]
+    )
     for index in range(len(gold_amrs)):
 
         pred_amr = pred_amrs[index]
         gold_amr = gold_amrs[index]
+
+        # if gold_amr.tokens[0] == 'Whichd':
+        #    set_trace(context=30)
 
         # get the paths in forms of lists of ids
         gold_gid = get_path_ids(gold_amr)
@@ -717,18 +727,30 @@ def compute_scores(pred_amrs, gold_amrs, kb_only):
         print_gold_paths = get_print_paths(gold_amr, gold_gid)
         print_pred_paths = get_print_paths(pred_amr, pred_gid)
 
+        gold_unk_ids, gold_utype = get_unknown_ids(gold_amr)
+        pred_unk_ids, pred_utype = get_unknown_ids(pred_amr)
+        gold_unk_ids = list(filter(None, gold_unk_ids))
+        pred_unk_ids = list(filter(None, pred_unk_ids))
+
         # print them into paths with nodes and edges
         hits, misses = greedy_matching(print_pred_paths, print_gold_paths)
 
         # Tries, hits, misses
-        stats.append([len(print_pred_paths), len(print_gold_paths), len(hits),
-                      len(misses), len(hits) == len(print_gold_paths)])
+        stats['num_pred_paths'] += len(print_pred_paths)
+        stats['num_gold_paths'] += len(print_gold_paths)
+        stats['hits'] += len(hits)
+        stats['misses'] += len(misses)
+        stats['exact_paths'].append(len(hits) == len(print_gold_paths))
+        stats['exact_unknowns'].append(len(gold_unk_ids) == len(pred_unk_ids))
 
-    hits = sum([x[2] for x in stats])
-    tries = sum([x[0] for x in stats])
-    em = sum([x[4] for x in stats]) * 1.0 / len(stats)
+    hits = stats['hits']
+    tries = stats['num_pred_paths']
+    em = sum(stats['exact_paths']) / len(stats['exact_paths'])
+    euh = sum(stats['exact_unknowns'])
+    eut = len(stats['exact_unknowns'])
     if kb_only:
         print(f'GPGA-KB: {hits/tries:.3f} (EM {em:.3f})')
+        print(f'Unknowns: {euh}/{eut} (EM {euh/eut:.3f})')
     else:
         print(f'GPGA: {hits/tries:.3f} (EM {em:.3f})')
 
