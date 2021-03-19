@@ -62,6 +62,9 @@ pip install penman
 pip install spacy ipdb
 pip install --editable .
 
+# initialize the working environment
+mkdir ./jbsub_logs
+
 # install pytorch_scatter
 [ -d pytorch_scatter ] && rm -rf pytorch_scatter
 git clone https://github.com/rusty1s/pytorch_scatter.git
