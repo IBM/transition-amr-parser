@@ -9,7 +9,7 @@ set -o pipefail
 
 ### local env
 # cenv_name=amr0.4_ody
-cenv_name=amr0.4_bart
+cenv_name=amr0.4_bart-o10
 [ ! -d $cenv_name ] && conda create -y -p ./$cenv_name
 echo "source activate ./$cenv_name"
 source activate ./$cenv_name
