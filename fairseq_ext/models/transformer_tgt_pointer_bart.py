@@ -208,6 +208,9 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         parser.add_argument('--bart-emb-init-composition', type=int,
                             help='whether to initialize the decoder embeddings with composed sub-tokens '
                                  'from BART vocabulary')
+        parser.add_argument('--bart-emb-composition-pred', type=int,
+                            help='whether to use the compositional embedding on top of BART embeddings only for the '
+                                 'PRED node actions')
         # additional: use pretrained roberta embeddings
         parser.add_argument('--src-roberta-emb', type=int,
                             help='src tokens: whether to use pretrained (fix) RoBERTa embeddings to input to encoder')
@@ -338,9 +341,11 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                     )
                 else:
                     # still use the BART embedding for target input
-                    decoder_embed_tokens = cls.build_embedding(
-                        args, tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
-                    )
+                    # NOTE this below is not tying the decoder embeddings with encoder embeddings
+                    # decoder_embed_tokens = cls.build_embedding(
+                    #     args, tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
+                    # )
+                    decoder_embed_tokens = encoder_embed_tokens
             else:
                 assert args.bart_emb_decoder_input
                 # compositional embeddings for the tgt actions on top of BART bpe embeddings
@@ -349,7 +354,9 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                 )
 
         encoder = cls.build_encoder(args, src_dict, encoder_embed_tokens)
-        decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens, tgt_dict_raw, task.bart)
+        decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens, tgt_dict_raw, task.bart,
+                                    encoder_embed_tokens    # for args.decoder_emb_composition_pred
+                                    )
         return cls(args, encoder, decoder)
 
     @classmethod
@@ -369,14 +376,15 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         return TransformerEncoder(args, src_dict, embed_tokens)
 
     @classmethod
-    def build_decoder(cls, args, tgt_dict, embed_tokens, tgt_dict_raw, bart):
+    def build_decoder(cls, args, tgt_dict, embed_tokens, tgt_dict_raw, bart, encoder_embed_tokens):
         return TransformerDecoder(
             args,
             tgt_dict,
             embed_tokens,
             no_encoder_attn=getattr(args, "no_cross_attention", False),
             dictionary_raw=tgt_dict_raw,
-            bart=bart
+            bart=bart,
+            encoder_embed_tokens=encoder_embed_tokens
         )
 
     # TorchScript doesn't support optional arguments with variable length (**kwargs).
@@ -834,7 +842,8 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             (default: False).
     """
 
-    def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False, dictionary_raw=None, bart=None):
+    def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False, dictionary_raw=None, bart=None,
+                 encoder_embed_tokens=None):
         self.args = args
         super().__init__(dictionary)
         self.register_buffer("version", torch.Tensor([3]))
@@ -957,6 +966,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 self.composite_embed = None
             else:
                 self.composite_embed = CompositeEmbeddingBART(bart, self.embed_tokens, dictionary_raw)
+
+            if args.bart_emb_composition_pred:
+                # use compositional embeddings for PRED node actions
+                self.composite_embed = CompositeEmbeddingBART(bart, encoder_embed_tokens, dictionary_raw)
         else:
             self.composite_embed = CompositeEmbeddingBART(bart, self.embed_tokens, dictionary_raw)
         # =======================================
@@ -1103,11 +1116,27 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         # ========== apply composite embeddings on the raw tgt tokens ==========
         if not self.args.bart_emb_decoder:
-            # separate embeddings
-            if not self.args.bart_emb_decoder_input:
-                x = self.embed_scale * self.embed_tokens(prev_output_tokens)
+
+            # use the compositional embedding for PRED node actions
+            if self.args.bart_emb_composition_pred:
+                self.composite_embed.update_embeddings()
+
+                embedding_weight_mixed = torch.zeros_like(self.embed_tokens.weight)
+                embedding_weight_mixed[self.composite_embed.dict_pred_mask] = self.composite_embed.embedding_weight[
+                    self.composite_embed.dict_pred_mask]
+                embedding_weight_mixed[~self.composite_embed.dict_pred_mask] = self.embed_tokens.weight[
+                    ~self.composite_embed.dict_pred_mask]
+
+                x = self.embed_scale * nn.functional.embedding(prev_output_tokens,
+                                                               embedding_weight_mixed,
+                                                               padding_idx=self.dictionary.pad())
             else:
-                x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
+                # separate embeddings
+                if not self.args.bart_emb_decoder_input:
+                    x = self.embed_scale * self.embed_tokens(prev_output_tokens)
+                else:
+                    x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
+
         else:
             # compositional embeddings based on BART embeddings
             x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
@@ -1253,6 +1282,11 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             if not self.args.bart_emb_decoder:
                 # separate embeddings
                 out = self.output_projection(features)    # original output_projection has a different output size
+
+                # use the compositional embedding for PRED node actions
+                if self.args.bart_emb_composition_pred:
+                    out_comp = nn.functional.linear(features, self.composite_embed.embedding_weight)
+                    out[:, :, self.composite_embed.dict_pred_mask] = out_comp[:, :, self.composite_embed.dict_pred_mask]
             else:
                 # compositional embeddings based on BART embeddings
                 out = nn.functional.linear(features, self.composite_embed.embedding_weight)
@@ -1519,6 +1553,12 @@ def transformer_pointer(args):
     args.src_avg_layers = getattr(args, 'src_avg_layers', None)
 
     args.src_roberta_enc = getattr(args, 'src_roberta_enc', 0)
+
+    # whether to use compositional embeddings on top of BART embeddings for the PRED node actions
+    args.bart_emb_composition_pred = getattr(args, 'bart_emb_composition_pred', 0)
+    if args.bart_emb_composition_pred:
+        assert not args.bart_emb_decoder, ('args.bart_emb_composition_pred is used when we do not use BART embeddings '
+                                           'for decoder')
 
     base_architecture(args)
 
