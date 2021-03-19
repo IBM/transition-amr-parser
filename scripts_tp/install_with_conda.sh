@@ -56,6 +56,7 @@ pip install fairseq==0.10.2
 pip install tensorboardX
 # install packaging for compatibility of PyTorch < 1.2
 conda install packaging -y
+pip install penman
 
 # install transition_amr_parser
 pip install spacy ipdb
