@@ -1,5 +1,6 @@
 import os
 
+from tqdm import tqdm
 import torch
 from fairseq.data import Dictionary
 from fairseq_ext.extract_bart.composite_embeddings import CompositeEmbeddingBART, transform_action_symbol
@@ -14,11 +15,11 @@ if __name__ == '__main__':
     cemb = CompositeEmbeddingBART(bart, bart.model.decoder.embed_tokens, vocab)
 
     trans_actions = []
-    for sym in vocab.symbols:
+    for sym in tqdm(vocab.symbols):
         new_sym = transform_action_symbol(sym)    # str
         splitted = cemb.sub_tokens(new_sym)    # list
         # trans_actions.append((new_sym, splitted))
-        trans_actions.append(new_sym + '  -->  ' + '|'.join(splitted) + '\n')
+        trans_actions.append(new_sym + '  -->  ' + '|' + '|'.join(splitted) + '|' + '\n')
 
     tmp_dir = 'fairseq_ext/tests_data'
     os.makedirs(tmp_dir, exist_ok=True)
