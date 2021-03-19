@@ -86,6 +86,10 @@ class CompositeEmbeddingBART(CompositeEmbedding):
         self.register_buffer('extract_index', extract_index)
         self.register_buffer('scatter_index', scatter_index)
 
+        # mask on the dictionary symbols to use as compositional embeddings
+        dict_pred_mask = self.get_dictionary_mask()
+        self.register_buffer('dict_pred_mask', dict_pred_mask)
+
         self.num_embeddings = len(self.dictionary)
         self.embedding_dim = bart_embeddings.embedding_dim
         # NOTE bart_embeddings is torch.nn.Embedding
@@ -129,6 +133,15 @@ class CompositeEmbeddingBART(CompositeEmbedding):
     def update_embeddings(self):
         self.embedding_weight = self.scatter_embeddings(self.extract_index, self.scatter_index)
 
+    def get_dictionary_mask(self):
+        # mask on the dictionary elements that we'd like to keep using the BART compositional embeddings
+        # currently try for the PRED node actions
+        dict_pred_mask = torch.zeros(len(self.dictionary), dtype=torch.bool)
+        for sym_id, sym in enumerate(self.dictionary.symbols):
+            if sym.startswith('PRED'):
+                dict_pred_mask[sym_id] = 1
+        return dict_pred_mask
+
 
 def transform_action_symbol(sym):
     """Transform the action symbol to a form to be more easily tokenized by BART vocabulary.
@@ -142,6 +155,10 @@ def transform_action_symbol(sym):
     - for ENTITY(...), just lowercase?
         ENTITY(person,country,name) -> entity(person,country,name) -> entity person country name
 
+    NOTE
+        - need to prepend ' ' for token boundary for the BPE vocab
+        - we remove all the dashes '-'
+
 
     Args:
         sym (str): an action
@@ -149,21 +166,67 @@ def transform_action_symbol(sym):
     Returns:
         new_sym (str): a string of the transformed action symbol
     """
+    if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>'] or sym.startswith('madeupword'):
+        # special tokens
+        return sym
+
     new_sym = sym.lower()
+
     if new_sym == 'copy_lemma':
         new_sym = 'copy'
+
     elif new_sym == 'copy_sense01':
-        new_sym = 'copy sense-01'
-    elif new_sym.startswith('la'):
-        new_sym = 'left arc ' + new_sym.split('(')[1][:-1]
-    elif new_sym.startswith('ra'):
-        new_sym = 'right arc ' + new_sym.split('(')[1][:-1]
+        new_sym = 'copy sense 01'
+
+    elif new_sym.startswith(('la', 'ra')):
+
+        if new_sym.startswith('la'):
+            marker = 'left arc '
+        else:
+            marker = 'right arc '
+
+        label = new_sym.split('(')[1][:-1]
+        if label.startswith(':arg'):
+            if label.endswith('-of'):
+                label = 'argument ' + str(int(label[4:-3])) + ' of'
+            else:
+                label = 'argument ' + str(int(label[4:]))
+        elif label.startswith(':op'):
+            if label.endswith('-of'):
+                label = 'operator ' + str(int(label[3:-3])) + ' of'
+            else:
+                label = 'operator ' + str(int(label[3:]))
+        elif label.startswith(':snt'):
+            label = 'sentence ' + str(int(label[4:]))
+        else:
+            label = ' '.join(label.lstrip(':').split('-'))
+
+        new_sym = marker + label
+
     elif new_sym.startswith('pred'):
+
         new_sym = new_sym.split('(')[1][:-1]
+        new_sym = ' '.join(new_sym.split('-'))    # remove the dash "-" and add token boundaries
+
     elif new_sym.startswith('entity'):
-        new_sym = 'entity ' + ' '.join(new_sym.split('(')[1][:-1].split(','))
+        marker = 'entity '
+
+        label = new_sym.split('(')[1][:-1].split(',')
+        label_new = []
+        for s in label:
+            # tmp = s.split('-')
+            # remove the duplicated 'entity' keyword, e.g. 'data-entity'
+            tmp = [ss for ss in s.split('-') if ss != 'entity']
+            label_new.extend(tmp)
+        label_new = ' '.join(label_new)
+
+        new_sym = marker + label_new
+
     else:
         # do not raise error: could be some special symbols in the dictionary such as <s> <pad> etc.
         pass
+
+    # NOTE we need to add the space token boundary to map to the correct isolated token!
+    new_sym = ' ' + new_sym
 
     return new_sym

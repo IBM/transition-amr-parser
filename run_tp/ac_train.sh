@@ -61,6 +61,7 @@ bart_emb_backprop=${bart_emb_backprop:-1}
 bart_emb_decoder=${bart_emb_decoder:-1}
 bart_emb_decoder_input=${bart_emb_decoder_input:-1}
 bart_emb_init_composition=${bart_emb_init_composition:-0}
+bart_emb_composition_pred=${bart_emb_composition_pred:-0}
 
 src_roberta_emb=${src_roberta_emb:-0}
 src_fix_emb_use=$src_roberta_emb
@@ -72,6 +73,7 @@ lr=${lr:-0.0005}
 max_tokens=${max_tokens:-3584}
 warmup=${warmup:-4000}
 dropout=${dropout:-0.3}
+clip_norm=${clip_norm:-0.0}
 
 weight_decay=${weight_decay:-0.0}
 loss_coef=${loss_coef:-1}
@@ -114,6 +116,7 @@ else
         --bart-emb-decoder $bart_emb_decoder \
         --bart-emb-decoder-input $bart_emb_decoder_input \
         --bart-emb-init-composition $bart_emb_init_composition \
+        --bart-emb-composition-pred $bart_emb_composition_pred \
         \
         --src-roberta-emb $src_roberta_emb \
         --src-pool-wp2w $src_pool_wp2w \
@@ -141,7 +144,7 @@ else
         --arch $arch \
         --optimizer adam \
         --adam-betas '(0.9,0.98)' \
-        --clip-norm 0.0 \
+        --clip-norm $clip_norm \
         --lr-scheduler inverse_sqrt \
         --warmup-init-lr 1e-07 \
         --warmup-updates $warmup \
