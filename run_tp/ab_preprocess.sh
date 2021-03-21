@@ -26,7 +26,7 @@ fi
 
 TASK=${TASK:-amr_action_pointer}
 
-if [[ (-d $DATA_FOLDER) && (-d $EMB_FOLDER) ]]; then
+if [[ (-f $DATA_FOLDER/.done) && (-f $EMB_FOLDER/.done) ]]; then
 
     echo "Directory to processed oracle data: $DATA_FOLDER"
     echo "and source pre-trained embeddings: $EMB_FOLDER"
@@ -108,5 +108,8 @@ else
     echo -e "\nError: task [$TASK] not recognized\n" && exit 1
 
     fi
+
+    touch $DATA_FOLDER/.done
+    touch $EMB_FOLDER/.done
 
 fi

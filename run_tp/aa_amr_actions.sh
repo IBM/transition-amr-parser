@@ -18,14 +18,14 @@ fi
 #       be called from other scripts
 
 ##### script specific config
-MAX_WORDS=${MAX_WORDS:-100}
+
 
 ##### ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
 # [ -d $ORACLE_FOLDER ] && echo "Directory to oracle $ORACLE_FOLDER already exists." && exit 0
 # rm -Rf $ORACLE_FOLDER
-if [ -d $ORACLE_FOLDER ]; then
-    
+if [ -f $ORACLE_FOLDER/.done ]; then
+
     echo "Directory to oracle: $ORACLE_FOLDER already exists --- do nothing."
 
 else
@@ -36,7 +36,7 @@ else
     cp $AMR_TRAIN_FILE $ORACLE_FOLDER/ref_train.amr
     cp $AMR_DEV_FILE $ORACLE_FOLDER/ref_dev.amr
     cp $AMR_TEST_FILE $ORACLE_FOLDER/ref_test.amr
-    
+
     if [[ ! "$WIKI_DEV" == "" ]]; then
         # copy the original AMR data: wiki files and original AMR with wikification
         cp $WIKI_DEV $ORACLE_FOLDER/ref_dev.wiki
@@ -46,67 +46,37 @@ else
     fi
 
     # generate the actions
-    
-    if [[ $MAX_WORDS == 100 ]]; then
-    
-    python transition_amr_parser/o8_data_oracle.py \
-        --in-amr $AMR_TRAIN_FILE \
-	--in-pred-entities $ENTITIES_WITH_PREDS \
-        --out-sentences $ORACLE_FOLDER/train.en \
+
+    echo -e "\nTraining data"
+
+    python transition_amr_parser/o10_amr_machine.py \
+        --in-aligned-amr $AMR_TRAIN_FILE \
+        --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/train.actions \
-        --out-rule-stats $ORACLE_FOLDER/train.rules.json \
-        --multitask-max-words $MAX_WORDS  \
-        --out-multitask-words $ORACLE_FOLDER/train.multitask_words \
-        --copy-lemma-action
+        --out-tokens $ORACLE_FOLDER/train.en \
+        --absolute-stack-positions  \
+        # --reduce-nodes all
 
-    python transition_amr_parser/o8_data_oracle.py \
-        --in-amr $AMR_DEV_FILE \
-	--in-pred-entities $ENTITIES_WITH_PREDS\
-        --out-sentences $ORACLE_FOLDER/dev.en \
+    echo -e "\nDev data"
+
+    python transition_amr_parser/o10_amr_machine.py \
+        --in-aligned-amr $AMR_DEV_FILE \
+        --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
-        --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
-        --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
-        --copy-lemma-action
+        --out-tokens $ORACLE_FOLDER/dev.en \
+        --absolute-stack-positions  \
+        # --reduce-nodes all
 
-    python transition_amr_parser/o8_data_oracle.py \
-        --in-amr $AMR_TEST_FILE \
-	--in-pred-entities $ENTITIES_WITH_PREDS\
-        --out-sentences $ORACLE_FOLDER/test.en \
+    echo -e "\nTest data"
+
+    python transition_amr_parser/o10_amr_machine.py \
+        --in-aligned-amr $AMR_TEST_FILE \
+        --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
-        --out-rule-stats $ORACLE_FOLDER/test.rules.json \
-        --in-multitask-words $ORACLE_FOLDER/train.multitask_words \
-        --copy-lemma-action
-    
-    elif [[ $MAX_WORDS == 0 ]]; then
-    
-    python transition_amr_parser/o8_data_oracle.py \
-        --in-amr $AMR_TRAIN_FILE \
-	--in-pred-entities $ENTITIES_WITH_PREDS\
-        --out-sentences $ORACLE_FOLDER/train.en \
-        --out-actions $ORACLE_FOLDER/train.actions \
-        --out-rule-stats $ORACLE_FOLDER/train.rules.json \
-        --copy-lemma-action
+        --out-tokens $ORACLE_FOLDER/test.en \
+        --absolute-stack-positions  \
+        # --reduce-nodes all
 
-    python transition_amr_parser/o8_data_oracle.py \
-        --in-amr $AMR_DEV_FILE \
-	--in-pred-entities $ENTITIES_WITH_PREDS\
-        --out-sentences $ORACLE_FOLDER/dev.en \
-        --out-actions $ORACLE_FOLDER/dev.actions \
-        --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
-        --copy-lemma-action
-
-    python transition_amr_parser/o8_data_oracle.py \
-        --in-amr $AMR_TEST_FILE \
-	--in-pred-entities $ENTITIES_WITH_PREDS\
-        --out-sentences $ORACLE_FOLDER/test.en \
-        --out-actions $ORACLE_FOLDER/test.actions \
-        --out-rule-stats $ORACLE_FOLDER/test.rules.json \
-        --copy-lemma-action
-    
-    else
-    
-    echo "MAX_WORDS ${MAX_WORDS} not allowed" && exit 1
-    
-    fi
+    touch $ORACLE_FOLDER/.done
 
 fi

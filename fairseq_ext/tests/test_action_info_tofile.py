@@ -4,8 +4,8 @@ import sys
 from fairseq.data import Dictionary
 
 from fairseq_ext.amr_spec.action_info_binarize import (binarize_actstates_tofile,
-                                                       binarize_actstates_tofile_workers,
-                                                       load_actstates_fromfile)
+                                                           binarize_actstates_tofile_workers,
+                                                           load_actstates_fromfile)
 
 # import sys
 # import importlib

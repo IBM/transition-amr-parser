@@ -15,7 +15,7 @@ from packaging import version
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
-from transition_amr_parser.o8_state_machine import AMRStateMachine
+from transition_amr_parser.o10_amr_machine import AMRStateMachine
 
 
 BOOL_TENSOR_TYPE = torch.bool if version.parse(torch.__version__) >= version.parse('1.2.0') else torch.uint8

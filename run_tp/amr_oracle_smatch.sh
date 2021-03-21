@@ -32,11 +32,11 @@ do
 
     if [ ! -s $ORACLE_FOLDER/oracle_$split.smatch ]; then
 
-        python transition_amr_parser/o8_fake_parse.py \
-            --in-sentences $ORACLE_FOLDER/$split.en \
+        python transition_amr_parser/o10_amr_machine.py \
+            --in-machine-config $ORACLE_FOLDER/machine_config.json \
+            --in-tokens $ORACLE_FOLDER/$split.en \
             --in-actions $ORACLE_FOLDER/$split.actions \
-            --out-amr $ORACLE_FOLDER/oracle_$split.amr \
-            --in-pred-entities $ENTITIES_WITH_PREDS
+            --out-amr $ORACLE_FOLDER/oracle_$split.amr
 
         ##### evaluate reconstruction performance
         # smatch="$(smatch.py --significant 3 -r 10 -f $reference_amr $ORACLE_FOLDER/oracle_${test_set}.amr)"

@@ -31,7 +31,9 @@ from fairseq_ext.binarize import binarize_file
 
 def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dict, tgt_dict, tokenize, dataset_impl,
                                     max_source_positions, max_target_positions, shuffle,
-                                    append_eos_to_target, collate_tgt_states, src_fix_emb_use):
+                                    append_eos_to_target,
+                                    collate_tgt_states, collate_tgt_states_graph,
+                                    src_fix_emb_use):
     src_tokens = None
     src_dataset = None
     src_fixed_embeddings = None
@@ -95,38 +97,45 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
 
     # tgt: actions states information
     try:
-        tgt_vocab_masks, tgt_actnode_masks, tgt_src_cursors, \
-            tgt_actedge_masks, tgt_actedge_cur_nodes, tgt_actedge_pre_nodes, tgt_actedge_directions = \
-            load_actstates_fromfile(filename_prefix + tgt, tgt_dict, dataset_impl)
+        tgt_actstates = load_actstates_fromfile(filename_prefix + tgt, tgt_dict, dataset_impl)
     except:
         assert not collate_tgt_states, ('the target actions states information does not exist --- '
                                         'collate_tgt_states must be 0')
 
     # build dataset
-    dataset = AMRActionPointerDataset(src_tokens=src_tokens, src=src_dataset, src_sizes=src_sizes,
+    dataset = AMRActionPointerDataset(src_tokens=src_tokens,
+                                      src=src_dataset,
+                                      src_sizes=src_sizes,
                                       src_dict=src_dict,
                                       src_fix_emb=src_fixed_embeddings,
                                       src_fix_emb_sizes=src_fixed_embeddings_sizes,
                                       src_fix_emb_use=src_fix_emb_use,
-                                      src_wordpieces=src_wordpieces, src_wordpieces_sizes=src_wordpieces.sizes,
-                                      src_wp2w=src_wp2w, src_wp2w_sizes=src_wp2w.sizes,
-                                      tgt=tgt_dataset, tgt_sizes=tgt_dataset.sizes,
+                                      src_wordpieces=src_wordpieces,
+                                      src_wordpieces_sizes=src_wordpieces.sizes,
+                                      src_wp2w=src_wp2w,
+                                      src_wp2w_sizes=src_wp2w.sizes,
+                                      # tgt
+                                      tgt=tgt_dataset,
+                                      tgt_sizes=tgt_dataset.sizes,
                                       tgt_dict=tgt_dict,
-                                      tgt_pos=tgt_pos, tgt_pos_sizes=tgt_pos.sizes,
-                                      tgt_vocab_masks=tgt_vocab_masks,
-                                      tgt_actnode_masks=tgt_actnode_masks,
-                                      tgt_src_cursors=tgt_src_cursors,
-                                      tgt_actedge_masks=tgt_actedge_masks,
-                                      tgt_actedge_cur_nodes=tgt_actedge_cur_nodes,
-                                      tgt_actedge_pre_nodes=tgt_actedge_pre_nodes,
-                                      tgt_actedge_directions=tgt_actedge_directions,
+                                      tgt_pos=tgt_pos,
+                                      tgt_pos_sizes=tgt_pos.sizes,
+                                      tgt_vocab_masks=tgt_actstates['tgt_vocab_masks'],
+                                      tgt_actnode_masks=tgt_actstates['tgt_actnode_masks'],
+                                      tgt_src_cursors=tgt_actstates['tgt_src_cursors'],
+                                      tgt_actedge_masks=tgt_actstates.get('tgt_actedge_mask', None),
+                                      tgt_actedge_cur_nodes=tgt_actstates.get('tgt_actedge_cur_nodes', None),
+                                      tgt_actedge_pre_nodes=tgt_actstates.get('tgt_actedge_pre_nodes', None),
+                                      tgt_actedge_directions=tgt_actstates.get('tgt_actedge_directions', None),
+                                      # batching
                                       left_pad_source=True,
                                       left_pad_target=False,
                                       max_source_positions=max_source_positions,
                                       max_target_positions=max_target_positions,
                                       shuffle=shuffle,
                                       append_eos_to_target=append_eos_to_target,
-                                      collate_tgt_states=collate_tgt_states
+                                      collate_tgt_states=collate_tgt_states,
+                                      collate_tgt_states_graph=collate_tgt_states_graph,
                                       )
     return dataset
 
@@ -181,6 +190,8 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                             help='whether to append eos to target')
         parser.add_argument('--collate-tgt-states', default=1, type=int,
                             help='whether to collate target actions states information')
+        parser.add_argument('--collate-tgt-states-graph', default=0, type=int,
+                            help='whether to collate target actions states information for graph (shallow, no message passing)')
         parser.add_argument('--initialize-with-bart', default=1, type=int,
                             help='whether to initialize the model parameters with pretrained BART')
         parser.add_argument('--initialize-with-bart-enc', default=1, type=int,
@@ -199,7 +210,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
 
         # pretrained BART model
         self.bart = bart
-        self.bart_dict = bart.task.target_dictionary    # src dictionary is the same
+        self.bart_dict = bart.task.target_dictionary if bart is not None else None   # src dictionary is the same
 
     @ classmethod
     def setup_task(cls, args, **kwargs):
@@ -300,7 +311,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         assert actions_ext == '.actions', 'AMR actions file name must end with ".actions"'
 
         def peel_pointer(action, pad=-1):
-            if action.startswith('LA') or action.startswith('RA'):
+            if action.startswith('>LA') or action.startswith('>RA'):
                 action, properties = action.split('(')
                 properties = properties[:-1]    # remove the ')' at last position
                 properties = properties.split(',')    # split to pointer value and label
@@ -336,7 +347,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         out_file_pref = out_file_pref + '.en-actions.actions_pos'
         binarize_file(pos_file, out_file_pref, impl='mmap', dtype=np.int64, tokenize=cls.tokenize)
 
-    def build_actions_states_info(self, en_file, actions_file, out_file_pref, num_workers=1):
+    def build_actions_states_info(self, en_file, actions_file, machine_config_file, out_file_pref, num_workers=1):
         """Preprocess to get the actions states information and save to binary files.
 
         Args:
@@ -349,10 +360,20 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         if self.action_state_binarizer is None:
             # for reuse (e.g. train/valid/test data preprocessing) to avoid building the canonical action to
             # dictionary id mapping repeatedly
-            self.action_state_binarizer = ActionStatesBinarizer(self.tgt_dict)
-        binarize_actstates_tofile_workers(en_file, actions_file, out_file_pref,
-                                          action_state_binarizer=self.action_state_binarizer,
-                                          impl='mmap', tokenize=self.tokenize, num_workers=num_workers)
+            self.action_state_binarizer = ActionStatesBinarizer(self.tgt_dict, machine_config_file)
+        res = binarize_actstates_tofile_workers(en_file, actions_file, machine_config_file, out_file_pref,
+                                                action_state_binarizer=self.action_state_binarizer,
+                                                impl='mmap', tokenize=self.tokenize, num_workers=num_workers)
+        print(
+            "| [{}] {}: {} sents, {} tokens, {:.3}% replaced by {}".format(
+                'actions',
+                actions_file + '_nopos',
+                res['nseq'],
+                res['ntok'],
+                100 * res['nunk'] / (res['ntok'] + 1e-6),    # when it is not recorded: denominator being 0
+                self.tgt_dict.unk_word,
+            )
+        )
 
     def load_dataset(self, split, epoch=0, **kwargs):
         """Load a given dataset split.
@@ -366,17 +387,19 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         # infer langcode
         src, tgt = self.args.source_lang, self.args.target_lang
 
-        self.datasets[split] = load_amr_action_pointer_dataset(data_path, self.args.emb_dir, split,
-                                                               src, tgt, self.src_dict, self.tgt_dict,
-                                                               self.tokenize,
-                                                               dataset_impl=self.args.dataset_impl,
-                                                               max_source_positions=self.args.max_source_positions,
-                                                               max_target_positions=self.args.max_target_positions,
-                                                               shuffle=True,
-                                                               append_eos_to_target=self.args.append_eos_to_target,
-                                                               collate_tgt_states=self.args.collate_tgt_states,
-                                                               src_fix_emb_use=self.args.src_fix_emb_use
-                                                               )
+        self.datasets[split] = load_amr_action_pointer_dataset(
+            data_path, self.args.emb_dir, split,
+            src, tgt, self.src_dict, self.tgt_dict,
+            self.tokenize,
+            dataset_impl=self.args.dataset_impl,
+            max_source_positions=self.args.max_source_positions,
+            max_target_positions=self.args.max_target_positions,
+            shuffle=True,
+            append_eos_to_target=self.args.append_eos_to_target,
+            collate_tgt_states=self.args.collate_tgt_states,
+            collate_tgt_states_graph=self.args.collate_tgt_states_graph,
+            src_fix_emb_use=self.args.src_fix_emb_use
+        )
 
     def build_dataset_for_inference(self, src_tokens, src_lengths):
         # TODO this is legacy not used as of now
