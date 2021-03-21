@@ -47,11 +47,11 @@ def main(args):
     # this needs GPU and only needs to run once for the English sentences, which does not change for different oracles;
     # thus the embeddings are stored separately from the oracles.
 
-    if os.path.exists(args.destdir):
+    if os.path.exists(os.path.join(args.destdir, '.done')):
         print(f'binarized actions and states directory {args.destdir} already exists; not rerunning.')
         run_basic = False
         run_act_states = False
-    if os.path.exists(args.embdir):
+    if os.path.exists(os.path.join(args.embdir, '.done')):
         print(f'pre-trained embedding directory {args.embdir} already exists; not rerunning.')
         run_roberta_emb = False
 
@@ -263,13 +263,19 @@ def main(args):
         for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
             en_file = prefix + '.en'
             actions_file = prefix + '.actions'
+            machine_config_file = os.path.join(os.path.dirname(prefix), 'machine_config.json')
             out_file_pref = os.path.join(args.destdir, split)
-            task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
+            task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref,
+                                               num_workers=args.workers)
+        # create empty file flag
+        open(os.path.join(args.destdir, '.done'), 'w').close()
 
     # save RoBERTa embeddings
     # TODO refactor this code
     if run_roberta_emb:
         make_bart_encodings(args, tokenize=tokenize)
+        # create empty file flag
+        open(os.path.join(args.embdir, '.done'), 'w').close()
 
     print("| Wrote preprocessed oracle data to {}".format(args.destdir))
     print("| Wrote preprocessed embedding data to {}".format(args.embdir))
