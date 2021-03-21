@@ -728,10 +728,7 @@ class TransformerEncoder(FairseqEncoder):
 
         if self.src_pool_wp2w == 'top':
             # pool the hidden states from bpe to original word
-            try:
-                x = self.pool_wp2w(x, src_tokens, src_wordpieces, src_wp2w)
-            except:
-                breakpoint()
+            x = self.pool_wp2w(x, src_tokens, src_wordpieces, src_wp2w)
             # update the padding mask
             encoder_padding_mask = src_tokens.eq(self.padding_idx)
 
