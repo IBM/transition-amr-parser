@@ -44,26 +44,45 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
 
     w_index = 0
     word_to_wordpiece = []
+    word_to_wordpiece_count = 0
     subword_sequence = []
     for wp_index in range(len(wordpiece_tokens)):
         word = word_tokens[w_index]
-        if word == wordpiece_tokens[wp_index]:
+
+        # debug
+        # if subword_sequence and word == wordpiece_tokens[wp_index]:
+        #     # e.g. when the subword is ' ', and the next subword is
+        #     # an exact match with the current word with no leading white space
+        #     print('-' * 10, 'corner case when a subword would be skipped')
+        #     print('subword_sequence index:', subword_sequence)
+        #     print('subword_sequence string', "".join([wordpiece_tokens[i] for i in subword_sequence]))
+        #     print('-' * 10)
+
+        if not subword_sequence and word == wordpiece_tokens[wp_index]:
+            # NOTE when subword_sequence is not empty, we should not enter here;
+            #      otherwise it will case a subword skipped (e.g. when the subword is ' ', and the next subword is
+            #      an exact match with the current word with no leading white space)
             word_to_wordpiece.append(wp_index)
             w_index += 1
+            word_to_wordpiece_count += 1
         else:
             subword_sequence.append(wp_index)
             word_from_pieces = "".join([
-                # NOTE: Facebooks BPE signals SOW with whitesplace
-                wordpiece_tokens[i].lstrip()
+                wordpiece_tokens[i]
                 for i in subword_sequence
             ])
+            # NOTE: Facebooks BPE signals SOW with whitesplace
+            word_from_pieces = word_from_pieces.lstrip()
             if word == word_from_pieces:
                 word_to_wordpiece.append(subword_sequence)
                 w_index += 1
+                word_to_wordpiece_count += len(subword_sequence)
                 subword_sequence = []
 
             assert word_from_pieces in word, \
                 "wordpiece must be at least a segment of current word"
+
+    assert word_to_wordpiece_count == len(wordpiece_tokens), 'every subword token must be mapped to a word'
 
     return word_to_wordpiece
 
