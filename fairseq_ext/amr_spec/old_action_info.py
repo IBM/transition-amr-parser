@@ -3,10 +3,10 @@ import sys
 
 from tqdm import tqdm
 
-from transition_amr_parser.o10_amr_machine import AMRStateMachine
+from transition_amr_parser.o8_state_machine import AMRStateMachine
 
 
-def get_actions_states(*, tokens=None, tokseq_len=None, actions=None, machine_config=None):
+def get_actions_states(*, tokens=None, tokseq_len=None, actions=None):
     """Get the information along with runing the AMR state machine in canonical mode with the provided action sequence.
 
     The information includes:
@@ -35,47 +35,40 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None, machine_co
         actions = actions.copy()
         actions.append('CLOSE')
 
-    assert tokens is not None
-    assert machine_config is not None
-
-    amr_state_machine = AMRStateMachine.from_config(machine_config)
-    amr_state_machine.reset(tokens)
+    amr_state_machine = AMRStateMachine(tokens=tokens, tokseq_len=tokseq_len, canonical_mode=True)
 
     allowed_cano_actions = []
     token_cursors = []
     for act in actions:
         # allowed actions for the current position
-        act_allowed = amr_state_machine.get_valid_actions(max_1root=True)
+        act_allowed = amr_state_machine.get_valid_canonical_actions()
         allowed_cano_actions.append(act_allowed)
         # token cursor
         token_cursors.append(amr_state_machine.tok_cursor)
         # apply the current action
         # cano_act = amr_state_machine.canonical_action_form(act)
-        cano_act = amr_state_machine.get_base_action(act)
-        # # # debug
+        cano_act, arc_pos = amr_state_machine.canonical_action_form_ptr(act)
         # if cano_act not in act_allowed:
         #     import pdb
         #     pdb.set_trace()
         assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
-        amr_state_machine.update(act)
+        amr_state_machine.apply_canonical_action(cano_act, arc_pos)
 
-    actions_nodemask = amr_state_machine.get_actions_nodemask()
-    assert len(actions_nodemask) == len(actions)
-    # assert len(amr_state_machine.actions_edge_mask) == len(amr_state_machine.actions_edge_cur_node) == len(
-    #     amr_state_machine.actions_edge_pre_node) == len(amr_state_machine.actions_edge_direction) == len(actions)
+    assert len(amr_state_machine.actions_nodemask) == len(actions)
+    assert len(amr_state_machine.actions_edge_mask) == len(amr_state_machine.actions_edge_cur_node) == len(
+        amr_state_machine.actions_edge_pre_node) == len(amr_state_machine.actions_edge_direction) == len(actions)
 
     return {'allowed_cano_actions': allowed_cano_actions,
-            'actions_nodemask': actions_nodemask,
+            'actions_nodemask': amr_state_machine.actions_nodemask,
             'token_cursors': token_cursors,
             # graph structure
-            # 'actions_edge_mask': amr_state_machine.actions_edge_mask,
-            # 'actions_edge_cur_node': amr_state_machine.actions_edge_cur_node,
-            # 'actions_edge_pre_node': amr_state_machine.actions_edge_pre_node,
-            # 'actions_edge_direction': amr_state_machine.actions_edge_direction
-            }
+            'actions_edge_mask': amr_state_machine.actions_edge_mask,
+            'actions_edge_cur_node': amr_state_machine.actions_edge_cur_node,
+            'actions_edge_pre_node': amr_state_machine.actions_edge_pre_node,
+            'actions_edge_direction': amr_state_machine.actions_edge_direction}
 
 
-def check_actions_file(en_file, actions_file, machine_config, out_file=None):
+def check_actions_file(en_file, actions_file, out_file=None):
     """Run the AMR state machine in canonical mode for pairs of English sentences and actions, to check the validity
     of the rules for allowed actions, and output data statistics.
 
@@ -99,8 +92,8 @@ def check_actions_file(en_file, actions_file, machine_config, out_file=None):
             if tokens.strip():
                 tokens = tokens.strip().split('\t')
                 actions = actions.strip().split('\t')
-                # assert tokens[-1] == '<ROOT>'
-                actions_states = get_actions_states(tokens=tokens, actions=actions, machine_config=machine_config)
+                assert tokens[-1] == '<ROOT>'
+                actions_states = get_actions_states(tokens=tokens, actions=actions)
                 # breakpoint()
                 # get statistics
                 allowed_cano_actions = actions_states['allowed_cano_actions']
@@ -110,12 +103,12 @@ def check_actions_file(en_file, actions_file, machine_config, out_file=None):
                 avg_len_actions += len(actions)
                 avg_num_allowed_actions_pos += sum(map(len, allowed_cano_actions))
                 avg_num_allowed_actions_seq += len(list(set.union(*map(set, allowed_cano_actions))))
-                actions_cano = map(AMRStateMachine.from_config(machine_config).get_base_action, actions)
-                avg_num_arcs_pos += len(list(filter(lambda act: act.startswith('>LA') or act.startswith('>RA'),
+                actions_cano = map(AMRStateMachine.canonical_action_form, actions)
+                avg_num_arcs_pos += len(list(filter(lambda act: act.startswith('LA') or act.startswith('RA'),
                                                     actions_cano)))
                 avg_num_arcs_not1st_seq += len([1 for a, b in zip(actions, actions[1:])
-                                                if (a.startswith('>LA') or a.startswith('>RA'))
-                                                and (b.startswith('>LA') or b.startswith('>RA'))])
+                                                if (a.startswith('LA') or a.startswith('RA'))
+                                                and (b.startswith('LA') or b.startswith('RA'))])
 
     avg_num_allowed_actions_pos /= num_pos
     avg_num_allowed_actions_seq /= num_seq
@@ -142,7 +135,7 @@ def check_actions_file(en_file, actions_file, machine_config, out_file=None):
         f'average number of allowed canonical actions per action token position: {avg_num_allowed_actions_pos}',
         file=out_file or sys.stdout)
     print(
-        f'average number of allowed canonical actions per action sequence: {avg_num_allowed_actions_seq} (max {7})',
+        f'average number of allowed canonical actions per action sequence: {avg_num_allowed_actions_seq} (max {12})',
         file=out_file or sys.stdout)
 
 
@@ -172,14 +165,8 @@ if __name__ == '__main__':
         actions_file = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.actions'
         out_file_path = f'/cephfs_nese/TRANSFER/rjsingh/DDoS/DDoS/jzhou/transition-amr-parser-o8/EXP/data/o8.3_act-states/oracle/{split}.stats'
 
-        en_file = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/DATA/AMR2.0/oracles/o10/{split}.tokens'
-        actions_file = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/DATA/AMR2.0/oracles/o10/{split}.actions'
-        machine_config = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/DATA/AMR2.0/oracles/o10/machine_config.json'
-        out_file_path = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/DATA/AMR2.0/oracles/o10/{split}.stats'
-
         out_file = open(out_file_path, 'w')
-        check_actions_file(en_file, actions_file, machine_config, out_file)
+        check_actions_file(en_file, actions_file, out_file)
         out_file.close()
         os.system(f'cat {out_file_path}')
-        print('\n' + f'stats saved to {out_file_path}')
         break

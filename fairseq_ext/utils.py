@@ -42,7 +42,7 @@ def join_action_pointer(action, pos):
     Return:
         action_complete (str): complete action label
     """
-    if action.startswith('LA') or action.startswith('RA'):
+    if action.startswith('>LA') or action.startswith('>RA'):
         action_parts = action.split('(')
         assert len(action_parts) == 2
         assert int(pos) >= 0
@@ -58,7 +58,7 @@ def post_process_action_pointer_prediction(hypo, tgt_dict):
     actions_nopos = [tgt_dict[i] for i in hypo['tokens'] if i != tgt_dict.eos()]    # or hypo['tokens'].tolist()
     actions_pos = hypo['pointer_tgt'].tolist()[:-1]
     # refine the pointer sequence to use -1 for all the non-arc actions
-    actions_pos = [pos if act.startswith('LA') or act.startswith('RA') else -1
+    actions_pos = [pos if act.startswith('>LA') or act.startswith('>RA') else -1
                    for act, pos in zip(actions_nopos, actions_pos)]
     assert len(actions_nopos) == len(actions_pos)
     actions = [join_action_pointer(act, pos) for act, pos in zip(actions_nopos, actions_pos)]
@@ -133,4 +133,3 @@ def time_since(start):
             return '%dm %ds' % (m, s)
     else:
         return '%dh %dm %ds' % (h, m, s)
-
