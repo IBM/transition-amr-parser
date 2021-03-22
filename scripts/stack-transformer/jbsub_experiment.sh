@@ -46,7 +46,7 @@ if [ ! -f "$FEATURES_FOLDER/train.en-actions.actions.bin" ];then
 
     # Run preprocessing
     jbsub_tag="pr-${jbsub_basename}-$$"
-    jbsub -cores "1+1" -mem 50g -q x86_6h -require k80 \
+    jbsub -cores "1+1" -mem 50g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           -out $FEATURES_FOLDER/${jbsub_tag}-%J.stdout \
           -err $FEATURES_FOLDER/${jbsub_tag}-%J.stderr \
@@ -76,7 +76,7 @@ for index in $(seq $NUM_SEEDS);do
 
         # run new training
         jbsub_tag="tr-${jbsub_basename}-s${seed}-$$"
-        jbsub -cores 1+1 -mem 50g -q ppc_24h -require v100 \
+        jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
               -name "$jbsub_tag" \
               $train_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
