@@ -5,7 +5,6 @@
 # the root directory of this source tree. An additional grant of patent rights
 # can be found in the PATENTS file in the same directory.
 
-import itertools
 import os
 
 import numpy as np
@@ -249,11 +248,19 @@ class AMRActionPointerGraphMPParsingTask(FairseqTask):
         args.target_lang_pos = 'actions_pos'
 
         # Check the model is recient enough to support standalone (v0.4.0 will)
-        sanity_check_dirs(paths[0], args.save_dir, args.source_lang)
-        sanity_check_dirs(paths[0], args.save_dir, args.target_lang_nopos)
+        if 'save_dir' in args.__dict__:
+            # standalone mode
+            dict_folder = args.save_dir
+        else:
+            # train/test mode
+            # FIXME: For ensembles it asumes all other data equal to first
+            # model
+            dict_folder = os.path.dirname(args.path.split(':')[0])
+        sanity_check_dirs(paths[0], dict_folder, args.source_lang)
+        sanity_check_dirs(paths[0], dict_folder, args.target_lang_nopos)
 
-        src_dict = cls.load_dictionary(os.path.join(args.save_dir, 'dict.{}.txt'.format(args.source_lang)))
-        tgt_dict = cls.load_dictionary(os.path.join(args.save_dir, 'dict.{}.txt'.format(args.target_lang_nopos)))
+        src_dict = cls.load_dictionary(os.path.join(dict_folder, 'dict.{}.txt'.format(args.source_lang)))
+        tgt_dict = cls.load_dictionary(os.path.join(dict_folder, 'dict.{}.txt'.format(args.target_lang_nopos)))
         # TODO target dictionary 'actions_nopos' is hard coded now; change it later
         assert src_dict.pad() == tgt_dict.pad()
         assert src_dict.eos() == tgt_dict.eos()
