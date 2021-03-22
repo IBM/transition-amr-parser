@@ -9,7 +9,8 @@ set -o nounset
 # First argument must be checkpoint
 HELP="\nbash $0 <checkpoint> [-o results_prefix] [-s (dev/test)] [-b beam_size]\n"
 [ -z "$1" ] && echo -e "$HELP" && exit 1
-[ ! -f "$1" ] && "Missing $1" && exit 1
+first_path=$(echo $1 | sed 's@:.*@@g')
+[ ! -f "$first_path" ] && "Missing $1" && exit 1
 checkpoint=$1
 # process the rest with argument parser
 results_prefix=""
@@ -39,7 +40,7 @@ fi
 #       be called from other scripts
 
 # extract config from checkpoint path
-model_folder=$(dirname $checkpoint)
+model_folder=$(dirname $first_path)
 config=$model_folder/config.sh
 [ ! -f "$config" ] && "Missing $config" && exit 1
 
@@ -65,10 +66,10 @@ else
     echo "$2 is invalid; must be dev or test"
 fi
 
-RESULTS_FOLDER=$(dirname $checkpoint)/beam${beam_size}
+RESULTS_FOLDER=$(dirname $first_path)/beam${beam_size}
 # Generate results_prefix name if not provided
 if [ "$results_prefix" == "" ];then
-    results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $checkpoint)
+    results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $first_path)
 fi
 echo "Generating ${results_prefix}.actions"
 
