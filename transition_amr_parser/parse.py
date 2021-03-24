@@ -56,7 +56,7 @@ def argument_parsing():
     parser.add_argument(
         '--roberta-batch-size',
         type=int,
-        default=10,
+        default=16,
         help='Batch size for roberta computation (watch for OOM)'
     )
     parser.add_argument(
