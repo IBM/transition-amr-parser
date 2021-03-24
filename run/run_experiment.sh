@@ -23,7 +23,20 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
-# This will store the final model
+# Quick exits
+# Data not extracted or aligned data not provided
+if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
+    echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
+    exit 1
+fi
+
+# Aligned data not provided, but alignment tools not installed
+if [ ! -f "${ALIGNED_FOLDER}train.txt" ] && [ ! -f "preprocess/kevin/run.sh" ];then
+    echo -e "\nNeeds ${ALIGNED_FOLDER}train.txt or installing aligner\n"
+    exit 1
+fi    
+
+## This will store the final model
 mkdir -p ${MODEL_FOLDER}-seed${seed}
 cp $config ${MODEL_FOLDER}-seed${seed}/config.sh
 

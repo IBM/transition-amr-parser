@@ -85,13 +85,13 @@ You first need to preprocess and align the data. For AMR2.0 do
 
 ```bash
 . set_environment.sh
-python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR/corpora/amr2.0/
+python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
 
 The same for AMR1.0
 
 ```
-python preprocess/merge_files.py /path/to/LDC2014T12/data/amrs/split/ DATA/AMR/corpora/amr1.0/
+python preprocess/merge_files.py /path/to/LDC2014T12/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
 
 You will also need to unzip the precomputed BLINK cache

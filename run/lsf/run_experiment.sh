@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 set -o errexit
 set -o pipefail
 
@@ -26,6 +26,19 @@ on_the_fly_decoding=true
 echo "[Configuration file:]"
 echo $config
 . $config
+
+# Quick exits
+# Data not extracted or aligned data not provided
+if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
+    echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
+    exit 1
+fi
+
+# Aligned data not provided, but alignment tools not installed
+if [ ! -f "${ALIGNED_FOLDER}train.txt" ] && [ ! -f "preprocess/kevin/run.sh" ];then
+    echo -e "\nNeeds ${ALIGNED_FOLDER}train.txt or installing aligner\n"
+    exit 1
+fi    
 
 # Determine tools folder as the folder where this script is. This alloews its
 # use when softlinked elsewhere
@@ -55,7 +68,7 @@ if [ ! -f "$ORACLE_FOLDER/.done" ];then
 
     # Run preprocessing
     jbsub_tag="or-${jbsub_basename}-$$"
-    jbsub -cores "1+1" -mem 50g -q x86_6h -require k80 \
+    jbsub -cores "1+1" -mem 50g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
           -err $ORACLE_FOLDER/${jbsub_tag}-%J.stderr \
@@ -79,7 +92,7 @@ if [[ (! -f $DATA_FOLDER/.done) || (! -f $EMB_FOLDER/.done) ]]; then
 
     # Run preprocessing
     jbsub_tag="fe-${jbsub_basename}-$$"
-    jbsub -cores "1+1" -mem 50g -q x86_6h -require k80 \
+    jbsub -cores "1+1" -mem 50g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           $prepro_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \

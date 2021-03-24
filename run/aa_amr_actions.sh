@@ -18,6 +18,8 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
+# We will need this to save the alignment log
+mkdir -p $ORACLE_FOLDER
 
 ###### AMR Alignment
 if [ -f $ALIGNED_FOLDER/.done ]; then
