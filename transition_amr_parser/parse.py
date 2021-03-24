@@ -290,13 +290,13 @@ class AMRParser:
         # ===== load other args =====
         # TODO adapt to the new path organization, or allow feeding from outside
         machine_type = args.machine_type
-        machine_rules = os.path.join(os.path.dirname(checkpoint),
-                                     'train.rules.json')
+        checkpoint_dirname = os.path.dirname(checkpoint.split(':')[0])
+        machine_rules = os.path.join(checkpoint_dirname, 'train.rules.json')
         assert os.path.isfile(machine_rules), f"Missing {machine_rules}"
         args.machine_rules = machine_rules
 
         entities_with_preds = config_data_dict['ENTITIES_WITH_PREDS'].split(',')
-        entity_rules = os.path.join(os.path.dirname(checkpoint), 'entity_rules.json')
+        entity_rules = os.path.join(checkpoint_dirname, 'entity_rules.json')
 
         return cls(models,task, task.src_dict, task.tgt_dict, machine_rules, machine_type,
                    use_cuda, args, model_args, to_amr=True, entities_with_preds=entities_with_preds,

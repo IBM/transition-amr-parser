@@ -65,6 +65,7 @@ def get_wordpiece_to_word_map(sentence, roberta_bpe):
             if word == wordpiece_tokens[wp_index]:
                 word_to_wordpiece.append(wp_index)
                 w_index += 1
+
             else:
                 subword_sequence.append(wp_index)
                 word_from_pieces = "".join([
@@ -306,4 +307,3 @@ class PretrainedEmbeddings():
             bert_data["word2piece_scattered_indices"].append(word2piece_scattered_indices)
 
         return bert_data
-
