@@ -2,8 +2,6 @@
 
 set -o errexit
 set -o pipefail
-# . set_environment.sh
-set -o nounset
 
 # Argument handling
 # First argument must be checkpoint
@@ -29,27 +27,16 @@ done
 # activate virtualenenv and set other variables
 . set_environment.sh
 
-##### CONFIG
-dir=$(dirname $0)
-# if [ ! -z "${1+x}" ]; then
-if [ ! -z "$1" ]; then
-    config=$1
-    . $config    # $config_data should include its path
-fi
-# NOTE: when the first configuration argument is not provided, this script must
-#       be called from other scripts
-
+set -o nounset
 # extract config from checkpoint path
 model_folder=$(dirname $first_path)
 config=$model_folder/config.sh
 [ ! -f "$config" ] && "Missing $config" && exit 1
 
-##### script specific config
-if [ -z "$2" ]; then
-    data_split_amr="dev"
-else
-    data_split_amr=$2
-fi
+# Load config
+echo "[Configuration file:]"
+echo $config
+. $config 
 
 # set data split parameters 
 if [ $data_split2 == "dev" ]; then
@@ -64,6 +51,7 @@ elif [ $data_split2 == "test" ]; then
     reference_amr_wiki=$AMR_TEST_FILE_WIKI
 else
     echo "$2 is invalid; must be dev or test"
+    exit 1
 fi
 
 RESULTS_FOLDER=$(dirname $first_path)/beam${beam_size}
@@ -113,14 +101,14 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     # Smatch evaluation without wiki
 
     echo "Computing SMATCH ---"
-    python smatch/smatch.py \
+    smatch.py \
          --significant 4  \
          -f $reference_amr \
-         $results_prefix.amr \
+         ${results_prefix}.amr \
          -r 10 \
-         > $results_prefix.smatch
+         > ${results_prefix}.smatch
 
-    cat $results_prefix.smatch
+    cat ${results_prefix}.smatch
 
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
@@ -134,7 +122,7 @@ elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
     # compute score
     echo "Computing SMATCH ---"
-    python smatch/smatch.py \
+    smatch.py \
          --significant 4  \
          -f $reference_amr_wiki \
          ${results_prefix}.wiki.amr \
