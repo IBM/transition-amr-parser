@@ -1,5 +1,6 @@
 import sys
 from glob import glob
+import signal
 import re
 import os
 from datetime import datetime
@@ -288,7 +289,7 @@ def get_average_time_between_write(files):
         ))
     timestamps = sorted(timestamps, key=lambda x: x[1])
     deltas = [
-        (x[1] - y[1]).seconds / 60. 
+        (x[1] - y[1]).seconds / 60.
         for x, y in zip(timestamps[1:], timestamps[:-1])
     ]
     if len(deltas) < 5:
@@ -319,7 +320,7 @@ def display_results(models_folder, set_seed):
 
     # Table header
     header = [
-        'data', 'oracle', 'features', 'model', 'best', 'dev', 
+        'data', 'oracle', 'features', 'model', 'best', 'dev',
         'dev top5-beam10', 'train time (h)', 'test time (m)'
     ]
     results = []
@@ -433,7 +434,16 @@ def print_table(rows):
     print('')
 
 
+def ordered_exit(signum, frame):
+    print("\nStopped by user\n")
+    exit(0)
+
+
 def main(args):
+
+    # set orderd exit
+    signal.signal(signal.SIGINT, ordered_exit)
+    signal.signal(signal.SIGTERM, ordered_exit)
 
     if args.results:
         display_results('DATA/AMR2.0/models/', args.seed)
