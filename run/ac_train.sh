@@ -5,6 +5,7 @@ set -o pipefail
 
 # Argument handling
 HELP="\nbash $0 <config> <seed>\n"
+# config file
 [ -z "$1" ] && echo -e "$HELP" && exit 1
 [ ! -f "$1" ] && "Missing $1" && exit 1
 config=$1
@@ -24,11 +25,6 @@ echo $config
 
 
 ##### TRAINING
-# rm -Rf $MODEL_FOLDER
-
-# if [ -f $MODEL_FOLDER/checkpoint_last.pt ]; then
-
-#     echo "Model checkpoint $MODEL_FOLDER/checkpoint_last.pt already exists --- do nothing."
 
 
 if [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint_last.pt ] && [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt ]; then

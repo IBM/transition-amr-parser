@@ -18,7 +18,7 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=AMR1.0
+TASK_TAG=wiki25
 
 # TODO: Omit these global vars and use 
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
@@ -133,9 +133,9 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-seed=42
-MAX_EPOCH=120
-eval_init_epoch=81
+SEEDS="42"
+MAX_EPOCH=10
+EVAL_INIT_EPOCH=5
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
@@ -223,5 +223,6 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 
 ##### decoding configuration for the final model
 BATCH_SIZE=128
-BEAM_SIZE=10
-DECODING_CHECKPOINT=checkpoint_best_SMATCH.pt
+BEAM_SIZE=1
+EVAL_METRIC=smatch
+DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
