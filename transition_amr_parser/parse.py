@@ -92,22 +92,12 @@ def ordered_exit(signum, frame):
     exit(0)
 
 
-def parse_sentences(parser, in_tokenized_sentences, batch_size, 
-                    roberta_batch_size, out_amr):
-
-    # read tokenized sentences
-    sentences = read_sentences(in_tokenized_sentences)
-    split_sentences = []
-    for sentence in sentences:
-        split_sentences.append(tokenize_line(sentence))
-    print(len(split_sentences))
-    
-    # parse
-    start = time.time()
-    result, pred_dicts = parser.parse_sentences(
-        split_sentences,
-        batch_size=batch_size,
-        roberta_batch_size=roberta_batch_size,
+def load_models_and_task(args, use_cuda, task=None):
+    # if `task` is not provided, it will be from the saved model args
+    models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
+        args.path.split(':'),
+        arg_overrides=eval(args.model_overrides),
+        task=task,
     )
     # Optimize ensemble for generation
     for model in models:
