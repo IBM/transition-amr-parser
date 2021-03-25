@@ -172,15 +172,13 @@ def transform_action_symbol(sym):
 
     new_sym = sym.lower()
 
-    if new_sym == 'copy_lemma':
-        new_sym = 'copy'
+    # new symbol could be (after lowercasing) copy, shift, root, close, >la, >ra, and other nodes
+    if new_sym in ['copy', 'shift', 'root', 'close']:
+        ...
 
-    elif new_sym == 'copy_sense01':
-        new_sym = 'copy sense 01'
+    elif new_sym.startswith(('>la', '>ra')):
 
-    elif new_sym.startswith(('la', 'ra')):
-
-        if new_sym.startswith('la'):
+        if new_sym.startswith('>la'):
             marker = 'left arc '
         else:
             marker = 'right arc '
@@ -203,28 +201,11 @@ def transform_action_symbol(sym):
 
         new_sym = marker + label
 
-    elif new_sym.startswith('pred'):
-
-        new_sym = new_sym.split('(')[1][:-1]
-        new_sym = ' '.join(new_sym.split('-'))    # remove the dash "-" and add token boundaries
-
-    elif new_sym.startswith('entity'):
-        marker = 'entity '
-
-        label = new_sym.split('(')[1][:-1].split(',')
-        label_new = []
-        for s in label:
-            # tmp = s.split('-')
-            # remove the duplicated 'entity' keyword, e.g. 'data-entity'
-            tmp = [ss for ss in s.split('-') if ss != 'entity']
-            label_new.extend(tmp)
-        label_new = ' '.join(label_new)
-
-        new_sym = marker + label_new
-
     else:
+        # assume the remaining are all node names
         # do not raise error: could be some special symbols in the dictionary such as <s> <pad> etc.
-        pass
+        if new_sym != '-':
+            new_sym = ' '.join(new_sym.split('-'))    # remove the dash "-" and add token boundaries
 
     # NOTE we need to add the space token boundary to map to the correct isolated token!
     new_sym = ' ' + new_sym

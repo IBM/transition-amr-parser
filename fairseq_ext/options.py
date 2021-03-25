@@ -457,6 +457,8 @@ def add_state_machine_args(group):
                        help='Ratio of episodes in batch set to follow gold')
     group.add_argument('--batch-normalize-reward', action='store_true',
                        help='Normalize rewards in batch')
+    group.add_argument('--machine-config', type=str, default=None,
+                       help='json file for the AMR state machine setup')
 
 
 def add_eval_lm_args(parser):

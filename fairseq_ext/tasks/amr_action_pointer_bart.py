@@ -433,7 +433,8 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                 match_source_len=getattr(args, 'match_source_len', False),
                 no_repeat_ngram_size=getattr(args, 'no_repeat_ngram_size', 0),
                 shift_pointer_value=getattr(model_args, 'shift_pointer_value', 0),
-                stats_rules=getattr(args, 'machine_rules', None)
+                stats_rules=getattr(args, 'machine_rules', None),
+                machine_config_file=getattr(args, 'machine_config', None)
             )
 
     def train_step(self, sample, model, criterion, optimizer, update_num, ignore_grad=False):
