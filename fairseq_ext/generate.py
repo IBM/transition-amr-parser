@@ -203,6 +203,13 @@ def main(args):
                     if has_target:
                         target_str = tgt_dict.string(target_tokens, args.remove_bpe, escape_unk=True)
 
+                # debug: '<<unk>>' is added to the dictionary
+                # if 'unk' in target_str:
+                #     breakpoint()
+                # ==========> NOTE we do not really have the ground truth target (with the same alignments)
+                #                  target_str might have <unk> as the target dictionary is only built on training data
+                #                  but it doesn't matter. It should not affect the target dictionary!
+
                 if not args.quiet:
                     if src_dict is not None:
                         print('S-{}\t{}'.format(sample_id, src_str))
@@ -265,7 +272,8 @@ def main(args):
                     if has_target and j == 0:
                         if align_dict is not None or args.remove_bpe is not None:
                             # Convert back to tokens for evaluation with unk replacement and/or without BPE
-                            target_tokens = tgt_dict.encode_line(target_str, add_if_not_exist=True)
+                            target_tokens = tgt_dict.encode_line(target_str, add_if_not_exist=False)
+                            # NOTE do not modify the tgt dictionary with 'add_if_not_exist=True'!
                         if hasattr(scorer, 'add_string'):
                             scorer.add_string(target_str, hypo_str)
                         else:

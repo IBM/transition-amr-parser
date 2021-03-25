@@ -8,6 +8,7 @@
 import math
 from copy import deepcopy
 import json
+import os
 
 import torch
 from packaging import version
@@ -43,7 +44,8 @@ class SequenceGenerator(object):
         match_source_len=False,
         no_repeat_ngram_size=0,
         shift_pointer_value=0,
-        stats_rules=None
+        stats_rules=None,
+        machine_config_file=None
     ):
         """Generates translations of a given source sentence.
 
@@ -100,12 +102,19 @@ class SequenceGenerator(object):
         self.match_source_len = match_source_len
         self.no_repeat_ngram_size = no_repeat_ngram_size
         self.shift_pointer_value = shift_pointer_value
-        if stats_rules is not None:
+
+        if stats_rules is not None and os.path.exists(stats_rules):    # NOTE this is not used for now
             self.stats_rules = json.load(open(stats_rules, 'r'))
             self.pred_rules = self.stats_rules['possible_predicates']
         else:
             self.stats_rules = None
             self.pred_rules = None
+
+        if machine_config_file is not None:
+            self.machine_config = json.load(open(machine_config_file, 'r'))
+        else:
+            self.machine_config = {'reduce_nodes': None,
+                                   'absolute_stack_pos': True}
 
         assert sampling_topk < 0 or sampling, '--sampling-topk requires --sampling'
         assert sampling_topp < 0 or sampling, '--sampling-topp requires --sampling'
@@ -198,20 +207,28 @@ class SequenceGenerator(object):
 
         # initialize AMR state machine
         if run_amr_sm:
-            if use_pred_rules:
-                amr_state_machines = [
-                    AMRStateMachine(tokseq_len=src_lengths[i].item(),
-                                    tokens=sample['src_sents'][i],
-                                    canonical_mode=True)
-                    for i in new_order
-                    ]    # length should be bsz * beam_size
-            else:
-                amr_state_machines = [
-                    AMRStateMachine(tokseq_len=length.item(),
-                                    canonical_mode=True)
-                    for length in src_lengths[new_order]
-                    ]    # length should be bsz * beam_size
-            canonical_act_ids = AMRStateMachine.canonical_action_to_dict(self.tgt_dict)
+            # if use_pred_rules:
+            #     amr_state_machines = [
+            #         AMRStateMachine(tokseq_len=src_lengths[i].item(),
+            #                         tokens=sample['src_sents'][i],
+            #                         canonical_mode=True)
+            #         for i in new_order
+            #         ]    # length should be bsz * beam_size
+            # else:
+            #     amr_state_machines = [
+            #         AMRStateMachine(tokseq_len=length.item(),
+            #                         canonical_mode=True)
+            #         for length in src_lengths[new_order]
+            #         ]    # length should be bsz * beam_size
+            
+            amr_state_machines = []
+            # length should be bsz * beam_size
+            for i in new_order:
+                sm = AMRStateMachine(**self.machine_config)
+                sm.reset(tokens=sample['src_sents'][i])
+                amr_state_machines.append(sm)
+
+            canonical_act_ids = amr_state_machines[0].canonical_action_to_dict(self.tgt_dict)
         else:
             amr_state_machines = None
             canonical_act_ids = None
@@ -219,7 +236,7 @@ class SequenceGenerator(object):
         # setup for modify the arc action scores based on pointer scores
         if modify_arcact_score:
             if canonical_act_ids is None:
-                canonical_act_ids = AMRStateMachine.canonical_action_to_dict(self.tgt_dict)
+                canonical_act_ids = amr_state_machines[0].canonical_action_to_dict(self.tgt_dict)
             # coefficient for the loss
             coef = 1
 
@@ -461,22 +478,31 @@ class SequenceGenerator(object):
             # allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=torch.uint8)  # only for pytorch <= 1.1
             allowed_mask = tokens.new_zeros(valid_bbsz_num, self.vocab_size, dtype=BOOL_TENSOR_TYPE)
             tok_cursors = tokens.new_zeros(valid_bbsz_num, dtype=torch.int64)
+
+            # debug: on dev data 2nd batch
+            # if sample['nsentences'] == 208:
+            #     breakpoint()
+            # ==========> bug: self.tgt_dict is somehow changed with an additional token '<<unk>>' at the end
+
             if amr_state_machines is not None:
                 for i, j in enumerate(valid_bbsz_idx):
                     sm = amr_state_machines[j]
-                    act_allowed = sm.get_valid_canonical_actions()
+                    act_allowed = sm.get_valid_actions()
                     # use predicate rules to further restrict the action space for PRED actions
                     pred_allowed = None
                     if use_pred_rules:
                         assert self.pred_rules is not None
+                        # TODO update below (currently not used)
+                        #      we use "NODE" keyword instead of "PRED"
                         if 'PRED' in act_allowed:
-                            src_token = sm.get_current_token(lemma=False)
+                            src_token = sm.get_current_token()
                             if src_token in self.pred_rules:
                                 act_allowed.remove('PRED')
                                 pred_allowed = list(self.pred_rules[src_token].keys())
 
                     vocab_ids_allowed = set().union(*[set(canonical_act_ids[act]) for act in act_allowed])
 
+                    # TODO update below
                     # use predicate rules to further restrict the action space for PRED actions
                     if pred_allowed is not None:
                         pred_ids_allowed = set(self.tgt_dict.index(f'PRED({sym})') for sym in pred_allowed)
@@ -580,7 +606,7 @@ class SequenceGenerator(object):
                     for i, j in enumerate(valid_bbsz_idx):
                         sm = amr_state_machines[j]
                         # NOTE the 0-th target token is the eos </s> token
-                        actions_nodemask = sm.actions_nodemask.copy()
+                        actions_nodemask = sm.get_actions_nodemask()
                         # mask out the last node generating action, as it will never be selected by the pointer, except
                         # the LA(root) action (as root does not need to be generated as a node)
                         # ---> do not do this now
@@ -636,7 +662,9 @@ class SequenceGenerator(object):
             # for rows with valid pointer value, modify the arc action scores;
             # for rows with no valid pointer value, set the arc action scores to -inf to block
             if modify_arcact_score:
-                arc_action_ids = list(set().union(*[canonical_act_ids[act] for act in ['LA', 'RA', 'LA(root)']]))
+                # NOTE for either we use '>LA(root)' or not in our oracle for handling root node
+                arc_action_ids = list(set().union(*[canonical_act_ids[act] for act in ['>LA', '>RA', '>LA(root)']
+                                                    if act in canonical_act_ids]))
                 lprobs_arcs = lprobs[:, arc_action_ids]
                 lprobs_arcs[tgt_actions_nodemask_any, :] += coef * pointer_max[tgt_actions_nodemask_any].unsqueeze(1)
                 lprobs_arcs[~tgt_actions_nodemask_any, :] = -math.inf
@@ -901,7 +929,7 @@ class SequenceGenerator(object):
             )
 
             # ========== reorder the AMR state machine and target pointer info on previous beams ==========
-            # print([(i, sm.is_closed, sm.actions_canonical) for i, sm in enumerate(amr_state_machines)])
+            # print([(i, sm.is_closed, sm.action_history) for i, sm in enumerate(amr_state_machines)])
             # import pdb; pdb.set_trace()
             # reorder state machines
             if amr_state_machines is not None:
@@ -918,7 +946,7 @@ class SequenceGenerator(object):
                         continue
                     # eos changed to CLOSE action (although NOTE currently this will never be eos at this step)
                     act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
-                    sm.apply_canonical_action(sm.canonical_action_form(act))
+                    sm.update(act)
 
             # reorder target pointer values and scores
             tgt_pointers[:, :step + 2] = torch.index_select(tgt_pointers[:, :step + 2], dim=0, index=active_bbsz_idx)

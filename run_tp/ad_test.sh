@@ -75,6 +75,7 @@ python fairseq_ext/generate.py \
     --src-fix-emb-use $src_fix_emb_use \
     --machine-type AMR  \
     --machine-rules $ORACLE_FOLDER/train.rules.json \
+    --machine-config $ORACLE_FOLDER/machine_config.json \
     --modify-arcact-score 1 \
     --use-pred-rules $use_pred_rules \
     --beam $beam_size \
@@ -87,11 +88,11 @@ python fairseq_ext/generate.py \
 # exit 0
 
 ##### Create the AMR from the model obtained actions
-python transition_amr_parser/o8_fake_parse.py \
-    --in-sentences $ORACLE_FOLDER/$data_split_amr.en \
+python transition_amr_parser/o10_amr_machine.py \
+    --in-machine-config $ORACLE_FOLDER/machine_config.json \
+    --in-tokens $ORACLE_FOLDER/$data_split_amr.en \
     --in-actions $results_prefix.actions \
-    --out-amr $results_prefix.amr \
-    --in-pred-entities $ENTITIES_WITH_PREDS \
+    --out-amr $results_prefix.amr
 
 # exit 0
 

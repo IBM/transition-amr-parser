@@ -268,6 +268,9 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     out_nodes = {root}
     completed = set()
 
+    # if 0 in nodes and nodes[0] == 'expressive':
+    #     breakpoint()
+
     # Iteratively replace wildcards in this string to create penman notation
     amr_string = f'[[{root}]]'
     while '[[' in amr_string:
@@ -290,11 +293,19 @@ def legacy_graph_printer(metadata, nodes, root, edges):
                     ]
                     # TODO: Exception :era AD
                     and concept != 'AD'
-                ) or targets:
+                ) or targets or (
+                    # NOTE corner case: no child nodes, no parents either -> just a single node (otherwise the graph
+                    #                   will not be connected)
+                    concept in ['imperative', 'expressive', 'interrogative', 'AD']
+                    and len(nodes) == 1        # TODO handle the corner case better
+                ):
                     amr_string = amr_string.replace(
                         f'[[{n}]]', f'({id} / {concept}{children})', 1)
                 else:
                     amr_string = amr_string.replace(f'[[{n}]]', f'{concept}')
+                    # TODO does this affect Smatch? Yes it does affect Smatch...
+                    # amr_string = amr_string.replace(
+                    #     f'[[{n}]]', f'({id} / {concept}{children})', 1)
                 completed.add(n)
             amr_string = amr_string.replace(f'[[{n}]]', f'{id}')
             out_nodes.remove(n)
@@ -318,6 +329,9 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     output += amr_string + '\n\n'
 
     return output
+
+
+default_rel = ':rel'
 
 
 class AMR():
@@ -344,6 +358,120 @@ class AMR():
 
         # root
         self.root = root
+
+        # always do the cleaning
+        self.clean_amr()
+        self.connect_graph()
+
+        # if self.root is None:
+        #     # breakpoint()
+        #     self.connect_graph()
+
+        # breakpoint()
+        # if self.tokens[0] == 'Haha':
+        #     breakpoint()
+
+    def clean_amr(self):
+        # empty graph
+        if not self.nodes:
+            # breakpoint()
+            # randomly add a single node
+            for tok in self.tokens:
+                if tok not in ['(', ')', ':', '"', "'", '/', '\\', '.', '?', '!', ',', ';']:
+                    self.nodes[0] = tok
+                    break
+            if not self.nodes:
+                self.nodes[0] = 'amr-empty'
+
+            self.root = 0
+
+        # clean concepts
+        for n in self.nodes:
+            if self.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
+                self.nodes[n] = 'PUNCT'
+            if self.nodes[n].startswith('"') and self.nodes[n].endswith('"'):
+                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
+            if not (self.nodes[n].startswith('"') and self.nodes[n].endswith('"')):
+                for ch in ['/', ':', '(', ')', '\\']:
+                    if ch in self.nodes[n]:
+                        self.nodes[n] = self.nodes[n].replace(ch, '-')
+            if not self.nodes[n]:
+                self.nodes[n] = 'None'
+            if ',' in self.nodes[n]:
+                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
+            if not self.nodes[n][0].isalpha() and not self.nodes[n][0].isdigit(
+            ) and not self.nodes[n][0] in ['-', '+']:
+                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
+
+        # clean edges
+        for j, e in enumerate(self.edges):
+            s, r, t = e
+            if not r.startswith(':'):
+                r = ':' + r
+            e = (s, r, t)
+            self.edges[j] = e
+
+        # handle missing nodes (this shouldn't happen but a bad sequence of actions can produce it)
+        for s, r, t in self.edges:
+            if s not in self.nodes:
+                # breakpoint()
+                self.nodes[s] = 'NA'
+            if t not in self.nodes:
+                # breakpoint()
+                self.nodes[t] = 'NA'
+
+    def connect_graph(self):
+        assigned_root = None
+
+        # ========== this deals with the special structure where a root node is marked with id -1,
+        # i.e. self.nodes[-1] = 'root'
+        root_edges = []
+        if -1 in self.nodes:
+            del self.nodes[-1]
+
+        for s, r, t in self.edges:
+            if s == -1 and r == "root":
+                assigned_root = t
+            if s == -1 or t == -1:
+                root_edges.append((s, r, t))
+        for e in root_edges:
+            self.edges.remove(e)
+        # ==========
+
+        assert self.nodes, 'the graph should not be empty'
+
+        assigned_root = self.root
+
+        descendents = {n: {n} for n in self.nodes}
+        potential_roots = [n for n in self.nodes]
+        for x, r, y in self.edges:
+            if y in potential_roots and x not in descendents[y]:
+                potential_roots.remove(y)
+            descendents[x].update(descendents[y])
+            for n in descendents:
+                if x in descendents[n]:
+                    descendents[n].update(descendents[x])
+
+        disconnected = potential_roots.copy()
+        for n in potential_roots.copy():
+            if len(self.edges) > 0 and len([e for e in self.edges if e[0] == n]) == 0:
+                potential_roots.remove(n)
+
+        # assign root
+        if potential_roots:
+            self.root = potential_roots[0]
+            for n in potential_roots:
+                if self.nodes[n] == 'multi-sentence' or n == assigned_root:
+                    self.root = n
+            disconnected.remove(self.root)
+        else:
+            self.root = max(self.nodes.keys(),
+                            key=lambda x: len([e for e in self.edges if e[0] == x])
+                            - len([e for e in self.edges if e[2] == x]))
+        # connect graph
+        if len(disconnected) > 0:
+            for n in disconnected:
+                self.edges.append((self.root, default_rel, n))
 
     @classmethod
     def from_penman(cls, penman_text, tokenize=False):
@@ -657,7 +785,7 @@ def read_amr(in_amr, unicode_fixes=False):
                     token = token.replace(
                         forbidden[0],
                         replacement_rules[forbidden[0]]
-                     )
+                    )
                 new_tokens.append(token)
             amr.tokens = new_tokens
 
