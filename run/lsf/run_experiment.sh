@@ -27,6 +27,12 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
+# Exit if we launch this directly from a computing node
+if [[ "$HOSTNAME" =~ dccpc.* ]] || [[ "$HOSTNAME" =~ dccx[cn].* ]] || [[ "$HOSTNAME" =~ cccx[cn].* ]];then
+    echo -e "\n$0 must be launched from a login node (submits its own jbsub calls)\n" 
+    exit 1
+fi
+
 # Quick exits
 # Data not extracted or aligned data not provided
 if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
