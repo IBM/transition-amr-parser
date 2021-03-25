@@ -7,7 +7,7 @@ target laigned AMRs (following sentence order)
 python scripts/plot_amr.py --in-amr DATA/AMR2.0/aligned/cofill/train.txt
 ```
 
-Use `--indces` to select AMRs by the order they appear in the file. See
+Use `--indices` to select AMRs by the order they appear in the file. See
 `--has-*` flags to select by graph properties
 
 ## Sanity check AMR 
