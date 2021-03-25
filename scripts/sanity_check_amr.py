@@ -9,7 +9,7 @@ from tqdm import tqdm
 def get_propbank_name(amr_pred):
     items = amr_pred.split('-')
     prop_pred = '-'.join(items[:-1]) + '.' + items[-1]
-    if prop_pred.endswith('.91') or prop_pred in ['have-half-life.01']: 
+    if prop_pred.endswith('.91') or prop_pred in ['have-half-life.01']:
         pass
     else:
         prop_pred = prop_pred.replace('-', '_')
@@ -17,9 +17,9 @@ def get_propbank_name(amr_pred):
 
 
 if __name__ == '__main__':
-    
+
     # Argument handling
-    in_amr, in_propbank_json = sys.argv[1:] 
+    in_amr, in_propbank_json = sys.argv[1:]
 
     corpus = read_amr(in_amr)
     with open(in_propbank_json) as fid:
@@ -41,7 +41,7 @@ if __name__ == '__main__':
                 amr_alerts['predicate not in propbank'].append(
                     (sid, pred_id, pred)
                 )
-            else:    
+            else:
                 probank_roles = propbank[pred]['roles']
                 # TODO: Identify obligatory args
                 required_roles = set()
@@ -55,8 +55,8 @@ if __name__ == '__main__':
 
                 # Get roles
                 roles = [
-                    trip[1][1:].replace('-of', '') 
-                    for trip in amr.edges 
+                    trip[1][1:].replace('-of', '')
+                    for trip in amr.edges
                     if trip[0] == pred_id and trip[1].startswith(':ARG')
                 ]
                 # Check no required missing
