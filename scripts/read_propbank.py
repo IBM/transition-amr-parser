@@ -5,9 +5,9 @@ from tqdm import tqdm
 from transition_amr_parser.io import read_frame
 
 if __name__ == '__main__':
-    
+
     # Argument handling
-    in_propank_folder, out_json = sys.argv[1:] 
+    in_propank_folder, out_json = sys.argv[1:]
 
     # Read propbank into dict
     propbank = {}
