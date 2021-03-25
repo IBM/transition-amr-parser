@@ -13,16 +13,6 @@ conda install pytorch=1.3.0 -y -c pytorch
 conda install -c conda-forge nvidia-apex -y
 
 # download fairseq
-# public branch and patch
-bash scripts/download_and_patch_fairseq.sh
-# private branch (for development)
-# git clone git@github.ibm.com:ramon-astudillo/fairseq.git fairseq-stack-transformer
-# cd fairseq-stack-transformer
-# git checkout v0.3.0/decouple-fairseq
-# cd ..
-
-# install repos
-pip install --no-deps --editable fairseq-stack-transformer
 pip install --editable .
 
 # install alignment tools
