@@ -7,7 +7,7 @@ Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch. Cu
 
 Check [Parsing Services](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Parsing-Services) for the endpoint URLs and Docker instructions. If you have acess to CCC and LDC data, we have available both the train data and trained models.
 
-## Manual Installation
+## Installation
 
 We use a `set_environment.sh` script to activate conda/pyenv and virtual
 environments. You can leave this empty if you dont want to use it, but scripts
@@ -19,6 +19,17 @@ touch set_environment.sh
 . set_environment.sh
 pip install .
 ```
+
+The AMR aligner uses additional tools that can be donwloaded and installed with
+
+```
+bash preprocess/install_alignment_tools.sh
+```
+
+If you use already aligned AMR, you will not need this.
+
+## Installation Details
+
 An example of `set_environment.sh`
 ```
 # Activate conda and local virtualenv for this machine
@@ -44,14 +55,6 @@ To do a mini-test with 25 annotated sentences that we provide. This should take 
 ```bash
 bash tests/minimal_test.sh
 ```
-
-The AMR aligner uses additional tools that can be donwloaded and installed with
-
-```
-bash preprocess/install_alignment_tools.sh
-```
-
-If you use already aligned AMR, you will not need this.
 
 ## Training a model
 
