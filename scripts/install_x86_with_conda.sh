@@ -9,7 +9,7 @@ set -o nounset
 conda install python=3.7 -y 
 
 # pre-install modules with conda 
-conda install pytorch=1.3.0 -y -c pytorch
+conda install pytorch=1.2.0 -y -c pytorch
 conda install -c conda-forge nvidia-apex -y
 
 # download fairseq
