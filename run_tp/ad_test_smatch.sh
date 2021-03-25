@@ -11,7 +11,7 @@ dir=$(dirname $0)
 # if [ ! -z "${1+x}" ]; then
 if [ ! -z "$1" ]; then
     config=$1
-    . $dir/$config    # we should always call from one level up
+    . $config    # $config_data should include its path
 fi
 # NOTE: when the first configuration argument is not provided, this script must
 #       be called from other scripts
@@ -37,7 +37,7 @@ elif [ $data_split_amr == "test" ]; then
 else
     echo "$2 is invalid; must be dev or test"
 fi
-    
+
 
 # data_split=valid
 # data_split_amr=dev    # TODO make the names consistent
@@ -47,29 +47,37 @@ fi
 # data_split_amr=test    # TODO make the names consistent
 # reference_amr=$AMR_TEST_FILE
 
-model_epoch=${model_epoch:-_last}
-beam_size=${beam_size:-10}
+model_epoch=${model_epoch:-_wiki-smatch_best1}
+beam_size=${beam_size:-1}
 batch_size=${batch_size:-128}
+use_pred_rules=${use_pred_rules:-0}
 
 RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
 # results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}.nopos-score
 results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}
 model=$MODEL_FOLDER/checkpoint${model_epoch}.pt
 
+TASK=${TASK:-amr_action_pointer}
 
-# ##### DECODING
-# # rm -Rf $RESULTS_FOLDER
-# mkdir -p $RESULTS_FOLDER
-# # --nbest 3 \
-# # --quiet
+src_fix_emb_use=${src_roberta_emb:-0}
+
+##### DECODING
+# rm -Rf $RESULTS_FOLDER
+mkdir -p $RESULTS_FOLDER
+# --nbest 3 \
+# --quiet
 # python fairseq_ext/generate.py \
 #     $DATA_FOLDER  \
 #     --emb-dir $EMB_FOLDER \
-#     --user-dir ../fairseq_ext \
-#     --task amr_action_pointer \
+#     --user-dir ./fairseq_ext \
+#     --task $TASK \
 #     --gen-subset $data_split \
+#     --src-fix-emb-use $src_fix_emb_use \
 #     --machine-type AMR  \
 #     --machine-rules $ORACLE_FOLDER/train.rules.json \
+#     --machine-config $ORACLE_FOLDER/machine_config.json \
+#     --modify-arcact-score 1 \
+#     --use-pred-rules $use_pred_rules \
 #     --beam $beam_size \
 #     --batch-size $batch_size \
 #     --remove-bpe \
@@ -77,18 +85,14 @@ model=$MODEL_FOLDER/checkpoint${model_epoch}.pt
 #     --quiet \
 #     --results-path $results_prefix \
 
-# # exit 0
+# exit 0
 
-##### post-processing after decoding
-# python scripts_tp/clean_pointer_arcs.py \
-#     $results_prefix
-    
-    
-# ##### Create the AMR from the model obtained actions
-# python transition_amr_parser/o7_fake_parse.py \
-#     --in-sentences $ORACLE_FOLDER/$data_split_amr.en \
-#     --in-actions $results_prefix.carc.actions \
-#     --out-amr $results_prefix.carc.amr \
+##### Create the AMR from the model obtained actions
+python transition_amr_parser/o10_amr_machine.py \
+    --in-machine-config $ORACLE_FOLDER/machine_config.json \
+    --in-tokens $ORACLE_FOLDER/$data_split_amr.en \
+    --in-actions $results_prefix.actions \
+    --out-amr $results_prefix.amr
 
 # exit 0
 
@@ -96,16 +100,16 @@ model=$MODEL_FOLDER/checkpoint${model_epoch}.pt
 if [[ "$wiki" == "" ]]; then
 
     # Smatch evaluation without wiki
-    
+
     echo "Computing SMATCH ---"
     python smatch/smatch.py \
          --significant 4  \
          -f $reference_amr \
-         $results_prefix.carc.amr \
+         $results_prefix.amr \
          -r 10 \
-         > $results_prefix.carc.smatch
+         > $results_prefix.smatch
 
-    cat $results_prefix.carc.smatch
+    cat $results_prefix.smatch
 
 else
 
@@ -114,19 +118,18 @@ else
     # add wiki
     echo "Add wiki ---"
     python scripts/add_wiki.py \
-        $results_prefix.carc.amr $wiki \
-        > $results_prefix.carc.wiki.amr
+        $results_prefix.amr $wiki \
+        > $results_prefix.wiki.amr
 
     # compute score
     echo "Computing SMATCH ---"
     python smatch/smatch.py \
          --significant 4  \
          -f $reference_amr_wiki \
-         $results_prefix.carc.wiki.amr \
+         $results_prefix.wiki.amr \
          -r 10 \
-         > $results_prefix.carc.wiki.smatch
+         > $results_prefix.wiki.smatch
 
-    cat $results_prefix.carc.wiki.smatch
+    cat $results_prefix.wiki.smatch
 
 fi
-

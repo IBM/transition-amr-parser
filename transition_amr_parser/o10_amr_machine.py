@@ -4,6 +4,7 @@ import argparse
 import os
 from functools import partial
 import re
+from copy import deepcopy
 
 from tqdm import tqdm
 import numpy as np
@@ -170,7 +171,8 @@ class AMROracle():
                 self.pend_edges_by_node[tgt].remove((src, label, tgt))
                 self.pend_edges_by_node[current_id].remove((src, label, tgt))
                 # return [f'LA({label[1:]};{index})'], [1.0]
-                return [f'>LA({index},{label[1:]})'], [1.0]
+                assert label[0] == ':'    # NOTE include the relation marker ':' in action names
+                return [f'>LA({index},{label})'], [1.0]
 
             elif (
                 self.node_map[tgt] == top_node_id
@@ -189,7 +191,8 @@ class AMROracle():
                 self.pend_edges_by_node[src].remove((src, label, tgt))
                 self.pend_edges_by_node[current_id].remove((src, label, tgt))
                 # return [f'RA({label[1:]};{index})'], [1.0]
-                return [f'>RA({index},{label[1:]})'], [1.0]
+                assert label[0] == ':'    # NOTE include the relation marker ':' in action names
+                return [f'>RA({index},{label})'], [1.0]
 
     def get_reduce_action(self, machine, top=True):
         """
@@ -357,6 +360,31 @@ class AMRStateMachine():
                 absolute_stack_pos=self.absolute_stack_pos
             )))
 
+    def __deepcopy__(self, memo):
+        """
+        Manual deep copy of the machine
+
+        avoid deep copying spacy lemmatizer
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        # DEBUG: usew this to detect very heavy constants that can be referred
+        # import time
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            # start = time.time()
+            # if k in ['spacy_lemmatizer', 'actions_by_stack_rules']:
+            #     setattr(result, k, v)
+            # else:
+            #     setattr(result, k, deepcopy(v, memo))
+            setattr(result, k, deepcopy(v, memo))
+            # print(k, time.time() - start)
+        # import ipdb; ipdb.set_trace(context=30)
+        return result
+
+    def get_current_token(self):
+        return self.tokens[self.tok_cursor]
+
     def get_base_action(self, action):
         """Get the base action form, by stripping the labels, etc."""
         if action in self.base_action_vocabulary:
@@ -477,7 +505,7 @@ class AMRStateMachine():
                 index = len(self.node_stack) - int(index) - 2
                 tgt = self.node_stack[index]
             src = self.node_stack[-1]
-            self.edges.append((src, f':{label}', tgt))
+            self.edges.append((src, f'{label}', tgt))
 
         elif ra_regex.match(action):
             # Right Arc -->
@@ -490,7 +518,7 @@ class AMRStateMachine():
                 index = len(self.node_stack) - int(index) - 2
                 src = self.node_stack[index]
             tgt = self.node_stack[-1]
-            self.edges.append((src, f':{label}', tgt))
+            self.edges.append((src, f'{label}', tgt))
 
         # Node generation
         elif action == 'COPY':

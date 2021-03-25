@@ -7,7 +7,7 @@ from fairseq_ext.extract_bart.composite_embeddings import CompositeEmbeddingBART
 
 
 if __name__ == '__main__':
-    vocab_path = '/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart/EXP/data/graphmp-swaparc-ptrlast_o8.3_act-states/processed/dict.actions_nopos.txt'
+    vocab_path = '/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/EXP/data/o10_act-states/processed/dict.actions_nopos.txt'
     vocab = Dictionary.load(vocab_path)
 
     bart = torch.hub.load('pytorch/fairseq', 'bart.base')
