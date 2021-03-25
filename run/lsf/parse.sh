@@ -31,5 +31,5 @@ for split in $(ls ${tokenized_sentences}.split_*);do
           -name $(basename $split) \
           -out $(dirname $split)%J.stdout \
           -err $(dirname $split)/%J.stderr \
-          /bin/bash scripts/parse.sh $checkpoint $split ${split}.amr
+          /bin/bash run/parse.sh $checkpoint $split ${split}.amr
 done
