@@ -11,28 +11,28 @@ def read_frame(xml_file):
     '''
     Read probpank XML
     '''
-    
+
     root = ET.parse(xml_file).getroot()
     propbank = {}
     for predicate in root.findall('predicate'):
         lemma = predicate.attrib['lemma']
         for roleset_data in predicate.findall('roleset'):
-    
+
             # ID of the role e.g. run.01
             pred_id = roleset_data.attrib['id']
-    
+
             # basic meta-data
             propbank[pred_id] = {
                 'lemma': lemma,
                 'description': roleset_data.attrib['name']
-            } 
-    
+            }
+
             # alias
             propbank[pred_id]['aliases'] = []
             for aliases in roleset_data.findall('aliases'):
                 for alias in aliases:
                     propbank[pred_id]['aliases'].append(alias.text)
-    
+
             # roles
             propbank[pred_id]['roles'] = {}
             for roles in roleset_data.findall('roles'):
@@ -41,7 +41,7 @@ def read_frame(xml_file):
                         continue
                     number = role.attrib['n']
                     propbank[pred_id]['roles'][f'ARG{number}'] = role.attrib
-    
+
             # examples
             propbank[pred_id]['examples'] = []
             for examples in roleset_data.findall('example'):
@@ -56,7 +56,7 @@ def read_frame(xml_file):
                 propbank[pred_id]['examples'].append({
                     'sentence': sentence,
                     'tokens': tokens,
-                    'args': args 
+                    'args': args
                 })
 
 
@@ -96,7 +96,7 @@ def read_action_scores(file_path):
 
     sentence id (position in the original corpus)       1 int
     unormalized scores                                  3 int
-    sequence normalized score e.g. smatch               1 float 
+    sequence normalized score e.g. smatch               1 float
     action sequence length                              1 int
     saved because of {score, length, None (original)}   1 str
     action sequence (tab separated)                     1 str (tab separated)
@@ -116,7 +116,7 @@ def read_action_scores(file_path):
             if line.split()[7][0] == '[':
                 # backwards compatibility fix
                 items.append(ast.literal_eval(" ".join(line.split()[7:])))
-            else:    
+            else:
                 items.append(line.split()[7:])
             action_scores.append(items)
 
@@ -129,7 +129,7 @@ def write_action_scores(file_path, action_scores):
 
     sentence id (position in the original corpus)       1 int
     unormalized scores                                  3 int
-    sequence normalized score e.g. smatch               1 float 
+    sequence normalized score e.g. smatch               1 float
     action sequence length                              1 int
     saved because of {score, length, None (original)}   1 str
     action sequence (tab separated)                     1 str (tab separated)
@@ -140,7 +140,7 @@ def write_action_scores(file_path, action_scores):
     with open(file_path, 'w') as fid:
         for items in action_scores:
             sid = items[0]
-            score = items[1:4]     
+            score = items[1:4]
             smatch = items[4]
             length = items[5]
             reason = items [6]
@@ -158,14 +158,14 @@ def read_amr(in_amr, unicode_fixes=False):
     corpus.load_amrs(in_amr)
 
     if unicode_fixes:
-    
+
         # Replacement rules for unicode chartacters
         replacement_rules = {
             'ˈtʃærɪti': 'charity',
             '\x96': '_',
             '⊙': 'O'
         }
-    
+
         # FIXME: normalization shold be more robust. Right now use the tokens
         # of the amr inside the oracle. This is why we need to normalize them.
         for idx, amr in enumerate(corpus.amrs):
