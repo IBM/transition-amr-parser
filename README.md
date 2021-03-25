@@ -40,7 +40,7 @@ To test if install worked
 ```bash
 bash tests/correctly_installed.sh
 ```
-To do a mini-test with 25 annotated sentences that we provide (it wont learn but at least will run all stages)
+To do a mini-test with 25 annotated sentences that we provide. This should take 1-3 minutes. It wont learn anything but at least will run all stages.
 ```bash
 bash tests/minimal_test.sh
 ```
@@ -74,7 +74,7 @@ You will also need to unzip the precomputed BLINK cache
 unzip /dccstor/ykt-parse/SHARED/CORPORA/EL/linkcache.zip
 ```
 
-and then call
+To launch train/test use
 
 ```
 bash run/run_experiment.sh configs/amr2.0-action-pointer.sh
@@ -85,6 +85,13 @@ you can check training status with
 ```
 python run/status.py --config configs/amr2.0-action-pointer.sh
 ```
+
+Note that for CCC there is a version using `jbsub` that split the task into
+multiple sequential jobs and supports multiple seeds and testing in paralell
+
+```
+bash run/lsf/run_experiment.sh configs/amr2.0-action-pointer.sh
+``` 
 
 ## Decode with Pre-trained model
 
