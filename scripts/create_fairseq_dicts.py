@@ -60,11 +60,11 @@ if __name__ == '__main__':
     key_to_index = {key: index for index, (key, _) in enumerate(out_entries)}
     print(f'Read {len(out_entries)} {args.in_pretrain_dict}')
 
-    # Sum to count or append fine tune entries. 
+    # Sum to count or append fine tune entries.
     for entry, count in read_data_into_dict(args.in_fine_tune_data).items():
         if entry in key_to_index:
             out_entries[key_to_index[entry]][1] += count
-        else:    
+        else:
             out_entries.append((entry, count))
 
     write_fairseq_dict(args.in_pretrain_dict, out_entries)
