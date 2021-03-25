@@ -1,3 +1,15 @@
+## Plot AMRs
+
+This requires an extra `pip install matplotlib`. Then you can plot random or
+target laigned AMRs (following sentence order)
+
+```
+python scripts/plot_amr.py --in-amr DATA/AMR2.0/aligned/cofill/train.txt
+```
+
+Use `--indces` to select AMRs by the order they appear in the file. See
+`--has-*` flags to select by graph properties
+
 ## Sanity check AMR 
 
 You can check any AMR against any propbank frames and their rules
