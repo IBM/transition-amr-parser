@@ -113,12 +113,14 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
     # Smatch evaluation with wiki
-
     # add wiki
-    echo "Add wiki ---"
-    python scripts/add_wiki.py \
-        ${results_prefix}.amr $wiki \
-        > ${results_prefix}.wiki.amr
+    python scripts/retyper.py \
+        --inputfile ${results_prefix}.amr \
+        --outputfile ${results_prefix}.wiki.amr \
+        --skipretyper \
+        --wikify \
+        --blinkcachepath $BLINK_CACHE_PATH \
+        --blinkthreshold 0.0
 
     # compute score
     echo "Computing SMATCH ---"

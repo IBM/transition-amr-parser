@@ -31,7 +31,7 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
 
     mkdir -p "$checkpoints_folder/epoch_tests/"
 
-    # TODO: Add --link-best --remove command here to remove checkpoints on the fly
+    # Note this removes models and links best models on the fly
     while [ "$(python run/status.py -c $config --seed $seed --list-checkpoints-to-eval --link-best --remove)" != "" ];do
     
         # get existing checkpoints
