@@ -219,6 +219,13 @@ model_tag=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
 MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 
 ###############################################################
+# ENTITY LINKING
+###############################################################
+
+# Smatch evaluation with wiki
+BLINK_CACHE_PATH=DATA/EL/BLINK/linkcache
+
+###############################################################
 # TESTS 
 ###############################################################
 

@@ -1,10 +1,12 @@
 import sys
+import numpy as np
 from glob import glob
 import signal
 import re
 import os
 from datetime import datetime
 import argparse
+from collections import defaultdict
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
 from ipdb import set_trace
@@ -37,6 +39,11 @@ def argument_parser():
         "--seed",
         help="optional seed of the experiment",
         type=str,
+    )
+    parser.add_argument(
+        "--seed-average",
+        help="Average numbers over seeds",
+        action='store_true'
     )
     parser.add_argument(
         "--nbest",
@@ -199,7 +206,7 @@ def print_status(config_env_vars, seed):
 
 def get_score_from_log(file_path, score_name):
 
-    results = None
+    results = [None]
 
     if 'smatch' in score_name:
         regex = smatch_results_re
@@ -295,7 +302,7 @@ def get_average_time_between_write(files):
         for x, y in zip(timestamps[1:], timestamps[:-1])
     ]
     if len(deltas) < 5:
-       return  None
+        return None
     else:
         return mean(deltas[2:-2])
 
@@ -318,15 +325,40 @@ def get_speed_statistics(seed_folder):
     return minutes_per_epoch, minutes_per_test
 
 
-def display_results(models_folder, set_seed):
+def average_results(results, fields):
+
+    average_fields = \
+        ['dev', 'dev_top5_beam10', 'train_time (h)', 'test_time (m)']
+    ignore_fields = ['best']
+
+    # collect
+    result_by_seed = defaultdict(list)
+    for result in results:
+        key = result['model_folder']
+        result_by_seed[key].append(result)
+
+    # leave only averages
+    averaged_results = []
+    for seed, seed_results in result_by_seed.items():
+        average_result = {}
+        for field in fields:
+            field = field.split()[0]
+            if field in average_fields:
+                average_result[field] = \
+                    np.mean([r[field] for r in seed_results])
+            elif field in ignore_fields:
+                average_result[field] = ''
+            else:
+                average_result[field] = seed_results[0][field]
+        averaged_results.append(average_result)
+
+    return averaged_results
+
+
+def display_results(models_folder, set_seed, seed_average):
 
     # Table header
-    header = [
-        'data', 'oracle', 'features', 'model', 'best', 'dev',
-        'dev top5-beam10', 'train time (h)', 'test time (m)'
-    ]
     results = []
-
 
     for model_folder in glob(f'{models_folder}/*/*'):
         for seed_folder in glob(f'{model_folder}/*'):
@@ -381,57 +413,80 @@ def display_results(models_folder, set_seed):
             results_file = \
                 f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
             if os.path.isfile(results_file):
-                best_top5_beam10_score = \
-                    get_score_from_log(results_file, eval_metric)[0]
+                best_top5_beam10_score = get_score_from_log(results_file,
+                                                            eval_metric)[0]
             else:
                 best_top5_beam10_score = None
 
             # Append result
-            results.append([
-                config_env_vars['TASK_TAG'],
-                os.path.basename(config_env_vars['ORACLE_FOLDER'][:-1]),
-                os.path.basename(config_env_vars['EMB_FOLDER']),
-                config_env_vars['TASK'],
-                f'{best_epoch}/{max_epoch}',
-                f'{best_score:.3f}',
-                f'{best_top5_beam10_score:.3f}'
-                if best_top5_beam10_score else '',
-                epoch_time,
-                test_time
-            ])
+            results.append(dict(
+                model_folder=model_folder,
+                seed=seed,
+                data=config_env_vars['TASK_TAG'],
+                oracle=os.path.basename(config_env_vars['ORACLE_FOLDER'][:-1]),
+                features=os.path.basename(config_env_vars['EMB_FOLDER']),
+                model=config_env_vars['TASK'],
+                best=f'{best_epoch}/{max_epoch}',
+                dev=best_score,
+                dev_top5_beam10=best_top5_beam10_score,
+                train_time=epoch_time,
+                test_time=test_time,
+            ))
+
+    fields = [
+        'data', 'oracle', 'features', 'model', 'best', 'dev',
+        'dev_top5_beam10', 'train_time (h)', 'test_time (m)'
+    ]
 
     # TODO: average over seeds
+    if seed_average:
+        results = average_results(results, fields)
 
     # sort by last row
-    results = sorted(results, key=lambda x: float(x[-4]))
+    sort_field = 'dev_top5_beam10'
+    results = sorted(results, key=lambda x: float(x[sort_field]))
 
     # print
-    print_table([header] + results)
+    assert all(field.split()[0] in results[0].keys() for field in fields)
+    formatter = {5: '{:.3f}'.format, 6: '{:.3f}'.format}
+    print_table(fields, results, formatter=formatter)
 
 
-def print_table(rows):
+def len_print(string):
+    if string is None:
+        return 0
+    else:
+        bash_scape = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
+        return len(bash_scape.sub('', string))
+
+
+def print_table(header, data, formatter):
 
     # data structure checks
-    assert isinstance(rows, list)
-    assert all(isinstance(row, list) for row in rows)
-    assert all(isinstance(item, str) for row in rows for item in row)
-    assert len(set([len(row) for row in rows])) == 1
 
     # find largest elemend per column
-    num_col = len(rows[0])
     max_col_size = []
-    bash_scape = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
-    for n in range(num_col):
-        max_col_size.append(
-            max(len(bash_scape.sub('', row[n])) for row in rows)
-        )
+    for n, field in enumerate(header):
+        row_lens = [len(field)]
+        for row in data:
+            cell = row[field.split()[0]]
+            if n in formatter:
+                cell = formatter[n](cell)
+            row_lens.append(len_print(cell))
+        max_col_size.append(max(row_lens))
 
     # format and print
     print('')
     col_sep = ' '
-    for row in rows:
+    row_str = ['{:^{width}}'.format(h, width=max_col_size[n])
+               for n, h in enumerate(header)]
+    print(col_sep.join(row_str))
+    for row in data:
         row_str = []
-        for n, cell in enumerate(row):
+        for n, field in enumerate(header):
+            cell = row[field.split()[0]]
+            if n in formatter:
+                cell = formatter[n](cell)
             row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
         print(col_sep.join(row_str))
     print('')
@@ -449,7 +504,7 @@ def main(args):
     signal.signal(signal.SIGTERM, ordered_exit)
 
     if args.results:
-        display_results('DATA/AMR2.0/models/', args.seed)
+        display_results('DATA/AMR2.0/models/', args.seed, args.seed_average)
         exit(1)
 
     config_env_vars = read_config_variables(args.config)
