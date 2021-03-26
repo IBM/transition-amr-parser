@@ -1,7 +1,7 @@
 ## Plot AMRs
 
 This requires an extra `pip install matplotlib`. Then you can plot random or
-target laigned AMRs (following sentence order)
+target aligned AMRs (following sentence order)
 
 ```
 python scripts/plot_amr.py --in-amr DATA/AMR2.0/aligned/cofill/train.txt
@@ -44,4 +44,4 @@ To compute path precision
 python scripts/gold_path_metric.py --in-amr /path/to/file.amr --gold-amr /path/to/gold.amr
 ```
 
-To restrict to paths involving unknons and named entities (KBQA) user the `--kb-only` flag
+To restrict to paths involving unknowns and named entities (KBQA) user the `--kb-only` flag
