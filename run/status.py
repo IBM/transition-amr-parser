@@ -7,6 +7,7 @@ from datetime import datetime
 import argparse
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
+from ipdb import set_trace
 
 
 # Sanity check python3
@@ -229,8 +230,9 @@ def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
             missing_epochs.append(epoch)
             continue
         score = get_score_from_log(results_file, eval_metric)
-        # TODO: Support other scores
-        scores.append((score[0], epoch))
+        if score:
+            # TODO: Support other scores
+            scores.append((score[0], epoch))
 
     sorted_scores = sorted(scores, key=lambda x: x[0])
     best_n_epochs = sorted_scores[-n_best:]
@@ -382,7 +384,7 @@ def display_results(models_folder, set_seed):
                 best_top5_beam10_score = \
                     get_score_from_log(results_file, eval_metric)[0]
             else:
-                best_top5_beam10_score = ''
+                best_top5_beam10_score = None
 
             # Append result
             results.append([
@@ -392,7 +394,8 @@ def display_results(models_folder, set_seed):
                 config_env_vars['TASK'],
                 f'{best_epoch}/{max_epoch}',
                 f'{best_score:.3f}',
-                f'{best_top5_beam10_score:.3f}',
+                f'{best_top5_beam10_score:.3f}'
+                if best_top5_beam10_score else '',
                 epoch_time,
                 test_time
             ])
