@@ -66,16 +66,7 @@ else
     # Extract entity rules for the entire set
     python scripts/extract_rules.py $ALIGNED_FOLDER/train.txt $ORACLE_FOLDER/entity_rules.json
     
-    if [[ ! "$WIKI_DEV" == "" ]]; then
-        # copy the original AMR data: wiki files and original AMR with wikification
-        cp $WIKI_DEV $ORACLE_FOLDER/ref_dev.wiki
-        cp $WIKI_TEST $ORACLE_FOLDER/ref_test.wiki
-        cp $AMR_DEV_FILE_WIKI $ORACLE_FOLDER/ref_dev.wiki.amr
-        cp $AMR_TEST_FILE_WIKI $ORACLE_FOLDER/ref_test.wiki.amr
-    fi
-
     # generate the actions
-    
     if [[ $MAX_WORDS == 100 ]]; then
     
         python transition_amr_parser/amr_oracle.py \
