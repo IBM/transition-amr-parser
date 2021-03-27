@@ -544,7 +544,7 @@ def main(args):
                 args.seed,
             )
             if checkpoints:
-                print('\nThere are {len(checkpoint)} missing checkpoints\n')
+                print(f'\nThere are {len(checkpoints)} missing checkpoints\n')
                 exit(1)
 
         assert args.seed, "Requires --seed"
