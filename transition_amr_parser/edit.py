@@ -1,7 +1,7 @@
 import os
 from tqdm import tqdm
 import argparse
-from transition_amr_parser.state_machine import (
+from transition_amr_parser.amr_state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer
 )
@@ -17,8 +17,10 @@ from collections import Counter, defaultdict
 from smatch import compute_f
 from copy import deepcopy
 
+
 def yellow_font(string):
     return "\033[93m%s\033[0m" % string
+
 
 def argument_parser():
 
@@ -213,11 +215,11 @@ def merge_both_rules(new_action_rules, old_action_rules):
     for key in keys_old_rules:
         if key not in keys_common:
             merged_action_rules[key] = deepcopy(old_action_rules[key])
-    
+
     for key in keys_new_rules:
         if key not in keys_common:
             merged_action_rules[key] = deepcopy(new_action_rules[key])
-    
+
     for key in keys_common:
         if list(new_action_rules[key].keys()) == list(old_action_rules[key].keys()):
             merged_action_rules[key] = deepcopy(old_action_rules[key])
