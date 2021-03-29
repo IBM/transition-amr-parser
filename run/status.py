@@ -8,7 +8,7 @@ from datetime import datetime
 import argparse
 from collections import defaultdict
 from statistics import mean
-from transition_amr_parser.io import read_config_variables
+from transition_amr_parser.io import read_config_variables, clbar
 from ipdb import set_trace
 
 
@@ -237,9 +237,10 @@ def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
             missing_epochs.append(epoch)
             continue
         score = get_score_from_log(results_file, eval_metric)
-        if score:
-            # TODO: Support other scores
-            scores.append((score[0], epoch))
+        if score == [None]:
+            continue
+        # TODO: Support other scores
+        scores.append((score[0], epoch))
 
     sorted_scores = sorted(scores, key=lambda x: x[0])
     best_n_epochs = sorted_scores[-n_best:]
@@ -251,7 +252,10 @@ def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
     ])
     best_scores = [s for s, n in best_n_epochs]
 
-    return best_n_checkpoints, best_scores, rest_checkpoints, missing_epochs
+    return (
+        best_n_checkpoints, best_scores, rest_checkpoints, missing_epochs,
+        sorted_scores
+    )
 
 
 def link_best_model(best_n_checkpoints, config_env_vars, seed, nbest):
@@ -327,8 +331,7 @@ def get_speed_statistics(seed_folder):
 
 def average_results(results, fields):
 
-    average_fields = \
-        ['dev', 'dev_top5_beam10', 'train_time (h)', 'test_time (m)']
+    average_fields = ['dev', 'top5_beam10', 'train (h)', 'test (m)']
     ignore_fields = ['best']
 
     # collect
@@ -355,10 +358,13 @@ def average_results(results, fields):
     return averaged_results
 
 
-def display_results(models_folder, set_seed, seed_average):
+def display_results(models_folder, config, set_seed, seed_average):
 
     # Table header
     results = []
+
+    if config:
+        target_config_env_vars = read_config_variables(config)
 
     for model_folder in glob(f'{models_folder}/*/*'):
         for seed_folder in glob(f'{model_folder}/*'):
@@ -370,6 +376,13 @@ def display_results(models_folder, set_seed, seed_average):
 
             # Read config contents and seed
             config_env_vars = read_config_variables(f'{seed_folder}/config.sh')
+
+            if (
+                config
+                and config_env_vars['MODEL_FOLDER']
+                != target_config_env_vars['MODEL_FOLDER']
+            ):
+                continue
 
             # Get speed stats
             minutes_per_epoch, minutes_per_test = \
@@ -390,7 +403,7 @@ def display_results(models_folder, set_seed, seed_average):
                 seed,
                 ready=True
             )
-            checkpoints, scores, _, missing_epochs = get_best_checkpoints(
+            checkpoints, scores, _, missing_epochs, sorted_scores = get_best_checkpoints(
                 config_env_vars, seed, target_epochs, n_best=5
             )
             if scores == []:
@@ -425,17 +438,17 @@ def display_results(models_folder, set_seed, seed_average):
                 data=config_env_vars['TASK_TAG'],
                 oracle=os.path.basename(config_env_vars['ORACLE_FOLDER'][:-1]),
                 features=os.path.basename(config_env_vars['EMB_FOLDER']),
-                model=config_env_vars['TASK'],
+                model=config_env_vars['TASK'] + f':{seed}',
                 best=f'{best_epoch}/{max_epoch}',
                 dev=best_score,
-                dev_top5_beam10=best_top5_beam10_score,
-                train_time=epoch_time,
-                test_time=test_time,
+                top5_beam10=best_top5_beam10_score,
+                train=epoch_time,
+                test=test_time,
             ))
 
     fields = [
         'data', 'oracle', 'features', 'model', 'best', 'dev',
-        'dev_top5_beam10', 'train_time (h)', 'test_time (m)'
+        'top5_beam10', 'train (h)', 'test (m)'
     ]
 
     # TODO: average over seeds
@@ -443,13 +456,27 @@ def display_results(models_folder, set_seed, seed_average):
         results = average_results(results, fields)
 
     # sort by last row
-    sort_field = 'dev_top5_beam10'
-    results = sorted(results, key=lambda x: float(x[sort_field]))
+    sort_field = 'top5_beam10'
+
+    def get_score(x):
+        if x[sort_field] is None:
+            return -1
+        else:
+            return float(x[sort_field])
+    results = sorted(results, key=get_score)
 
     # print
     assert all(field.split()[0] in results[0].keys() for field in fields)
     formatter = {5: '{:.3f}'.format, 6: '{:.3f}'.format}
     print_table(fields, results, formatter=formatter)
+
+    if config:
+        # single model result display
+        minc = .95 * min([x[0] for x in sorted_scores])
+        sorted_scores = sorted(sorted_scores, key=lambda x: x[1])
+        pairs = [(str(x), y) for (y, x) in sorted_scores]
+        clbar(pairs, ylim=(minc, None), ncol=79, yform='{:.4f}'.format)
+        print()
 
 
 def len_print(string):
@@ -470,7 +497,9 @@ def print_table(header, data, formatter):
         row_lens = [len(field)]
         for row in data:
             cell = row[field.split()[0]]
-            if n in formatter:
+            if cell is None:
+                cell == ''
+            elif n in formatter:
                 cell = formatter[n](cell)
             row_lens.append(len_print(cell))
         max_col_size.append(max(row_lens))
@@ -486,7 +515,10 @@ def print_table(header, data, formatter):
         for n, field in enumerate(header):
             cell = row[field.split()[0]]
             if n in formatter:
-                cell = formatter[n](cell)
+                if cell is None:
+                    cell = ''
+                else:
+                    cell = formatter[n](cell)
             row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
         print(col_sep.join(row_str))
     print('')
@@ -504,7 +536,8 @@ def main(args):
     signal.signal(signal.SIGTERM, ordered_exit)
 
     if args.results:
-        display_results('DATA/AMR2.0/models/', args.seed, args.seed_average)
+        display_results('DATA/*/models/', args.config, args.seed,
+                        args.seed_average)
         exit(1)
 
     config_env_vars = read_config_variables(args.config)
@@ -548,7 +581,7 @@ def main(args):
                 exit(1)
 
         assert args.seed, "Requires --seed"
-        best_n, best_scores, rest_checkpoints, missing_epochs = \
+        best_n, best_scores, rest_checkpoints, missing_epochs, _ = \
             get_best_checkpoints(config_env_vars, args.seed, target_epochs,
                                  n_best=args.nbest)
 
