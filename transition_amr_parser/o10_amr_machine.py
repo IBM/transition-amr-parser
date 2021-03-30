@@ -5,6 +5,7 @@ import os
 from functools import partial
 import re
 from copy import deepcopy
+from itertools import chain
 
 from tqdm import tqdm
 import numpy as np
@@ -27,6 +28,8 @@ from ipdb import set_trace
 la_regex = re.compile(r'>LA\((.*),(.*)\)')
 ra_regex = re.compile(r'>RA\((.*),(.*)\)')
 arc_regex = re.compile(r'>[RL]A\((.*),(.*)\)')
+la_nopointer_regex = re.compile(r'>LA\((.*)\)')
+ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 
@@ -703,6 +706,80 @@ class Stats():
             print()
 
 
+def peel_pointer(action, pad=-1):
+    """Peel off the pointer value from arc actions"""
+    if arc_regex.match(action):
+        # LA(pos,label) or RA(pos,label)
+        action, properties = action.split('(')
+        properties = properties[:-1]    # remove the ')' at last position
+        properties = properties.split(',')    # split to pointer value and label
+        pos = int(properties[0].strip())
+        label = properties[1].strip()    # remove any leading and trailing white spaces
+        action_label = action + '(' + label + ')'
+        return (action_label, pos)
+    else:
+        return (action, pad)
+
+
+class StatsForVocab:
+    """Collate stats for predicate node names with their frequency, and list of all the other action symbols.
+    For arc actions, pointers values are stripped.
+    The results stats (from training data) are going to decide which node names (the frequent ones) to be added to
+    the vocabulary used in the model.
+    """
+    def __init__(self, no_close=True):
+        # DO NOT include CLOSE action (as this is internally managed by the eos token in model)
+        self.no_close = no_close
+
+        self.nodes = Counter()
+        self.left_arcs = Counter()
+        self.right_arcs = Counter()
+        self.control = Counter()
+
+    def update(self, action, machine):
+        if self.no_close:
+            if action in ['CLOSE', '_CLOSE_']:
+                return
+
+        if la_regex.match(action) or la_nopointer_regex.match(action):
+            # LA(pos,label) or LA(label)
+            action, pos = peel_pointer(action)
+            # NOTE should be an iterable instead of a string; otherwise it'll be character based
+            self.left_arcs.update([action])
+        elif ra_regex.match(action) or ra_nopointer_regex.match(action):
+            # RA(pos,label) or RA(label)
+            action, pos = peel_pointer(action)
+            self.right_arcs.update([action])
+        elif action in machine.base_action_vocabulary:
+            self.control.update([action])
+        else:
+            # node names
+            self.nodes.update([action])
+
+    def display(self):
+        print('Total number of different node names:')
+        print(len(list(self.nodes.keys())))
+        print('Most frequent node names:')
+        print(self.nodes.most_common(20))
+        print('Most frequent left arc actions:')
+        print(self.left_arcs.most_common(20))
+        print('Most frequent right arc actions:')
+        print(self.right_arcs.most_common(20))
+        print('Other control actions:')
+        print(self.control)
+
+    def write(self, path_prefix):
+        """Write the stats into file. Two files will be written: one for nodes, one for others."""
+        path_nodes = path_prefix + '.nodes'
+        path_others = path_prefix + '.others'
+        with open(path_nodes, 'w') as f:
+            for k, v in self.nodes.most_common():
+                print(f'{k}\t{v}', file=f)
+        with open(path_others, 'w') as f:
+            for k, v in chain(self.control.most_common(), self.left_arcs.most_common(), self.right_arcs.most_common()):
+                print(f'{k}\t{v}', file=f)
+
+
 def oracle(args):
 
     # Read AMR
@@ -758,6 +835,7 @@ def oracle(args):
 
     # will store statistics and check AMR is recovered
     stats = Stats(ignore_indices, ngram_stats=False)
+    stats_vocab = StatsForVocab(no_close=True)
     for idx, amr in tqdm(enumerate(amrs), desc='Oracle'):
 
         # debug
@@ -796,6 +874,9 @@ def oracle(args):
             # update machine stats
             stats.update_machine_stats(machine)
 
+            # update vocabulary
+            stats_vocab.update(action, machine)
+
         # Sanity check: We recovered the full AMR
         stats.update_sentence_stats(oracle, machine)
 
@@ -818,6 +899,13 @@ def oracle(args):
         stats.tokens,
         '\t'
     )
+
+    # save action vocabulary stats
+    # debug
+    stats_vocab.display()
+    if getattr(args, 'out_stats_vocab', None) is not None:
+        stats_vocab.write(args.out_stats_vocab)
+        print(f'Action vocabulary stats written in {args.out_stats_vocab}.*')
 
 
 def play(args):
@@ -915,6 +1003,11 @@ def argument_parser():
         "--out-machine-config",
         help="configuration for state machine in config format",
         type=str,
+    )
+    parser.add_argument(
+        "--out-stats-vocab",
+        type=str,
+        help="action vocabulary frequencies"
     )
     # MACHINE
     parser.add_argument(

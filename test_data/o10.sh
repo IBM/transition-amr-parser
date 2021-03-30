@@ -32,6 +32,7 @@ python transition_amr_parser/o10_amr_machine.py \
     --out-actions $oracle_folder/${data}.actions \
     --out-tokens $oracle_folder/${data}.tokens \
     --absolute-stack-positions  \
+    --out-stats-vocab $oracle_folder/${data}.actions.vocab \
     # --reduce-nodes all
 
 python transition_amr_parser/o10_amr_machine.py \
