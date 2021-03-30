@@ -216,7 +216,7 @@ def get_score_from_log(file_path, score_name):
         for line in fid:
             if regex.match(line):
                 results = regex.match(line).groups()
-                results = list(map(float, results))
+                results = [100*float(x) for x in results]
                 break
 
     return results
@@ -478,7 +478,7 @@ def display_results(models_folder, config, set_seed, seed_average):
     # print
     if results:
         assert all(field.split()[0] in results[0].keys() for field in fields)
-        formatter = {5: '{:.3f}'.format, 6: '{:.3f}'.format}
+        formatter = {5: '{:.1f}'.format, 6: '{:.1f}'.format}
         print_table(fields, results, formatter=formatter)
 
         if config:
@@ -498,7 +498,20 @@ def len_print(string):
         return len(bash_scape.sub('', string))
 
 
-# def get_cell_str(row, field):
+def get_cell_str(row, field, formatter):
+    field2 = field.split()[0]
+    cell = row[field2]
+    if cell is None:
+        cell = ''
+    if formatter and cell != '':
+        cell = formatter(cell)
+    if f'{field2}-std' in row:
+        std = row[f'{field2}-std']
+        if formatter:
+            std = formatter(std)
+        cell = f'{cell} ({std})'
+
+    return cell
 
 
 def print_table(header, data, formatter):
@@ -510,11 +523,7 @@ def print_table(header, data, formatter):
     for n, field in enumerate(header):
         row_lens = [len(field)]
         for row in data:
-            cell = row[field.split()[0]]
-            if cell is None:
-                cell == ''
-            elif n in formatter:
-                cell = formatter[n](cell)
+            cell = get_cell_str(row, field, formatter.get(n, None))
             row_lens.append(len_print(cell))
         max_col_size.append(max(row_lens))
 
@@ -527,17 +536,7 @@ def print_table(header, data, formatter):
     for row in data:
         row_str = []
         for n, field in enumerate(header):
-            field2 = field.split()[0]
-            cell = row[field2]
-            if cell is None:
-                cell = ''
-            if n in formatter and cell != '':
-                cell = formatter[n](cell)
-            if f'{field2}-std' in row:
-                std = row[f'{field2}-std']
-                if n in formatter:
-                    std = formatter[n](std)
-                cell += f' ({std})'
+            cell = get_cell_str(row, field, formatter.get(n, None))
             row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
         print(col_sep.join(row_str))
     print('')
