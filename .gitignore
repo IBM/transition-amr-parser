@@ -26,6 +26,8 @@ pytorch_scatter*
 fairseq/
 apex/
 
+!DATA/gpt2_bpe/*
+
 # virtual environments
 .python-version
 venv*/
