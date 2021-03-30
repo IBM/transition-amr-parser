@@ -44,6 +44,7 @@ else
         python fairseq_ext/train.py \
             $DATA_FOLDER \
             --emb-dir $EMB_FOLDER \
+            $FAIRSEQ_TRAIN_FINETUNE_ARGS \
             --user-dir ../fairseq_ext \
             --task $TASK \
             --append-eos-to-target 0 \
@@ -100,6 +101,7 @@ else
         python fairseq_ext/train.py \
             $DATA_FOLDER \
             --emb-dir $EMB_FOLDER \
+            $FAIRSEQ_TRAIN_FINETUNE_ARGS \
             --user-dir ../fairseq_ext \
             --task $TASK \
             --append-eos-to-target 0 \
