@@ -70,7 +70,7 @@ tgt_input_src_combine="add"
 
 seed=${seed:-42}
 max_epoch=120
-eval_init_epoch=81
+eval_init_epoch=11
 # max_epoch=5
 # eval_init_epoch=1
 

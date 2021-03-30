@@ -71,6 +71,7 @@ src_roberta_enc=${src_roberta_enc:-0}
 
 lr=${lr:-0.0005}
 max_tokens=${max_tokens:-3584}
+update_freq=${update_freq:-1}
 warmup=${warmup:-4000}
 dropout=${dropout:-0.3}
 clip_norm=${clip_norm:-0.0}
@@ -158,6 +159,7 @@ else
         --loss-coef $loss_coef \
         --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
         --max-tokens $max_tokens \
+        --update-freq $update_freq \
         --log-format json \
         --seed $seed \
         --save-dir $MODEL_FOLDER \
