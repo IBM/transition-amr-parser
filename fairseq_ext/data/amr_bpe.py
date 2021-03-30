@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 
 import regex as re
+from fairseq import file_utils
 from fairseq.data.encoders.gpt2_bpe_utils import Encoder
+from fairseq.data.dictionary import Dictionary
+import torch
 
 
 """
@@ -12,6 +15,9 @@ wget -N 'https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/encoder.json'
 wget -N 'https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/vocab.bpe'
 wget -N 'https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/dict.txt'
 """
+
+DEFAULT_ENCODER_JSON = "https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/encoder.json"
+DEFAULT_VOCAB_BPE = "https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/vocab.bpe"
 
 
 class AMRActionBPEEncoder(Encoder):
@@ -39,8 +45,12 @@ class AMRActionBPEEncoder(Encoder):
         # )
 
     @classmethod
-    def build_bpe_encoder(cls, encoder_json_path, vocab_bpe_path,
+    def build_bpe_encoder(cls, encoder_json_path=None, vocab_bpe_path=None,
                           *, node_freq_min=5, node_file_path=None, others_file_path=None):
+        # use the default path if not provided
+        encoder_json_path = encoder_json_path or file_utils.cached_path(DEFAULT_ENCODER_JSON)
+        vocab_bpe_path = vocab_bpe_path or file_utils.cached_path(DEFAULT_VOCAB_BPE)
+        # build the gpt2 bpe encoder
         with open(encoder_json_path, "r") as f:
             encoder = json.load(f)
         with open(vocab_bpe_path, "r", encoding="utf-8") as f:
@@ -140,8 +150,8 @@ class AMRActionBPEEncoder(Encoder):
 
         return bpe_tokens, tok_to_subtok_start, subtok_origin_index
 
-    def encode_actions(self, actions, word_spe=' '):
-        bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.tokenize_actions(actions, word_spe)
+    def encode_actions(self, actions, word_sep=' '):
+        bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.tokenize_actions(actions, word_sep)
         # flatten the list
         bpe_tokens = [b for bb in bpe_tokens for b in bb]
         # encode into subtoken ids
@@ -152,3 +162,38 @@ class AMRActionBPEEncoder(Encoder):
         # NOTE the decoded string will always have an white space in the front before the first token
         text = self.decode(tokens)
         return text
+
+
+class AMRActionBartDictionary(Dictionary):
+    """Bart dictionary customized to include new AMR action symbols.
+    Tokenization is based on the GPT2 BPE encoder.
+    """
+
+    def __init__(self,
+                 node_freq_min=5,
+                 node_file_path=None,
+                 others_file_path=None,
+                 **kwargs):
+        super().__init__(**kwargs)
+
+        # build the extended bpe tokenizer and encoder
+        self.bpe = AMRActionBPEEncoder.build_bpe_encoder(node_freq_min=node_freq_min,
+                                                         node_file_path=node_file_path,
+                                                         others_file_path=others_file_path)
+
+        # add the new tokens to the vocabulary (NOTE the added symbols are the index in the bpe vocabulary)
+        for tok in self.bpe.additions:
+            self.add_symbol(str(self.bpe.encoder[tok]))
+
+    def encode_actions(self, actions, word_sep):
+        bpe_token_ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.bpe.encode_actions(actions, word_sep)
+
+        nwords = len(bpe_token_ids)
+        ids = torch.IntTensor(nwords)
+        for i, word in enumerate(bpe_token_ids):
+            ids[i] = self.index(str(word))
+
+        return ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index
+
+    def decode_actions(self, tokens: torch.LongTensor):
+        pass
