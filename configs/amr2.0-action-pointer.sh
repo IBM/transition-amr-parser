@@ -95,6 +95,11 @@ features_tag=${align_tag}_${ORACLE_TAG}_${embedding_tag}/
 # all data in this step under
 DATA_FOLDER=DATA/$TASK_TAG/features/$features_tag/
 
+# Use this to feed modified source and target dicts so that embeddings match in
+# fine-tuning
+# TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
+FAIRSEQ_PREPROCESS_FINETUNE_ARGS=""
+
 ##############################################################################
 # MODEL ARCHITECTURE
 ##############################################################################
@@ -137,6 +142,11 @@ tgt_input_src_combine="add"
 SEEDS="42 43 44"
 MAX_EPOCH=120
 EVAL_INIT_EPOCH=81
+
+# FINE-TUNE ARGUMENTS
+# Use this to load a pre-trained model
+# TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
+FAIRSEQ_TRAIN_FINETUNE_ARGS=""
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
