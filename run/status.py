@@ -142,7 +142,6 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
 
     # construct paths
     checkpoints = []
-    timestamps = []
     for epoch in missing_epochs:
         checkpoint = f'{seed_folder}/checkpoint{epoch}.pt'
         if os.path.isfile(checkpoint) or not ready:
@@ -333,6 +332,7 @@ def average_results(results, fields):
 
     average_fields = ['dev', 'top5_beam10', 'train (h)', 'test (m)']
     ignore_fields = ['best']
+    concatenate_fields = ['seed']
 
     # collect
     result_by_seed = defaultdict(list)
@@ -342,17 +342,26 @@ def average_results(results, fields):
 
     # leave only averages
     averaged_results = []
-    for seed, seed_results in result_by_seed.items():
+    for seed, sresults in result_by_seed.items():
         average_result = {}
         for field in fields:
             field = field.split()[0]
             if field in average_fields:
-                average_result[field] = \
-                    np.mean([r[field] for r in seed_results])
+                samples = [r[field] for r in sresults
+                           if r[field] is not None]
+                if samples:
+                    average_result[field] = np.mean(samples)
+                    # Add standard deviation
+                    average_result[f'{field}-std'] = np.std(samples)
+                else:
+                    average_result[field] = None
+
             elif field in ignore_fields:
                 average_result[field] = ''
+            elif field in concatenate_fields:
+                average_result[field] = ','.join([r[field] for r in sresults])
             else:
-                average_result[field] = seed_results[0][field]
+                average_result[field] = sresults[0][field]
         averaged_results.append(average_result)
 
     return averaged_results
@@ -403,9 +412,10 @@ def display_results(models_folder, config, set_seed, seed_average):
                 seed,
                 ready=True
             )
-            checkpoints, scores, _, missing_epochs, sorted_scores = get_best_checkpoints(
-                config_env_vars, seed, target_epochs, n_best=5
-            )
+            checkpoints, scores, _, missing_epochs, sorted_scores = \
+                get_best_checkpoints(
+                    config_env_vars, seed, target_epochs, n_best=5
+                )
             if scores == []:
                 continue
 
@@ -466,17 +476,18 @@ def display_results(models_folder, config, set_seed, seed_average):
     results = sorted(results, key=get_score)
 
     # print
-    assert all(field.split()[0] in results[0].keys() for field in fields)
-    formatter = {5: '{:.3f}'.format, 6: '{:.3f}'.format}
-    print_table(fields, results, formatter=formatter)
+    if results:
+        assert all(field.split()[0] in results[0].keys() for field in fields)
+        formatter = {5: '{:.3f}'.format, 6: '{:.3f}'.format}
+        print_table(fields, results, formatter=formatter)
 
-    if config:
-        # single model result display
-        minc = .95 * min([x[0] for x in sorted_scores])
-        sorted_scores = sorted(sorted_scores, key=lambda x: x[1])
-        pairs = [(str(x), y) for (y, x) in sorted_scores]
-        clbar(pairs, ylim=(minc, None), ncol=79, yform='{:.4f}'.format)
-        print()
+        if config:
+            # single model result display
+            minc = .95 * min([x[0] for x in sorted_scores])
+            sorted_scores = sorted(sorted_scores, key=lambda x: x[1])
+            pairs = [(str(x), y) for (y, x) in sorted_scores]
+            clbar(pairs, ylim=(minc, None), ncol=79, yform='{:.4f}'.format)
+            print()
 
 
 def len_print(string):
@@ -485,6 +496,9 @@ def len_print(string):
     else:
         bash_scape = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
         return len(bash_scape.sub('', string))
+
+
+# def get_cell_str(row, field):
 
 
 def print_table(header, data, formatter):
@@ -513,12 +527,17 @@ def print_table(header, data, formatter):
     for row in data:
         row_str = []
         for n, field in enumerate(header):
-            cell = row[field.split()[0]]
-            if n in formatter:
-                if cell is None:
-                    cell = ''
-                else:
-                    cell = formatter[n](cell)
+            field2 = field.split()[0]
+            cell = row[field2]
+            if cell is None:
+                cell = ''
+            if n in formatter and cell != '':
+                cell = formatter[n](cell)
+            if f'{field2}-std' in row:
+                std = row[f'{field2}-std']
+                if n in formatter:
+                    std = formatter[n](std)
+                cell += f' ({std})'
             row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
         print(col_sep.join(row_str))
     print('')
