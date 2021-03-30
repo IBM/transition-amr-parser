@@ -71,6 +71,7 @@ else
     if [[ $TASK == "amr_action_pointer" ]]; then
 
         python fairseq_ext/preprocess.py \
+            $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ../fairseq_ext \
             --task $TASK \
             --source-lang en \
@@ -89,6 +90,7 @@ else
     elif [[ $TASK == "amr_action_pointer_graphmp" ]]; then
 
         python fairseq_ext/preprocess_graphmp.py \
+            $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ../fairseq_ext \
             --task $TASK \
             --source-lang en \
@@ -110,6 +112,7 @@ else
         # set with self-loop
     
         python fairseq_ext/preprocess_graphmp.py \
+            $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ../fairseq_ext \
             --task $TASK \
             --source-lang en \

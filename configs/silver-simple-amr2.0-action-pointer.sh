@@ -18,7 +18,7 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=wiki25
+TASK_TAG=silver-AMR2.0
 
 # TODO: Omit these global vars and use 
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
@@ -46,8 +46,8 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-WIKI_DEV=""
-WIKI_TEST=""
+WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
+WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
 ##############################################################################
 # ORACLE
@@ -95,11 +95,6 @@ features_tag=${align_tag}_${ORACLE_TAG}_${embedding_tag}/
 # all data in this step under
 DATA_FOLDER=DATA/$TASK_TAG/features/$features_tag/
 
-# Use this to feed modified source and target dicts so that embeddings match in
-# fine-tuning
-# TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
-FAIRSEQ_PREPROCESS_FINETUNE_ARGS=""
-
 ##############################################################################
 # MODEL ARCHITECTURE
 ##############################################################################
@@ -138,14 +133,10 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-SEEDS="42"
-MAX_EPOCH=10
-EVAL_INIT_EPOCH=5
-
-# FINE-TUNE ARGUMENTS
-# Use this to load a pre-trained model
-# TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
-FAIRSEQ_TRAIN_FINETUNE_ARGS=""
+#SEEDS="42 43 44"
+SEEDS="42 43 44"
+MAX_EPOCH=63
+EVAL_INIT_EPOCH=10
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
@@ -228,11 +219,18 @@ model_tag=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
 MODEL_FOLDER=DATA/$TASK_TAG/models/$model_tag/ep${MAX_EPOCH}
 
 ###############################################################
+# ENTITY LINKING
+###############################################################
+
+# Smatch evaluation with wiki
+BLINK_CACHE_PATH=DATA/EL/BLINK/linkcache
+
+###############################################################
 # TESTS 
 ###############################################################
 
 ##### decoding configuration for the final model
 BATCH_SIZE=128
-BEAM_SIZE=1
-EVAL_METRIC=smatch
+BEAM_SIZE=10
+EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
