@@ -132,10 +132,12 @@ class AMROracle():
 
         # will store alignments by token
         # TODO: This should store alignment probabilities
+        node2pos = {}
         align_by_token_pos = defaultdict(list)
         for node_id, token_pos in self.gold_amr.alignments.items():
             for pos in token_pos:
                 align_by_token_pos[pos].append(node_id)
+                node2pos[node_id] = pos
         self.align_by_token_pos = align_by_token_pos
 
         # will store edges not yet predicted indexed by node
@@ -143,6 +145,20 @@ class AMROracle():
         for (src, label, tgt) in self.gold_amr.edges:
             self.pend_edges_by_node[src].append((src, label, tgt))
             self.pend_edges_by_node[tgt].append((src, label, tgt))
+
+        #sort edges in descending order of node2pos position
+        for node_id in self.pend_edges_by_node :
+            edges = []
+            for (idx,e) in enumerate(self.pend_edges_by_node[node_id]):
+                other_id = e[0]
+                if other_id == node_id:
+                    other_id = e[2]
+                edges.append((node2pos[other_id],idx))
+            edges.sort(reverse=True)
+            new_edges_for_node = []
+            for (_,idx) in edges:
+                new_edges_for_node.append(self.pend_edges_by_node[node_id][idx])
+            self.pend_edges_by_node[node_id] = new_edges_for_node
 
         # Will store gold_amr.nodes.keys() and edges as we predict them
         self.node_map = {}
