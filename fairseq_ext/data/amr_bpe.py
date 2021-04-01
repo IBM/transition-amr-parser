@@ -197,7 +197,7 @@ class AMRActionBartDictionary(Dictionary):
         bpe_token_ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.bpe.encode_actions(actions, word_sep)
 
         nwords = len(bpe_token_ids)
-        ids = torch.IntTensor(nwords)
+        ids = torch.LongTensor(nwords)
         for i, word in enumerate(bpe_token_ids):
             ids[i] = self.index(str(word))
 
