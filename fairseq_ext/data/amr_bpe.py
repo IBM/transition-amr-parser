@@ -2,7 +2,7 @@
 """
 import json
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import regex as re
 from fairseq import file_utils
@@ -114,7 +114,23 @@ class AMRActionBPEEncoder(Encoder):
 
         return tokk
 
-    def tokenize_actions(self, actions: Union[List[str], str], word_sep=' '):
+    def tokenize_act(self, act: str) -> List[str]:
+        # tokenize a single action word
+        assert not act.startswith(self.INIT)
+        is_in_enc = self.INIT + act in self.encoder
+        is_frame = re.match(r'.+-\d\d', act) is not None
+
+        if is_in_enc:
+            bpe_toks = [self.INIT + act]
+        elif is_frame:
+            bpe_toks = self._tok_bpe(act[:-3], add_space=True) + [act[-3:]]
+        else:
+            bpe_toks = self._tok_bpe(act, add_space=True)
+
+        return bpe_toks
+
+    def tokenize_actions(self, actions: Union[List[str], str], word_sep=' ') \
+            -> Tuple[List[List[str]], List[int], List[int]]:
         # tokenize an action sequence
         if isinstance(actions, str):
             actions = actions.strip().split(word_sep)
@@ -129,15 +145,7 @@ class AMRActionBPEEncoder(Encoder):
         num_subtok = 0    # number of subtokens in total
 
         for i, act in enumerate(actions):
-            is_in_enc = self.INIT + act in self.encoder
-            is_frame = re.match(r'.+-\d\d', act) is not None
-
-            if is_in_enc:
-                bpe_toks = [self.INIT + act]
-            elif is_frame:
-                bpe_toks = self._tok_bpe(act[:-3], add_space=True) + [act[-3:]]
-            else:
-                bpe_toks = self._tok_bpe(act, add_space=True)
+            bpe_toks = self.tokenize_act(act)
 
             bpe_tokens.append(bpe_toks)    # list of list
 
@@ -152,7 +160,8 @@ class AMRActionBPEEncoder(Encoder):
 
         return bpe_tokens, tok_to_subtok_start, subtok_origin_index
 
-    def encode_actions(self, actions: Union[List[str], str], word_sep=' '):
+    def encode_actions(self, actions: Union[List[str], str], word_sep=' ') \
+            -> Tuple[List[int], List[str], List[int], List[int]]:
         bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.tokenize_actions(actions, word_sep)
         # flatten the list
         bpe_tokens = [b for bb in bpe_tokens for b in bb]
@@ -192,7 +201,15 @@ class AMRActionBartDictionary(Dictionary):
         for tok in self.bpe.additions:
             self.add_symbol(str(self.bpe.encoder[tok]))
 
-    def encode_actions(self, actions: Union[List[str], str], word_sep=' '):
+    def tokenize_act(self, act: str) -> List[str]:
+        return self.bpe.tokenize_act(act)
+
+    def tokenize_actions(self, actions: Union[List[str], str], word_sep=' ') \
+            -> Tuple[List[List[str]], List[int], List[int]]:
+        return self.bpe.tokenize_actions(actions, word_sep)
+
+    def encode_actions(self, actions: Union[List[str], str], word_sep=' ') \
+            -> Tuple[torch.LongTensor, List[str], List[int], List[int]]:
         # this would split any bpe tokens in the process
         bpe_token_ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.bpe.encode_actions(actions, word_sep)
 
