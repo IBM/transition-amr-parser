@@ -2,6 +2,7 @@
 """
 import json
 from pathlib import Path
+from typing import List, Union
 
 import regex as re
 from fairseq import file_utils
@@ -18,6 +19,7 @@ wget -N 'https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/dict.txt'
 
 DEFAULT_ENCODER_JSON = "https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/encoder.json"
 DEFAULT_VOCAB_BPE = "https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/vocab.bpe"
+DEFAULT_DICT_TXT = "https://dl.fbaipublicfiles.com/fairseq/gpt2_bpe/dict.txt"
 
 
 class AMRActionBPEEncoder(Encoder):
@@ -98,7 +100,7 @@ class AMRActionBPEEncoder(Encoder):
         self.num_additions = len(tokens)
 
     def _tok_bpe(self, token, add_space=True):
-        # default to adding space before every token, regardless of the sentence beginning (NOTE)
+        # default
         if add_space:
             token = ' ' + token.lstrip()
         else:
@@ -112,7 +114,7 @@ class AMRActionBPEEncoder(Encoder):
 
         return tokk
 
-    def tokenize_actions(self, actions, word_sep=' '):
+    def tokenize_actions(self, actions: Union[List[str], str], word_sep=' '):
         # tokenize an action sequence
         if isinstance(actions, str):
             actions = actions.strip().split(word_sep)
@@ -150,7 +152,7 @@ class AMRActionBPEEncoder(Encoder):
 
         return bpe_tokens, tok_to_subtok_start, subtok_origin_index
 
-    def encode_actions(self, actions, word_sep=' '):
+    def encode_actions(self, actions: Union[List[str], str], word_sep=' '):
         bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.tokenize_actions(actions, word_sep)
         # flatten the list
         bpe_tokens = [b for bb in bpe_tokens for b in bb]
@@ -158,7 +160,7 @@ class AMRActionBPEEncoder(Encoder):
         bpe_token_ids = [self.encoder[b] for b in bpe_tokens]
         return bpe_token_ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index
 
-    def decode_actions(self, tokens):
+    def decode_actions(self, tokens: List[int]) -> str:
         # NOTE the decoded string will always have an white space in the front before the first token
         text = self.decode(tokens)
         return text
@@ -170,11 +172,16 @@ class AMRActionBartDictionary(Dictionary):
     """
 
     def __init__(self,
+                 dict_txt_path=None,
                  node_freq_min=5,
                  node_file_path=None,
                  others_file_path=None,
                  **kwargs):
         super().__init__(**kwargs)
+
+        # build the base dictionary on gpt2 bpe token ids (used by BART)
+        dict_txt_path = dict_txt_path or file_utils.cached_path(DEFAULT_DICT_TXT)
+        self.add_from_file(dict_txt_path)
 
         # build the extended bpe tokenizer and encoder
         self.bpe = AMRActionBPEEncoder.build_bpe_encoder(node_freq_min=node_freq_min,
@@ -185,7 +192,8 @@ class AMRActionBartDictionary(Dictionary):
         for tok in self.bpe.additions:
             self.add_symbol(str(self.bpe.encoder[tok]))
 
-    def encode_actions(self, actions, word_sep):
+    def encode_actions(self, actions: Union[List[str], str], word_sep=' '):
+        # this would split any bpe tokens in the process
         bpe_token_ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index = self.bpe.encode_actions(actions, word_sep)
 
         nwords = len(bpe_token_ids)
@@ -195,5 +203,7 @@ class AMRActionBartDictionary(Dictionary):
 
         return ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index
 
-    def decode_actions(self, tokens: torch.LongTensor):
-        pass
+    def decode_actions(self, tensor: torch.LongTensor) -> List[str]:
+        # this would join any bpe tokens already
+        # .split() would remove the white space at the beginning as well
+        return self.bpe.decode_actions(map(int, self.string(tensor).split())).split()
