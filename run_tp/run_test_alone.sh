@@ -42,6 +42,7 @@ config_model=EXP/exp_o8.3_bart-base_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-lay
 config_model=EXP/exp_o8.3_bart-base_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-layall-h2-abuf_dec-sep-emb-sha1_bart-dec-emb-comp-pred/models_ep120_seed42_lr0.0001-mt3584-wm4000-dp0.2/config_*.sh
 
 config_model=EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb/models_ep120_seed42_lr0.00005-mt3584-wm4000-dp0.2/config_model_apt-bart_*.sh
+# config_model=EXP/exp_o9.0_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb/models_ep120_seed42_lr0.0001-mt2048x4-wm4000-dp0.2/config_*.sh
 
 . $config_model
 
