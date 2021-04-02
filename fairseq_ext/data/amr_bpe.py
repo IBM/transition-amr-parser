@@ -201,6 +201,27 @@ class AMRActionBartDictionary(Dictionary):
         for tok in self.bpe.additions:
             self.add_symbol(str(self.bpe.encoder[tok]))
 
+    def __getitem__(self, idx):
+        sym = super().__getitem__(idx)
+        if sym in self.bpe.decoder:
+            # map back to the original symbols
+            return self.bpe.decoder[int(sym)]
+        else:
+            # special symbols in fairseq dictionary
+            return sym
+
+    def index(self, sym):
+        """Returns the index of the specified symbol"""
+        assert isinstance(sym, str)
+
+        # map from surface symbol to bpe index that are the symbols of the dictionary
+        if sym in self.bpe.encoder:
+            sym = str(self.bpe.encoder[sym])
+
+        if sym in self.indices:
+            return self.indices[sym]
+        return self.unk_index
+
     def tokenize_act(self, act: str) -> List[str]:
         return self.bpe.tokenize_act(act)
 
