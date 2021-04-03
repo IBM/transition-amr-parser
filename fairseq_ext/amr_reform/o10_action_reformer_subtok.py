@@ -14,8 +14,66 @@ the fly.
 Here the reformer deals with rare node action spliting into subtokens.
 """
 
+from copy import deepcopy
+
 from transition_amr_parser.o10_amr_machine import AMRStateMachine, peel_pointer, arc_nopointer_regex
 from fairseq_ext.utils import join_action_pointer
+
+
+class AMRStateMachineSubtoken(AMRStateMachine):
+    """A simple wrapper of the amr state machine to handle base actions to vocabulary mapping, with the addition
+    of subtokens for nodes."""
+
+    INIT = 'Ġ'
+    SUB = '_SUB_'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # add the subtoken as a special base vocabulary
+        self.base_action_vocabulary.append(self.SUB)
+
+    def get_base_action(self, sub_action):
+        # action is the token in the actual vocabulary, with 'INIT' marking complete action and subaction otherwise
+        if sub_action.startswith(self.INIT):
+            base_action = super().get_base_action(sub_action.lstrip(self.INIT))
+        else:
+            base_action = self.SUB
+        return base_action
+
+    def canonical_action_to_dict(self, vocab):
+        """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
+        Here the mapping is specially dealing with shared bpe vocabulary, with possible node splits.
+
+        CLOSE is mapped to eos </s> token.
+        """
+        canonical_act_ids = dict()
+        vocab_act_count = 0
+        assert vocab.eos_word == '</s>'
+        for i in range(len(vocab)):
+            # NOTE can not directly use "for act in vocab" -> this will never stop since no stopping iter implemented
+            sub_act = vocab[i]
+
+            if sub_act in ['<s>', '<pad>', '<unk>', '<mask>'] or sub_act.startswith('madeupword'):
+                continue
+
+            # NOTE the subtokens are currently not included in the class of "NODE" base action, which
+            #      is allowed at every step except after the last SHIFT
+            # the subtokens are represented in a special class '_SUB_'
+
+            # NOTE in the bart bpe vocabulary both "CLOSE" and "ĠCLOSE" exist -> they should NOT be mapped to the
+            #      key value 'CLOSE' in 'canoical_act_ids', which is only mapped to dictionary eos symbol
+            if sub_act.lstrip(vocab.bpe.INIT) == 'CLOSE':
+                # skip these conflicting CLOSE tokens
+                continue
+
+            cano_act = self.get_base_action(sub_act) if i != vocab.eos() else 'CLOSE'
+
+            if cano_act in self.base_action_vocabulary:
+                vocab_act_count += 1
+                canonical_act_ids.setdefault(cano_act, []).append(i)
+        # print for debugging
+        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
+        return canonical_act_ids
 
 
 class AMRActionReformerSubtok:
@@ -29,15 +87,25 @@ class AMRActionReformerSubtok:
 
     For model decoding, the reverse process is also done here.
     """
-    def __init__(self, dictionary=None, machine_config=None):
+    def __init__(self, dictionary=None, machine_config=None, restrict_subtoken=False):
         self.dictionary = dictionary
         self.INIT = dictionary.bpe.INIT
 
         self.machine_config = machine_config
-        self.machine = AMRStateMachine.from_config(machine_config)
+        if isinstance(machine_config, str):
+            self.machine = AMRStateMachine.from_config(machine_config)
+            self.machine_sub = AMRStateMachineSubtoken.from_config(machine_config)
+        elif isinstance(machine_config, dict):
+            self.machine = AMRStateMachine(**machine_config)
+            self.machine_sub = AMRStateMachineSubtoken(**machine_config)
+        else:
+            raise ValueError
+
+        # in get_valid_actions, whether to restrict the place where subtokens can appear
+        self.restrict_subtoken = restrict_subtoken
 
     @staticmethod
-    def reform_actions_and_get_states(tokens, actions, dictionary, machine):
+    def reform_actions_and_get_states(tokens, actions, dictionary, machine, restrict_subtoken=False):
         """At training time, formulate the target input and output and pointers, as well as state information at
         each step used by the model.
         Running stateless (vs. at decoding time, it's stateful).
@@ -67,6 +135,7 @@ class AMRActionReformerSubtok:
 
         for i, act in enumerate(actions):
             # first need to split out the pointers
+            act_ori = act    # save to update the machine with complete actions with pointer value
             act, pos = peel_pointer(act, pad=-1)
 
             # tokenize the action
@@ -80,12 +149,13 @@ class AMRActionReformerSubtok:
 
             # reformulate pointer position due to action token split
             pos = tok_to_subtok_start[pos] if pos != -1 else pos
+            pos = [pos] + [-1] * (len(sub_toks) - 1)    # extend for subtoken positions
 
             # decoder input and output
             # symbols in `sub_toks` are those in the bpe vocabulary, e.g. ['Ġwant-01']
             actions_nopos_in += sub_toks
             actions_nopos_out += sub_toks
-            actions_pos.append(pos)
+            actions_pos.extend(pos)
 
             # action word not splitted
             if len(sub_toks) == 1:
@@ -95,8 +165,23 @@ class AMRActionReformerSubtok:
                 act_allowed = machine.get_valid_actions(max_1root=True)
                 base_act = machine.get_base_action(act)
                 assert base_act in act_allowed, 'current action not in the allowed space? check the rules.'
+
+                # ========== get the valid action for subtokens ==========
+                if restrict_subtoken:
+                    # only when the last action is a NODE action
+                    if i >= 1 and machine.get_base_action(actions[i - 1]) == 'NODE':
+                        act_allowed.append(AMRStateMachineSubtoken.SUB)
+                else:
+                    # NOTE here we do not force start of new token at the right places, e.g. after SHIFT, it should be a start
+                    # whenever NODE is allowed, subtoken is allowed
+                    if 'NODE' in act_allowed:
+                        act_allowed.append(AMRStateMachineSubtoken.SUB)
+                # ========================================================
+
                 allowed_base_actions.append(act_allowed)
-                machine.update(act)
+
+                # NOTE must use the original complete action to update; otherwise error in node mask
+                machine.update(act_ori)
 
             # action word is splitted
             else:
@@ -106,8 +191,30 @@ class AMRActionReformerSubtok:
                 act_allowed = machine.get_valid_actions(max_1root=True)
                 base_act = machine.get_base_action(act)
                 assert base_act in act_allowed, 'current action not in the allowed space? check the rules.'
-                allowed_base_actions.extend([act_allowed] * len(sub_toks))
-                machine.update(act)
+
+                # ========== get the valid action for subtokens ==========
+                if restrict_subtoken:
+                    # only when the last action is a NODE action
+                    if i >= 1 and machine.get_base_action(actions[i - 1]) == 'NODE':
+                        act_allowed.append(AMRStateMachineSubtoken.SUB)
+                else:
+                    # NOTE here we do not force start of new token at the right places, e.g. after SHIFT, it should be
+                    # a start whenever NODE is allowed, subtoken is allowed
+                    if 'NODE' in act_allowed:
+                        act_allowed.append(AMRStateMachineSubtoken.SUB)
+                # ========================================================
+
+                allowed_base_actions.append(act_allowed)
+
+                # NOTE must use the original complete action to update; otherwise error in node mask
+                machine.update(act_ori)
+
+                # after first update the machine, we then compute the next valid actions
+                act_allowed = machine.get_valid_actions(max_1root=True)
+                assert 'NODE' in act_allowed, 'for the subtoken positions, NODE is always in the allowed actions'
+                act_allowed.append(AMRStateMachineSubtoken.SUB)
+                for st in sub_toks[1:]:
+                    allowed_base_actions.append(act_allowed)
 
         assert len(tok_to_subtok_start) == len(actions)
         assert len(subtok_origin_index) == num_subtok
@@ -117,14 +224,41 @@ class AMRActionReformerSubtok:
         # only allow begin of subtokens to be pointed to
         actions_nodemask = [x if y == 1 else 0 for x, y in zip(actions_nodemask, subtok_start_mask)]
 
+        # breakpoint()
+
+        assert len(actions_nodemask) == len(actions_nopos_out) == len(actions_pos)
+        assert all([actions_nodemask[p] == 1 for p in actions_pos if p != -1])
+
         return {'actions_nopos_in': actions_nopos_in,
                 'actions_nopos_out': actions_nopos_out,
                 'actions_pos': actions_pos,
                 # general states
-                'allowed_base_actions': allowed_base_actions,
+                'allowed_cano_actions': allowed_base_actions,
                 'token_cursors': token_cursors,
                 'actions_nodemask': actions_nodemask
                 }
+
+    def __deepcopy__(self, memo):
+        """
+        Manual deep copy of the machine
+
+        avoid deep copying dictionary
+        """
+        cls = self.__class__
+        result = cls.__new__(cls)
+        # DEBUG: usew this to detect very heavy constants that can be referred
+        # import time
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            # start = time.time()
+            if k in ['dictionary', 'INIT']:
+                setattr(result, k, v)
+            else:
+                setattr(result, k, deepcopy(v, memo))
+            # setattr(result, k, deepcopy(v, memo))
+            # print(k, time.time() - start)
+        # import ipdb; ipdb.set_trace(context=30)
+        return result
 
     def reset(self, tokens):
         self.machine.reset(tokens)
@@ -133,9 +267,9 @@ class AMRActionReformerSubtok:
         self.actions_nopos_out = []
         self.actions_pos = []
         # general state information
-        self.allowed_base_actions = []
+        self.allowed_base_actions = None    # not used currently
         self.token_cursors = [0]    # src token cursor BEFORE each action
-        self.actions_nodemask = []
+        self.actions_nodemask = None    # to be rewritten every time
 
         # step counter
         self.machine_step = 0    # only on complete actions
@@ -145,16 +279,41 @@ class AMRActionReformerSubtok:
         self.subtok_origin_index = []    # the index of the original token for each subtoken
         self.subtok_start_mask = []    # mark the start of each subtoken sequences
 
+    def get_valid_actions(self):
+        # return the valid actions for the next subtoken position
+        act_allowed = self.machine.get_valid_actions(max_1root=True)
+
+        if self.restrict_subtoken:
+            if self.action_step >= 1:
+                last_sub_act = self.machine_sub.get_base_action(self.actions_nopos_out[-1])
+                if last_sub_act in ['NODE', AMRStateMachineSubtoken.SUB]:
+                    act_allowed.append(AMRStateMachineSubtoken.SUB)
+        else:
+            # NOTE here we do not force start of new token at the right places, e.g. after SHIFT, it should be a start
+            # whenever NODE is allowed, subtoken is allowed
+            if 'NODE' in act_allowed:
+                act_allowed.append(AMRStateMachineSubtoken.SUB)
+
+        return act_allowed
+
+    def get_actions_nodemask(self):
+        # return the actions_nodemask for the subtokens so far
+        actions_nodemask_ori = self.machine.get_actions_nodemask()
+        actions_nodemask = [actions_nodemask_ori[idx] for idx in self.subtok_origin_index]
+        # only allow begin of subtokens to be pointed to
+        actions_nodemask = [x if y == 1 else 0 for x, y in zip(actions_nodemask, self.subtok_start_mask)]
+        return actions_nodemask
+
     def get_states(self):
         # return state info to be used to model
-        act_allowed = self.machine.get_valid_actions(max_1root=True)
-        # NOTE here we do not force start of new token at the right places, e.g. after SHIFT, it should be a start
+        act_allowed = self.get_valid_actions()
+        self.actions_nodemask = self.get_actions_nodemask()
 
         states = {'actions_nopos_in': self.actions_nopos_in,
                   'actions_nopos_out': self.actions_nopos_out,
                   'actions_pos': self.actions_pos,
                   # general states
-                  'allowed_base_actions': act_allowed,    # NOTE here it is just for one step, instead of accumulated
+                  'allowed_cano_actions': act_allowed,    # NOTE here it is just for one step, instead of accumulated
                   'token_cursors': self.token_cursors,
                   'actions_nodemask': self.actions_nodemask
                   }
@@ -175,9 +334,16 @@ class AMRActionReformerSubtok:
         self.actions_nopos_out.append(action_nopos)    # non-shifted version
         self.actions_pos.append(action_pos)    # non-shifted version
 
+        if not self.restrict_subtoken:
+            # TODO first action is accepted no matter whether it is a full token (with self.INIT to start).
+            #      Otherwise, there is an error when such case happens in computing self.actions_nodemask
+            # NOTE could have better fine-grained controls, by separating out sub-tokens and full token actions
+            if self.machine_step == 0 and not action_nopos.startswith(self.INIT):
+                action_nopos = self.INIT + action_nopos
+
         if action_nopos.startswith(self.INIT):
             # start of a new action
-            self.machine.update(join_action_pointer(action_nopos[1:], action_pos))
+            self.machine.update(join_action_pointer(action_nopos.lstrip(self.INIT), action_pos))
             self.machine_step += 1
             self.subtok_start_mask.append(1)
         else:
@@ -188,17 +354,17 @@ class AMRActionReformerSubtok:
 
         self.token_cursors.append(self.machine.tok_cursor)
 
-        actions_nodemask_ori = self.machine.get_actions_nodemask()
-        self.actions_nodemask = [actions_nodemask_ori[idx] for idx in self.subtok_origin_index]
-        # only allow begin of subtokens to be pointed to
-        self.actions_nodemask = [x if y == 1 else 0 for x, y in zip(self.actions_nodemask, self.subtok_start_mask)]
+        # self.actions_nodemask = self.get_actions_nodemask()
+
+        # if action_pos >= 0:    # -1 is used for padding at decoding
+        #     assert self.actions_nodemask[action_pos] == 1, 'pointer value must be valid to a node position'
 
         self.action_step += 1
 
         return
 
     @staticmethod
-    def recover_actions(actions_nopos, actions_pos, dictionary):
+    def recover_actions(actions_nopos, actions_pos, dictionary, restrict_subtoken=True):
         """Recover the original actions corresponding to the oracle.
         Used in postprocessing after model decoding.
 
@@ -210,12 +376,28 @@ class AMRActionReformerSubtok:
         rec_actions_pos = []
         rec_index_map = {}    # map of unmerged token position (only the beginning of words) to mapped token position
         current_act = ''
+
+        if not restrict_subtoken:
+            # TODO first action is always accepted, even it's a subtoken
+            # NOTE could have better fine-grained controls, by separating out sub-tokens and full token actions
+            if not actions_nopos[0].startswith(dictionary.bpe.INIT):
+                actions_nopos[0] = dictionary.bpe.INIT + actions_nopos[0]
+
+            # NOTE clean the invalid cases when a subtoken is generated after 'SHIFT' 'COPY' '>LA' etc.
+            #      (in practice we observe the these mostly happen after SHIFT)
+            actions_nopos_copy = actions_nopos.copy()
+            for i, (a, b) in enumerate(zip(actions_nopos, actions_nopos[1:]), start=1):
+                if a.startswith(dictionary.bpe.INIT) and not b.startswith(dictionary.bpe.INIT):
+                    if a.lstrip(dictionary.bpe.INIT).startswith(('SHIFT', 'COPY', '>LA', '>RA', 'ROOT', 'CLOSE')):
+                        actions_nopos_copy[i] = dictionary.bpe.INIT + b
+            actions_nopos = actions_nopos_copy
+
         for i, (act, pos) in enumerate(zip(actions_nopos, actions_pos)):
             # merge the splitted tokens
             if act.startswith(dictionary.bpe.INIT):
                 if current_act:
                     rec_actions_nopos.append(current_act)
-                current_act = act[1:]
+                current_act = act.lstrip(dictionary.bpe.INIT)
                 rec_index_map[i] = len(rec_actions_nopos)
             else:
                 current_act += act

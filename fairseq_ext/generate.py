@@ -17,7 +17,9 @@ from fairseq.meters import StopwatchMeter, TimeMeter
 
 from fairseq_ext.utils_import import import_user_module
 from fairseq_ext import options
-from fairseq_ext.utils import post_process_action_pointer_prediction, clean_pointer_arcs
+from fairseq_ext.utils import (post_process_action_pointer_prediction,
+                               clean_pointer_arcs,
+                               post_process_action_pointer_prediction_bartsv)
 
 
 class Examples():
@@ -92,6 +94,11 @@ def main(args):
 
     use_cuda = torch.cuda.is_available() and not args.cpu
 
+    # ========== for bartsv task, rebuild dictionary after model args are loaded ==========
+    # assert not hasattr(args, 'node_freq_min'), 'node_freq_min should be read from model args'
+    # args.node_freq_min = 5    # temporarily set before model loading, as this is needed in tasks.setup_task(args)
+    # =====================================================================================
+
     # Load dataset splits
     task = tasks.setup_task(args)
     # Note: states are not needed since they will be provided by the state
@@ -112,6 +119,23 @@ def main(args):
         arg_overrides=eval(args.model_overrides),
         task=task,
     )
+
+    # ========== for bartsv task, rebuild the dictionary based on model args ==========
+    if 'bartsv' in _model_args.arch and args.node_freq_min != _model_args.node_freq_min:
+        args.node_freq_min = _model_args.node_freq_min
+        # Load dataset splits
+        task = tasks.setup_task(args)
+        # Note: states are not needed since they will be provided by the state
+        # machine
+        task.load_dataset(args.gen_subset, state_machine=False)
+
+        # Set dictionaries
+        try:
+            src_dict = getattr(task, 'source_dictionary', None)
+        except NotImplementedError:
+            src_dict = None
+        tgt_dict = task.target_dictionary
+    # ==================================================================================
 
     # import pdb; pdb.set_trace()
     # print(_model_args)
@@ -165,6 +189,8 @@ def main(args):
 
     examples = Examples(args.path, args.results_path, args.gen_subset, args.nbest)
 
+    error_stats = {'num_sub_start': 0}
+
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
         for sample in t:
@@ -177,10 +203,14 @@ def main(args):
             if args.prefix_size > 0:
                 prefix_tokens = sample['target'][:, :args.prefix_size]
 
+            # breakpoint()
+
             gen_timer.start()
             hypos = task.inference_step(generator, models, sample, args, prefix_tokens)
             num_generated_tokens = sum(len(h[0]['tokens']) for h in hypos)
             gen_timer.stop(num_generated_tokens)
+
+            # breakpoint()
 
             for i, sample_id in enumerate(sample['id'].tolist()):
                 has_target = sample['target'] is not None
@@ -230,7 +260,19 @@ def main(args):
                     #     line_tokenizer=task.tokenize,
                     # )
 
-                    actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, tgt_dict)
+                    if 'bartsv' in _model_args.arch:
+                        if not tgt_dict[hypo['tokens'][0]].startswith(tgt_dict.bpe.INIT):
+                            error_stats['num_sub_start'] += 1
+
+                        try:
+                            actions_nopos, actions_pos, actions = post_process_action_pointer_prediction_bartsv(hypo,
+                                                                                                                tgt_dict)
+                        except:
+                            breakpoint()
+                    else:
+                        actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, tgt_dict)
+
+                    # breakpoint()
 
                     if args.clean_arcs:
                         actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
@@ -285,6 +327,9 @@ def main(args):
 
     # Save examples to files
     examples.save()
+
+    print('| Error case (handled by manual fix) statistics:')
+    print(error_stats)
 
     print('| Translated {} sentences ({} tokens) in {:.1f}s ({:.2f} sentences/s, {:.2f} tokens/s)'.format(
         num_sentences, gen_timer.n, gen_timer.sum, num_sentences / gen_timer.sum, 1. / gen_timer.avg))

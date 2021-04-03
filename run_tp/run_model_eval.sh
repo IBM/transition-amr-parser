@@ -268,7 +268,8 @@ echo -e "\nRunning [$0]"
 cp $0 $MODEL_FOLDER/
 
 # time_max=5
-time_max=$(( 60 * 15 ))    # 15 mins
+# time_max=$(( 60 * 15 ))    # 15 mins
+time_max=$(( 60 * 30 ))    # 30 mins
 echo "----- [max waiting time between epochs: $time_max seconds ($(( $time_max / 60 )) mins)] -----"
 start=$SECONDS
 

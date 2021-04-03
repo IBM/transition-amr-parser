@@ -55,6 +55,7 @@ else
         --out-actions $ORACLE_FOLDER/train.actions \
         --out-tokens $ORACLE_FOLDER/train.en \
         --absolute-stack-positions  \
+        --out-stats-vocab $ORACLE_FOLDER/train.actions.vocab \
         # --reduce-nodes all
 
     echo -e "\nDev data"
