@@ -3,6 +3,8 @@ import math
 
 from fairseq.tokenizer import tokenize_line
 
+# from fairseq_ext.amr_reform.o10_action_reformer_subtok import AMRActionReformerSubtok
+
 
 def replace_unk(hypo_str, src_str, alignment, align_dict, unk, line_tokenizer=tokenize_line):
     # Tokens are strings here
@@ -63,6 +65,20 @@ def post_process_action_pointer_prediction(hypo, tgt_dict):
     assert len(actions_nopos) == len(actions_pos)
     actions = [join_action_pointer(act, pos) for act, pos in zip(actions_nopos, actions_pos)]
     return actions_nopos, actions_pos, actions
+
+
+def post_process_action_pointer_prediction_bartsv(hypo, tgt_dict):
+    """Post processing the prediction of actions and pointer values, for BART-share-vocabulary model."""
+    # need to manually take care of eos, which is always included in the beam search output
+    actions_nopos = [tgt_dict[i] for i in hypo['tokens'] if i != tgt_dict.eos()]    # or hypo['tokens'].tolist()
+    actions_pos = hypo['pointer_tgt'].tolist()[:-1]
+
+    # NOTE need to be imported here to avoid error, since in below "join_action_pointer" from this file is imported
+    from fairseq_ext.amr_reform.o10_action_reformer_subtok import AMRActionReformerSubtok
+
+    rec_actions_nopos, rec_actions_pos, rec_actions = AMRActionReformerSubtok.recover_actions(
+        actions_nopos, actions_pos, tgt_dict)
+    return rec_actions_nopos, rec_actions_pos, rec_actions
 
 
 def clean_pointer_arcs(actions_nopos, actions_pos, actions):

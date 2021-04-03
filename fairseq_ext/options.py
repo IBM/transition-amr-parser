@@ -256,6 +256,10 @@ def add_preprocess_args(parser):
     group.add_argument("--workers", metavar="N", default=1, type=int,
                        help="number of parallel workers")
 
+    # for extending BART vocabulary with actions specific symbols
+    parser.add_argument('--node-freq-min', default=5, type=int,
+                        help='minimum frequency of node names to add to vocabulary')
+
     # for pretrained external embeddings
     group.add_argument("--pretrained-embed", default='roberta.base',
                        help="Type of pretrained embedding")

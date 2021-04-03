@@ -343,6 +343,39 @@ class AMRStateMachine():
         # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
         return canonical_act_ids
 
+    # def canonical_action_to_dict_bpe(self, vocab):
+    #     """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
+    #     Here the mapping is specially dealing with shared bpe vocabulary, with possible node splits.
+
+    #     CLOSE is mapped to eos </s> token.
+    #     """
+    #     canonical_act_ids = dict()
+    #     vocab_act_count = 0
+    #     assert vocab.eos_word == '</s>'
+    #     for i in range(len(vocab)):
+    #         # NOTE can not directly use "for act in vocab" -> this will never stop since no stopping iter implemented
+    #         act = vocab[i]
+    #         if act in ['<s>', '<pad>', '<unk>', '<mask>'] or act.startswith('madeupword'):
+    #             continue
+    #         # NOTE remove the start of token space in bpe symbols
+    #         if act[0].startswith(vocab.bpe.INIT):
+    #             act = act[1:]
+    #         # NOTE the subtokens are currently included in the class of "NODE" base action, which
+    #         # is allowed at every step except after the last SHIFT
+
+    #         # NOTE in the bart bpe vocabulary both "CLOSE" and "ĠCLOSE" exist -> they should be mapped to eos
+    #         if act == 'CLOSE':
+    #             # skip these conflicting CLOSE tokens
+    #             continue
+
+    #         cano_act = self.get_base_action(act) if i != vocab.eos() else 'CLOSE'
+    #         if cano_act in self.base_action_vocabulary:
+    #             vocab_act_count += 1
+    #             canonical_act_ids.setdefault(cano_act, []).append(i)
+    #     # print for debugging
+    #     # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
+    #     return canonical_act_ids
+
     def reset(self, tokens):
         '''
         Reset state variables and set a new sentence
@@ -743,8 +776,9 @@ class StatsForVocab:
     The results stats (from training data) are going to decide which node names (the frequent ones) to be added to
     the vocabulary used in the model.
     """
-    def __init__(self, no_close=True):
+    def __init__(self, no_close=False):
         # DO NOT include CLOSE action (as this is internally managed by the eos token in model)
+        # NOTE we still add CLOSE into vocabulary, just to be complete although it is not used
         self.no_close = no_close
 
         self.nodes = Counter()
@@ -851,7 +885,7 @@ def oracle(args):
 
     # will store statistics and check AMR is recovered
     stats = Stats(ignore_indices, ngram_stats=False)
-    stats_vocab = StatsForVocab(no_close=True)
+    stats_vocab = StatsForVocab(no_close=False)
     for idx, amr in tqdm(enumerate(amrs), desc='Oracle'):
 
         # debug
@@ -918,6 +952,7 @@ def oracle(args):
 
     # save action vocabulary stats
     # debug
+
     stats_vocab.display()
     if getattr(args, 'out_stats_vocab', None) is not None:
         stats_vocab.write(args.out_stats_vocab)

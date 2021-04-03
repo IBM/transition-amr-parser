@@ -69,12 +69,13 @@ tgt_input_src_combine="add"
 
 seed=${seed:-42}
 max_epoch=120
-eval_init_epoch=81
+eval_init_epoch=61
 # max_epoch=5
 # eval_init_epoch=1
 
 lr=0.0001
-max_tokens=3584
+max_tokens=2048
+update_freq=2
 warmup=4000
 dropout=0.2
 
@@ -172,25 +173,28 @@ else
     emb_fix_tag=""
 fi
 
+# decoder input and output embedding tie (encoder and decoder embeddings are always tied)
+if [[ $share_decoder_embed == 0 ]]; then
+    dec_emb_tag=_dec-emb-io-sep
+else
+    dec_emb_tag=""
+fi
+
 
 # initialize target embedding with compositional sub-token embeddings
 if [[ $bart_emb_init_composition == 1 ]]; then
-    dec_emb_init_tag="_bart-init-dec-emb"
+    dec_emb_init_tag="_bart-init-addi-emb"
 else
     dec_emb_init_tag=""
 fi
 
-# # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
+# combine different model configuration tags to the name
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
 
 
-# # specific model directory name with a set random seed
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}_lr${lr}-mt${max_tokens}-wm${warmup}-dp${dropout}
-
-
-# for debugging
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/${expdir}/models_ep${max_epoch}_seed${seed}
+# specific model directory name with a set random seed
+optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
 
 
 
