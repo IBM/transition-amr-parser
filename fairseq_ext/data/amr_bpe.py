@@ -118,7 +118,9 @@ class AMRActionBPEEncoder(Encoder):
         # tokenize a single action word
         assert not act.startswith(self.INIT)
         is_in_enc = self.INIT + act in self.encoder
-        is_frame = re.match(r'.+-\d\d', act) is not None
+        # NOTE must add "$" to match the end, otherwise there could be actions
+        #      like 'F-47C' being matched and created unk index in the dictionary
+        is_frame = re.match(r'.+-\d\d$', act) is not None
 
         if is_in_enc:
             bpe_toks = [self.INIT + act]
@@ -192,6 +194,11 @@ class AMRActionBartDictionary(Dictionary):
         dict_txt_path = dict_txt_path or file_utils.cached_path(DEFAULT_DICT_TXT)
         self.add_from_file(dict_txt_path)
 
+        # the size of the original BART vocabulary; this is needed to truncate the pretrained BART vocabulary, as
+        # it comes with '<mask>' from denoising task and
+        # bart.base has larger vocabulary with more padded <madeupwordxxxx>
+        self.bart_vocab_size = len(self.symbols)
+
         # build the extended bpe tokenizer and encoder
         self.bpe = AMRActionBPEEncoder.build_bpe_encoder(node_freq_min=node_freq_min,
                                                          node_file_path=node_file_path,
@@ -203,20 +210,21 @@ class AMRActionBartDictionary(Dictionary):
 
     def __getitem__(self, idx):
         sym = super().__getitem__(idx)
-        if sym in self.bpe.decoder:
+        if sym.isdigit() and int(sym) in self.bpe.decoder:
             # map back to the original symbols
             return self.bpe.decoder[int(sym)]
         else:
             # special symbols in fairseq dictionary
             return sym
 
-    def index(self, sym):
+    def index(self, sym, map_to_bpe_id=True):
         """Returns the index of the specified symbol"""
         assert isinstance(sym, str)
 
         # map from surface symbol to bpe index that are the symbols of the dictionary
-        if sym in self.bpe.encoder:
-            sym = str(self.bpe.encoder[sym])
+        if map_to_bpe_id:
+            if sym in self.bpe.encoder:
+                sym = str(self.bpe.encoder[sym])
 
         if sym in self.indices:
             return self.indices[sym]
@@ -237,11 +245,14 @@ class AMRActionBartDictionary(Dictionary):
         nwords = len(bpe_token_ids)
         ids = torch.LongTensor(nwords)
         for i, word in enumerate(bpe_token_ids):
-            ids[i] = self.index(str(word))
+            ids[i] = self.index(str(word), map_to_bpe_id=False)
 
         return ids, bpe_tokens, tok_to_subtok_start, subtok_origin_index
 
     def decode_actions(self, tensor: torch.LongTensor) -> List[str]:
         # this would join any bpe tokens already
+        bpe_tensor = [int(self.symbols[i]) for i in tensor]
+        # NOTE index in self.symbols[i] directly, instead of using self[i], as we have overwritten self.__getitem__ so
+        #      that self.symbols[i] and self[i] are not the same anymore.
         # .split() would remove the white space at the beginning as well
-        return self.bpe.decode_actions(map(int, self.string(tensor).split())).split()
+        return self.bpe.decode_actions(bpe_tensor).split()
