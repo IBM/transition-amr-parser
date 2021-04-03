@@ -44,6 +44,7 @@ config_model=EXP/exp_o8.3_bart-base_act-pos_vmask1_shiftpos1_ptr-lay6-h1_cam-lay
 config_model=EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb/models_ep120_seed42_lr0.00005-mt3584-wm4000-dp0.2/config_model_apt-bart_*.sh
 # config_model=EXP/exp_o9.0_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb/models_ep120_seed42_lr0.0001-mt2048x4-wm4000-dp0.2/config_*.sh
 
+config_model=EXP/exp_debug/models_ep120_seed42/config_model_*.sh
 . $config_model
 
 # decoding and testing setup
@@ -55,7 +56,7 @@ batch_size=128
 use_pred_rules=0
 
 # debug
-model_epoch=40
+model_epoch=98
 beam_size=1
 
 # . run_tp/ad_test.sh $config_model test

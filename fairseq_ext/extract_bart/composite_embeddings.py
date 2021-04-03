@@ -31,11 +31,12 @@ class CompositeEmbedding(nn.Module):
         """
         raise NotImplementedError
 
-    def map_dictionary(self, dictionary, transform=None):
+    def map_dictionary(self, symbols, transform=None):
         """Map another dictionary to the base vocabulary. Return a tensor for scatter operation.
 
         Args:
-            dictionary (fairseq.data.dictionary.Dictionary): a fairseq dictionary.
+            symbols (List[str]): list of symbols in a dictionary. e.g. dictionary.symbols, where dictionary
+                is a fairseq dictionary (fairseq.data.dictionary.Dictionary)
             transform (None or callable): a function that transforms the symbol to a different form for mapping
 
         Returns:
@@ -46,7 +47,7 @@ class CompositeEmbedding(nn.Module):
         map_all = []
         extract_index = []
         scatter_index = []
-        for sym_id, sym in enumerate(dictionary.symbols):
+        for sym_id, sym in enumerate(symbols):
             base_idx = self.map_symbol(sym, transform=transform)
             map_all.append(base_idx)
             extract_index += base_idx
@@ -80,7 +81,8 @@ class CompositeEmbeddingBART(CompositeEmbedding):
         # `bart_embeddings` is typically `bart.model.decoder.embed_tokens` (torch.nn.Embedding)
 
         self.dictionary = dictionary
-        map_all, extract_index, scatter_index = self.map_dictionary(dictionary, transform=transform_action_symbol)
+        map_all, extract_index, scatter_index = self.map_dictionary(dictionary.symbols,
+                                                                    transform=transform_action_symbol)
         self.map_all = map_all
         # need to register as buffer to move to be able to move to device
         self.register_buffer('extract_index', extract_index)
