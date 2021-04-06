@@ -1,8 +1,6 @@
-import os
-import subprocess
 from setuptools import setup, find_packages
 
-VERSION = '0.3.3'
+VERSION = '0.3.4'
 
 # You need to pip install the requirements.txt first
 setup(
