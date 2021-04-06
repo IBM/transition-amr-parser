@@ -15,7 +15,7 @@ def read_bio(file_path):
         raw_bio = []
         for line in fid.readlines():
             if line.strip():
-                raw_bio.append(line.strip()) 
+                raw_bio.append(line.strip())
             else:
                 raw_bios.append(raw_bio)
                 raw_bio = []
@@ -36,8 +36,8 @@ def get_filtered_labeled_token(labeled_token):
         wsd_labeled_token = labeled_token
         mcr_labeled_token = f'{token} O'
         ner_labeled_token = f'{token} O'
-        
-    elif pred_regex.match(labeled_token):                
+
+    elif pred_regex.match(labeled_token):
         # node with lemma (ignored)
         token, lemma = pred_regex.match(labeled_token).groups()
         token_by_lemma[lemma].update([token])
@@ -49,16 +49,16 @@ def get_filtered_labeled_token(labeled_token):
     elif addnode_regex.match(labeled_token):
         # subgraph from addnode
         token, addnode = addnode_regex.match(labeled_token).groups()
-        token_by_addnode[addnode].update([token]) 
+        token_by_addnode[addnode].update([token])
         # labeled tokens for each task
         wsd_labeled_token = f'{token} O'
         mcr_labeled_token = labeled_token
         if ',name' in addnode:
             ner_labeled_token = labeled_token
-        else:    
+        else:
             ner_labeled_token = f'{token} O'
- 
-    elif blank_regex.match(labeled_token):    
+
+    elif blank_regex.match(labeled_token):
         # labeled tokens for each task
         wsd_labeled_token = labeled_token
         mcr_labeled_token = labeled_token
@@ -115,7 +115,7 @@ if __name__ == '__main__':
             mcr_sentence.append(mcr_labeled_token)
             ner_sentence.append(ner_labeled_token)
 
-        # write to disk, but filter out sentences that have no annotations 
+        # write to disk, but filter out sentences that have no annotations
         # (due to the filtering above)
         if any([w.split()[-1] != 'O' for w in wsd_sentence]):
             wsd_write('\n'.join(wsd_sentence) + '\n')

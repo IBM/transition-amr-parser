@@ -1,7 +1,7 @@
 import os
 from tqdm import tqdm
 import argparse
-from transition_amr_parser.state_machine import (
+from transition_amr_parser.amr_state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer
 )
@@ -17,8 +17,10 @@ from collections import Counter, defaultdict
 from smatch import compute_f
 from copy import deepcopy
 
+
 def yellow_font(string):
     return "\033[93m%s\033[0m" % string
+
 
 def argument_parser():
 
@@ -100,7 +102,7 @@ def print_score_action_stats(scored_actions):
 
 
 def fix_actions_split_by_spaces(actions):
-               
+
     # Fix actions split by spaces
     new_actions = []
     num_fixed = 0
@@ -122,7 +124,7 @@ def fix_actions_split_by_spaces(actions):
                 num_fixed += 1
             else:
                 new_sent_actions.append(sent_actions[index])
-            # increase index    
+            # increase index
             index += 1
         new_actions.append(new_sent_actions)
 
@@ -137,11 +139,11 @@ def fix_actions_split_by_spaces(actions):
 def merge_actions(actions, scored_actions):
     created_actions = []
     for index, actions in enumerate(actions):
-        if scored_actions[index][6] is not None: 
+        if scored_actions[index][6] is not None:
             created_actions.append(scored_actions[index][7])
         else:
             created_actions.append(actions)
-    return created_actions 
+    return created_actions
 
 
 def merge_rules(sentences, actions, rule_stats, entity_rules=None):
@@ -213,11 +215,11 @@ def merge_both_rules(new_action_rules, old_action_rules):
     for key in keys_old_rules:
         if key not in keys_common:
             merged_action_rules[key] = deepcopy(old_action_rules[key])
-    
+
     for key in keys_new_rules:
         if key not in keys_common:
             merged_action_rules[key] = deepcopy(new_action_rules[key])
-    
+
     for key in keys_common:
         if list(new_action_rules[key].keys()) == list(old_action_rules[key].keys()):
             merged_action_rules[key] = deepcopy(old_action_rules[key])
@@ -240,13 +242,13 @@ def main():
     if args.in_amr:
         corpus = read_amr(args.in_amr, unicode_fixes=True)
         amrs = corpus.amrs
-    # Load tokens    
+    # Load tokens
     if args.in_tokens:
         sentences = read_tokenized_sentences(args.in_tokens, separator='\t')
     # Load actions i.e. oracle
     if args.in_actions:
         actions = read_tokenized_sentences(args.in_actions, separator='\t')
-    # Load scored actions i.e. mined oracle     
+    # Load scored actions i.e. mined oracle
     if args.in_scored_actions:
         scored_actions = read_action_scores(args.in_scored_actions)
         # measure performance
@@ -270,7 +272,7 @@ def main():
         # actions
         actions = merge_actions(actions, scored_actions)
 
-    # fix actions split by whitespace arguments 
+    # fix actions split by whitespace arguments
     if args.fix_actions:
         actions = fix_actions_split_by_spaces(actions)
 
