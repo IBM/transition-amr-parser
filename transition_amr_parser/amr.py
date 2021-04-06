@@ -35,6 +35,14 @@ def find_subgraph_edges(total_edges, split_node_id):
 class InvalidAMRError(Exception):
     pass
 
+# TODO change method names; change alignment token indexes to be from 0 instead of from 1 (be careful as these require
+# to change many files)
+
+
+class InvalidAMRError(Exception):
+    pass
+
+
 class AMR:
 
     def __init__(self, tokens=None, root='', nodes=None, edges=None, alignments=None, score=0.0):
@@ -87,7 +95,8 @@ class AMR:
         # edges
         for s, r, t in self.edges:
             r = r.replace(':', '')
-            output += f'# ::edge\t{self.nodes[s] if s in self.nodes else "None"}\t{r}\t{self.nodes[t] if t in self.nodes else "None"}\t{s}\t{t}\t\n'
+            output += f'# ::edge\t{self.nodes[s] if s in self.nodes else "None"}\t{r}\t' \
+                      f'{self.nodes[t] if t in self.nodes else "None"}\t{s}\t{t}\t\n'
         return output
 
     def split(self, split_node_id):
@@ -162,11 +171,13 @@ class AMR:
 
     def alignmentsToken2Node(self, token_id):
         if token_id not in self.token2node_memo:
-            self.token2node_memo[token_id] = sorted([node_id for node_id in self.alignments if token_id in self.alignments[node_id]])
+            self.token2node_memo[token_id] = sorted([node_id for node_id in self.alignments
+                                                     if token_id in self.alignments[node_id]])
         return self.token2node_memo[token_id]
 
     def copy(self):
-        return AMR(self.tokens.copy(), self.root, self.nodes.copy(), self.edges.copy(), self.alignments.copy(), self.score)
+        return AMR(self.tokens.copy(), self.root, self.nodes.copy(), self.edges.copy(), self.alignments.copy(),
+                   self.score)
 
     """
     Outputs all edges such that source and target are in node_ids
@@ -222,7 +233,8 @@ class AMR:
                 if children:
                     children = f'\n{tab}'+children
                 if n not in completed:
-                    if (concept[0].isalpha() and concept not in ['imperative', 'expressive', 'interrogative']) or targets:
+                    if (concept[0].isalpha() and concept not in ['imperative', 'expressive', 'interrogative']) \
+                      or targets:
                         amr_string = amr_string.replace(f'[[{n}]]', f'({id} / {concept}{children})', 1)
                     else:
                         amr_string = amr_string.replace(f'[[{n}]]', f'{concept}')
@@ -234,7 +246,6 @@ class AMR:
 
         if allow_incomplete:
             pass
-
         else:
             if len(completed) < len(self.nodes):
                 raise InvalidAMRError("Tried to print an uncompleted AMR")
@@ -246,7 +257,6 @@ class AMR:
                 amr_string = '(a / amr-empty)'
 
             # ::short attribute from Revanth                                                    \
-
             output += f'# ::short\t{str(new_ids)}\t\n'
             output += amr_string + '\n\n'
 
@@ -371,8 +381,61 @@ class JAMR_CorpusReader:
                 root = root.strip()
                 amrs[-1].root = root
 
+                # if amrs[-1].tokens == ['here', ',', 'you', 'can', 'come', 'up', 'close', 'with',
+                #                     'the', 'stars', 'in', 'your', 'mind', '.']:
+                #     import pdb; pdb.set_trace()
+
+                # to fix the data alignments where the root alignment is different from the corresponding node alignment
+                # when the root alignment is a subset of node alignment, use the smaller alignment
+                if root in amrs[-1].nodes:
+                    if len(splinetabs) >= 4:
+                        tab = splinetabs[3]
+                        # root alignment exists
+                        if '-' in tab:
+                            start_end = tab.strip().split("-")
+                            start = int(start_end[0])  # inclusive
+                            end = int(start_end[1])  # exclusive
+                            word_idxs = list(range(start + 1, end + 1))  # off by one (we start at index 1)
+                            assert all(x in amrs[-1].alignments[root] for x in word_idxs)
+                            if len(word_idxs) < len(amrs[-1].alignments[root]):
+                                # import pdb; pdb.set_trace()
+                                amrs[-1].alignments[root] = word_idxs
+                    # specific fix for one training sentence for the prefix alignment data
+                    elif amrs[-1].tokens == ['Muslim', 'hatred', 'has', 'zero', 'to', 'do',
+                                             'with', '"', 'election', 'cycles', '.', '"']:
+                        # for this sentence the data does not contain root alignment; we fix by hard setting
+                        amrs[-1].alignments[root] = [3]    # root id '0', label 'have-to-do-with-04'
+                        amrs[-1].alignments['0.0'] = [2]   # node id '0.0', label 'hate-01'
+
         if len(amrs[-1].nodes) == 0:
             amrs.pop()
+
+
+def get_duplicate_edges(amr):
+
+    # Regex for ARGs
+    arg_re = re.compile(r'^(ARG)([0-9]+)$')
+    unique_re = re.compile(r'^(snt|op)([0-9]+)$')
+    argof_re = re.compile(r'^ARG([0-9]+)-of$')
+
+    # count duplicate edges
+    edge_child_count = Counter()
+    for t in amr.edges:
+        edge = t[1][1:]
+        if edge in ['polarity', 'mode']:
+            keys = [(t[0], edge, amr.nodes[t[2]])]
+        elif unique_re.match(edge):
+            keys = [(t[0], edge)]
+        elif arg_re.match(edge):
+            keys = [(t[0], edge)]
+        elif argof_re.match(edge):
+            # normalize ARG0-of --> to ARG0 <--
+            keys = [(t[2], edge.split('-')[0])]
+        else:
+            continue
+        edge_child_count.update(keys)
+
+    return [(t, c) for t, c in edge_child_count.items() if c > 1]
 
 
 def get_duplicate_edges(amr):

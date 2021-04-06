@@ -44,6 +44,12 @@ if __name__ == '__main__':
         if torch.cuda.get_device_capability(0)[0] < 7:
             print("GPU wont support --fp")
 
+        # sanity check try to use CUDA
+        import torch
+        torch.zeros((100, 100)).cuda()
+
+    else:
+        print("\033[93mNo CUDA available\033[0m")
 
     # fairseq
     from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched

@@ -9,11 +9,23 @@ set_environment.sh
 *.wiki/
 
 # data
+*.zip
 DATA*
+*oracles/
+EXP*
+checkpoints*
+amr_corpus*
+#!EXPR
+*/gigaword_ref.txt
+file.amr
 
 #
 preprocess/jamr
 preprocess/kevin
+
+# run scripts logs
+logs*
+*.log
 
 # external tools
 smatch*
@@ -24,6 +36,9 @@ fairseq-*
 .python-version
 venv*/
 cenv*/
+amr0.4_ody/
+amr0.4_o8/
+amr0.4_draft/
 
 # debug
 PROGRESS
@@ -31,14 +46,18 @@ PROGRESS
 debug*
 tmp*
 TMP*
+PROGRESS
 
 # other
 __pycache__/
+*.ipynb_checkpoints/
 transition_amr_parser.egg-info/
 # assumed used to store models
 models/
+!fairseq_ext/models
 # assumed where data stored
 data/
+!fairseq_ext/data/
 
 # python package
 dist/
@@ -50,3 +69,4 @@ jbsub_logs/
 # vim
 .vim/
 *.swp
+*~
