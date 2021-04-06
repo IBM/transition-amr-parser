@@ -1,0 +1,19 @@
+syntax = "proto3";
+service AMRBatchServer {
+    rpc process(AMRBatchInput) returns(AMRBatchResponse) {}
+};
+/** 
+ * This contains information about a batch of sentences, used as input by the parser
+ */
+message AMRBatchInput{
+    message Sentence {
+        repeated string tokens=1;
+    }
+    repeated Sentence sentences=1;
+};
+/** 
+ * The parser produces a list of strings with the amr parse of the sentences.
+ */
+message AMRBatchResponse {
+    repeated string amr_parse=1;
+}

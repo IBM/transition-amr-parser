@@ -1,0 +1,10 @@
+fairseq==0.8.0
+# for scoring
+smatch==1.0.4
+packaging
+dataclasses
+hydra-core
+omegaconf
+# for debugging
+ipdb
+pyinstrument

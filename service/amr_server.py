@@ -1,18 +1,9 @@
 from concurrent import futures
 import logging
-
-import grpc
 import torch
-import json
-import amr_pb2
-import amr_pb2_grpc
 
-from transition_amr_parser.amr_parser import AMRParser
-import transition_amr_parser.utils as utils
-from transition_amr_parser.utils import print_log
-from transition_amr_parser.learn import get_bert_embeddings
+from transition_amr_parser.parse import AMRParser
 
-from fairseq.models.roberta import RobertaModel
 import argparse
 
 def argument_parser():
@@ -20,7 +11,8 @@ def argument_parser():
     parser.add_argument(
         "--in-model",
         help="path to the AMR parsing model",
-        type=str
+        type=str,
+        required=True
     )
     parser.add_argument(
         "--roberta-cache-path",
@@ -32,40 +24,77 @@ def argument_parser():
         help="GRPC port",
         type=str
     )
+    parser.add_argument(
+        "--max-workers",
+        help="Maximum nonumber of threads -- unsafe to chage from 1",
+        default=1,
+        type=int
+    )
+    parser.add_argument(
+        '--roberta-batch-size',
+        type=int,
+        default=10,
+        help='Batch size for roberta computation (watch for OOM)'
+    )
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=64,
+        help='Batch size for decoding (excluding roberta)'
+    )
+    parser.add_argument(
+        "--debug",
+        help="Sentence for local debugging",
+        type=str
+    )
     args = parser.parse_args()
 
     # Sanity checks
-    assert args.in_model
-    assert args.port
+    if not args.debug:
+        assert args.port, "Must provide --port"
 
     return args
 
 class Parser():
-
-    def __init__(self, model_path, roberta_cache_path=None, roberta_use_gpu=False, model_use_gpu=False):
-        if torch.cuda.is_available():
-            roberta_use_gpu = True
-            model_use_gpu = True
-        self.parser = AMRParser(model_path, roberta_cache_path=roberta_cache_path, roberta_use_gpu=roberta_use_gpu, model_use_gpu=model_use_gpu)
+    def __init__(self, args):
+        self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model, roberta_cache_path=args.roberta_cache_path)
+        self.batch_size = args.batch_size
+        self.roberta_batch_size = args.roberta_batch_size
 
     def process(self, request, context):
-        word_tokens = request.word_infos
-        tokens = [word_token.token for word_token in word_tokens]
-        amr = self.parser.parse_sentence(tokens)
-        return amr_pb2.AMRResponse(amr_parse=amr.toJAMRString())
+        sentences = request.sentences
+        batch = []
+        for sentence in sentences:
+            batch.append(sentence.tokens)
+        amrs = self.parser.parse_sentences(batch, batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0]
+        return amr2_pb2.AMRBatchResponse(amr_parse=amrs)
 
-def serve():
+    def debug_process(self, tokens):
+        amr = self.parser.parse_sentences([tokens], batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0][0]
+        return amr
+
+def serve(args):
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=args.max_workers))
+    amr2_pb2_grpc.add_AMRBatchServerServicer_to_server(Parser(args), server)
+    laddr = '[::]:' + args.port
+    server.add_insecure_port(laddr)
+    server.start()
+    print("server listening on ", laddr)
+    server.wait_for_termination()
+
+
+if __name__ == '__main__':
+
     # Argument handling
     args = argument_parser()
 
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    amr_pb2_grpc.add_AMRServerServicer_to_server(Parser(model_path=args.in_model, roberta_cache_path=args.roberta_cache_path), server)
-    server.add_insecure_port('[::]:' + args.port)
-    server.start()
-    server.wait_for_termination()
-
-if __name__ == '__main__':
     logging.basicConfig()
-    serve()
-
-
+    if args.debug:
+        model = Parser(
+            model_path=args.in_model, roberta_cache_path=args.roberta_cache_path)
+        print(model.debug_process(args.debug.split()))
+    else:
+        import grpc
+        import amr2_pb2
+        import amr2_pb2_grpc
+        serve(args)
