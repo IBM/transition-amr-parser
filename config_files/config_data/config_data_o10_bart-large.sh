@@ -13,38 +13,42 @@ if [ -z ${ROOTDIR+x} ]; then
 fi
 
 
-##### Paths to used data
-# note that training data is a LDC2016 preprocessed using Tahira's scripts
-LDC2016_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2016T10_preprocessed_tahira/
-# This contains 2017 data preprocessed follwoing transition_amr_parser README
-# it is needed to pass the dev oracle tests
-LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed_TAP_v0.0.1/
+##############################################################################                                                                                                                         
+# DATA                                                                                                                                                                                                 
+##############################################################################                                                                                                                        
 
-##### AMR original data
+# Original AMR files in PENMAN notation                                                                                                                                                                
+# see preprocess/README.md to create these from LDC folders                                                                                                                                            
+# This step will be ignored if the aligned train file below exists                                                                                                                                     
 
-### o3 version alignments
-# AMR_TRAIN_FILE=$LDC2016_AMR_CORPUS/jkaln_2016_scr.txt
-# the above data has errors in alignments (o3-prefix)
+# Example AMR2.0 AMR1.0 dep-parsing CFG                                                                                                                                                                
+TASK_TAG=AMR2.0
+# TODO: Omit these global vars and use                                                                                                                                                                 
+# CORPUS_FOLDER=DATA/$TASK_TAG/corpora/                                                                                                                                                                
+AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt
+AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt
+AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
-# AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/kaln_2016.txt.mrged
-# AMR_DEV_FILE=$LDC2017_AMR_CORPUS/dev.txt
-# AMR_TEST_FILE=$LDC2017_AMR_CORPUS/test.txt
+##############################################################################                                                                                                                         
+# AMR ALIGNMENT                                                                                                                                                                                        
+##############################################################################                                                                                                                         
+# cofill: combination of JAMR and EM plus filling of missing alignments                                                                                                                                 
+align_tag=cofill
 
-### o5 version alignments
-# AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/psuedo.txt
-# the above data has errors in alignments (o5-prefix)
+# All data in this step under (TODO)                                                                                                                                                                   
+ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
+# aligned AMR                                                                                                                                                                                          
+# TODO: Omit these and use ALIGNED_FOLDER                                                                                                                                                           
+AMR_TRAIN_FILE=$ALIGNED_FOLDER/train.txt
+AMR_DEV_FILE=$ALIGNED_FOLDER/dev.txt
+AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 
-AMR_TRAIN_FILE=amr_corpus/amr2.0/o5/jkaln.txt
-AMR_DEV_FILE=amr_corpus/amr2.0/o5/dev.txt.removedWiki.noempty.JAMRaligned
-AMR_TEST_FILE=amr_corpus/amr2.0/o5/test.txt.removedWiki.noempty.JAMRaligned
+# wiki prediction files to recompose final AMR                                                                                                                                                         
+# TODO: External cache, avoid external paths                                                                                                                                                           
+# TODO: Omit these global vars and use ALIGNED_FOLDER                                                                                                                                                  
+WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
+WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
-
-### WIKI files
-# NOTE: If left empty no wiki will be added
-WIKI_DEV=amr_corpus/amr2.0/wiki/dev.wiki
-AMR_DEV_FILE_WIKI=amr_corpus/amr2.0/wiki/dev.txt
-WIKI_TEST=amr_corpus/amr2.0/wiki/test.wiki
-AMR_TEST_FILE_WIKI=amr_corpus/amr2.0/wiki/test.txt
 
 
 # NOTE: original dev set also same as below
