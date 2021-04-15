@@ -31,10 +31,10 @@ jbsub_tag=log
 train_queue=x86_12h
 gpu_type=v100
 
-num_seeds=1
+num_seeds=3
 # seeds=(43 44 0)
 # seeds=(0 123)
-seeds=(42)
+seeds=(42 0 315)
 
 echo "number of seeds: $num_seeds"
 echo "seeds list: ${seeds[@]}"
