@@ -47,8 +47,9 @@ beam_size=1
 batch_size=128
 use_pred_rules=0
 
-
-if [ "$WIKI_DEV" == "" ]; then
+# if [ "$WIKI_DEV" == "" ]; then
+# consider both AMR 1.0 and AMR 3.0 with blink
+if [[ "$WIKI_DEV" == "" ]] && [[ ${BLINK_CACHE_PATH:-""} == "" ]]; then
     score_name=smatch
 else
     score_name=wiki.smatch
@@ -268,8 +269,10 @@ echo -e "\nRunning [$0]"
 cp $0 $MODEL_FOLDER/
 
 # time_max=5
+time_max_between_epochs=${time_max_between_epochs:-30}
 # time_max=$(( 60 * 15 ))    # 15 mins
-time_max=$(( 60 * 30 ))    # 30 mins
+# time_max=$(( 60 * 30 ))    # 30 mins
+time_max=$(( 60 * $time_max_between_epochs ))    # 30 mins
 echo "----- [max waiting time between epochs: $time_max seconds ($(( $time_max / 60 )) mins)] -----"
 start=$SECONDS
 
