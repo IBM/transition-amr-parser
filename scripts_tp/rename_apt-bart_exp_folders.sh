@@ -34,22 +34,34 @@ rootdir=EXP
 # done
 
 
-# rename previous experiments with o10 to o9.0
+# rename previous experiments with o10 to o9.0 -> o9.1
+# o9.0: initial o10
+# o9.1: initial o10 + arc order fix, but still with some little issue
 otag1=o10
-otag2=o9.0
+otag2=o9.1
 
-exp_dirs=($rootdir/exp_${otag1}_*)
+exp_dirs=($rootdir/exp*${otag1}_*)
 
 for exp_dir in "${exp_dirs[@]}"; do
 
     # echo "$exp_dir"
 
-    new=$(echo "$exp_dir" | sed "s/exp_${otag1}_/exp_${otag2}_/g")
+    new=$(echo "$exp_dir" | sed "s/_${otag1}_/_${otag2}_/g")
 
     mv $exp_dir $new
     echo "$exp_dir --> $new"
 
 done
 
-mv $rootdir/data/${otag1}_act-states $rootdir/data/${otag2}_act-states
-echo "$rootdir/data/${otag1}_act-states --> $rootdir/data/${otag2}_act-states"
+data_dirs=($rootdir/data/*${otag1}_act-states)
+
+for data_dir in "${data_dirs[@]}"; do
+
+    # echo "$data_dir"
+
+    new=$(echo "$data_dir" | sed "s/${otag1}_/${otag2}_/g")
+
+    mv $data_dir $new
+    echo "$data_dir --> $new"
+
+done
