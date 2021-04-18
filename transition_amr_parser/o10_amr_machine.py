@@ -605,7 +605,7 @@ class AMRStateMachine():
 
     def get_annotation(self):
         amr = AMR(self.tokens, self.nodes, self.edges, self.root,
-                  alignments=self.alignments)
+                  alignments=self.alignments, clean=True)
         return amr.__str__()
 
 
