@@ -337,7 +337,7 @@ default_rel = ':rel'
 class AMR():
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None):
+                 alignments=None, clean=False):
 
         # make graph un editable
         self.tokens = tokens
@@ -359,9 +359,10 @@ class AMR():
         # root
         self.root = root
 
-        # always do the cleaning
-        self.clean_amr()
-        self.connect_graph()
+        # do the cleaning when necessary (e.g. build the AMR graph from model output, which might not be valid)
+        if clean:
+            self.clean_amr()
+            self.connect_graph()
 
         # if self.root is None:
         #     # breakpoint()
@@ -423,8 +424,9 @@ class AMR():
     def connect_graph(self):
         assigned_root = None
 
-        # ========== this deals with the special structure where a root node is marked with id -1,
-        # i.e. self.nodes[-1] = 'root'
+        # ========== this deals with the special structure where a dummy root node is marked with id -1,
+        # i.e. self.nodes[-1] = 'root' (legacy; should not be the case for oracle 10)
+        # here we remove the dummy root node to have a uniform representation of the graph attributes
         root_edges = []
         if -1 in self.nodes:
             del self.nodes[-1]
@@ -436,42 +438,60 @@ class AMR():
                 root_edges.append((s, r, t))
         for e in root_edges:
             self.edges.remove(e)
-        # ==========
+        # ==============================================================================================
 
         assert self.nodes, 'the graph should not be empty'
 
         assigned_root = self.root
 
+        # ===== find all the descendants for each node
         descendents = {n: {n} for n in self.nodes}
-        potential_roots = [n for n in self.nodes]
+
         for x, r, y in self.edges:
-            if y in potential_roots and x not in descendents[y]:
-                potential_roots.remove(y)
             descendents[x].update(descendents[y])
             for n in descendents:
                 if x in descendents[n]:
                     descendents[n].update(descendents[x])
 
-        disconnected = potential_roots.copy()
-        for n in potential_roots.copy():
-            if len(self.edges) > 0 and len([e for e in self.edges if e[0] == n]) == 0:
-                potential_roots.remove(n)
 
-        # assign root
+        # ===== remove nodes that should not be potential root
+        # - nodes with a parent (OR any ascendant)  && the parent/ascendant is not a descendant of the node
+        #   (cycling case, not strictly a DAG, but this appears in AMR)
+        # - nodes with no children
+
+        potential_roots = [n for n in self.nodes]
+
+        for n in potential_roots.copy():
+            for p, ds in descendents.items():
+                if n in ds and p not in descendents[n]:
+                    potential_roots.remove(n)
+                    break
+            else:
+                # above case not found
+                if len(descendents[n]) == 1:
+                    # only one descendent is itself, i.e. no children
+                    potential_roots.remove(n)
+
+        # ===== assign root (give priority to "multi-sentence" (although it could be non-root) or assigned_root)
         if potential_roots:
             self.root = potential_roots[0]
             for n in potential_roots:
                 if self.nodes[n] == 'multi-sentence' or n == assigned_root:
                     self.root = n
-            disconnected.remove(self.root)
         else:
             self.root = max(self.nodes.keys(),
                             key=lambda x: len([e for e in self.edges if e[0] == x])
                             - len([e for e in self.edges if e[2] == x]))
-        # connect graph
+
+        # ===== connect graph
+        disconnected = [n for n in self.nodes if n not in descendents[self.root]]
         if len(disconnected) > 0:
             for n in disconnected:
                 self.edges.append((self.root, default_rel, n))
+
+        # debug for amr2.0 training data
+        # if 'From among them' in ' '.join(self.tokens):
+        #     breakpoint()
 
     @classmethod
     def from_penman(cls, penman_text, tokenize=False):
@@ -486,7 +506,7 @@ class AMR():
         else:
             assert 'tok' in graph.metadata, "AMR must contain field ::tok"
             tokens = graph.metadata['tok'].split()
-        return cls(tokens, nodes, edges, graph.top, penman=graph)
+        return cls(tokens, nodes, edges, graph.top, penman=graph, clean=False)
 
     @classmethod
     def from_metadata(cls, penman_text, tokenize=False):
@@ -545,7 +565,7 @@ class AMR():
                 root = value[0].split('\t')[1]
 
         return cls(tokens, nodes, edges, root, penman=None,
-                   alignments=alignments)
+                   alignments=alignments, clean=False)
 
     def get_metadata(self):
         """
