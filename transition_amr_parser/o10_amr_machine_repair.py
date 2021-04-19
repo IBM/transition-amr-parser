@@ -137,7 +137,6 @@ class AMROracle():
         self.gold_amr, self.unaligned_nodes = fix_alignments(gold_amr)
 
         self.arcs_for_later = {}
-        self.arcs_review = None
 
         # will store alignments by token
         # TODO: This should store alignment probabilities
@@ -274,8 +273,6 @@ class AMROracle():
 
         if machine.in_repair_mode:
             #repair mode
-            if self.arcs_review is None:
-                self.arcs_review = deepcopy(self.arcs_for_later)
             for idx in sorted(self.arcs_for_later.keys()):
                 goto_action = f'GOTO({idx})'
                 if goto_action not in machine.action_history:
@@ -337,7 +334,7 @@ class AMROracle():
                 return [(target_node, nid)], [1.0]
 
         # Move monotonic attention
-        if machine.tok_cursor < len(machine.tokens)-1 or machine.action_history[-1] == 'DONE':
+        if machine.tok_cursor < len(machine.tokens)-1 or (machine.tok_cursor == len(machine.tokens)-1 and len(self.arcs_for_later) == 0):
             return ['SHIFT'], [1.0]
 
         if len(self.arcs_for_later) > 0:
@@ -501,18 +498,23 @@ class AMRStateMachine():
         # NOTE need to deal with both '>LA(pos,label)' and '>LA(label)', as in the vocabulary the pointers are peeled off
         if arc_regex.match(action) or arc_nopointer_regex.match(action):
             return action[:3]
+
+        if goto_regex.match(action):
+            return 'GOTO'
+
         return 'NODE'
 
     def get_valid_actions(self, max_1root=True):
 
         valid_base_actions = []
 
-        if self.tok_cursor < len(self.tokens):
+        if self.tok_cursor < len(self.tokens) and \
+           not self.in_repair_mode: #we might want to change this to allow new nodes during repair
             valid_base_actions.append('SHIFT')
             valid_base_actions.extend(['COPY', 'NODE'])
 
         if self.action_history and \
-                self.get_base_action(self.action_history[-1]) in ['COPY', 'NODE', 'ROOT', '>LA', '>RA']:
+                self.get_base_action(self.action_history[-1]) in ['COPY', 'NODE', 'ROOT', '>LA', '>RA', 'GOTO']:
             valid_base_actions.extend(['>LA', '>RA'])
 
         if self.action_history and \
@@ -530,6 +532,10 @@ class AMRStateMachine():
 
         if self.tok_cursor == len(self.tokens)-1:
             valid_base_actions.append('REPAIR')
+
+        if self.in_repair_mode and self.get_base_action(self.action_history[-1]) != 'GOTO':
+            valid_base_actions.append('GOTO')
+            valid_base_actions.append('DONE')
 
         if self.reduce_nodes:
             raise NotImplementedError
@@ -877,6 +883,8 @@ class StatsForVocab:
             # RA(pos,label) or RA(label)
             action, pos = peel_pointer(action)
             self.right_arcs.update([action])
+        elif machine.get_base_action(action) == 'GOTO':
+            self.control.update(['GOTO'])
         elif action in machine.base_action_vocabulary:
             self.control.update([action])
         else:
