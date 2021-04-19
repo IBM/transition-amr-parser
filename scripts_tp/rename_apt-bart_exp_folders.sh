@@ -34,11 +34,12 @@ rootdir=EXP
 # done
 
 
-# rename previous experiments with o10 to o9.0 -> o9.1
+# rename previous experiments with o10 to o9.0 -> o9.1 -> o9.2
 # o9.0: initial o10
 # o9.1: initial o10 + arc order fix, but still with some little issue
+# o9.2: before the fix on connect_graph(), which would still make gold actions include :rel
 otag1=o10
-otag2=o9.1
+otag2=o9.2
 
 exp_dirs=($rootdir/exp*${otag1}_*)
 
