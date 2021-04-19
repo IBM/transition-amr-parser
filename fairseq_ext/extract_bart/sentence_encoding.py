@@ -31,58 +31,58 @@ def get_average_embeddings(final_layer, word2piece):
 
 def get_wordpiece_to_word_map(sentence, roberta_bpe):
 
-    # Get word and wordpiece tokens according to RoBERTa
+    # Get word and wordpiece tokens according to GPT2BPE (used by RoBERTa/BART)
     word_tokens = sentence.split()
-    wordpiece_tokens = [
-        roberta_bpe.decode(wordpiece)
-        for wordpiece in roberta_bpe.encode(sentence).split()
-    ]
+    # NOTE this only returns the surface form of each byte encoding, which will not match as a subsequence of some
+    #      characters such as '\x91' and chinese symbols -> we need to dynamically recover the chars from utf8 bytes
+    # NOTE this is NOT used for matching
+    # wordpiece_tokens = [
+    #     roberta_bpe.decode(wordpiece)
+    #     for wordpiece in roberta_bpe.encode(sentence).split()
+    # ]
+    # NOTE we need to use lower level bpe encodings to handle all characters such as chinese and u'\x91'
+    #      the lower level bye bytes are used for matching
+    wordpiece_bpe_ids = roberta_bpe.bpe.encode(sentence)    # List[int] corresponding to bpe vocab
 
-    assert len(word_tokens) <= len(wordpiece_tokens)
+    assert len(word_tokens) <= len(wordpiece_bpe_ids)
     assert isinstance(word_tokens, list)
-    assert isinstance(wordpiece_tokens, list)
+    assert isinstance(wordpiece_bpe_ids, list)
+    # assert isinstance(wordpiece_tokens, list)
+    # assert len(wordpiece_tokens) == len(wordpiece_bpe_ids)
 
     w_index = 0
-    word_to_wordpiece = []
-    word_to_wordpiece_count = 0
+    word_to_wordpiece = []    # List[List[int]]
     subword_sequence = []
-    for wp_index in range(len(wordpiece_tokens)):
+    bpe_id_sequence = []
+
+    for wp_index, bpe_id in enumerate(wordpiece_bpe_ids):
         word = word_tokens[w_index]
+        # only the initial word doesn't need whitespace at the beginning to be matched
+        if w_index > 0:
+            word = ' ' + word
 
-        # debug
-        # if subword_sequence and word == wordpiece_tokens[wp_index]:
-        #     # e.g. when the subword is ' ', and the next subword is
-        #     # an exact match with the current word with no leading white space
-        #     print('-' * 10, 'corner case when a subword would be skipped')
-        #     print('subword_sequence index:', subword_sequence)
-        #     print('subword_sequence string', "".join([wordpiece_tokens[i] for i in subword_sequence]))
-        #     print('-' * 10)
-
-        if not subword_sequence and word == wordpiece_tokens[wp_index]:
-            # NOTE when subword_sequence is not empty, we should not enter here;
-            #      otherwise it will case a subword skipped (e.g. when the subword is ' ', and the next subword is
-            #      an exact match with the current word with no leading white space)
-            word_to_wordpiece.append(wp_index)
+        subword_sequence.append(wp_index)
+        bpe_id_sequence.append(bpe_id)
+        word_from_pieces = roberta_bpe.bpe.decode(bpe_id_sequence)    # this recovers any original characters
+        if word == word_from_pieces:
+            word_to_wordpiece.append(subword_sequence)
             w_index += 1
-            word_to_wordpiece_count += 1
-        else:
-            subword_sequence.append(wp_index)
-            word_from_pieces = "".join([
-                wordpiece_tokens[i]
-                for i in subword_sequence
-            ])
-            # NOTE: Facebooks BPE signals SOW with whitesplace
-            word_from_pieces = word_from_pieces.lstrip()
-            if word == word_from_pieces:
-                word_to_wordpiece.append(subword_sequence)
-                w_index += 1
-                word_to_wordpiece_count += len(subword_sequence)
-                subword_sequence = []
+            subword_sequence = []
+            bpe_id_sequence = []
 
-            assert word_from_pieces in word, \
-                "wordpiece must be at least a segment of current word"
+    assert len(word_tokens) == len(word_to_wordpiece), 'word_to_wordpiece must be of the same size of the word_tokens'
+    assert word_to_wordpiece[0][0] == 0 and word_to_wordpiece[-1][-1] == len(wordpiece_bpe_ids) - 1, \
+        'word_to_wordpiece mapping must cover all wordpieces, from the beginning towards the end'
 
-    assert word_to_wordpiece_count == len(wordpiece_tokens), 'every subword token must be mapped to a word'
+    # # # debug: AMR3.0 training data '\x91'
+    # if any(['\x91' in w for w in word_tokens]):
+    #     breakpoint()
+
+    # # # debug: AMR3.0 training data chinese characters
+    # # if sentence.startswith('< b > Suining County < / b > ( simplified Chinese'):
+    # # OR equivalently below
+    # if len(word_tokens) == 53 and len(wordpiece_bpe_ids) == 80:
+    #     breakpoint()
 
     return word_to_wordpiece
 
