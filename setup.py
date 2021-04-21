@@ -18,7 +18,7 @@ install_requires = [
     'h5py',
     'spacy==2.2.3',
     'tqdm',
-    # 'fairseq'
+    # 'fairseq',
     'fairseq=0.10.2',
     'tensorboardX',
     'packaging',
