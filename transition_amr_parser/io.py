@@ -337,7 +337,7 @@ default_rel = ':rel'
 class AMR():
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, clean=False):
+                 alignments=None, clean=True, connect=False):
 
         # make graph un editable
         self.tokens = tokens
@@ -361,7 +361,8 @@ class AMR():
 
         # do the cleaning when necessary (e.g. build the AMR graph from model output, which might not be valid)
         if clean:
-            self.clean_amr()
+            self.clean_amr()    # cleaning is needed for oracle for AMR 3.0 training data
+        if connect:
             self.connect_graph()
 
         # if self.root is None:
@@ -453,6 +454,11 @@ class AMR():
                 if x in descendents[n]:
                     descendents[n].update(descendents[x])
 
+        # all the ascendants for each node (including the node itself)
+        ascendants = {n: {n} for n in self.nodes}
+        for p, ds in descendents.items():
+            for x in ds:
+                ascendants[x].add(p)
 
         # ===== remove nodes that should not be potential root
         # - nodes with a parent (OR any ascendant)  && the parent/ascendant is not a descendant of the node
@@ -474,6 +480,10 @@ class AMR():
 
         # ===== assign root (give priority to "multi-sentence" (although it could be non-root) or assigned_root)
         if potential_roots:
+            # # pick the root with most descendents
+            # potential_roots_nds = [len(descendents[r]) for r in potential_roots]
+            # self.root = max(zip(potential_roots, potential_roots_nds), key=lambda x: x[1])[0]
+            # # pick the root with bias towards earlier nodes
             self.root = potential_roots[0]
             for n in potential_roots:
                 if self.nodes[n] == 'multi-sentence' or n == assigned_root:
@@ -484,7 +494,27 @@ class AMR():
                             - len([e for e in self.edges if e[2] == x]))
 
         # ===== connect graph
-        disconnected = [n for n in self.nodes if n not in descendents[self.root]]
+        # find disconnected nodes: only those disconnected roots of subgraphs
+        disconnected = []
+
+        for n in self.nodes:
+            if self.root in ascendants[n]:
+                # any node reachable by the root -> not disconnected
+                continue
+
+            if len(ascendants[n]) == 1:
+                # only ascendant is itself, i.e. no parent
+                disconnected.append(n)
+            else:
+                for p in ascendants[n]:
+                    if p not in descendents[n]:
+                        # there is any parent that is not in a cycle -> don't add (not a root of any subgraph)
+                        break
+                else:
+                    # all the parents are current node's children: cycle -> only add if no node in cycle already added
+                    if not any([m in ascendants[n] for m in disconnected]):
+                        disconnected.append(n)
+
         if len(disconnected) > 0:
             for n in disconnected:
                 self.edges.append((self.root, default_rel, n))
@@ -506,7 +536,7 @@ class AMR():
         else:
             assert 'tok' in graph.metadata, "AMR must contain field ::tok"
             tokens = graph.metadata['tok'].split()
-        return cls(tokens, nodes, edges, graph.top, penman=graph, clean=False)
+        return cls(tokens, nodes, edges, graph.top, penman=graph, clean=True, connect=False)
 
     @classmethod
     def from_metadata(cls, penman_text, tokenize=False):
@@ -565,7 +595,7 @@ class AMR():
                 root = value[0].split('\t')[1]
 
         return cls(tokens, nodes, edges, root, penman=None,
-                   alignments=alignments, clean=False)
+                   alignments=alignments, clean=True, connect=False)
 
     def get_metadata(self):
         """
