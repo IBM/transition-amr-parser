@@ -474,7 +474,8 @@ def getnespan(ppstr, edgelist, nodelist):
       if strisop:
          if pstr[0] == '"':
             tmpstrs = pstr.split('"')
-            tokstr = '"'+tmpstrs[1]+'"'
+#            tokstr = '"'+tmpstrs[1]+'"'
+            tokstr = tmpstrs[1]
             tokstrs.append(tokstr)
             strisop = False
 
@@ -510,6 +511,8 @@ def getnespan(ppstr, edgelist, nodelist):
    spannode = None
    for nid, node in nodelist.items():
       if node.aid in candidatenodes and node.parsepiece == -1:
+         if not spannode:
+            spannode = nid
          if len(candidatenodes) > 1:                        # if more than one node has the same string
             if (node.end - node.start) == len(tokstrs):     # pick the one with the span with the "right" length
                spannode = nid                               # (will not work when the number of tokens != number of :ops)
@@ -735,8 +738,9 @@ def processparse(amrparse, toks, nodelist, edgelist, preamble, retyper, blinker,
    for pid, pp in parsepieces.items():
       if pp.ptype == NAMETYPE and NESTRINGOP in pp.tail:
          namespannode = getnespan(pp.tail, edgelist, nodelist)
-         if not namespannode:
+         if namespannode is None:
             printerr(f'ERROR: No node with matching span found for\n{pp.head}{pp.tail}')
+            printerr(f'TOKS: {toks}')
             continue
          ppnestart = nodelist[namespannode].start
          ppneend = nodelist[namespannode].end
@@ -1113,13 +1117,17 @@ def main():
             elif line.startswith(LINETYPEPREFIXES['tok']):
                current_toks = line[len(LINETYPEPREFIXES['tok']):].split()
             elif line.startswith(LINETYPEPREFIXES['node']):
-               tmpnode = addnode(nodelinenum, line)
+#               tmpnode = addnode(nodelinenum, line)              # some nodelines double-quote NE tokens
+               tmpline = line.replace('"', '')                    # some don't; the code now assumes they don't
+               tmpnode = addnode(nodelinenum, tmpline)
                nodelinenum += 1
                if tmpnode:
                   nodelist[i] = tmpnode
                   i += 1
             elif line.startswith(LINETYPEPREFIXES['edge']):
-               tmpedge = addedge(edgelinenum, line)
+#               tmpedge = addedge(edgelinenum, line)              # some edgelines double-quote NE tokens
+               tmpline = line.replace('"', '')                    # some don't; the code now assumes they don't
+               tmpedge = addedge(edgelinenum, tmpline)
                edgelinenum += 1
                if tmpedge:
                   edgelist.append(tmpedge)
