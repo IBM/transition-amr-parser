@@ -105,10 +105,10 @@ def main(args):
     # build dictionary and save
 
     if run_basic:
-        if not args.srcdict and os.path.exists(dict_path(args.source_lang)):
-            raise FileExistsError(dict_path(args.source_lang))
-        if target and not args.tgtdict and os.path.exists(dict_path(args.target_lang)):
-            raise FileExistsError(dict_path(args.target_lang))
+        # if not args.srcdict and os.path.exists(dict_path(args.source_lang)):
+        #     raise FileExistsError(dict_path(args.source_lang))
+        # if target and not args.tgtdict and os.path.exists(dict_path(args.target_lang)):
+        #     raise FileExistsError(dict_path(args.target_lang))
 
         if args.joined_dictionary:
             assert not args.srcdict or not args.tgtdict, \

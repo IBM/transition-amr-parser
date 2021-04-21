@@ -15,7 +15,7 @@ fi
 ##############################################################
 
 ##### load data config
-config_data=config_files/config_data/config_data_o10_bart-large.sh
+config_data=config_files/config_data/config_data_bartsv-nodesplit_voc-nfm1_o10_bart-large.sh
 
 data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
 
@@ -35,17 +35,16 @@ dir=$(dirname $0)
 shift_pointer_value=1
 apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
-share_decoder_embed=0
+share_decoder_embed=1     # share decoder input and output embeddings
+share_all_embeddings=1    # share encoder and decoder input embeddings
 
-arch=transformer_tgt_pointer_bart_large
+arch=transformer_tgt_pointer_bartsv_large
 
 initialize_with_bart=1
 initialize_with_bart_enc=1
 initialize_with_bart_dec=1
 bart_encoder_backprop=1
 bart_emb_backprop=1
-bart_emb_decoder=0
-bart_emb_decoder_input=0
 bart_emb_init_composition=1
 
 pointer_dist_decoder_selfattn_layers="11"
@@ -69,7 +68,7 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 seed=${seed:-42}
-max_epoch=100
+max_epoch=40
 eval_init_epoch=11
 time_max_between_epochs=30
 # max_epoch=5
@@ -175,33 +174,24 @@ else
     emb_fix_tag=""
 fi
 
-# separate decoder embedding
-if [[ $bart_emb_decoder == 0 ]]; then
-    dec_emb_tag=_dec-sep-emb-sha${share_decoder_embed}
+# decoder input and output embedding tie (encoder and decoder embeddings are always tied)
+if [[ $share_decoder_embed == 0 ]]; then
+    dec_emb_tag=_dec-emb-io-sep
 else
     dec_emb_tag=""
 fi
-# bart decoder input embedding
-if [[ $bart_emb_decoder_input == 0 ]]; then
-    [[ $bart_emb_decoder == 1 ]] && echo "bart_emb_decoder should be 0" && exit 1
-    dec_emb_in_tag=""
-else
-    if [[ $bart_emb_decoder == 1 ]]; then
-        dec_emb_in_tag=""
-    else
-        # decoder input BART embeddings, output customized embeddings
-        dec_emb_in_tag="_bart-dec-emb-in"
-    fi
-fi
+
+
 # initialize target embedding with compositional sub-token embeddings
 if [[ $bart_emb_init_composition == 1 ]]; then
-    dec_emb_init_tag="_bart-init-dec-emb"
+    dec_emb_init_tag="_bart-init-addi-emb"
 else
     dec_emb_init_tag=""
 fi
 
+
 # combine different model configuration tags to the name
-expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
 
 
 # specific model directory name with a set random seed
