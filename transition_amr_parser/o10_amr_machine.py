@@ -72,8 +72,8 @@ def fix_alignments(gold_amr):
     unaligned_nodes = set(gold_amr.nodes) - set(gold_amr.alignments)
     unaligned_nodes |= \
         set(nid for nid, pos in gold_amr.alignments.items() if pos is None)
-    unaligned_nodes = list(unaligned_nodes)
-    unaligned_nodes_original = list(unaligned_nodes)
+    unaligned_nodes = sorted(list(unaligned_nodes))
+    unaligned_nodes_original = sorted(list(unaligned_nodes))
 
     if not unaligned_nodes:
         # no need to do anything
@@ -156,17 +156,24 @@ class AMROracle():
             self.pend_edges_by_node[src].append((src, label, tgt))
             self.pend_edges_by_node[tgt].append((src, label, tgt))
 
-        #sort edges in descending order of node2pos position
-        for node_id in self.pend_edges_by_node :
+        # # debug for AMR 3.0 training data
+        # # the following sentence has gold AMR with an edge with a node not in node list
+        # if ' '.join(gold_amr.tokens) == ('He should have been locked away , as they say '
+        #                                  'in Urdu " Qaid ba - mushaqqat " prison with hard labor .'):
+        #     print(gold_amr)
+        #     breakpoint()
+
+        # sort edges in descending order of node2pos position
+        for node_id in self.pend_edges_by_node:
             edges = []
-            for (idx,e) in enumerate(self.pend_edges_by_node[node_id]):
+            for (idx, e) in enumerate(self.pend_edges_by_node[node_id]):
                 other_id = e[0]
                 if other_id == node_id:
                     other_id = e[2]
-                edges.append((node_id_2_node_number[other_id],idx))
+                edges.append((node_id_2_node_number[other_id], idx))
             edges.sort(reverse=True)
             new_edges_for_node = []
-            for (_,idx) in edges:
+            for (_, idx) in edges:
                 new_edges_for_node.append(self.pend_edges_by_node[node_id][idx])
             self.pend_edges_by_node[node_id] = new_edges_for_node
 
@@ -605,7 +612,7 @@ class AMRStateMachine():
 
     def get_annotation(self):
         amr = AMR(self.tokens, self.nodes, self.edges, self.root,
-                  alignments=self.alignments, clean=True)
+                  alignments=self.alignments, clean=True, connect=True)
         return amr.__str__()
 
 
@@ -845,39 +852,17 @@ def oracle(args):
     # Read AMR
     amrs = read_amr2(args.in_aligned_amr, ibm_format=True)
 
-    # NOTE fix the unicode issue
-    # breakpoint()
-    unicode_fixes = True
-    if unicode_fixes:
-
-        # Replacement rules for unicode chartacters
-        replacement_rules = {
-            'ˈtʃærɪti': 'charity',
-            '\x96': '_',
-            '⊙': 'O'
-        }
-
-        # FIXME: normalization shold be more robust. Right now use the tokens
-        # of the amr inside the oracle. This is why we need to normalize them.
-        for idx, amr in enumerate(amrs):
-            new_tokens = []
-            for token in amr.tokens:
-                forbidden = [x for x in replacement_rules.keys() if x in token]
-                if forbidden:
-                    token = token.replace(
-                        forbidden[0],
-                        replacement_rules[forbidden[0]]
-                    )
-                new_tokens.append(token)
-            amr.tokens = new_tokens
-
     # broken annotations that we ignore in stats
     # 'DATA/AMR2.0/aligned/cofill/train.txt'
     ignore_indices = [
         8372,   # (49, ':time', 49), (49, ':condition', 49)
         17055,  # (3, ':mod', 7), (3, ':mod', 7)
         27076,  # '0.0.2.1.0.0' is on ::edges but not ::nodes
+        # for AMR 3.0 data: DATA/AMR3.0/aligned/cofill/train.txt
+        9296,   # self-loop: "# ::edge vote-01 condition vote-01 0.0.2 0.0.2", "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
     ]
+    # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list and used for both oracles, since:
+    #      this would NOT change the oracle actions, but only ignore sanity checks and displayed stats after oracle run
 
     # Initialize machine
     machine = AMRStateMachine(
