@@ -22,7 +22,8 @@ install_requires = [
     'fairseq=0.10.2',
     'tensorboardX',
     'packaging',
-    'torch-scatter=1.3.2',
+    # 'torch-scatter',
+    # 'torch-scatter=1.3.2',
     # for scoring
     'penman',
     'smatch==1.0.4',
