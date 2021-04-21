@@ -13,12 +13,16 @@ train_amr=amr_corpus/amr2.0/o5/jkaln.txt
 dev_amr=amr_corpus/amr2.0/o5/dev.txt.removedWiki.noempty.JAMRaligned
 test_amr=amr_corpus/amr2.0/o5/test.txt.removedWiki.noempty.JAMRaligned
 
+debug_amr=DATA/debug.amr
+
 if [[ $data == "train" ]]; then
     gold_amr=$train_amr
 elif [[ $data == "dev" ]]; then
     gold_amr=$dev_amr
 elif [[ $data == "test" ]]; then
     gold_amr=$test_amr
+elif [[ $data == "debug" ]]; then
+    gold_amr=$debug_amr
 else
     echo "unsupported data split $data"
 fi

@@ -69,6 +69,9 @@ src_pool_wp2w=${src_pool_wp2w:-top}
 src_avg_layers=${src_avg_layers:-""}
 src_roberta_enc=${src_roberta_enc:-0}
 
+# for apt-bart shared vocabulary
+node_freq_min=${NODE_FREQ_MIN:-5}
+
 lr=${lr:-0.0005}
 max_tokens=${max_tokens:-3584}
 update_freq=${update_freq:-1}
@@ -177,7 +180,7 @@ else
         --emb-dir $EMB_FOLDER \
         --user-dir fairseq_ext \
         --task $TASK \
-        --node-freq-min ${NODE_FREQ_MIN:-5} \
+        --node-freq-min $node_freq_min \
         --append-eos-to-target 0 \
         --collate-tgt-states 1 \
         --src-fix-emb-use $src_fix_emb_use \

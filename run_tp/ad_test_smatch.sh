@@ -52,6 +52,10 @@ beam_size=${beam_size:-1}
 batch_size=${batch_size:-128}
 use_pred_rules=${use_pred_rules:-0}
 
+model_epoch=_wiki-smatch_top5-avg
+beam_size=10
+batch_size=128
+
 RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
 # results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}.nopos-score
 results_prefix=$RESULTS_FOLDER/${data_split}_checkpoint${model_epoch}
