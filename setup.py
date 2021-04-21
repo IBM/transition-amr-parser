@@ -13,11 +13,22 @@ package_data = {
 
 # this is what usually goes on requirements.txt
 install_requires = [
-    'torch',
+    # 'torch',
+    'torch==1.4',
     'h5py',
     'spacy==2.2.3',
     'tqdm',
-    'fairseq'
+    # 'fairseq'
+    'fairseq=0.10.2',
+    'tensorboardX',
+    'packaging',
+    # for scoring
+    'penman',
+    'smatch==1.0.4',
+    # for debugging
+    'ipdb',
+    'line_profiler',
+    'pyinstrument',
 ]
 
 setup(
