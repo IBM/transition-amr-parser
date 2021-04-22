@@ -256,6 +256,18 @@ def main(args):
             out_pref = os.path.join(args.destdir, split)
             task.binarize_actions_pointer_file(pos_file, out_pref)
 
+        # for dynamic oracle: copy the gold amr with alignments to the data folder
+        if args.task == 'amr_action_pointer_bart_dyo':
+            for pref, split in [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]:
+                if split == 'valid':
+                    split_amr = 'ref_dev.amr'
+                else:
+                    split_amr = 'ref_{split}.amr'
+                shutil.copyfile(
+                    os.path.join(os.path.dirname(pref), split_amr),
+                    os.path.join(args.destdir, f'{split}.aligned.gold-amr')
+                )
+
     # save action states information to assist training with auxiliary info
     # assume one training file, one validation file, and one test file
     if run_act_states:

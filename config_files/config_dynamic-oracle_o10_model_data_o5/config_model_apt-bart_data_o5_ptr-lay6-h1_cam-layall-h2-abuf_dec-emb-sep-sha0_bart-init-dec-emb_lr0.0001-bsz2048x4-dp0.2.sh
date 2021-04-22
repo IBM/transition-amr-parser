@@ -69,9 +69,8 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 seed=${seed:-42}
-max_epoch=5
-eval_init_epoch=1
-time_max_between_epochs=30
+max_epoch=120
+eval_init_epoch=81
 # max_epoch=5
 # eval_init_epoch=1
 
@@ -200,18 +199,13 @@ else
     dec_emb_init_tag=""
 fi
 
-# # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
+# combine different model configuration tags to the name
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
 
 
-# # specific model directory name with a set random seed
-# optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
-
-
-# for debugging
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/${expdir}/models_ep${max_epoch}_seed${seed}
+# specific model directory name with a set random seed
+optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
 
 
 

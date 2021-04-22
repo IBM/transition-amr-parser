@@ -6,7 +6,7 @@ from tqdm import tqdm
 from transition_amr_parser.o10_amr_machine import AMRStateMachine
 
 
-def get_actions_states(*, tokens=None, tokseq_len=None, actions=None, machine_config=None):
+def get_actions_states(*, tokens=None, tokseq_len=None, actions=None, machine_config=None, machine=None):
     """Get the information along with runing the AMR state machine in canonical mode with the provided action sequence.
 
     The information includes:
@@ -36,9 +36,9 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None, machine_co
         actions.append('CLOSE')
 
     assert tokens is not None
-    assert machine_config is not None
+    # assert machine_config is not None
 
-    amr_state_machine = AMRStateMachine.from_config(machine_config)
+    amr_state_machine = machine or AMRStateMachine.from_config(machine_config)
     amr_state_machine.reset(tokens)
 
     allowed_cano_actions = []
