@@ -114,19 +114,29 @@ def main(args):
 
     # Load ensemble
     print('| loading model(s) from {}'.format(args.path))
-    models, _model_args = checkpoint_utils.load_model_ensemble(
-        args.path.split(':'),
-        arg_overrides=eval(args.model_overrides),
-        task=task,
-    )
+    try:
+        models, _model_args = checkpoint_utils.load_model_ensemble(
+            args.path.split(':'),
+            arg_overrides=eval(args.model_overrides),
+            task=task,
+        )
+    except:
+        # NOTE this is for "bartsv" models when default "args.node_freq_min" (5) is not equal to the model
+        #      when loading model with the above task there will be an error when building the model with the task's
+        #      target vocabulary, which would be of different size
+        # TODO better handle these cases (without sacrificing compatibility with other model archs)
+        models, _model_args = checkpoint_utils.load_model_ensemble(
+            args.path.split(':'),
+            arg_overrides=eval(args.model_overrides),
+            task=None,
+        )
 
     # ========== for bartsv task, rebuild the dictionary based on model args ==========
     if 'bartsv' in _model_args.arch and args.node_freq_min != _model_args.node_freq_min:
         args.node_freq_min = _model_args.node_freq_min
         # Load dataset splits
         task = tasks.setup_task(args)
-        # Note: states are not needed since they will be provided by the state
-        # machine
+        # Note: states are not needed since they will be provided by the state machine
         task.load_dataset(args.gen_subset, state_machine=False)
 
         # Set dictionaries
