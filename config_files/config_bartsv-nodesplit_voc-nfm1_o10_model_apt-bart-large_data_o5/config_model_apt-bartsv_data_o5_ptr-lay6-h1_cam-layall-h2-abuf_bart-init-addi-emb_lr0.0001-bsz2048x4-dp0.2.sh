@@ -189,7 +189,6 @@ else
     dec_emb_init_tag=""
 fi
 
-
 # combine different model configuration tags to the name
 expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
 

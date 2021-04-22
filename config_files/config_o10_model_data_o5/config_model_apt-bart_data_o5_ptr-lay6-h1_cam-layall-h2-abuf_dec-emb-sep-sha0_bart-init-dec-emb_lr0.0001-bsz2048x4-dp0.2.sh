@@ -71,6 +71,7 @@ tgt_input_src_combine="add"
 seed=${seed:-42}
 max_epoch=120
 eval_init_epoch=81
+time_max_between_epochs=20
 # max_epoch=5
 # eval_init_epoch=1
 
