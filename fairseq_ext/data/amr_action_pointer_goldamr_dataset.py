@@ -238,6 +238,13 @@ def collate(
         tgt_actedge_directions = None
         tgt_actnode_masks_shift = None
 
+    # gold AMR with alignments (to enable running oracle on the fly)
+    gold_amrs = [s['gold_amr'] for s in samples]
+    if gold_amrs[0] is None:
+        gold_amrs = None
+    else:
+        gold_amrs = [gold_amrs[i] for i in sort_order]
+
     # batch variables
     batch = {
         'id': id,
@@ -262,7 +269,9 @@ def collate(
             'tgt_actnode_masks_shift': tgt_actnode_masks_shift
         },
         'target': target,
-        'tgt_pos': tgt_pos
+        'tgt_pos': tgt_pos,
+        # gold AMR with alignments (to enable running oracle on the fly)
+        'gold_amrs': gold_amrs
     }
     if prev_output_tokens is not None:
         batch['net_input']['prev_output_tokens'] = prev_output_tokens
@@ -274,7 +283,7 @@ def collate(
     return batch
 
 
-class AMRActionPointerDataset(FairseqDataset):
+class AMRActionPointerGoldAMRDataset(FairseqDataset):
     """Dataset for AMR transition-pointer parsing: source is English sentences, and target is action sequences, along
     with pointer values for arc actions where the pointers are on the action sequence.
 
@@ -299,6 +308,8 @@ class AMRActionPointerDataset(FairseqDataset):
                  tgt_dict=None,
                  tgt_pos=None,
                  tgt_pos_sizes=None,
+                 # gold AMR with alignments (to enable running oracle on the fly)
+                 gold_amrs=None,
                  # core state info
                  tgt_vocab_masks=None,
                  tgt_actnode_masks=None,    # for the valid pointer positions
@@ -340,6 +351,8 @@ class AMRActionPointerDataset(FairseqDataset):
         self.tgt_dict = tgt_dict
         self.tgt_pos = tgt_pos
         self.tgt_pos_sizes = tgt_pos_sizes
+
+        self.gold_amrs = gold_amrs
 
         # additional dataset variables
 
@@ -412,6 +425,8 @@ class AMRActionPointerDataset(FairseqDataset):
         tgt_item = self.tgt[index]
         tgt_in_item = self.tgt_in[index] if self.tgt_in is not None else None
         tgt_pos_item = self.tgt_pos[index]
+
+        gold_amr_item = self.gold_amrs[index] if self.gold_amrs is not None else None
 
         src_wordpieces_item = self.src_wordpieces[index].type(torch.long)    # TODO type conversion here is needed
         src_wp2w_item = self.src_wp2w[index].type(torch.long)
@@ -536,6 +551,8 @@ class AMRActionPointerDataset(FairseqDataset):
             'target': tgt_item,
             'tgt_in': tgt_in_item,
             'tgt_pos': tgt_pos_item,
+            # gold AMR with alignments (to enable running oracle on the fly)
+            'gold_amr': gold_amr_item,
             # AMR actions states (tied with the tgt output side)
             'tgt_vocab_masks': tgt_vocab_mask_item,
             'tgt_actnode_masks': tgt_actnode_mask_item,
