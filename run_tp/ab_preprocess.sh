@@ -120,6 +120,22 @@ else
         --pretrained-embed $PRETRAINED_EMBED \
         --bert-layers $BERT_LAYERS
 
+    elif [[ $TASK == "amr_action_pointer_bart_dyo" ]]; then
+
+    python fairseq_ext/preprocess_bart.py \
+        --user-dir ./fairseq_ext \
+        --task $TASK \
+        --source-lang en \
+        --target-lang actions \
+        --trainpref $ORACLE_FOLDER/train \
+        --validpref $ORACLE_FOLDER/dev \
+        --testpref $ORACLE_FOLDER/test \
+        --destdir $DATA_FOLDER \
+        --embdir $EMB_FOLDER \
+        --workers 1 \
+        --pretrained-embed $PRETRAINED_EMBED \
+        --bert-layers $BERT_LAYERS
+
     else
 
     echo -e "\nError: task [$TASK] not recognized\n" && exit 1
