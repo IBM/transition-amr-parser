@@ -220,7 +220,7 @@ class SequenceGenerator(object):
             #                         canonical_mode=True)
             #         for length in src_lengths[new_order]
             #         ]    # length should be bsz * beam_size
-            
+
             amr_state_machines = []
             # length should be bsz * beam_size
             for i in new_order:

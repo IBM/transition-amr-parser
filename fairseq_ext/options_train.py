@@ -43,6 +43,8 @@ def get_training_parser(default_task="translation"):
     add_model_args(parser)
     add_optimization_args(parser)
     add_checkpoint_args(parser)
+    # add state machine config at training time for on-the-fly oracle
+    add_state_machine_args(parser)
     return parser
 
 
@@ -445,3 +447,9 @@ def add_model_args(parser):
                        help='model architecture')
     # fmt: on
     return group
+
+
+def add_state_machine_args(parser):
+    group = parser.add_argument_group("AMR machine configuration")
+    group.add_argument('--machine-config', type=str, default=None,
+                       help='json file for the AMR state machine setup')
