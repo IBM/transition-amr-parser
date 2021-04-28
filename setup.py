@@ -1,4 +1,3 @@
-import os
 from setuptools import setup, find_packages
 
 VERSION = '0.4.0'
@@ -19,7 +18,7 @@ install_requires = [
     'spacy==2.2.3',
     'tqdm',
     # 'fairseq',
-    'fairseq=0.10.2',
+    'fairseq==0.10.2',
     'tensorboardX',
     'packaging',
     # 'torch-scatter',
@@ -30,7 +29,7 @@ install_requires = [
     # for debugging
     'ipdb',
     'line_profiler',
-    'pyinstrument',
+    'pyinstrument'
 ]
 
 setup(
