@@ -132,7 +132,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
         if [ "$WIKI_DEV" == "" ];then
 
             # Smatch evaluation without wiki
-            python smatch/smatch.py \
+            smatch.py \
                  --significant 4  \
                  -f $AMR_DEV_FILE \
                  ${std_name}.amr \
@@ -150,7 +150,7 @@ for test_model in $(find $checkpoints_folder -iname 'checkpoint[0-9]*.pt' | sort
                 ${std_name}.amr $WIKI_DEV \
                 > ${std_name}.wiki.amr
         
-            python smatch/smatch.py \
+            smatch.py \
                  --significant 4  \
                  -f $AMR_DEV_FILE_WIKI \
                  ${std_name}.wiki.amr \

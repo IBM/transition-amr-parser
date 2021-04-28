@@ -68,7 +68,7 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-seed=${seed:-42}
+seed=42
 max_epoch=10
 eval_init_epoch=5
 time_max_between_epochs=1
