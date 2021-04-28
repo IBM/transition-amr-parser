@@ -7,3 +7,10 @@ set -o nounset
 
 conda install -y pytorch==1.4.0 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch
 pip install --editable .
+
+# Pytorch scatter
+git clone https://github.com/rusty1s/pytorch_scatter.git
+cd pytorch_scatter
+git checkout 1.3.2
+cd ..
+pip install --editable pytorch_scatter/

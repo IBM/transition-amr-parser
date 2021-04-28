@@ -5,6 +5,7 @@ scripts/local_variables.sh
 set_environment.sh
 
 # data
+PROGRESS
 DATA*
 *oracles/
 EXP*

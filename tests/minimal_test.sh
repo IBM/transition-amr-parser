@@ -1,14 +1,17 @@
 set -o errexit 
 set -o pipefail
+. set_environment.sh
 set -o nounset 
 
-# oracle tests
-bash tests/state_machine/o3+W.sh dev
-# this can take 30-40min due to smatch
-# bash tests/state_machine/o3+W.sh train  
+# Delete previous runs is exist
+rm -Rf DATA/wiki25/*
 
-# stack-LSTM tests
-bash tests/stack-LSTM/decode.sh
+# simulate completed corpora extraction and alignment
+bash tests/create_wiki25_mockup.sh
 
-# stack-Transformer tests
-# bash tests/stack-transformer/decode.sh
+# Run local test
+# train
+bash run_tp/run_model_action-pointer.sh config_files/wiki25.sh 42
+
+# test
+bash run_tp/jbsub_run_eval.sh config_files/wiki25.sh 42
