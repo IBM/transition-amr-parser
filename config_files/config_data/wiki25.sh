@@ -53,8 +53,8 @@ AMR_TEST_FILE_WIKI=""
 ##### CONFIG
 TASK=amr_action_pointer_bart
 
-ORACLEDIR=data/o10_act-states
-EMBDIR=data/en_embeddings
+ORACLEDIR=data/wiki25_o10_act-states
+EMBDIR=data/wiki25_en_embeddings
 
 ORACLE_FOLDER=$ROOTDIR/$ORACLEDIR/oracle            # oracle actions, etc.
 DATA_FOLDER=$ROOTDIR/$ORACLEDIR/processed           # preprocessed actions states information, etc.

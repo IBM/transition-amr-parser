@@ -5,6 +5,8 @@ set -o nounset
 
 # Delete previous runs is exist
 rm -Rf DATA/wiki25/*
+rm -Rf data/wiki25*
+rm -Rf EXP/exp_wiki25.*
 
 # simulate completed corpora extraction and alignment
 bash tests/create_wiki25_mockup.sh

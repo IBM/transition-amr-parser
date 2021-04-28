@@ -102,7 +102,7 @@ if [[ "$wiki" == "" ]]; then
     # Smatch evaluation without wiki
 
     echo "Computing SMATCH ---"
-    python smatch/smatch.py \
+    smatch.py \
          --significant 4  \
          -f $reference_amr \
          $results_prefix.amr \
@@ -123,7 +123,7 @@ else
 
     # compute score
     echo "Computing SMATCH ---"
-    python smatch/smatch.py \
+    smatch.py \
          --significant 4  \
          -f $reference_amr_wiki \
          $results_prefix.wiki.amr \
