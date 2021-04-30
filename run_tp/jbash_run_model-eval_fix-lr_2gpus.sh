@@ -13,6 +13,8 @@ fi
 
 seed=${2:-42}
 
+gpus=($3 $4)
+
 # to detect any reuse of $1 which is shared across all sourced files and may cause error
 set -o nounset
 
@@ -40,7 +42,7 @@ else
     mkdir -p $MODEL_FOLDER
 
     # formal run: send to background
-    /bin/bash $dir/run_model_action-pointer_fix-lr.sh $config_model $seed &> $MODEL_FOLDER/log.train &
+    CUDA_VISIBLE_DEVICES=${gpus[0]} /bin/bash $dir/run_model_action-pointer_fix-lr.sh $config_model $seed &> $MODEL_FOLDER/log.train &
 
     # record job process id and corresponding model checkpoints folder for debug checks
     now=$(date +"[%T - %D]")
@@ -72,7 +74,7 @@ else
 
     # disallow the print and send the command to background
     # /bin/bash $dir/jbash_run_eval.sh $config_model $seed &> /dev/null &
-    /bin/bash $dir/jbash_run_eval.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
+    CUDA_VISIBLE_DEVICES=${gpus[1]} /bin/bash $dir/jbash_run_eval.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
     echo "Log for launching the evaluation and model selection written at $MODEL_FOLDER/logeval.launch"
     # record pid for debug and kill checks
     now=$(date +"[%T - %D]")

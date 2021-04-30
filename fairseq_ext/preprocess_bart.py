@@ -262,7 +262,7 @@ def main(args):
                 if split == 'valid':
                     split_amr = 'ref_dev.amr'
                 else:
-                    split_amr = 'ref_{split}.amr'
+                    split_amr = f'ref_{split}.amr'
                 shutil.copyfile(
                     os.path.join(os.path.dirname(pref), split_amr),
                     os.path.join(args.destdir, f'{split}.aligned.gold-amr')
