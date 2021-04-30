@@ -15,7 +15,7 @@ fi
 ##############################################################
 
 ##### load data config
-config_data=config_files/config_data/config_data_bartsv-nodesplit_o10_bart-large.sh
+config_data=config_files/config_data/config_data_amr3_bartsv-nodesplit_o10_bart-large.sh
 
 data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
 
@@ -70,7 +70,7 @@ tgt_input_src_combine="add"
 seed=${seed:-42}
 max_epoch=40
 eval_init_epoch=11
-time_max_between_epochs=40
+time_max_between_epochs=30
 # max_epoch=5
 # eval_init_epoch=1
 
