@@ -8,7 +8,8 @@
 import itertools
 import os
 import json
-from typing import List, Dict
+from typing import List, Dict, Tuple
+import time
 
 import numpy as np
 import torch
@@ -34,6 +35,7 @@ from transition_amr_parser.io import read_amr2
 from transition_amr_parser.o10_amr_machine import AMRStateMachine, AMROracle, peel_pointer
 from fairseq_ext.amr_spec.action_info import get_actions_states
 from fairseq_ext.data.data_utils import collate_tokens
+from fairseq_ext.utils import time_since
 
 
 def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dict, tgt_dict, tokenize, dataset_impl,
@@ -646,6 +648,175 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         return data_samples
 
+    def run_oracle_get_data(self, aligned_amr, machine, oracle) -> Tuple[List[str], Dict, Dict]:
+        """Run oracle for a gold AMR graph with alignments, get the needed parser states at the same time, and
+        numericalize the data into Tensors finally.
+
+        Args:
+            aligned_amr ([type]): [description]
+            machine ([type]): [description]
+            oracle ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
+        # spawn new machine for this sentence
+        machine.reset(aligned_amr.tokens)
+
+        # initialize new oracle for this AMR
+        oracle.reset(aligned_amr)
+
+        # store needed parser states
+        allowed_cano_actions = []
+        token_cursors = []
+        # proceed left to right throughout the sentence generating nodes
+        while not machine.is_closed:
+
+            # get valid actions
+            act_allowed = machine.get_valid_actions(max_1root=True)
+            allowed_cano_actions.append(act_allowed)
+            token_cursors.append(machine.tok_cursor)
+
+            # oracle
+            actions, scores = oracle.get_actions(machine)
+            # most probable
+            action = actions[np.argmax(scores)]
+
+            # if it is node generation, keep track of original id in gold amr
+            if isinstance(action, tuple):
+                action, gold_node_id = action
+                node_id = len(machine.action_history)
+                oracle.node_map[gold_node_id] = node_id
+                oracle.node_reverse_map[node_id] = gold_node_id
+
+            # check if valid
+            assert machine.get_base_action(
+                action) in act_allowed, 'current action not in the allowed space? check the rules.'
+
+            # update machine
+            machine.update(action)
+
+        assert machine.action_history[-1] == 'CLOSE'
+
+        # NOTE we include 'CLOSE' here, which will be removed later for all data in "get_sample_data()"
+        actions = machine.action_history
+        # actions = machine.action_history[:-1]
+
+        # ===== store all needed numerical data for one sentence/amr
+        data_piece = dict()
+
+        # ===== separate action with pointer values
+        line_actions = [peel_pointer(act) for act in actions]
+        actions_nopos, actions_pos = zip(*line_actions)
+
+        # ===== vocab encoded actions (target)
+        tgt_tensor = self.tgt_dict.encode_line(
+            line=[act if act != 'CLOSE' else self.tgt_dict.eos_word for act in actions_nopos],
+            line_tokenizer=lambda x: x,    # already tokenized
+            add_if_not_exist=False,
+            consumer=None,
+            append_eos=False,
+            reverse_order=False
+            ).long()    # NOTE default return type here is torch.int32, conversion to long is needed
+        data_piece['target'] = tgt_tensor
+
+        # ===== target side pointer values
+        data_piece['tgt_pos'] = torch.tensor(actions_pos)
+
+        # ===== parser state information (NOTE CLOSE action at last step is included)
+        # parser state names mapped to sample attribute names
+        names_states2data = {
+            'allowed_cano_actions': 'tgt_vocab_masks',
+            'token_cursors': 'tgt_src_cursors',
+            'actions_nodemask': 'tgt_actnode_masks',
+            'actions_nopos_in': 'tgt_in',
+            'actions_nopos_out': 'target',
+            'actions_pos': 'tgt_pos',
+            }
+        names_data = [v for v in names_states2data.values()]
+
+        actions_nodemask = machine.get_actions_nodemask()
+        assert len(actions_nodemask) == len(actions)
+
+        actions_states = {'allowed_cano_actions': allowed_cano_actions,
+                          'actions_nodemask': actions_nodemask,
+                          'token_cursors': token_cursors}
+
+        # convert state vectors to tensors
+        allowed_cano_actions = actions_states['allowed_cano_actions']
+        del actions_states['allowed_cano_actions']
+        vocab_mask = torch.zeros(len(allowed_cano_actions), len(self.tgt_dict), dtype=torch.uint8)
+        for i, act_allowed in enumerate(allowed_cano_actions):
+            # vocab_ids_allowed = list(set().union(*[set(canonical_act_ids[act]) for act in act_allowed]))
+            # this is a bit faster than above
+            vocab_ids_allowed = list(
+                itertools.chain.from_iterable(
+                    [self.canonical_act_ids[act] for act in act_allowed]
+                )
+            )
+            vocab_mask[i][vocab_ids_allowed] = 1
+        data_piece['tgt_vocab_masks'] = vocab_mask
+
+        for k, v in actions_states.items():
+            data_key = names_states2data[k]
+            if 'mask' in k:
+                data_piece[data_key] = torch.tensor(v, dtype=torch.uint8)
+            elif 'actions_nopos_in' == k:
+                # input sequence
+                data_piece[data_key] = self.tgt_dict.encode_line(
+                    line=[act if act != 'CLOSE' else self.tgt_dict.eos_word for act in v],
+                    line_tokenizer=lambda x: x,    # already tokenized
+                    add_if_not_exist=False,
+                    consumer=None,
+                    append_eos=False,
+                    reverse_order=False
+                ).long()    # NOTE default return type here is torch.int32, conversion to long is needed
+            elif 'actions_nopos_out' == k:
+                # output sequence
+                data_piece[data_key] = self.tgt_dict.encode_line(
+                    line=[act if act != 'CLOSE' else self.tgt_dict.eos_word for act in v],
+                    line_tokenizer=lambda x: x,    # already tokenized
+                    add_if_not_exist=False,
+                    consumer=None,
+                    append_eos=False,
+                    reverse_order=False
+                ).long()    # NOTE default return type here is torch.int32, conversion to long is needed
+            else:
+                data_piece[data_key] = torch.tensor(v)    # int64
+
+        # shift the target input sequence
+        if 'tgt_in' in data_piece:
+            data_piece['tgt_in'][1:] = data_piece['tgt_in'][:-1]
+            data_piece['tgt_in'][0] = self.tgt_dict.eos()
+
+        # remove the last CLOSE in the action states
+        for k, v in data_piece.items():
+            if k in names_data:
+                data_piece[k] = v[:-1]
+
+        return actions, actions_states, data_piece
+
+    def run_oracle_get_data_batch(self, aligned_amrs) -> Tuple[List[List[str]], List[Dict]]:
+        """Run oracle on the fly and get needed parser states and numerical Tensor data for each batch.
+
+        Args:
+            aligned_amrs ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
+        action_sequences = []
+        data_samples = []
+        # for amr in tqdm(aligned_amrs, desc='dynamic_oracle'):
+        for amr in aligned_amrs:
+            # get the action sequence
+            actions, actions_states, data_piece = self.run_oracle_get_data(amr, self.machine, self.oracle)
+            action_sequences.append(actions)
+            # append the numerical data for one sentence/amr
+            data_samples.append(data_piece)
+
+        return action_sequences, data_samples
+
     def collate_sample_data(self, data_samples):
         """Collate a batch of data instances, only for the target related data.
 
@@ -780,16 +951,30 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             assert tokens == amr.tokens, 'raw src sentence tokens not equal to gold amr src tokens'
 
         # run oracle
-        action_sequences = self.run_oracle_batch(sample['gold_amrs'])
+        # start0 = time.time()
+        # action_sequences = self.run_oracle_batch(sample['gold_amrs'])
+        # print('time for running oracle', time.time() - start0)
 
         # extract parser states, convert everything to tensors
-        data_samples = self.get_sample_data(sample['src_sents'], action_sequences)
+        # start = time.time()
+        # data_samples = self.get_sample_data(sample['src_sents'], action_sequences)
+        # print('time for getting data', time.time() - start)
+        # print('time for running oracle and getting data', time.time() - start0)
+
+        # run oracle, extract parser states, convert everything to tensors
+        # start = time.time()
+        action_sequences, data_samples = self.run_oracle_get_data_batch(sample['gold_amrs'])
+        # print('time for running oracle and getting data', time.time() - start)
 
         # collate tensors into batch, with paddings
+        # start = time.time()
         sample_tgt = self.collate_sample_data(data_samples)
+        # print('time for collating', time.time() - start)
 
         # get the new complete batch, move to device
+        # start = time.time()
         sample_new = self.update_sample(sample_tgt, sample)
+        # print('time for updating', time.time() - start)
 
         return sample_new, data_samples
 
