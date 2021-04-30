@@ -34,40 +34,31 @@ LDC2017_AMR_CORPUS=/dccstor/ykt-parse/SHARED/CORPORA/AMR/LDC2017T10_preprocessed
 # AMR_TRAIN_FILE=/dccstor/multi-parse/transformer-amr/psuedo.txt
 # the above data has errors in alignments (o5-prefix)
 
-# AMR_TRAIN_FILE=amr_corpus/amr2.0/o5/jkaln.txt
-# AMR_DEV_FILE=amr_corpus/amr2.0/o5/dev.txt.removedWiki.noempty.JAMRaligned
-# AMR_TEST_FILE=amr_corpus/amr2.0/o5/test.txt.removedWiki.noempty.JAMRaligned
-
-AMR_TRAIN_FILE=amr_corpus/amr3.0_cofill/train.txt
-AMR_DEV_FILE=amr_corpus/amr3.0_cofill/dev.txt
-AMR_TEST_FILE=amr_corpus/amr3.0_cofill/test.txt
+AMR_TRAIN_FILE=amr_corpus/amr2.0/o5/jkaln.txt
+AMR_DEV_FILE=amr_corpus/amr2.0/o5/dev.txt.removedWiki.noempty.JAMRaligned
+AMR_TEST_FILE=amr_corpus/amr2.0/o5/test.txt.removedWiki.noempty.JAMRaligned
 
 
 ### WIKI files
 # NOTE: If left empty no wiki will be added
-WIKI_DEV=amr_corpus/amr3.0_cofill/wiki/dev.wiki
-AMR_DEV_FILE_WIKI=amr_corpus/amr3.0_cofill/dev.wiki.txt
-WIKI_TEST=amr_corpus/amr3.0_cofill/wiki/test.wiki
-AMR_TEST_FILE_WIKI=amr_corpus/amr3.0_cofill/test.wiki.txt
-
-
-# ENTITY LINKING
-
-# Smatch evaluation with wiki
-# BLINK_CACHE_PATH=amr_corpus/amr3.0_cofill/wiki
+WIKI_DEV=amr_corpus/amr2.0/wiki/dev.wiki
+AMR_DEV_FILE_WIKI=amr_corpus/amr2.0/wiki/dev.txt
+WIKI_TEST=amr_corpus/amr2.0/wiki/test.wiki
+AMR_TEST_FILE_WIKI=amr_corpus/amr2.0/wiki/test.txt
 
 
 # NOTE: original dev set also same as below
 # AMR_DEV_FILE_WIKI=$LDC2016_AMR_CORPUS/dev.txt
 
 ##### CONFIG
-TASK=amr_action_pointer_bart
+TASK=amr_action_pointer_bartsv
+NODE_FREQ_MIN=10
 
-ORACLEDIR=data_amr3/o10_act-states
-EMBDIR=data_amr3/en_embeddings
+ORACLEDIR=data/bartsv-nodesplit_o10_act-states
+EMBDIR=data/en_embeddings
 
 ORACLE_FOLDER=$ROOTDIR/$ORACLEDIR/oracle            # oracle actions, etc.
-DATA_FOLDER=$ROOTDIR/$ORACLEDIR/processed           # preprocessed actions states information, etc.
+DATA_FOLDER=$ROOTDIR/$ORACLEDIR/voc-nfm10_processed           # preprocessed actions states information, etc.
 EMB_FOLDER=$ROOTDIR/$EMBDIR/bart_base     # pre-stored pretrained en embeddings (not changing with oracle)
 
 # ENTITIES_WITH_PREDS="person,thing,government-organization,have-org-role-91,monetary-quantity"
