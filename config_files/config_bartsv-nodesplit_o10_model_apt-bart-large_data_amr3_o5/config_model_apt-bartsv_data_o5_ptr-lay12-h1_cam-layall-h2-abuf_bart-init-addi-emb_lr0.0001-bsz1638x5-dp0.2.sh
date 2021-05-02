@@ -75,7 +75,7 @@ time_max_between_epochs=50
 # eval_init_epoch=1
 
 lr=0.0001
-max_tokens=1640
+max_tokens=1638
 update_freq=5
 warmup=4000
 dropout=0.2
