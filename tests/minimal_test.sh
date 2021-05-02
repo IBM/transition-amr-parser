@@ -7,6 +7,7 @@ set -o nounset
 rm -Rf DATA/wiki25/*
 rm -Rf data/wiki25*
 rm -Rf EXP/exp_wiki25.*
+rm -Rf EXP/data/wiki25_*
 
 # simulate completed corpora extraction and alignment
 bash tests/create_wiki25_mockup.sh
