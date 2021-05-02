@@ -117,9 +117,17 @@ else
 
     # add wiki
     echo "Add wiki ---"
-    python scripts/add_wiki.py \
-        $results_prefix.amr $wiki \
-        > $results_prefix.wiki.amr
+    if [[ $config_data ==  *"amr3"* ]]; then
+        echo "amr3 wiki"
+        python scripts/amr3_wiki.py \
+            $results_prefix.amr $wiki \
+            > $results_prefix.wiki.amr
+    else
+        echo "amr2 wiki"
+        python scripts/add_wiki.py \
+            $results_prefix.amr $wiki \
+            > $results_prefix.wiki.amr
+    fi
 
     # compute score
     echo "Computing SMATCH ---"

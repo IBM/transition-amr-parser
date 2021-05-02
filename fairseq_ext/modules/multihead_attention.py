@@ -411,7 +411,10 @@ class MultiheadAttention(nn.Module):
             # attn_probs[cross_attention_mask.sum(dim=2) == 0] *= 0
             # post_mask = cross_attention_mask.new_ones(*cross_attention_mask.size()[:2], 1).float()
             # post_mask[cross_attention_mask.sum(dim=2) == 0] = 0.0
-            attn_probs = attn_probs * cross_attention_mask[1]
+
+            # to work for fp16 training, as attention_mask is created with fixed float dtype
+            attn_probs = attn_probs * cross_attention_mask[1].to(attn_probs)
+            # attn_probs = attn_probs * cross_attention_mask[1]
 
         if ptr_self_attn_mask is not None:
             # NOTE in-place operation doesn't work for backward
@@ -422,15 +425,18 @@ class MultiheadAttention(nn.Module):
             ptr_self_attn_mask_tmp = ptr_self_attn_mask[1].new_ones(attn_probs.size(0),
                                                                     *ptr_self_attn_mask[1].size()[1:])
             ptr_self_attn_mask_tmp[:ptr_self_attn_mask[1].size(0)] = ptr_self_attn_mask[1]
-            attn_probs = attn_probs * ptr_self_attn_mask_tmp
+            attn_probs = attn_probs * ptr_self_attn_mask_tmp.to(attn_probs)    # dtype conversion in case of fp16
 
         # graph structure encoding: decoder self-attention mask
         if graph_self_attn_mask is not None:
-            attn_probs = attn_probs * graph_self_attn_mask[1]
+            attn_probs = attn_probs * graph_self_attn_mask[1].to(attn_probs)    # dtype conversion in case of fp16
 
         # if torch.isnan(attn_weights).any():
         #     import pdb; pdb.set_trace()
 
+        # debug for fp16: mask dtype was fixed as torch.float32
+        # if cross_attention_mask is not None:
+        #     breakpoint()
         assert v is not None
         attn = torch.bmm(attn_probs, v)
         assert list(attn.size()) == [bsz * self.num_heads, tgt_len, self.head_dim]
