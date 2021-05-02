@@ -82,11 +82,6 @@ clip_norm=${clip_norm:-0.0}
 weight_decay=${weight_decay:-0.0}
 loss_coef=${loss_coef:-1}
 
-fp16=""
-if [[ $use_fp16 == 1 ]]; then
-    fp16="--fp16"
-fi
-
 ##### TRAINING
 # rm -Rf $MODEL_FOLDER
 
@@ -173,7 +168,7 @@ else
         --log-format json \
         --seed $seed \
         --save-dir $MODEL_FOLDER \
-        --tensorboard-logdir $MODEL_FOLDER $fp16
+        --tensorboard-logdir $MODEL_FOLDER
 
     else
     # apt-bart with shared and mixed src and tgt vocabulary
@@ -244,7 +239,7 @@ else
         --log-format json \
         --seed $seed \
         --save-dir $MODEL_FOLDER \
-        --tensorboard-logdir $MODEL_FOLDER $fp16
+        --tensorboard-logdir $MODEL_FOLDER
 
     fi
 
@@ -305,7 +300,7 @@ else
         --log-format json \
         --seed $seed \
         --save-dir $MODEL_FOLDER \
-        --tensorboard-logdir $MODEL_FOLDER $fp16
+        --tensorboard-logdir $MODEL_FOLDER
 
     fi
 
