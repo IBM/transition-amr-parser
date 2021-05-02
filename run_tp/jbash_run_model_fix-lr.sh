@@ -27,31 +27,20 @@ dir=$(dirname $0)
 
 ##### run the job directly (e.g. in interactive mode)
 
-if [ -f $MODEL_FOLDER/checkpoint_last.pt ] && [ -f $MODEL_FOLDER/checkpoint${max_epoch}.pt ]; then
+# this is necessary for output redirected to file
+mkdir -p $MODEL_FOLDER
 
-    echo "Model checkpoint $MODEL_FOLDER/checkpoint_last.pt && $MODEL_FOLDER/checkpoint${max_epoch}.pt already exist --- do nothing."
+# "|& tee file" will dump output to file as well as to terminal
+# "&> file" only dumps output to file
+# interactive: debug
+# /bin/bash $dir/run_model_action-pointer.sh $config_model $seed #|& tee $MODEL_FOLDER/log.train
 
-else
+# formal run: send to background
+/bin/bash $dir/run_model_action-pointer_fix-lr.sh $config_model $seed &> $MODEL_FOLDER/log.train &
+now=$(date +"[%T - %D]")
+echo "$now train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
 
-    echo -e "\nRun training ---"
-    echo [$MODEL_FOLDER]
+echo "Log for training written at $MODEL_FOLDER/log.train"
 
-    # this is necessary for output redirected to file
-    mkdir -p $MODEL_FOLDER
-
-    # "|& tee file" will dump output to file as well as to terminal
-    # "&> file" only dumps output to file
-    # interactive: debug
-    # /bin/bash $dir/run_model_action-pointer.sh $config_model $seed #|& tee $MODEL_FOLDER/log.train
-
-    # formal run: send to background
-    /bin/bash $dir/run_model_action-pointer_fix-lr.sh $config_model $seed &> $MODEL_FOLDER/log.train &
-    now=$(date +"[%T - %D]")
-    echo "$now train - PID - $!: $MODEL_FOLDER" >> .jbsub_logs/pid_model-folder.history
-
-    echo "Log for training written at $MODEL_FOLDER/log.train"
-
-    # on CCC, but not taking care of log locations inside the $MODEL_FOLDER
-    # bash_x86_12h_v100 $dir/run_model_action-pointer.sh $config_model $seed |& tee $MODEL_FOLDER/log.train
-
-fi
+# on CCC, but not taking care of log locations inside the $MODEL_FOLDER
+# bash_x86_12h_v100 $dir/run_model_action-pointer.sh $config_model $seed |& tee $MODEL_FOLDER/log.train

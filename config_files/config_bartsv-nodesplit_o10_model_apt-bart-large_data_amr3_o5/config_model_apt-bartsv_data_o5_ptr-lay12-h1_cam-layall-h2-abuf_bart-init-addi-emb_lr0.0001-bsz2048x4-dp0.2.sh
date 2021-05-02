@@ -70,13 +70,13 @@ tgt_input_src_combine="add"
 seed=${seed:-42}
 max_epoch=40
 eval_init_epoch=11
-time_max_between_epochs=50
+time_max_between_epochs=30
 # max_epoch=5
 # eval_init_epoch=1
 
 lr=0.0001
-max_tokens=1640
-update_freq=5
+max_tokens=2048
+update_freq=4
 warmup=4000
 dropout=0.2
 

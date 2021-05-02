@@ -64,7 +64,6 @@ pip install --editable .
 
 # initialize the working environment
 mkdir ./jbsub_logs
-touch set_environment.sh
 
 # install pytorch_scatter
 [ -d pytorch_scatter ] && rm -rf pytorch_scatter
