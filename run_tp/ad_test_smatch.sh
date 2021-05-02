@@ -52,9 +52,8 @@ beam_size=${beam_size:-1}
 batch_size=${batch_size:-128}
 use_pred_rules=${use_pred_rules:-0}
 
-model_epoch=_last
-# model_epoch=_wiki-smatch_top5-avg
-beam_size=1
+model_epoch=_wiki-smatch_top5-avg
+beam_size=10
 batch_size=128
 
 RESULTS_FOLDER=$MODEL_FOLDER/beam${beam_size}
@@ -93,11 +92,11 @@ mkdir -p $RESULTS_FOLDER
 # exit 0
 
 ##### Create the AMR from the model obtained actions
-# python transition_amr_parser/o10_amr_machine.py \
-#     --in-machine-config $ORACLE_FOLDER/machine_config.json \
-#     --in-tokens $ORACLE_FOLDER/$data_split_amr.en \
-#     --in-actions $results_prefix.actions \
-#     --out-amr $results_prefix.amr
+python transition_amr_parser/o10_amr_machine.py \
+    --in-machine-config $ORACLE_FOLDER/machine_config.json \
+    --in-tokens $ORACLE_FOLDER/$data_split_amr.en \
+    --in-actions $results_prefix.actions \
+    --out-amr $results_prefix.amr
 
 # exit 0
 
@@ -122,17 +121,9 @@ else
 
     # add wiki
     echo "Add wiki ---"
-    if [[ $config_data ==  *"amr3"* ]]; then
-        echo "amr3 wiki"
-        python scripts/amr3_wiki.py \
-            $results_prefix.amr $wiki \
-            > $results_prefix.wiki.amr
-    else
-        echo "amr2 wiki"
-        python scripts/add_wiki.py \
-            $results_prefix.amr $wiki \
-            > $results_prefix.wiki.amr
-    fi
+    python scripts/add_wiki.py \
+        $results_prefix.amr $wiki \
+        > $results_prefix.wiki.amr
 
     # compute score
     echo "Computing SMATCH ---"
