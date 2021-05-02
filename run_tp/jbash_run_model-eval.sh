@@ -71,8 +71,8 @@ else
     echo [$MODEL_FOLDER]
 
     # disallow the print and send the command to background
-    # /bin/bash $dir/jbash_run_eval.sh $config_model $seed &> /dev/null &
-    /bin/bash $dir/jbash_run_eval.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
+    # /bin/bash $dir/jbash_run_eval_inner.sh $config_model $seed &> /dev/null &
+    /bin/bash $dir/jbash_run_eval_inner.sh $config_model $seed &> $MODEL_FOLDER/logeval.launch &
     echo "Log for launching the evaluation and model selection written at $MODEL_FOLDER/logeval.launch"
     # record pid for debug and kill checks
     now=$(date +"[%T - %D]")
