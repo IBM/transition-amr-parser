@@ -45,6 +45,7 @@ config_model=EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-la
 # config_model=EXP/exp_o9.0_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb/models_ep120_seed42_lr0.0001-mt2048x4-wm4000-dp0.2/config_*.sh
 
 config_model=EXP/exp_bartsv-nodesplit_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_bart-init-addi-emb/models_ep40_seed42_lr0.0001-mt2048x4-wm4000-dp0.2/config_model_*.sh
+config_model=EXP/exp_amr3_bartsv-nodesplit_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_bart-init-addi-emb/models_ep40_seed42_lr0.0001-mt1638x5-wm4000-dp0.2/config_model_*.sh
 # config_model=EXP/exp_debug/models_ep120_seed42/config_model_*.sh
 . $config_model
 
