@@ -1026,27 +1026,29 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         sample = sample_new
         # ==================================================================
 
-        with torch.autograd.detect_anomaly():
-            loss, sample_size, logging_output = criterion(model, sample)
-            # if torch.isnan(loss):
-            #     import ipdb; ipdb.set_trace(context=30)
-            #     loss, sdample_size, logging_output = criterion(model, sample)
+        # NOTE detect_anomaly() would raise an error for fp16 training due to overflow, which is automatically handled
+        #      by gradient scaling with fp16 optimizer
+        # with torch.autograd.detect_anomaly():
+        loss, sample_size, logging_output = criterion(model, sample)
+        # if torch.isnan(loss):
+        #     import ipdb; ipdb.set_trace(context=30)
+        #     loss, sdample_size, logging_output = criterion(model, sample)
 
-            if ignore_grad:
-                loss *= 0
-            optimizer.backward(loss)
+        if ignore_grad:
+            loss *= 0
+        optimizer.backward(loss)
 
-            # import ipdb; ipdb.set_trace(context=10)
+        # import ipdb; ipdb.set_trace(context=10)
 
-            # # NaN weigths
-            # nan_weights = {
-            #     name: param
-            #     for name, param in model.named_parameters()
-            #     if torch.isnan(param).any()
-            # }
-            # if nan_weights:
-            #     import ipdb; ipdb.set_trace(context=30)
-            #     print()
+        # # NaN weigths
+        # nan_weights = {
+        #     name: param
+        #     for name, param in model.named_parameters()
+        #     if torch.isnan(param).any()
+        # }
+        # if nan_weights:
+        #     import ipdb; ipdb.set_trace(context=30)
+        #     print()
 
         return loss, sample_size, logging_output
 
