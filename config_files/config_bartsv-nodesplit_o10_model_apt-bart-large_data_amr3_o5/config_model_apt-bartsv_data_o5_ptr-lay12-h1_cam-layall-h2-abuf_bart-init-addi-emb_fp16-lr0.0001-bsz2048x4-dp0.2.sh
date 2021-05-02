@@ -70,13 +70,14 @@ tgt_input_src_combine="add"
 seed=${seed:-42}
 max_epoch=40
 eval_init_epoch=11
-time_max_between_epochs=50
+time_max_between_epochs=40
 # max_epoch=5
 # eval_init_epoch=1
 
+use_fp16=1
 lr=0.0001
-max_tokens=1640
-update_freq=5
+max_tokens=2048
+update_freq=4
 warmup=4000
 dropout=0.2
 
@@ -194,7 +195,11 @@ expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_tag}$
 
 
 # specific model directory name with a set random seed
-optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+fp16_tag=""
+if [[ $use_fp16 == 1 ]]; then
+    fp16_tag="fp16-"
+fi
+optim_tag=_${fp16_tag}lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
 
 

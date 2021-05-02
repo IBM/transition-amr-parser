@@ -12,7 +12,11 @@ if os.path.exists("/dccstor/multi-parse/amr/trn.wikis"):
     ftrn = open("/dccstor/multi-parse/amr/trn.wikis")
 else:
     ftrn = open("amr_corpus/amr2.0/wiki/trn.wikis")
-ftrn3 = open("/dccstor/ysuklee1/GIT/apt-amr3wiki-o10/amr_corpus/amrwiki3.0/amr3trn.wikis")
+
+if os.path.exists("/dccstor/ysuklee1/GIT/apt-amr3wiki-o10/amr_corpus/amrwiki3.0/amr3trn.wikis"):
+    ftrn3 = open("/dccstor/ysuklee1/GIT/apt-amr3wiki-o10/amr_corpus/amrwiki3.0/amr3trn.wikis")
+else:
+    ftrn3 = open("amr_corpus/amr3.0_cofill/wiki/amr3trn.wikis")
 
 wiki_ht = {}
 for line in ftrn:
