@@ -16,7 +16,6 @@ fi
 
 ##### load data config
 config_data=config_files/config_data/config_data_dynamic-oracle_o10_bart-base.sh
-config_data=config_files/config_data/config_data_o10_bart-base.sh
 
 data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
 
