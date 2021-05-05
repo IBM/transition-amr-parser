@@ -82,8 +82,11 @@ clip_norm=${clip_norm:-0.0}
 weight_decay=${weight_decay:-0.0}
 loss_coef=${loss_coef:-1}
 
+dyo_run_start=${dyo_run_start:-0}
+dyo_run_freq=${dyo_run_freq:-1}
+
 fp16=""
-if [[ $use_fp16 == 1 ]]; then
+if [[ ${use_fp16:-0} == 1 ]]; then
     fp16="--fp16"
 fi
 
@@ -119,6 +122,9 @@ else
         --apply-tgt-vocab-masks $tgt_vocab_masks \
         --share-decoder-input-output-embed $share_decoder_embed \
         --tgt-factored-emb-out $tgt_factored_emb_out \
+        \
+        --on-the-fly-oracle-start-update-num $dyo_run_start \
+        --on-the-fly-oracle-run-freq $dyo_run_freq \
         \
         --initialize-with-bart $initialize_with_bart \
         --initialize-with-bart-enc $initialize_with_bart_enc \
