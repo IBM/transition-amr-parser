@@ -217,6 +217,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                             help='whether to use fixed pretrained RoBERTa contextual embeddings for src')
         parser.add_argument('--on-the-fly-oracle', default=1, type=int,
                             help='whether to run oracle on the fly for each batch to get target data')
+        parser.add_argument('--on-the-fly-oracle-start-update-num', default=0, type=int,
+                            help='Starting number of updates for the first run of on-the-fly oracle')
+        parser.add_argument('--on-the-fly-oracle-run-freq', default=1, type=int,
+                            help='Number of updates until next run of on-the-fly oracle')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None, machine_config_file=None):
         super().__init__(args)
@@ -1002,7 +1006,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         model.set_num_updates(update_num)
 
         # ========== run oracle dynamically for each batched data ==========
-        if self.args.on_the_fly_oracle and 'gold_amrs' in sample:
+        if (self.args.on_the_fly_oracle and 'gold_amrs' in sample
+                and update_num >= self.args.on_the_fly_oracle_start_update_num
+                and (update_num - self.args.on_the_fly_oracle_start_update_num)
+                % self.args.on_the_fly_oracle_run_freq == 0):
             sample_new, data_samples = self.get_sample_from_oracle(sample)
 
             # breakpoint()
