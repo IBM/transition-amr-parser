@@ -17,6 +17,7 @@ from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
 from transition_amr_parser.o10_amr_machine import AMRStateMachine
+from fairseq_ext.utils import join_action_pointer
 
 
 BOOL_TENSOR_TYPE = torch.bool if version.parse(torch.__version__) >= version.parse('1.2.0') else torch.uint8
@@ -931,28 +932,34 @@ class SequenceGenerator(object):
             # ========== reorder the AMR state machine and target pointer info on previous beams ==========
             # print([(i, sm.is_closed, sm.action_history) for i, sm in enumerate(amr_state_machines)])
             # import pdb; pdb.set_trace()
-            # reorder state machines
-            if amr_state_machines is not None:
-                if step > 0:
-                    # NOTE here must use copy since there could be same ids from active_bbsz_idx
-                    # (from the same last beam)
-                    amr_state_machines = [deepcopy(amr_state_machines[i]) for i in active_bbsz_idx]
-                # add and apply new action tokens to state machine
-                for i, (sm, act_id, is_valid) in enumerate(zip(amr_state_machines, tokens_buf[:, step + 1],
-                                                               valid_bbsz_mask)):
-                    # do not run the state machine if the action is not valid; this state machine will be "deleted"
-                    # as it will not be indexed out anymore in the next step
-                    if not is_valid:
-                        continue
-                    # eos changed to CLOSE action (although NOTE currently this will never be eos at this step)
-                    act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
-                    sm.update(act)
 
             # reorder target pointer values and scores
             tgt_pointers[:, :step + 2] = torch.index_select(tgt_pointers[:, :step + 2], dim=0, index=active_bbsz_idx)
             if step > 0:
                 scores_tgt_pointers[:, step + 1] = torch.index_select(scores_tgt_pointers[:, step + 1], dim=0,
                                                                       index=active_bbsz_idx)
+
+            # reorder state machines
+            if amr_state_machines is not None:
+                if step > 0:
+                    # NOTE here must use copy since there could be same ids from active_bbsz_idx
+                    # (from the same last beam)
+                    amr_state_machines = [deepcopy(amr_state_machines[i]) for i in active_bbsz_idx]
+
+                # add and apply new action tokens to state machine
+                for i, (sm, act_id, act_pos, is_valid) in enumerate(zip(amr_state_machines,
+                                                                        tokens_buf[:, step + 1],
+                                                                        tgt_pointers[:, step + 1],
+                                                                        valid_bbsz_mask)):
+                    # do not run the state machine if the action is not valid; this state machine will be "deleted"
+                    # as it will not be indexed out anymore in the next step
+                    if not is_valid:
+                        continue
+                    # eos changed to CLOSE action (although NOTE currently this will never be eos at this step)
+                    act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
+                    sm.update(join_action_pointer(act, act_pos.item()))
+                    # sm.update(act)
+
             # ============================================================
 
             if step > 0:
