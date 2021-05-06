@@ -18,6 +18,7 @@ from fairseq_ext.utils import post_process_action_pointer_prediction, clean_poin
 from transition_amr_parser.o8_state_machine import AMRStateMachine, get_spacy_lemmatizer
 from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.utils import yellow_font
+from fairseq_ext.utils_import import import_user_module
 
 
 def load_models_and_task(args, use_cuda, task=None):
@@ -150,7 +151,7 @@ class AMRParser:
         parser = options.get_interactive_generation_parser()
         default_args = cls.default_args(checkpoint, fp16=fp16)    # model path set here
         args = options.parse_args_and_arch(parser, input_args=default_args)
-        utils.import_user_module(args)
+        import_user_module(args)
         # when `input_args` is fed in, it overrides the command line input args
         # only one required positional argument for the argparser: data
         if args.max_tokens is None and args.max_sentences is None:
