@@ -117,13 +117,16 @@ def normalize(token):
 
 class AMROracle():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False):
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=False, use_copy=True):
 
         # Remove nodes that have all their edges created
         self.reduce_nodes = reduce_nodes
         # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
         # rather than relative to end of self.node_stack
         self.absolute_stack_pos = absolute_stack_pos
+
+        # use copy action
+        self.use_copy = use_copy
 
     def reset(self, gold_amr):
 
@@ -295,7 +298,7 @@ class AMROracle():
             # tracking and scoring of graph
             target_node = normalize(self.gold_amr.nodes[nid])
 
-            if normalize(machine.tokens[machine.tok_cursor]) == target_node:
+            if self.use_copy and normalize(machine.tokens[machine.tok_cursor]) == target_node:
                 # COPY
                 return [('COPY', nid)], [1.0]
             else:
@@ -311,7 +314,7 @@ class AMROracle():
 
 class AMRStateMachine():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False):
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=False, use_copy=True):
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
@@ -320,6 +323,9 @@ class AMRStateMachine():
         # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
         # rather than relative to stack top
         self.absolute_stack_pos = absolute_stack_pos
+
+        # use copy action
+        self.use_copy = use_copy
 
         # base actions allowed
         self.base_action_vocabulary = [
@@ -338,6 +344,9 @@ class AMRStateMachine():
                 'REDUCE2',  # Remove node at las LA/RA pointed position
                 'REDUCE3'   # Do both above
             ])
+
+        if not self.use_copy:
+            self.base_action_vocabulary.remove('COPY')
 
     def canonical_action_to_dict(self, vocab):
         """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
@@ -426,7 +435,8 @@ class AMRStateMachine():
             # NOTE: Add here all *non state* variables in __init__()
             fid.write(json.dumps(dict(
                 reduce_nodes=self.reduce_nodes,
-                absolute_stack_pos=self.absolute_stack_pos
+                absolute_stack_pos=self.absolute_stack_pos,
+                use_copy=self.use_copy
             )))
 
     def __deepcopy__(self, memo):
@@ -467,17 +477,18 @@ class AMRStateMachine():
     def get_valid_actions(self, max_1root=True):
 
         valid_base_actions = []
+        gen_node_actions = ['COPY', 'NODE'] if self.use_copy else ['NODE']
 
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
-            valid_base_actions.extend(['COPY', 'NODE'])
+            valid_base_actions.extend(gen_node_actions)
 
         if self.action_history and \
-                self.get_base_action(self.action_history[-1]) in ['COPY', 'NODE', 'ROOT', '>LA', '>RA']:
+                self.get_base_action(self.action_history[-1]) in (gen_node_actions + ['ROOT', '>LA', '>RA']):
             valid_base_actions.extend(['>LA', '>RA'])
 
         if self.action_history and \
-                self.get_base_action(self.action_history[-1]) in ['COPY', 'NODE']:
+                self.get_base_action(self.action_history[-1]) in gen_node_actions:
             if max_1root:
                 # force to have at most 1 root (but it can always be with no root)
                 if not self.root:
@@ -867,7 +878,8 @@ def oracle(args):
     # Initialize machine
     machine = AMRStateMachine(
         reduce_nodes=args.reduce_nodes,
-        absolute_stack_pos=args.absolute_stack_positions
+        absolute_stack_pos=args.absolute_stack_positions,
+        use_copy=args.use_copy
     )
     # Save machine config
     machine.save(args.out_machine_config)
@@ -875,7 +887,8 @@ def oracle(args):
     # initialize oracle
     oracle = AMROracle(
         reduce_nodes=args.reduce_nodes,
-        absolute_stack_pos=args.absolute_stack_positions
+        absolute_stack_pos=args.absolute_stack_positions,
+        use_copy=args.use_copy
     )
 
     # will store statistics and check AMR is recovered
@@ -1034,6 +1047,11 @@ def argument_parser():
         "--absolute-stack-positions",
         help="e.g. LA(<label>, <pos>) <pos> is absolute position in sentence",
         action='store_true'
+    )
+    parser.add_argument(
+        "--use-copy",
+        help='Use COPY action to copy words at source token cursor',
+        type=int,
     )
     parser.add_argument(
         "--out-actions",

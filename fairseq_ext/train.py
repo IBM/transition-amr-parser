@@ -222,6 +222,26 @@ def main(args):
                     model.decoder.embed_tokens.weight.copy_(composite_embed.embedding_weight)
                     model.decoder.output_projection.weight.copy_(composite_embed.embedding_weight)
 
+    elif 'roberta' in args.arch:
+        # initialize the target embeddings with average of subtoken embeddings in BART vocabulary
+        if args.bart_emb_init_composition:
+            assert not args.bart_emb_decoder, 'should not use the compositional embeddings on top of RoBERTa vocabulary here'
+            logger.info('-' * 10 + ' initialize target embeddings with compositional embeddings from RoBERTa vocabulary '
+                        + '-' * 10)
+            composite_embed = CompositeEmbeddingBART(task.bart,    # NOTE here "bart" means roberta
+                                                     task.bart.model.encoder.sentence_encoder.embed_tokens,
+                                                     task.target_dictionary)
+
+            if args.bart_emb_decoder_input:
+                # only initialize the decoder output embeddings
+                with torch.no_grad():
+                    model.decoder.output_projection.weight.copy_(composite_embed.embedding_weight)
+            else:
+                # initialize both the decoder input and output embeddings
+                with torch.no_grad():
+                    model.decoder.embed_tokens.weight.copy_(composite_embed.embedding_weight)
+                    model.decoder.output_projection.weight.copy_(composite_embed.embedding_weight)
+
     else:
         raise ValueError
     # ==========================================================================

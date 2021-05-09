@@ -257,6 +257,12 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
             elif 'bart_large' in args.arch:
                 print('-' * 10 + 'loading pretrained bart.large model ' + '-' * 10)
                 bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+            elif 'roberta_base' in args.arch:
+                print('-' * 10 + 'loading pretrained roberta.base model ' + '-' * 10)
+                bart = torch.hub.load('pytorch/fairseq', 'roberta.base')
+            elif 'roberta_large' in args.arch:
+                print('-' * 10 + 'loading pretrained roberta.large model ' + '-' * 10)
+                bart = torch.hub.load('pytorch/fairseq', 'roberta.large')
             else:
                 raise ValueError
         else:

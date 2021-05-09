@@ -123,9 +123,6 @@ else
         --share-decoder-input-output-embed $share_decoder_embed \
         --tgt-factored-emb-out $tgt_factored_emb_out \
         \
-        --on-the-fly-oracle-start-update-num $dyo_run_start \
-        --on-the-fly-oracle-run-freq $dyo_run_freq \
-        \
         --initialize-with-bart $initialize_with_bart \
         --initialize-with-bart-enc $initialize_with_bart_enc \
         --initialize-with-bart-dec $initialize_with_bart_dec \
@@ -171,7 +168,7 @@ else
         --min-lr 1e-09 \
         --dropout $dropout \
         --weight-decay $weight_decay \
-        --criterion label_smoothed_cross_entropy_pointer \
+        --criterion ${criterion:-label_smoothed_cross_entropy_pointer} \
         --label-smoothing 0.01 \
         --loss-coef $loss_coef \
         --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
@@ -243,7 +240,7 @@ else
         --min-lr 1e-09 \
         --dropout $dropout \
         --weight-decay $weight_decay \
-        --criterion label_smoothed_cross_entropy_pointer \
+        --criterion ${criterion:-label_smoothed_cross_entropy_pointer} \
         --label-smoothing 0.01 \
         --loss-coef $loss_coef \
         --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
@@ -305,7 +302,7 @@ else
         --min-lr 1e-09 \
         --dropout 0.3 \
         --weight-decay 0.0 \
-        --criterion label_smoothed_cross_entropy_pointer \
+        --criterion ${criterion:-label_smoothed_cross_entropy_pointer} \
         --label-smoothing 0.01 \
         --loss-coef 1 \
         --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
