@@ -64,7 +64,7 @@ mkdir -p $MODEL_FOLDER
 
 cp $config_data $ROOTDIR/$expdir/ || true
 # to skip cp error (e.g. when $config_model already exists and cp the same file)
-cp $config_model $MODEL_FOLDER/ || true 
+cp $config_model $MODEL_FOLDER/ || true
 
 # change the seed name in the particular model configuration copied
 sed -i "s/seed:-42/seed:-${seed}/g" $MODEL_FOLDER/$(basename $config_model)
@@ -83,11 +83,11 @@ model_epoch=_last
 batch_size=128
 use_pred_rules=0
 
-echo "[Decoding and computing smatch:]"
-for beam_size in 1 5 10
-do
-    . $dir/ad_test.sh "" dev
-    . $dir/ad_test.sh "" test
-done
+# echo "[Decoding and computing smatch:]"
+# for beam_size in 1 5 10
+# do
+#     . $dir/ad_test.sh "" dev
+#     . $dir/ad_test.sh "" test
+# done
 
 cp $dir/ad_test.sh $MODEL_FOLDER/test.sh

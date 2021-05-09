@@ -47,13 +47,16 @@ config_model=EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-la
 config_model=EXP/exp_bartsv-nodesplit_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_bart-init-addi-emb/models_ep40_seed42_lr0.0001-mt2048x4-wm4000-dp0.2/config_model_*.sh
 config_model=EXP/exp_amr3_bartsv-nodesplit_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_bart-init-addi-emb/models_ep40_seed42_lr0.0001-mt1638x5-wm4000-dp0.2/config_model_*.sh
 config_model=EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb/models_ep100_seed42_fp16-lr0.0001-mt2048x4-wm4000-dp0.2/config_model_*.sh
+config_model=EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cas-layall-h1_dec-sep-emb-sha0_bart-init-dec-emb/models_ep100_seed42_fp16-lr0.0001-mt2048x4-wm4000-dp0.2/config_model_*.sh
+config_model=EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb_enc-roberta-large-24x3/models_ep100_seed42_fp16-lr0.0001-mt2048x4-wm4000-dp0.2/config_model_*.sh
 # config_model=EXP/exp_debug/models_ep120_seed42/config_model_*.sh
 . $config_model
 
 # decoding and testing setup
-# model_epoch=_last
-model_epoch=_wiki-smatch_top3-avg
+model_epoch=_last
+# model_epoch=_wiki-smatch_top3-avg
 # model_epoch=_wiki-smatch_top5-avg
+# model_epoch=8
 # beam_size=5
 batch_size=128
 use_pred_rules=0

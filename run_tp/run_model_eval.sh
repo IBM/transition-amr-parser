@@ -162,6 +162,7 @@ function eval_best_avg_models {
     # decoding and test best averaged models
     local checkpoints_folder=$1
 
+    # ##### do the single best model
     # if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt ]]; then
 
     #     test_model=$checkpoints_folder/checkpoint_${score_name_tag}_best1.pt
@@ -193,39 +194,39 @@ function eval_best_avg_models {
     # fi
 
 
-    ##### Loop over existing averaged checkpoints
-    for test_model in $(find $checkpoints_folder -iname "checkpoint_${score_name_tag}_top[0-9]*-avg.pt" | sort -r); do
+    # ##### Loop over existing averaged checkpoints
+    # for test_model in $(find $checkpoints_folder -iname "checkpoint_${score_name_tag}_top[0-9]*-avg.pt" | sort -r); do
 
-        echo -e "\n$test_model"
-        echo "[Decoding and computing smatch:]"
+    #     echo -e "\n$test_model"
+    #     echo "[Decoding and computing smatch:]"
 
-        # or use the $MODEL_FOLDER from outside of the function set in the script
-        # MODEL_FOLDER=$checkpoints_folder
-        # or: MODEL_FOLDER=$(dirname $test_model)
+    #     # or use the $MODEL_FOLDER from outside of the function set in the script
+    #     # MODEL_FOLDER=$checkpoints_folder
+    #     # or: MODEL_FOLDER=$(dirname $test_model)
 
-        # decoding setup
-        model_epoch=$(basename $test_model | sed 's/checkpoint\(.*\).pt/\1/g')
-        # beam_size=1
-        # batch_size=128
-        # use_pred_rules=0
+    #     # decoding setup
+    #     model_epoch=$(basename $test_model | sed 's/checkpoint\(.*\).pt/\1/g')
+    #     # beam_size=1
+    #     # batch_size=128
+    #     # use_pred_rules=0
 
-        # run decoding
-        for beam_size in 1 5 10
-        do
-            if [ ! -s $checkpoints_folder/beam${beam_size}/valid_checkpoint${model_epoch}.${score_name} ]; then
-            . run_tp/ad_test.sh "" dev
-            fi
-            if [ ! -s $checkpoints_folder/beam${beam_size}/test_checkpoint${model_epoch}.${score_name} ]; then
-            . run_tp/ad_test.sh "" test
-            fi
-        done
+    #     # run decoding
+    #     for beam_size in 1 5 10
+    #     do
+    #         if [ ! -s $checkpoints_folder/beam${beam_size}/valid_checkpoint${model_epoch}.${score_name} ]; then
+    #         . run_tp/ad_test.sh "" dev
+    #         fi
+    #         if [ ! -s $checkpoints_folder/beam${beam_size}/test_checkpoint${model_epoch}.${score_name} ]; then
+    #         . run_tp/ad_test.sh "" test
+    #         fi
+    #     done
 
-    done
+    # done
 
-    ##### then do the single best model
-    if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt ]]; then
+    ##### do the "_top5-avg" model (for final results)
+    if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_top5-avg.pt ]]; then
 
-        test_model=$checkpoints_folder/checkpoint_${score_name_tag}_best1.pt
+        test_model=$checkpoints_folder/checkpoint_${score_name_tag}_top5-avg.pt
 
         echo -e "\n$test_model"
         echo "[Decoding and computing smatch:]"
@@ -252,6 +253,37 @@ function eval_best_avg_models {
         done
 
     fi
+
+    # ##### then do the single best model
+    # if [[ -f $checkpoints_folder/checkpoint_${score_name_tag}_best1.pt ]]; then
+
+    #     test_model=$checkpoints_folder/checkpoint_${score_name_tag}_best1.pt
+
+    #     echo -e "\n$test_model"
+    #     echo "[Decoding and computing smatch:]"
+
+    #     # or use the $MODEL_FOLDER from outside of the function set in the script
+    #     # MODEL_FOLDER=$checkpoints_folder
+    #     # or: MODEL_FOLDER=$(dirname $test_model)
+
+    #     # decoding setup
+    #     model_epoch=$(basename $test_model | sed 's/checkpoint\(.*\).pt/\1/g')
+    #     # beam_size=1
+    #     # batch_size=128
+    #     # use_pred_rules=0
+
+    #     # run decoding
+    #     for beam_size in 1 5 10
+    #     do
+    #         if [ ! -s $checkpoints_folder/beam${beam_size}/valid_checkpoint${model_epoch}.${score_name} ]; then
+    #         . run_tp/ad_test.sh "" dev
+    #         fi
+    #         if [ ! -s $checkpoints_folder/beam${beam_size}/test_checkpoint${model_epoch}.${score_name} ]; then
+    #         . run_tp/ad_test.sh "" test
+    #         fi
+    #     done
+
+    # fi
 
 }
 

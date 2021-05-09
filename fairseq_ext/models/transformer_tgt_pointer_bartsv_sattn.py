@@ -42,8 +42,8 @@ DEFAULT_MAX_SOURCE_POSITIONS = 1024
 DEFAULT_MAX_TARGET_POSITIONS = 1024
 
 
-@register_model("transformer_tgt_pointer_bart")
-class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
+@register_model("transformer_tgt_pointer_bartsv_sattn")
+class TransformerTgtPointerBARTSVSAttnModel(FairseqEncoderDecoderModel):
     """
     Transformer model from `"Attention Is All You Need" (Vaswani, et al, 2017)
     <https://arxiv.org/abs/1706.03762>`_.
@@ -147,9 +147,11 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         #                     help='share decoder input and output embeddings')
         parser.add_argument('--share-decoder-input-output-embed', type=int,
                             help='share decoder input and output embeddings')
-        parser.add_argument('--share-all-embeddings', action='store_true',
-                            help='share encoder, decoder and output embeddings'
-                                 ' (requires shared dictionary and embed dim)')
+        # parser.add_argument('--share-all-embeddings', action='store_true',
+        #                     help='share encoder, decoder and output embeddings'
+        #                          ' (requires shared dictionary and embed dim)')
+        parser.add_argument('--share-all-embeddings', type=int,
+                            help='share decoder input and encoder input embeddings')
         parser.add_argument('--no-token-positional-embeddings', default=False, action='store_true',
                             help='if set, disables positional embeddings (outside self attention)')
         parser.add_argument('--adaptive-softmax-cutoff', metavar='EXPR',
@@ -201,16 +203,9 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                             help='whether to backprop through BART encoder')
         parser.add_argument('--bart-emb-backprop', type=int,
                             help='whether to backprop through BART embeddings')
-        parser.add_argument('--bart-emb-decoder', type=int,
-                            help='whether to use BART bpe dictionary embeddings for the decoder (compositionally)')
-        parser.add_argument('--bart-emb-decoder-input', type=int,
-                            help='whether to use BART bpe dictionary embeddings for the decoder input (compositionally')
         parser.add_argument('--bart-emb-init-composition', type=int,
-                            help='whether to initialize the decoder embeddings with composed sub-tokens '
+                            help='whether to initialize the added decoder embeddings with composed sub-tokens '
                                  'from BART vocabulary')
-        parser.add_argument('--bart-emb-composition-pred', type=int,
-                            help='whether to use the compositional embedding on top of BART embeddings only for the '
-                                 'PRED node actions')
         # additional: use pretrained roberta embeddings
         parser.add_argument('--src-roberta-emb', type=int,
                             help='src tokens: whether to use pretrained (fix) RoBERTa embeddings to input to encoder')
@@ -224,8 +219,6 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                             help='average encoder layers for src contextual embeddings')
         parser.add_argument('--src-roberta-enc', type=int,
                             help='whether to use RoBERTa encoder to replace BART encoder')
-        parser.add_argument('--src-roberta-enc-size', type=str,
-                            help='size of RoBERTa model to replace BART encoder')
         # additional: structure control
         parser.add_argument('--apply-tgt-vocab-masks', type=int,
                             help='whether to apply target (actions) vocabulary mask for output')
@@ -296,37 +289,24 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         # NOTE reason: `arch` is not input from outside to `args` from outside at inference time; `args` is loaded from
         # checkpoint to initialize the model, thus containing `arch`.
         # but `task.bart` is initialized first before the checkpoint is loaded with model `args`
-        if 'bart_large' in args.arch:
+        if 'bart_large' in args.arch or 'bartsv_large' in args.arch:
             print('-' * 10 + ' task bart rewind: loading pretrained bart.large model ' + '-' * 10)
             bart = torch.hub.load('pytorch/fairseq', 'bart.large')
-            task.bart = bart
-            task.bart_dict = bart.task.target_dictionary    # src dictionary is the same
-
-        if 'roberta_base' in args.arch:
-            print('-' * 10 + ' task bart rewind: loading pretrained roberta.base model ' + '-' * 10)
-            bart = torch.hub.load('pytorch/fairseq', 'roberta.base')
-            task.bart = bart
-            task.bart_dict = bart.task.target_dictionary    # src dictionary is the same
-
-        if 'roberta_large' in args.arch:
-            print('-' * 10 + ' task bart rewind: loading pretrained roberta.large model ' + '-' * 10)
-            bart = torch.hub.load('pytorch/fairseq', 'roberta.large')
             task.bart = bart
             task.bart_dict = bart.task.target_dictionary    # src dictionary is the same
         # ================================================================================================
 
         # overwrite the src and tgt dictionary used to build learnable embeddings
         # src_dict, tgt_dict = task.source_dictionary, task.target_dictionary
-        src_dict = tgt_dict = task.bart_dict
-        src_dict_raw, tgt_dict_raw = task.source_dictionary, task.target_dictionary
+        bart_dict = task.bart_dict
+        extended_bart_dict = task.target_dictionary
 
-        # control how the tgt embeddings are built
-        if not args.bart_emb_decoder:
-            assert not args.share_all_embeddings, 'use separate embeddings for tgt -> can not be shared with src'
+        # src_dict = tgt_dict = task.bart_dict
+        # src_dict_raw, tgt_dict_raw = task.source_dictionary, task.target_dictionary
 
         if args.share_all_embeddings:
-            if src_dict != tgt_dict:
-                raise ValueError("--share-all-embeddings requires a joined dictionary")
+            # if src_dict != tgt_dict:
+            #     raise ValueError("--share-all-embeddings requires a joined dictionary")
             if args.encoder_embed_dim != args.decoder_embed_dim:
                 raise ValueError(
                     "--share-all-embeddings requires --encoder-embed-dim to match --decoder-embed-dim"
@@ -337,40 +317,31 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                 raise ValueError(
                     "--share-all-embeddings not compatible with --decoder-embed-path"
                 )
+
+            # update dictionary
+            src_dict = tgt_dict = extended_bart_dict
+
             encoder_embed_tokens = cls.build_embedding(
-                args, src_dict, args.encoder_embed_dim, args.encoder_embed_path
+                args, extended_bart_dict, args.encoder_embed_dim, args.encoder_embed_path
             )
             decoder_embed_tokens = encoder_embed_tokens
-            args.share_decoder_input_output_embed = True
+
+            # NOTE args.share_all_embeddings only controls whether to share encode and decoder input embeddings
+            # args.share_decoder_input_output_embed = True
         else:
+            # update dictionary
+            src_dict = bart_dict
+            tgt_dict = extended_bart_dict
+
             encoder_embed_tokens = cls.build_embedding(
-                args, src_dict, args.encoder_embed_dim, args.encoder_embed_path
+                args, bart_dict, args.encoder_embed_dim, args.encoder_embed_path
             )
-            if not args.bart_emb_decoder:
-                # separate embedding for the tgt actions
-                if not args.bart_emb_decoder_input:
-                    # do not use the BART embedding for target input and output
-                    decoder_embed_tokens = cls.build_embedding(
-                        args, tgt_dict_raw, args.decoder_embed_dim, args.decoder_embed_path
-                    )
-                else:
-                    # still use the BART embedding for target input
-                    # NOTE this below is not tying the decoder embeddings with encoder embeddings
-                    # decoder_embed_tokens = cls.build_embedding(
-                    #     args, tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
-                    # )
-                    decoder_embed_tokens = encoder_embed_tokens
-            else:
-                assert args.bart_emb_decoder_input
-                # compositional embeddings for the tgt actions on top of BART bpe embeddings
-                decoder_embed_tokens = cls.build_embedding(
-                    args, tgt_dict, args.decoder_embed_dim, args.decoder_embed_path
-                )
+            decoder_embed_tokens = cls.build_embedding(
+                args, extended_bart_dict, args.decoder_embed_dim, args.decoder_embed_path
+            )
 
         encoder = cls.build_encoder(args, src_dict, encoder_embed_tokens)
-        decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens, tgt_dict_raw, task.bart,
-                                    encoder_embed_tokens    # for args.decoder_emb_composition_pred
-                                    )
+        decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens)
         return cls(args, encoder, decoder)
 
     @classmethod
@@ -390,15 +361,12 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         return TransformerEncoder(args, src_dict, embed_tokens)
 
     @classmethod
-    def build_decoder(cls, args, tgt_dict, embed_tokens, tgt_dict_raw, bart, encoder_embed_tokens):
+    def build_decoder(cls, args, tgt_dict, embed_tokens):
         return TransformerDecoder(
             args,
             tgt_dict,
             embed_tokens,
             no_encoder_attn=getattr(args, "no_cross_attention", False),
-            dictionary_raw=tgt_dict_raw,
-            bart=bart,
-            encoder_embed_tokens=encoder_embed_tokens
         )
 
     # TorchScript doesn't support optional arguments with variable length (**kwargs).
@@ -549,7 +517,7 @@ class TransformerEncoder(FairseqEncoder):
         self.src_roberta_enc = args.src_roberta_enc
         if args.src_roberta_enc:
             print('-' * 10 + ' loading RoBERTa base model to replace BART encoder directly ' + '-' * 10)
-            self.roberta = torch.hub.load('pytorch/fairseq', f'roberta.{args.src_roberta_enc_size}')
+            self.roberta = torch.hub.load('pytorch/fairseq', 'roberta.base')
             if not args.bart_encoder_backprop:
                 self.roberta.eval()
             assert args.src_pool_wp2w == 'top', 'currently for RoBERTa encoder we only support pooling to words on top'
@@ -856,8 +824,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             (default: False).
     """
 
-    def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False, dictionary_raw=None, bart=None,
-                 encoder_embed_tokens=None):
+    def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False):
         self.args = args
         super().__init__(dictionary)
         self.register_buffer("version", torch.Tensor([3]))
@@ -959,38 +926,16 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             )
             self.output_projection.weight = self.embed_tokens.weight
         else:
-            if not args.bart_emb_decoder:
-                # separate embedding for the tgt actions (output embedding here)
-                self.output_projection = nn.Linear(
-                    self.output_embed_dim, len(dictionary_raw), bias=False
-                )
-            else:
-                # compositional embeddings for the tgt actions on top of BART bpe embeddings
-                self.output_projection = nn.Linear(
-                    self.output_embed_dim, len(dictionary), bias=False
-                )
+            self.output_projection = nn.Linear(
+                self.output_embed_dim, len(dictionary), bias=False
+            )
             nn.init.normal_(
                 self.output_projection.weight, mean=0, std=self.output_embed_dim ** -0.5
             )
 
-        # ========== pooling embedding ==========
-        self.dictionary_raw = dictionary_raw
-        if not args.bart_emb_decoder:
-            if not args.bart_emb_decoder_input:
-                self.composite_embed = None
-            else:
-                self.composite_embed = CompositeEmbeddingBART(bart, self.embed_tokens, dictionary_raw)
-
-            if args.bart_emb_composition_pred:
-                # use compositional embeddings for PRED node actions
-                self.composite_embed = CompositeEmbeddingBART(bart, encoder_embed_tokens, dictionary_raw)
-        else:
-            self.composite_embed = CompositeEmbeddingBART(bart, self.embed_tokens, dictionary_raw)
-        # =======================================
-
         # fix pretrained bart embeddings
-        if not args.bart_emb_backprop and args.bart_emb_decoder:
-            assert args.bart_emb_decoder, 'must use pre-trained BART embeddings to fix the decoder embedding parameters'
+        if not args.bart_emb_backprop:
+            assert args.share_all_embeddings, 'must use pre-trained BART embeddings to fix the decoder embedding parameters'
             self.embed_tokens.weight.requires_grad = False
 
     def build_decoder_layer(self, args, no_encoder_attn=False):
@@ -1126,68 +1071,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 positions = positions[:, -1:]
 
         # embed tokens and positions
-        # x = self.embed_scale * self.embed_tokens(prev_output_tokens)
-
-        # ========== apply composite embeddings on the raw tgt tokens ==========
-        if not self.args.bart_emb_decoder:
-
-            # use the compositional embedding for PRED node actions
-            if self.args.bart_emb_composition_pred:
-                self.composite_embed.update_embeddings()
-
-                embedding_weight_mixed = torch.zeros_like(self.embed_tokens.weight)
-                embedding_weight_mixed[self.composite_embed.dict_pred_mask] = self.composite_embed.embedding_weight[
-                    self.composite_embed.dict_pred_mask]
-                embedding_weight_mixed[~self.composite_embed.dict_pred_mask] = self.embed_tokens.weight[
-                    ~self.composite_embed.dict_pred_mask]
-
-                x = self.embed_scale * nn.functional.embedding(prev_output_tokens,
-                                                               embedding_weight_mixed,
-                                                               padding_idx=self.dictionary.pad())
-            else:
-                # separate embeddings
-                if not self.args.bart_emb_decoder_input:
-                    x = self.embed_scale * self.embed_tokens(prev_output_tokens)
-                else:
-                    x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
-
-        else:
-            # compositional embeddings based on BART embeddings
-            x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
-
-        # ======================================================================
-
-        # ========== combine the corresponding source token embeddings with the action embeddings as input ==========
-        if self.args.apply_tgt_input_src:
-            assert self.args.tgt_input_src_emb == 'top' and self.args.tgt_input_src_combine == 'add', \
-                'currently we do not support other variations (which may have a bit of extra parameters'
-
-            # 1) take out the source embeddings
-            src_embs = encoder_out.encoder_out.transpose(0, 1)    # size (batch_size, src_max_len, encoder_emb_dim)
-            if not self.args.tgt_input_src_backprop:
-                src_embs = src_embs.detach()
-
-            # 2) align the source embeddings to the tgt input actions
-            assert tgt_src_cursors is not None
-            tgt_src_index = tgt_src_cursors.clone()    # size (bsz, tgt_max_len)
-            if encoder_out.encoder_padding_mask is not None:
-                src_num_pads = encoder_out.encoder_padding_mask.sum(dim=1, keepdim=True)
-                tgt_src_index = tgt_src_index + src_num_pads    # NOTE this is key to left padding!
-
-            tgt_src_index = tgt_src_index.unsqueeze(-1).repeat(1, 1, src_embs.size(-1))
-            # or
-            # tgt_src_index = tgt_src_index.unsqueeze(-1).expand(-1, -1, src_embs.size(-1))
-            src_embs = torch.gather(src_embs, 1, tgt_src_index)
-            # size (bsz, tgt_max_len, src_embs.size(-1))
-
-            # 3) combine the action embeddings with the aligned source token embeddings
-            if self.args.tgt_input_src_combine == 'cat':
-                x = self.combine_src_embs(torch.cat([src_embs, x], dim=-1))    # NOTE not initialized
-            elif self.args.tgt_input_src_combine == 'add':
-                x = src_embs + x
-            else:
-                raise NotImplementedError
-        # ===========================================================================================================
+        x = self.embed_scale * self.embed_tokens(prev_output_tokens)
 
         if self.quant_noise is not None:
             x = self.quant_noise(x)
@@ -1231,6 +1115,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         attn_ptr = None
         attn_all_ptr = []
 
+        # for cross attention alignment
+        attn_src = None
+        attn_src_all = []
+
         # breakpoint()
 
         for idx, layer in enumerate(self.layers):
@@ -1248,7 +1136,8 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 incremental_state,
                 self_attn_mask=self_attn_mask,
                 self_attn_padding_mask=self_attn_padding_mask,
-                need_attn=bool((idx == alignment_layer)),
+                # need_attn=bool((idx == alignment_layer)),
+                need_attn=True,    # to return src attention "layer_attn"
                 need_head_weights=bool((idx == alignment_layer)),
                 # customized
                 cross_attention_mask=(cross_attention_mask
@@ -1260,38 +1149,59 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 attn = layer_attn.float().to(x)
 
             # ========== for pointer distribution ==========
-            if idx not in self.args.pointer_dist_decoder_selfattn_layers:
-                continue
+            if idx in self.args.pointer_dist_decoder_selfattn_layers:
 
-            # attn is tgt self-attention of size (bsz, num_heads, tgt_len, tgt_len) with future masks
-            if self.args.pointer_dist_decoder_selfattn_heads == 1:
-                attn_ptr = self_attn[:, 0, :, :]
-                attn_all_ptr.append(attn_ptr)
-            else:
-                attn_ptr = self_attn[:, :self.args.pointer_dist_decoder_selfattn_heads, :, :]
-                if self.args.pointer_dist_decoder_selfattn_avg == 1:
-                    # arithmetic mean
-                    attn_ptr = attn_ptr.sum(dim=1) / self.args.pointer_dist_decoder_selfattn_heads
+                # attn is tgt self-attention of size (bsz, num_heads, tgt_len, tgt_len) with future masks
+                if self.args.pointer_dist_decoder_selfattn_heads == 1:
+                    attn_ptr = self_attn[:, 0, :, :]
                     attn_all_ptr.append(attn_ptr)
-                elif self.args.pointer_dist_decoder_selfattn_avg == 0:
-                    # geometric mean
-                    attn_ptr = attn_ptr.prod(dim=1).pow(1 / self.args.pointer_dist_decoder_selfattn_heads)
-                    # TODO there is an nan bug when backward for the above power
-                    attn_all_ptr.append(attn_ptr)
-                elif self.args.pointer_dist_decoder_selfattn_avg == -1:
-                    # no mean
-                    pointer_dists = list(map(
-                        lambda x: x.squeeze(1),
-                        torch.chunk(attn_ptr, self.args.pointer_dist_decoder_selfattn_heads, dim=1)))
-                    # for decoding: using a single pointer distribution
-                    attn_ptr = attn_ptr.prod(dim=1).pow(1 / self.args.pointer_dist_decoder_selfattn_heads)
-                    attn_all_ptr.extend(pointer_dists)
                 else:
-                    raise ValueError
+                    attn_ptr = self_attn[:, :self.args.pointer_dist_decoder_selfattn_heads, :, :]
+                    if self.args.pointer_dist_decoder_selfattn_avg == 1:
+                        # arithmetic mean
+                        attn_ptr = attn_ptr.sum(dim=1) / self.args.pointer_dist_decoder_selfattn_heads
+                        attn_all_ptr.append(attn_ptr)
+                    elif self.args.pointer_dist_decoder_selfattn_avg == 0:
+                        # geometric mean
+                        attn_ptr = attn_ptr.prod(dim=1).pow(1 / self.args.pointer_dist_decoder_selfattn_heads)
+                        # TODO there is an nan bug when backward for the above power
+                        attn_all_ptr.append(attn_ptr)
+                    elif self.args.pointer_dist_decoder_selfattn_avg == -1:
+                        # no mean
+                        pointer_dists = list(map(
+                            lambda x: x.squeeze(1),
+                            torch.chunk(attn_ptr, self.args.pointer_dist_decoder_selfattn_heads, dim=1)))
+                        # for decoding: using a single pointer distribution
+                        attn_ptr = attn_ptr.prod(dim=1).pow(1 / self.args.pointer_dist_decoder_selfattn_heads)
+                        attn_all_ptr.extend(pointer_dists)
+                    else:
+                        raise ValueError
+
+            # ========== for alignment distribution to extract for supervision ==========
+            if idx in self.args.tgt_src_align_layers:
+
+                # attn is cross-attention of size (bsz, num_heads, tgt_len, src_len)
+                if self.args.tgt_src_align_heads == 1:
+                    attn_src = None
+                    attn_src_all.append(layer_attn[:, 0, :, :])
+                else:
+                    attn_src = layer_attn[:, :self.args.tgt_src_align_heads, :, :]
+                    # no mean
+                    align_dists = list(map(
+                        lambda x: x.squeeze(1),
+                        torch.chunk(attn_src, self.args.tgt_src_align_heads, dim=1)))
+                    attn_src_all.extend(align_dists)
 
         # for decoding: which pointer distribution to use
         attn_ptr = attn_all_ptr[self.args.pointer_dist_decoder_selfattn_layers.index(
             self.args.pointer_dist_decoder_selfattn_infer)]
+
+        # for decoding: which alignment distribution to use
+        # TODO currently we fix at last layer: add a flag
+        # TODO currently we fix return the last supervised src attn, since it is not used anywhere
+        #      -> add more control for actual use
+        # assert self.args.tgt_src_align_heads == 1
+        attn_src = attn_src_all[-1]
 
         # ====================================================
 
@@ -1316,26 +1226,14 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         # TODO add teacher forcing; this will change the backward behavior
         # change the original output TODO change the names to include both original `attn` and that for pointer
         # return x, {"attn": [attn], "inner_states": inner_states}
-        return x, {'attn': attn_ptr, 'inner_states': inner_states, 'attn_all': attn_all_ptr}
+        return x, {'attn': attn_ptr, 'inner_states': inner_states, 'attn_all': attn_all_ptr,
+                   'attn_src': attn_src, 'attn_src_all': attn_src_all}
 
     def output_layer(self, features, tgt_vocab_masks=None):
         """Project features to the vocabulary size."""
         if self.adaptive_softmax is None:
             # project back to size of vocabulary
-            # out = self.output_projection(features)    # original output_projection has a different output size
-
-            # use the composite embeddings
-            if not self.args.bart_emb_decoder:
-                # separate embeddings
-                out = self.output_projection(features)    # original output_projection has a different output size
-
-                # use the compositional embedding for PRED node actions
-                if self.args.bart_emb_composition_pred:
-                    out_comp = nn.functional.linear(features, self.composite_embed.embedding_weight)
-                    out[:, :, self.composite_embed.dict_pred_mask] = out_comp[:, :, self.composite_embed.dict_pred_mask]
-            else:
-                # compositional embeddings based on BART embeddings
-                out = nn.functional.linear(features, self.composite_embed.embedding_weight)
+            out = self.output_projection(features)    # original output_projection has a different output size
 
             if self.args.apply_tgt_vocab_masks:
                 assert tgt_vocab_masks is not None
@@ -1571,24 +1469,6 @@ def transformer_pointer(args):
     # BART control
     args.bart_encoder_backprop = getattr(args, 'bart_encoder_backprop', 1)
     args.bart_emb_backprop = getattr(args, 'bart_emb_backprop', 1)
-    args.bart_emb_decoder = getattr(args, 'bart_emb_decoder', 1)
-
-    if not args.bart_emb_decoder:
-        # explicitly update setup to guarantee consistency
-        args.share_all_embeddings = False
-
-    args.bart_emb_decoder_input = getattr(args, 'bart_emb_decoder_input', None)
-    if args.bart_emb_decoder_input is None:
-        if not args.bart_emb_decoder:
-            # default to not using compositional BART embeddings for decoder input
-            args.bart_emb_decoder_input = 0
-        else:
-            # use compositional BART embeddings for both decoder input and output
-            args.bart_emb_decoder_input = 1
-
-    if not args.bart_emb_decoder and args.bart_emb_decoder_input:
-        # explicitly update setup to guarantee consistency
-        args.share_decoder_input_output_embed = False
 
     args.bart_emb_init_composition = getattr(args, 'bart_emb_init_composition', 0)
 
@@ -1599,18 +1479,11 @@ def transformer_pointer(args):
     args.src_avg_layers = getattr(args, 'src_avg_layers', None)
 
     args.src_roberta_enc = getattr(args, 'src_roberta_enc', 0)
-    args.src_roberta_enc_size = getattr(args, 'src_roberta_enc_size', 'large')
-
-    # whether to use compositional embeddings on top of BART embeddings for the PRED node actions
-    args.bart_emb_composition_pred = getattr(args, 'bart_emb_composition_pred', 0)
-    if args.bart_emb_composition_pred:
-        assert not args.bart_emb_decoder, ('args.bart_emb_composition_pred is used when we do not use BART embeddings '
-                                           'for decoder')
 
     base_architecture(args)
 
 
-@register_model_architecture("transformer_tgt_pointer_bart", "transformer_tgt_pointer_bart_large")
+@register_model_architecture("transformer_tgt_pointer_bartsv_sattn", "transformer_tgt_pointer_bartsv_large_sattn")
 def bart_large_architecture(args):
     args.encoder_embed_path = getattr(args, "encoder_embed_path", None)
     args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 1024)
@@ -1658,7 +1531,7 @@ def bart_large_architecture(args):
     transformer_pointer(args)
 
 
-@register_model_architecture("transformer_tgt_pointer_bart", "transformer_tgt_pointer_bart_base")
+@register_model_architecture("transformer_tgt_pointer_bartsv_sattn", "transformer_tgt_pointer_bartsv_base_sattn")
 def bart_base_architecture(args):
     args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 768)
     args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 4 * 768)
@@ -1666,31 +1539,5 @@ def bart_base_architecture(args):
     args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 12)
     args.decoder_layers = getattr(args, "decoder_layers", 6)
     args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 12)
-    bart_large_architecture(args)
-    transformer_pointer(args)    # for explicit showing, but actually redundant
-
-
-@register_model_architecture("transformer_tgt_pointer_bart", "transformer_tgt_pointer_roberta_large_24x12")
-def roberta_large_24x12_architecture(args):
-    args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 1024)
-    args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 4 * 1024)
-    args.encoder_layers = getattr(args, "encoder_layers", 0)
-    # NOTE above doesn't matter as we initialize RoBERTa inside model (actual encoder_layer is 24)
-    args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 16)
-    args.decoder_layers = getattr(args, "decoder_layers", 12)
-    args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 16)
-    bart_large_architecture(args)
-    transformer_pointer(args)    # for explicit showing, but actually redundant
-
-
-@register_model_architecture("transformer_tgt_pointer_bart", "transformer_tgt_pointer_roberta_large_24x3")
-def roberta_large_24x3_architecture(args):
-    args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 1024)
-    args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 4 * 1024)
-    args.encoder_layers = getattr(args, "encoder_layers", 0)
-    # NOTE above doesn't matter as we initialize RoBERTa inside model (actual encoder_layer is 24)
-    args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 16)
-    args.decoder_layers = getattr(args, "decoder_layers", 3)
-    args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 16)
     bart_large_architecture(args)
     transformer_pointer(args)    # for explicit showing, but actually redundant
