@@ -177,6 +177,11 @@ if __name__ == '__main__':
         machine_config = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/DATA/AMR2.0/oracles/o10/machine_config.json'
         out_file_path = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/DATA/AMR2.0/oracles/o10/{split}.stats'
 
+        en_file = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/EXP/data/o10_act-states/oracle/{split}.en'
+        acitons_file = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/EXP/data/o10_act-states/oracle/{split}.actions'
+        machine_config = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/EXP/data/o10_act-states/oracle/machine_config.json'
+        out_file_path = f'/n/tata_ddos_ceph/jzhou/transition-amr-parser-bart-o10/EXP/data/o10_act-states/oracle/{split}.stats'
+
         out_file = open(out_file_path, 'w')
         check_actions_file(en_file, actions_file, machine_config, out_file)
         out_file.close()

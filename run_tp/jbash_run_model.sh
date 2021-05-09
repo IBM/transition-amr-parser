@@ -24,6 +24,7 @@ dir=$(dirname $0)
 # this is set in the above file sourced
 # set -o nounset
 
+echo
 
 ##### run the job directly (e.g. in interactive mode)
 
@@ -55,3 +56,5 @@ else
     # bash_x86_12h_v100 $dir/run_model_action-pointer.sh $config_model $seed |& tee $MODEL_FOLDER/log.train
 
 fi
+
+echo

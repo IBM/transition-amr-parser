@@ -15,8 +15,7 @@ fi
 ##############################################################
 
 ##### load data config
-config_data=config_files/config_data/config_data_dynamic-oracle_o10_bart-base.sh
-config_data=config_files/config_data/config_data_o10_bart-base.sh
+config_data=config_files/config_data/config_data_o10_bart-large.sh
 
 data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
 
@@ -38,24 +37,30 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-arch=transformer_tgt_pointer_bart_base
+arch=transformer_tgt_pointer_roberta_large_24x3
+arch_lay="24x3"
 
-initialize_with_bart=1
+initialize_with_bart=1        # this shouldn't matter
 initialize_with_bart_enc=1
 initialize_with_bart_dec=1
 bart_encoder_backprop=1
 bart_emb_backprop=1
 bart_emb_decoder=0
 bart_emb_decoder_input=0
-bart_emb_init_composition=1
+bart_emb_init_composition=1    # this should matter for roberta as well
 
-pointer_dist_decoder_selfattn_layers="5"
+src_pool_wp2w="top"
+src_avg_layers=""
+src_roberta_enc=1
+src_roberta_enc_size="large"    # TODO this is not passed to ac_train.sh as of now
+
+pointer_dist_decoder_selfattn_layers="2"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=5
+pointer_dist_decoder_selfattn_infer=2
 
 apply_tgt_src_align=1
-tgt_src_align_layers="0 1 2 3 4 5"
+tgt_src_align_layers="0 1 2"
 tgt_src_align_heads=2
 tgt_src_align_focus="p0c1n0 p0c0n*"
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
@@ -69,14 +74,14 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-use_fp16=1
 seed=${seed:-42}
-max_epoch=10
-eval_init_epoch=1
+max_epoch=100
+eval_init_epoch=61
 time_max_between_epochs=30
 # max_epoch=5
 # eval_init_epoch=1
 
+use_fp16=1
 lr=0.0001
 max_tokens=2048
 update_freq=4
@@ -86,23 +91,23 @@ dropout=0.2
 
 ##### set the experiment dir name based on model configurations
 
-if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
+if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2" ]]; then
     lay="all"
 else
     lay=""
     for n in $pointer_dist_decoder_selfattn_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
+        (( $n < 0 || $n > 2 )) && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
         lay=$lay$(( $n + 1 ))
     done
 fi
 
 
-if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
+if [[ $tgt_src_align_layers == "0 1 2" ]]; then
     cam_lay="all"
 else
     cam_lay=""
     for n in $tgt_src_align_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
+        (( $n < 0 || $n > 2 )) && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
         cam_lay=$cam_lay$(( $n + 1 ))
     done
 fi
@@ -202,18 +207,47 @@ else
     dec_emb_init_tag=""
 fi
 
-# # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
+# where to pool wordpieces to words
+if [[ $src_pool_wp2w == "top" ]]; then
+    enc_pool_tag=""
+else
+    enc_pool_tag="_enc-pool-${src_pool_wp2w}"
+fi
+
+# src encoder average embeddings
+if [[ $src_avg_layers != "" ]]; then
+    if [[ $src_avg_layers == "1 2 3 4 5 6 7 8 9 10 11 12" ]]; then
+        enc_lay="all"
+    else
+        enc_lay=""
+        for n in $src_avg_layers; do
+            [[ $n < 1 || $n > 12 ]] && echo "Invalid 'src_avg_layers' input: $src_avg_layers" && exit 1
+            enc_lay=$enc_lay$n
+        done
+    fi
+    enc_lay_tag="_enc-lay-avg${enc_lay}"
+else
+    enc_lay_tag=""
+fi
+
+# directly use RoBERTa encoder
+if [[ $src_roberta_enc == 1 ]]; then
+    enc_roberta_tag="_enc-roberta-${src_roberta_enc_size}-${arch_lay}"
+else
+    enc_roberta_tag=""
+fi
+
+# combine different model configuration tags to the name
+expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}${enc_roberta_tag}${enc_pool_tag}${enc_lay_tag}
 
 
-# # specific model directory name with a set random seed
-# optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
-
-
-# for debugging
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/${expdir}/models_ep${max_epoch}_seed${seed}
+# specific model directory name with a set random seed
+fp16_tag=""
+if [[ $use_fp16 == 1 ]]; then
+    fp16_tag="fp16-"
+fi
+optim_tag=_${fp16_tag}lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
 
 
 
