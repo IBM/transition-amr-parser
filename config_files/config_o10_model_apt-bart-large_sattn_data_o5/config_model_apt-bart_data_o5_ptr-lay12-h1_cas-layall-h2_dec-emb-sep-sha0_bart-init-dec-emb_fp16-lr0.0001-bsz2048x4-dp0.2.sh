@@ -15,8 +15,7 @@ fi
 ##############################################################
 
 ##### load data config
-config_data=config_files/config_data/config_data_dynamic-oracle_o10_bart-base.sh
-config_data=config_files/config_data/config_data_o10_bart-base.sh
+config_data=config_files/config_data/config_data_o10_bart-large.sh
 
 data_tag="$(basename $config_data | sed 's@config_data_\(.*\)\.sh@\1@g')"
 
@@ -38,7 +37,8 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-arch=transformer_tgt_pointer_bart_base
+arch=transformer_tgt_pointer_bart_large_sattn
+criterion=label_smoothed_cross_entropy_pointer_alignment
 
 initialize_with_bart=1
 initialize_with_bart_enc=1
@@ -49,34 +49,42 @@ bart_emb_decoder=0
 bart_emb_decoder_input=0
 bart_emb_init_composition=1
 
-pointer_dist_decoder_selfattn_layers="5"
+pointer_dist_decoder_selfattn_layers="11"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=5
+pointer_dist_decoder_selfattn_infer=11
 
-apply_tgt_src_align=1
-tgt_src_align_layers="0 1 2 3 4 5"
-tgt_src_align_heads=2
-tgt_src_align_focus="p0c1n0 p0c0n*"
+apply_tgt_src_align=0
+tgt_src_align_layers="0 1 2 3 4 5 6 7 8 9 10 11"
+tgt_src_align_heads=1
+tgt_src_align_focus="p0c1n0"
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
 # current version: 'p0c1n1', 'p1c1n1', 'p*c1n0', 'p0c0n*', etc.
 #                  'p' - previous (prior to alignment), a number or '*' for all previous src tokens
 #                  'c' - current (alignment position, 1 for each tgt token), either 0 or 1
 #                  'n' - next (post alignment), a number or '*' for all the remaining src tokens
 
+
+# ===== this controls the supervision of cross-attention =====
+apply_tgt_src_align=0
+tgt_src_align_layers="0 1 2 3 4 5 6 7 8 9 10 11"
+tgt_src_align_heads=2
+# ==========
+
+
 apply_tgt_input_src=0
 tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-use_fp16=1
 seed=${seed:-42}
-max_epoch=10
-eval_init_epoch=1
+max_epoch=100
+eval_init_epoch=61
 time_max_between_epochs=30
 # max_epoch=5
 # eval_init_epoch=1
 
+use_fp16=1
 lr=0.0001
 max_tokens=2048
 update_freq=4
@@ -86,23 +94,23 @@ dropout=0.2
 
 ##### set the experiment dir name based on model configurations
 
-if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
+if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5 6 7 8 9 10 11" ]]; then
     lay="all"
 else
     lay=""
     for n in $pointer_dist_decoder_selfattn_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
+        [[ $n < 0 || $n > 11 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
         lay=$lay$(( $n + 1 ))
     done
 fi
 
 
-if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
+if [[ $tgt_src_align_layers == "0 1 2 3 4 5 6 7 8 9 10 11" ]]; then
     cam_lay="all"
 else
     cam_lay=""
     for n in $tgt_src_align_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
+        [[ $n < 0 || $n > 11 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
         cam_lay=$cam_lay$(( $n + 1 ))
     done
 fi
@@ -136,6 +144,9 @@ if [[ $apply_tgt_src_align == 1 ]]; then
 else
     cam_tag=""
 fi
+
+cas_tag=_cas-lay${cam_lay}-h${tgt_src_align_heads}
+
 
 # target input augmentation
 if [[ $apply_tgt_input_src == 1 ]]; then
@@ -202,18 +213,17 @@ else
     dec_emb_init_tag=""
 fi
 
-# # combine different model configuration tags to the name
-# expdir=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
+# combine different model configuration tags to the name
+expdir=${expdir}${ptr_tag}${cas_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
 
 
-# # specific model directory name with a set random seed
-# optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
-# MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
-
-
-# for debugging
-expdir=exp_debug
-MODEL_FOLDER=$ROOTDIR/${expdir}/models_ep${max_epoch}_seed${seed}
+# specific model directory name with a set random seed
+fp16_tag=""
+if [[ $use_fp16 == 1 ]]; then
+    fp16_tag="fp16-"
+fi
+optim_tag=_${fp16_tag}lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+MODEL_FOLDER=$ROOTDIR/$expdir/models_ep${max_epoch}_seed${seed}${optim_tag}
 
 
 

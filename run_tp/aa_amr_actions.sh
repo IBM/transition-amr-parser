@@ -56,6 +56,7 @@ else
         --out-tokens $ORACLE_FOLDER/train.en \
         --absolute-stack-positions  \
         --out-stats-vocab $ORACLE_FOLDER/train.actions.vocab \
+        --use-copy ${USE_COPY:-1} \
         # --reduce-nodes all
 
     echo -e "\nDev data"
@@ -66,6 +67,7 @@ else
         --out-actions $ORACLE_FOLDER/dev.actions \
         --out-tokens $ORACLE_FOLDER/dev.en \
         --absolute-stack-positions  \
+        --use-copy ${USE_COPY:-1} \
         # --reduce-nodes all
 
     echo -e "\nTest data"
@@ -76,6 +78,7 @@ else
         --out-actions $ORACLE_FOLDER/test.actions \
         --out-tokens $ORACLE_FOLDER/test.en \
         --absolute-stack-positions  \
+        --use-copy ${USE_COPY:-1} \
         # --reduce-nodes all
 
     touch $ORACLE_FOLDER/.done

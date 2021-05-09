@@ -1,7 +1,7 @@
 from transition_amr_parser.apt_amr_parser import AMRParser
 
 
-in_checkpoint = 'EXP/exp_graphmp-swaparc-ptrlast_o8.3_roberta-large-top24_act-pos-grh_vmask1_shiftpos1_ptr-lay6-h1_grh-lay123-h2-allprev_1in1out_cam-layall-h2-abuf/models_ep120_seed42/checkpoint_wiki-smatch_top5-avg.pt'
+in_checkpoint = 'EXP/exp_o10_bart-large_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb/models_ep100_seed42_fp16-lr0.0001-mt2048x4-wm4000-dp0.2/models_ep120_seed42/checkpoint_wiki-smatch_top5-avg.pt'
 
 
 if __name__ == '__main__':
