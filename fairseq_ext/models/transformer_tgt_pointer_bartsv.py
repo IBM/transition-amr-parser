@@ -1073,6 +1073,51 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         # embed tokens and positions
         x = self.embed_scale * self.embed_tokens(prev_output_tokens)
 
+        # ========== combine the corresponding source token embeddings with the action embeddings as input ==========
+        if self.args.apply_tgt_input_src:
+            assert self.args.tgt_input_src_emb == 'top' and self.args.tgt_input_src_combine == 'add', \
+                'currently we do not support other variations (which may have a bit of extra parameters'
+
+            # 1) take out the source embeddings
+            src_embs = encoder_out.encoder_out.transpose(0, 1)    # size (batch_size, src_max_len, encoder_emb_dim)
+            if not self.args.tgt_input_src_backprop:
+                src_embs = src_embs.detach()
+
+            # 2) align the source embeddings to the tgt input actions
+            assert tgt_src_cursors is not None
+            tgt_src_index = tgt_src_cursors.clone()    # size (bsz, tgt_max_len)
+            if encoder_out.encoder_padding_mask is not None:
+                src_num_pads = encoder_out.encoder_padding_mask.sum(dim=1, keepdim=True)
+                tgt_src_index = tgt_src_index + src_num_pads    # NOTE this is key to left padding!
+
+            # NOTE due to padding value is 1, the indexes could be out of range of src_max_len ->
+            #      we fix invalid indexes for padding positions (invalid should only happen at padding positions,
+            #      and when the src sentence has max length 1)
+            tgt_src_index[tgt_src_index >= src_embs.size(1)] = src_embs.size(1) - 1
+
+            tgt_src_index = tgt_src_index.unsqueeze(-1).repeat(1, 1, src_embs.size(-1))
+            # or
+            # tgt_src_index = tgt_src_index.unsqueeze(-1).expand(-1, -1, src_embs.size(-1))
+
+            # # NOTE deal with the corner case when the max_src_len in the whole batch is only 1 ->
+            # #      already dealt with above!
+            # if encoder_out.encoder_out.size(0) == 1:
+            #     # NOTE we have to fix all indexes at 0 (including the padding positions)!!
+            #     #      (the default padding value is 1, which would cause an index out of range error hard to debug)
+            #     tgt_src_index.fill_(0)
+
+            src_embs = torch.gather(src_embs, 1, tgt_src_index)
+            # size (bsz, tgt_max_len, src_embs.size(-1))
+
+            # 3) combine the action embeddings with the aligned source token embeddings
+            if self.args.tgt_input_src_combine == 'cat':
+                x = self.combine_src_embs(torch.cat([src_embs, x], dim=-1))    # NOTE not initialized
+            elif self.args.tgt_input_src_combine == 'add':
+                x = src_embs + x
+            else:
+                raise NotImplementedError
+        # ===========================================================================================================
+
         if self.quant_noise is not None:
             x = self.quant_noise(x)
 
