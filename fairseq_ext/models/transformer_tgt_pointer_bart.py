@@ -1174,9 +1174,22 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 src_num_pads = encoder_out.encoder_padding_mask.sum(dim=1, keepdim=True)
                 tgt_src_index = tgt_src_index + src_num_pads    # NOTE this is key to left padding!
 
+            # NOTE due to padding value is 1, the indexes could be out of range of src_max_len ->
+            #      we fix invalid indexes for padding positions (invalid should only happen at padding positions,
+            #      and when the src sentence has max length 1)
+            tgt_src_index[tgt_src_index >= src_embs.size(1)] = src_embs.size(1) - 1
+
             tgt_src_index = tgt_src_index.unsqueeze(-1).repeat(1, 1, src_embs.size(-1))
             # or
             # tgt_src_index = tgt_src_index.unsqueeze(-1).expand(-1, -1, src_embs.size(-1))
+
+            # # NOTE deal with the corner case when the max_src_len in the whole batch is only 1 ->
+            # #      already dealt with above!
+            # if encoder_out.encoder_out.size(0) == 1:
+            #     # NOTE we have to fix all indexes at 0 (including the padding positions)!!
+            #     #      (the default padding value is 1, which would cause an index out of range error hard to debug)
+            #     tgt_src_index.fill_(0)
+
             src_embs = torch.gather(src_embs, 1, tgt_src_index)
             # size (bsz, tgt_max_len, src_embs.size(-1))
 
