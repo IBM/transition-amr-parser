@@ -109,7 +109,7 @@ comments.
 To use from other Python code with a trained model do
 
 ```python
-from transition_amr_parser.stack_transformer_amr_parser import AMRParser
+from transition_amr_parser.parse import AMRParser
 parser = AMRParser.from_checkpoint(in_checkpoint)
 annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
 print(annotations.toJAMRString())
