@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.4.0'
+VERSION = '0.4.2'
 
 # this is what usually goes on requirements.txt
 install_requires = [

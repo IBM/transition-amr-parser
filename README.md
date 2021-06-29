@@ -1,15 +1,15 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch `v0.4.2`. Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. 
+Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.4.2`. Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. This model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test.
 
-Checkout the stack-transformer branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. Also used in our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
+Checkout the stack-transformer branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.5` Smatch (`81.3` with self-learning) on AMR2.0 test. Used in our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
 
 Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 ## IBM Internal Features
 
-IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing services, installers, trained models, etc. 
+IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing web-services, CCC installers/trainers, trained models, etc. 
 
 ## Installation
 
@@ -33,7 +33,13 @@ You can leave this empty if you don't want to use it
 touch set_environment.sh
 ```
 
-train and test scripts always source this script, so that will spare you activating the environments each time (or setting up system variables and other).
+train and test scripts always source this script i.e.
+
+```bash
+. set_environment.sh
+```
+
+that will spare you activating the environments or setting up system variables and other each time, which helps when working with computer clusters. 
 
 To test if install worked
 ```bash
