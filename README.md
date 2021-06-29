@@ -1,51 +1,41 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch. Current version (`v0.4.0`) implements the `action-pointer` model [(Zhou et al 2021)](https://openreview.net/forum?id=X9KK-SCmKWn). For the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://arxiv.org/abs/2010.10669) checkout `v0.3.3`. Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
+Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch `v0.4.2`. 
+
+Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. 
+
+Checkout the `stack-Transformer` branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. Also used in our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
+
+Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 ## IBM Internal Features
 
-Check [Parsing Services](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Parsing-Services) for the endpoint URLs and Docker instructions. If you have acess to CCC and LDC data, we have available both the train data and trained models.
+IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing services, installers, trained models, etc. 
 
 ## Installation
 
-We use a `set_environment.sh` script to activate conda/pyenv and virtual
-environments. You can leave this empty if you dont want to use it, but scripts
-will assume at least an empty file exists.
+Just clone and pip install (see `set_environment.sh` below if you use a virtualenv)
+
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
+pip install .  # use --editable if you plan to modify code
+```
+
+We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
+
+```bash
+[ ! -d venv ] && virtualenv venv
+. venv/bin/activate
+```
+You can leave this empty if you don't want to use it
+
+```bash
 touch set_environment.sh
-. set_environment.sh
-pip install .
 ```
 
-The AMR aligner uses additional tools that can be donwloaded and installed with
-
-```
-bash preprocess/install_alignment_tools.sh
-```
-
-If you use already aligned AMR, you will not need this.
-
-## Installation Details
-
-An example of `set_environment.sh`
-```
-# Activate conda and local virtualenv for this machine
-eval "$(/path/to/miniconda3/bin/conda shell.bash hook)"
-[ ! -d cenv_x86 ] && conda create -y -p ./cenv_x86
-conda activate ./cenv_x86
-```
-
-The code has been tested on Python `3.6` and `3.7` (x86 only). Alternatively,
-you may pre-install some of the packages with conda, if this works better on
-your achitecture, and the do the pip install above. You will need this for PPC
-instals.
-```
-conda install pytorch=1.3.0 -y -c pytorch
-conda install -c conda-forge nvidia-apex -y
-```
+train and test scripts always source this script, so that will spare you activating the environments each time (or setting up system variables and other).
 
 To test if install worked
 ```bash
@@ -56,9 +46,17 @@ To do a mini-test with 25 annotated sentences that we provide. This should take 
 bash tests/minimal_test.sh
 ```
 
+If you want to align AMR data, the aligner uses additional tools that can be donwloaded and installed with
+
+```bash
+bash preprocess/install_alignment_tools.sh
+```
+
+See [here](scripts/README.md) for more install details
+
 ## Training a model
 
-You first need to preprocess and align the data. For AMR2.0 do
+You first need to pre-process and align the data. For AMR2.0 do
 
 ```bash
 . set_environment.sh
@@ -68,7 +66,7 @@ python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.
 You will also need to unzip the precomputed BLINK cache
 
 ```
-unzip /dccstor/ykt-parse/SHARED/CORPORA/EL/linkcache.zip
+unzip linkcache.zip
 ```
 
 To launch train/test use
@@ -83,26 +81,16 @@ you can check training status with
 python run/status.py --config configs/amr2.0-action-pointer.sh
 ```
 
-Note that for CCC there is a version using `jbsub` that split the task into
-multiple sequential jobs and supports multiple seeds and testing in paralell
-
-```
-bash run/lsf/run_experiment.sh configs/amr2.0-action-pointer.sh
-``` 
-
 ## Decode with Pre-trained model
 
 To use from the command line with a trained model do
 
 ```bash
-amr-parse \
-  --in-checkpoint $in_checkpoint \
-  --in-tokenized-sentences $input_file \
-  --out-amr file.amr
+amr-parse -c $in_checkpoint -i $input_file -o file.amr
 ```
 
 It will parse each line of `$input_file` separately (assumed tokenized).
-`$in_checkpoint` is the pytorch checkpoint of a trained model. The `file.amr`
+`$in_checkpoint` is the Pytorch checkpoint of a trained model. The `file.amr`
 will contain the PENMAN notation AMR with additional alignment information as
 comments.
 

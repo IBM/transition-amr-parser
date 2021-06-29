@@ -1,3 +1,22 @@
+## Install Details
+
+An example of `set_environment.sh` for conda
+```
+# Activate conda and local virtualenv for this machine
+eval "$(/path/to/miniconda3/bin/conda shell.bash hook)"
+[ ! -d cenv_x86 ] && conda create -y -p ./cenv_x86
+conda activate ./cenv_x86
+```
+
+The code has been tested on Python `3.6` and `3.7` (x86 only). Alternatively,
+you may pre-install some of the packages with conda, if this works better on
+your architecture, and the do the pip install above. You will need this for PPC
+instals.
+```
+conda install pytorch=1.3.0 -y -c pytorch
+conda install -c conda-forge nvidia-apex -y
+```
+
 ## Plot AMRs
 
 This requires an extra `pip install matplotlib`. Then you can plot random or
