@@ -31,6 +31,11 @@ def argument_parser():
         action='store_true',
     )
     parser.add_argument(
+        "--long-results",
+        help="print results for all complete models, with more info",
+        action='store_true',
+    )
+    parser.add_argument(
         "-c", "--config",
         help="select one experiment by a config",
         type=str,
@@ -367,7 +372,7 @@ def average_results(results, fields):
     return averaged_results
 
 
-def display_results(models_folder, config, set_seed, seed_average):
+def display_results(models_folder, config, set_seed, seed_average, longr=False):
 
     # Table header
     results = []
@@ -481,7 +486,7 @@ def display_results(models_folder, config, set_seed, seed_average):
         formatter = {5: '{:.1f}'.format, 6: '{:.1f}'.format}
         print_table(fields, results, formatter=formatter)
 
-        if config:
+        if config and longr:
             # single model result display
             minc = .95 * min([x[0] for x in sorted_scores])
             sorted_scores = sorted(sorted_scores, key=lambda x: x[1])
@@ -557,6 +562,12 @@ def main(args):
         display_results('DATA/*/models/', args.config, args.seed,
                         args.seed_average)
         exit(1)
+    elif args.long_results:
+        display_results('DATA/*/models/', args.config, args.seed,
+                        args.seed_average, longr=True)
+        exit(1)
+
+
 
     config_env_vars = read_config_variables(args.config)
     if args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
