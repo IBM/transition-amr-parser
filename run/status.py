@@ -26,6 +26,11 @@ checkpoint_re = re.compile(r'.*checkpoint([0-9]+)\.pt$')
 def argument_parser():
     parser = argparse.ArgumentParser(description='Tool to check experiments')
     parser.add_argument(
+        "--test",
+        help="Show test results (if available)",
+        action='store_true',
+    )
+    parser.add_argument(
         "--results",
         help="print results for all complete models",
         action='store_true',
@@ -333,11 +338,8 @@ def get_speed_statistics(seed_folder):
     return minutes_per_epoch, minutes_per_test
 
 
-def average_results(results, fields):
-
-    average_fields = ['dev', 'top5_beam10', 'train (h)', 'test (m)']
-    ignore_fields = ['best']
-    concatenate_fields = ['seed']
+def average_results(results, fields, average_fields, ignore_fields,
+                    concatenate_fields):
 
     # collect
     result_by_seed = defaultdict(list)
@@ -350,10 +352,10 @@ def average_results(results, fields):
     for seed, sresults in result_by_seed.items():
         average_result = {}
         for field in fields:
+            # ignore everything after space
             field = field.split()[0]
             if field in average_fields:
-                samples = [r[field] for r in sresults
-                           if r[field] is not None]
+                samples = [r[field] for r in sresults if r[field] is not None]
                 if samples:
                     average_result[field] = np.mean(samples)
                     # Add standard deviation
@@ -372,7 +374,8 @@ def average_results(results, fields):
     return averaged_results
 
 
-def display_results(models_folder, config, set_seed, seed_average, longr=False):
+def display_results(models_folder, config, set_seed, seed_average, do_test,
+                    longr=False):
 
     # Table header
     results = []
@@ -405,11 +408,11 @@ def display_results(models_folder, config, set_seed, seed_average, longr=False):
             if minutes_per_epoch and minutes_per_epoch > 1:
                 epoch_time = f'{minutes_per_epoch/60.*max_epoch:.1f}'
             else:
-                epoch_time = 'N/A'
+                epoch_time = None
             if minutes_per_test and minutes_per_test > 1:
                 test_time = f'{minutes_per_test:.1f}'
             else:
-                test_time = 'N/A'
+                test_time = None
 
             # get experiments info
             _, target_epochs = get_checkpoints_to_eval(
@@ -458,17 +461,42 @@ def display_results(models_folder, config, set_seed, seed_average, longr=False):
                 dev=best_score,
                 top5_beam10=best_top5_beam10_score,
                 train=epoch_time,
-                test=test_time,
+                dec=test_time,
             ))
 
-    fields = [
-        'data', 'oracle', 'features', 'model', 'best', 'dev',
-        'top5_beam10', 'train (h)', 'test (m)'
-    ]
+            if do_test:
+                sset = 'test'
+                cname = 'checkpoint_wiki.smatch_top5-avg'
+                results_file = \
+                    f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
+                if os.path.isfile(results_file):
+                    best_top5_beam10_test = get_score_from_log(results_file,
+                                                               eval_metric)[0]
+                else:
+                    best_top5_beam10_test = None
+                results[-1]['(test)'] = best_top5_beam10_test
+
+    if do_test:
+        fields = [
+            'data', 'oracle', 'features', 'model', 'best', 'dev',
+            'top5_beam10', '(test)', 'train (h)', 'dec (m)'
+        ]
+
+    else:
+        fields = [
+            'data', 'oracle', 'features', 'model', 'best', 'dev',
+            'top5_beam10', 'train (h)', 'dec (m)'
+        ]
 
     # TODO: average over seeds
     if seed_average:
-        results = average_results(results, fields)
+        average_fields = [
+            'dev', 'top5_beam10', '(test)', 'train (h)', 'dec (m)'
+        ]
+        ignore_fields = ['best']
+        concatenate_fields = ['seed']
+        results = average_results(results, fields, average_fields,
+                                  ignore_fields, concatenate_fields)
 
     # sort by last row
     sort_field = 'top5_beam10'
@@ -483,7 +511,7 @@ def display_results(models_folder, config, set_seed, seed_average, longr=False):
     # print
     if results:
         assert all(field.split()[0] in results[0].keys() for field in fields)
-        formatter = {5: '{:.1f}'.format, 6: '{:.1f}'.format}
+        formatter = {5: '{:.1f}'.format, 6: '{:.1f}'.format, 7: '{:.1f}'.format}
         print_table(fields, results, formatter=formatter)
 
         if config and longr:
@@ -560,14 +588,13 @@ def main(args):
 
     if args.results:
         display_results('DATA/*/models/', args.config, args.seed,
-                        args.seed_average)
+                        args.seed_average, args.test, longr=False)
         exit(1)
+
     elif args.long_results:
         display_results('DATA/*/models/', args.config, args.seed,
-                        args.seed_average, longr=True)
+                        args.seed_average, args.test, longr=True)
         exit(1)
-
-
 
     config_env_vars = read_config_variables(args.config)
     if args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
