@@ -1,9 +1,11 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.4.2`. Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. This model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test.
+Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.4.2`. Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. The model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test.
 
-Checkout the stack-transformer branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.5` Smatch (`81.3` with self-learning) on AMR2.0 test. Used in our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
+Checkout the stack-transformer branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.2` Smatch (`81.3` with self-learning) on AMR2.0 test (this code reaches `80.5` due to the aligner implementation). Stack-Transformer can be used to reproduce our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
+
+The code also contains an implementation of AMR aligner from [(Naseem et al 2019)](https://www.aclweb.org/anthology/P19-1451/) with the forced-alignment introduced in [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89).
 
 Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
@@ -73,7 +75,7 @@ You will also need to unzip the precomputed BLINK cache
 unzip /path/to/linkcache.zip
 ```
 
-To launch train/test use
+To launch train/test use (this will also run the aligner)
 
 ```
 bash run/run_experiment.sh configs/amr2.0-action-pointer.sh
@@ -84,6 +86,8 @@ you can check training status with
 ```
 python run/status.py --config configs/amr2.0-action-pointer.sh
 ```
+
+use `--results` to check for scores once models are finished.
 
 ## Decode with Pre-trained model
 
@@ -96,7 +100,8 @@ amr-parse -c $in_checkpoint -i $input_file -o file.amr
 It will parse each line of `$input_file` separately (assumed tokenized).
 `$in_checkpoint` is the Pytorch checkpoint of a trained model. The `file.amr`
 will contain the PENMAN notation AMR with additional alignment information as
-comments.
+comments. Use the flag `--service` together with `-c` for an iterative parsing
+mode.
 
 To use from other Python code with a trained model do
 
@@ -104,5 +109,6 @@ To use from other Python code with a trained model do
 from transition_amr_parser.parse import AMRParser
 parser = AMRParser.from_checkpoint(in_checkpoint)
 annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
-print(annotations.toJAMRString())
+# Penman notation
+print(''.join(annotations[0][0]))
 ```
