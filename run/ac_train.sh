@@ -26,6 +26,10 @@ echo $config
 
 ##### TRAINING
 
+fp16=""
+if [[ $use_fp16 == 1 ]]; then
+    fp16="--fp16"
+fi
 
 if [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint_last.pt ] && [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt ]; then
 
@@ -35,64 +39,157 @@ else
 
     # Copy variables that we will need for standalone
     cp $DATA_FOLDER/dict.* ${MODEL_FOLDER}-seed${seed}/
-    cp $ORACLE_FOLDER/train.rules.json ${MODEL_FOLDER}-seed${seed}/
-    cp $ORACLE_FOLDER/entity_rules.json ${MODEL_FOLDER}-seed${seed}/
 
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then
 
-        python fairseq_ext/train.py \
-            $DATA_FOLDER \
-            --emb-dir $EMB_FOLDER \
-            $FAIRSEQ_TRAIN_FINETUNE_ARGS \
-            --user-dir ../fairseq_ext \
-            --task $TASK \
-            --append-eos-to-target 0 \
-            --collate-tgt-states 1 \
-            --shift-pointer-value $shift_pointer_value \
-            --apply-tgt-vocab-masks $tgt_vocab_masks \
-            --share-decoder-input-output-embed $share_decoder_embed \
-            --tgt-factored-emb-out $tgt_factored_emb_out \
-            \
-            --apply-tgt-src-align $apply_tgt_src_align \
-            --tgt-src-align-layers $tgt_src_align_layers \
-            --tgt-src-align-heads $tgt_src_align_heads \
-            --tgt-src-align-focus $tgt_src_align_focus \
-            \
-            --pointer-dist-decoder-selfattn-layers $pointer_dist_decoder_selfattn_layers \
-            --pointer-dist-decoder-selfattn-heads $pointer_dist_decoder_selfattn_heads \
-            --pointer-dist-decoder-selfattn-avg $pointer_dist_decoder_selfattn_avg \
-            --pointer-dist-decoder-selfattn-infer $pointer_dist_decoder_selfattn_infer \
-            \
-            --apply-tgt-actnode-masks $apply_tgt_actnode_masks \
-            \
-            --apply-tgt-input-src $apply_tgt_input_src \
-            --tgt-input-src-emb $tgt_input_src_emb \
-            --tgt-input-src-backprop $tgt_input_src_backprop \
-            --tgt-input-src-combine $tgt_input_src_combine \
-            \
-            --max-epoch $MAX_EPOCH \
-            --arch $arch \
-            --optimizer adam \
-            --adam-betas '(0.9,0.98)' \
-            --clip-norm 0.0 \
-            --lr-scheduler inverse_sqrt \
-            --warmup-init-lr 1e-07 \
-            --warmup-updates $warmup \
-            --pretrained-embed-dim $PRETRAINED_EMBED_DIM \
-            --lr $lr \
-            --min-lr 1e-09 \
-            --dropout $dropout \
-            --weight-decay 0.0 \
-            --criterion label_smoothed_cross_entropy_pointer \
-            --label-smoothing 0.01 \
-            --loss-coef 1 \
-            --keep-last-epochs $(( $MAX_EPOCH - $EVAL_INIT_EPOCH + 1 )) \
-            --max-tokens $max_tokens \
-            --log-format json \
-            --seed $seed \
-            --save-dir ${MODEL_FOLDER}-seed${seed} \
-            --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}
+        if [[ $arch != *"bartsv"* ]]; then
+            # apt-bart, with separate src and tgt vocabulary
+        
+            # python -m ipdb fairseq_ext/train.py \
+            python fairseq_ext/train.py \
+                $DATA_FOLDER \
+                --emb-dir $EMB_FOLDER \
+                $FAIRSEQ_TRAIN_FINETUNE_ARGS \
+                --user-dir fairseq_ext \
+                --task $TASK \
+                --append-eos-to-target 0 \
+                --collate-tgt-states 1 \
+                --src-fix-emb-use $src_roberta_emb \
+                --shift-pointer-value $shift_pointer_value \
+                --apply-tgt-vocab-masks $tgt_vocab_masks \
+                --share-decoder-input-output-embed $share_decoder_embed \
+                --tgt-factored-emb-out $tgt_factored_emb_out \
+                \
+                --initialize-with-bart $initialize_with_bart \
+                --initialize-with-bart-enc $initialize_with_bart_enc \
+                --initialize-with-bart-dec $initialize_with_bart_dec \
+                --bart-encoder-backprop $bart_encoder_backprop \
+                --bart-emb-backprop $bart_emb_backprop \
+                --bart-emb-decoder $bart_emb_decoder \
+                --bart-emb-decoder-input $bart_emb_decoder_input \
+                --bart-emb-init-composition $bart_emb_init_composition \
+                --bart-emb-composition-pred $bart_emb_composition_pred \
+                \
+                --src-roberta-emb $src_roberta_emb \
+                --src-pool-wp2w $src_pool_wp2w \
+                --src-avg-layers $src_avg_layers \
+                --src-roberta-enc $src_roberta_enc \
+                \
+                --apply-tgt-src-align $apply_tgt_src_align \
+                --tgt-src-align-layers $tgt_src_align_layers \
+                --tgt-src-align-heads $tgt_src_align_heads \
+                --tgt-src-align-focus $tgt_src_align_focus \
+                \
+                --pointer-dist-decoder-selfattn-layers $pointer_dist_decoder_selfattn_layers \
+                --pointer-dist-decoder-selfattn-heads $pointer_dist_decoder_selfattn_heads \
+                --pointer-dist-decoder-selfattn-avg $pointer_dist_decoder_selfattn_avg \
+                --pointer-dist-decoder-selfattn-infer $pointer_dist_decoder_selfattn_infer \
+                \
+                --apply-tgt-actnode-masks $apply_tgt_actnode_masks \
+                \
+                --apply-tgt-input-src $apply_tgt_input_src \
+                --tgt-input-src-emb $tgt_input_src_emb \
+                --tgt-input-src-backprop $tgt_input_src_backprop \
+                --tgt-input-src-combine $tgt_input_src_combine \
+                \
+                --max-epoch $MAX_EPOCH \
+                --arch $arch \
+                --optimizer adam \
+                --adam-betas '(0.9,0.98)' \
+                --clip-norm $clip_norm \
+                --lr-scheduler inverse_sqrt \
+                --warmup-init-lr 1e-07 \
+                --warmup-updates $warmup \
+                --pretrained-embed-dim $PRETRAINED_EMBED_DIM \
+                --lr $lr \
+                --min-lr 1e-09 \
+                --dropout $dropout \
+                --weight-decay $weight_decay \
+                --criterion ${criterion:-label_smoothed_cross_entropy_pointer} \
+                --label-smoothing 0.01 \
+                --loss-coef $loss_coef \
+                --keep-last-epochs $(( $MAX_EPOCH - $EVAL_INIT_EPOCH + 1 )) \
+                --max-tokens $max_tokens \
+                --update-freq $update_freq \
+                --log-format json \
+                --seed $seed \
+                --save-dir ${MODEL_FOLDER}-seed${seed}/ \
+                --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16
+    
+        else
+            # apt-bart with shared and mixed src and tgt vocabulary
+        
+            # python -m ipdb fairseq_ext/train.py \
+            python fairseq_ext/train.py \
+                $DATA_FOLDER \
+                --emb-dir $EMB_FOLDER \
+                --user-dir fairseq_ext \
+                --task $TASK \
+                --node-freq-min $node_freq_min \
+                --append-eos-to-target 0 \
+                --collate-tgt-states 1 \
+                --src-fix-emb-use $src_roberta_emb \
+                --shift-pointer-value $shift_pointer_value \
+                --apply-tgt-vocab-masks $tgt_vocab_masks \
+                --share-decoder-input-output-embed $share_decoder_embed \
+                --share-all-embeddings ${share_all_embeddings:-1} \
+                --tgt-factored-emb-out $tgt_factored_emb_out \
+                \
+                --initialize-with-bart $initialize_with_bart \
+                --initialize-with-bart-enc $initialize_with_bart_enc \
+                --initialize-with-bart-dec $initialize_with_bart_dec \
+                --bart-encoder-backprop $bart_encoder_backprop \
+                --bart-emb-backprop $bart_emb_backprop \
+                --bart-emb-init-composition $bart_emb_init_composition \
+                \
+                --src-roberta-emb $src_roberta_emb \
+                --src-pool-wp2w $src_pool_wp2w \
+                --src-avg-layers $src_avg_layers \
+                --src-roberta-enc $src_roberta_enc \
+                \
+                --apply-tgt-src-align $apply_tgt_src_align \
+                --tgt-src-align-layers $tgt_src_align_layers \
+                --tgt-src-align-heads $tgt_src_align_heads \
+                --tgt-src-align-focus $tgt_src_align_focus \
+                \
+                --pointer-dist-decoder-selfattn-layers $pointer_dist_decoder_selfattn_layers \
+                --pointer-dist-decoder-selfattn-heads $pointer_dist_decoder_selfattn_heads \
+                --pointer-dist-decoder-selfattn-avg $pointer_dist_decoder_selfattn_avg \
+                --pointer-dist-decoder-selfattn-infer $pointer_dist_decoder_selfattn_infer \
+                \
+                --apply-tgt-actnode-masks $apply_tgt_actnode_masks \
+                \
+                --apply-tgt-input-src $apply_tgt_input_src \
+                --tgt-input-src-emb $tgt_input_src_emb \
+                --tgt-input-src-backprop $tgt_input_src_backprop \
+                --tgt-input-src-combine $tgt_input_src_combine \
+                \
+                --max-epoch $max_epoch \
+                --arch $arch \
+                --optimizer adam \
+                --adam-betas '(0.9,0.98)' \
+                --clip-norm $clip_norm \
+                --lr-scheduler inverse_sqrt \
+                --warmup-init-lr 1e-07 \
+                --warmup-updates $warmup \
+                --pretrained-embed-dim $PRETRAINED_EMBED_DIM \
+                --lr $lr \
+                --min-lr 1e-09 \
+                --dropout $dropout \
+                --weight-decay $weight_decay \
+                --criterion ${criterion:-label_smoothed_cross_entropy_pointer} \
+                --label-smoothing 0.01 \
+                --loss-coef $loss_coef \
+                --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
+                --max-tokens $max_tokens \
+                --update-freq $update_freq \
+                --log-format json \
+                --seed $seed \
+                --save-dir ${MODEL_FOLDER}-seed${seed}/ \
+                --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16
+    
+        fi
 
     else
 
@@ -102,7 +199,7 @@ else
             $DATA_FOLDER \
             --emb-dir $EMB_FOLDER \
             $FAIRSEQ_TRAIN_FINETUNE_ARGS \
-            --user-dir ../fairseq_ext \
+            --user-dir fairseq_ext \
             --task $TASK \
             --append-eos-to-target 0 \
             --collate-tgt-states 1 \
@@ -144,7 +241,7 @@ else
             --min-lr 1e-09 \
             --dropout 0.3 \
             --weight-decay 0.0 \
-            --criterion label_smoothed_cross_entropy_pointer \
+            --criterion ${criterion:-label_smoothed_cross_entropy_pointer} \
             --label-smoothing 0.01 \
             --loss-coef 1 \
             --keep-last-epochs $(( $MAX_EPOCH - $EVAL_INIT_EPOCH + 1 )) \

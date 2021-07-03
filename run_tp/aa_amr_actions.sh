@@ -49,7 +49,7 @@ else
 
     echo -e "\nTraining data"
 
-    python transition_amr_parser/o10_amr_machine.py \
+    python transition_amr_parser/amr_machine.py \
         --in-aligned-amr $AMR_TRAIN_FILE \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/train.actions \
@@ -61,7 +61,7 @@ else
 
     echo -e "\nDev data"
 
-    python transition_amr_parser/o10_amr_machine.py \
+    python transition_amr_parser/amr_machine.py \
         --in-aligned-amr $AMR_DEV_FILE \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
@@ -72,7 +72,7 @@ else
 
     echo -e "\nTest data"
 
-    python transition_amr_parser/o10_amr_machine.py \
+    python transition_amr_parser/amr_machine.py \
         --in-aligned-amr $AMR_TEST_FILE \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
