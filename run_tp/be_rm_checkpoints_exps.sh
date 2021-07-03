@@ -6,7 +6,7 @@
 set -o errexit
 set -o pipefail
 # setup environment
-# . set_environment.sh
+. set_environment.sh
 
 rootdir=/dccstor/jzhou1/work/EXP
 
