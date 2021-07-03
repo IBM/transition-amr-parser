@@ -172,7 +172,7 @@ weight_decay=0.0
 loss_coef=-1
 dyo_run_start=-0
 dyo_run_freq=-1
-use_fp16=0
+use_fp16=1
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
