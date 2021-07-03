@@ -406,11 +406,11 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
                 get_speed_statistics(seed_folder)
             max_epoch = int(config_env_vars['MAX_EPOCH'])
             if minutes_per_epoch and minutes_per_epoch > 1:
-                epoch_time = f'{minutes_per_epoch/60.*max_epoch:.1f}'
+                epoch_time = minutes_per_epoch/60.*max_epoch
             else:
                 epoch_time = None
             if minutes_per_test and minutes_per_test > 1:
-                test_time = f'{minutes_per_test:.1f}'
+                test_time = minutes_per_test
             else:
                 test_time = None
 
@@ -511,7 +511,13 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
     # print
     if results:
         assert all(field.split()[0] in results[0].keys() for field in fields)
-        formatter = {5: '{:.1f}'.format, 6: '{:.1f}'.format, 7: '{:.1f}'.format}
+        formatter = {
+            5: '{:.1f}'.format,
+            6: '{:.1f}'.format,
+            7: '{:.1f}'.format,
+            8: '{:.1f}'.format,
+            9: '{:.1f}'.format
+        }
         print_table(fields, results, formatter=formatter)
 
         if config and longr:
@@ -528,7 +534,11 @@ def len_print(string):
         return 0
     else:
         bash_scape = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
-        return len(bash_scape.sub('', string))
+        try:
+            return len(bash_scape.sub('', string))
+        except:
+            set_trace(context=30)
+            print()
 
 
 def get_cell_str(row, field, formatter):
