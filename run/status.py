@@ -386,6 +386,7 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
     for model_folder in glob(f'{models_folder}/*/*'):
         for seed_folder in glob(f'{model_folder}/*'):
 
+            # if config given, identify it by seed
             if set_seed and f'seed{set_seed}' not in seed_folder:
                 continue
             else:
@@ -394,6 +395,7 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
             # Read config contents and seed
             config_env_vars = read_config_variables(f'{seed_folder}/config.sh')
 
+            # if config given, identify by folder
             if (
                 config
                 and config_env_vars['MODEL_FOLDER']
@@ -534,11 +536,7 @@ def len_print(string):
         return 0
     else:
         bash_scape = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
-        try:
-            return len(bash_scape.sub('', string))
-        except:
-            set_trace(context=30)
-            print()
+        return len(bash_scape.sub('', string))
 
 
 def get_cell_str(row, field, formatter):
