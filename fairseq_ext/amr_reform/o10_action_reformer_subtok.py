@@ -16,7 +16,7 @@ Here the reformer deals with rare node action spliting into subtokens.
 
 from copy import deepcopy
 
-from transition_amr_parser.o10_amr_machine import AMRStateMachine, peel_pointer, arc_nopointer_regex
+from transition_amr_parser.amr_machine import AMRStateMachine, peel_pointer, arc_nopointer_regex
 from fairseq_ext.utils import join_action_pointer
 
 

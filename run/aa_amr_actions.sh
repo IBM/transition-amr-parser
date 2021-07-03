@@ -62,32 +62,41 @@ else
     cp $ALIGNED_FOLDER/train.txt $ORACLE_FOLDER/ref_train.amr
     cp $ALIGNED_FOLDER/dev.txt $ORACLE_FOLDER/ref_dev.amr
     cp $ALIGNED_FOLDER/test.txt $ORACLE_FOLDER/ref_test.amr
+
+    echo -e "\nTrain data"
    
-    python transition_amr_parser/amr_oracle.py \
-        --in-amr $AMR_TRAIN_FILE \
-        --entity-rules $ORACLE_FOLDER/entity_rules.json \
-        --out-sentences $ORACLE_FOLDER/train.en \
+    python transition_amr_parser/amr_machine.py \
+        --in-aligned-amr $AMR_TRAIN_FILE \
+        --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/train.actions \
-        --out-rule-stats $ORACLE_FOLDER/train.rules.json \
-        --copy-lemma-action
-    
-    python transition_amr_parser/amr_oracle.py \
-        --in-amr $AMR_DEV_FILE \
-        --entity-rules $ORACLE_FOLDER/entity_rules.json \
-        --out-sentences $ORACLE_FOLDER/dev.en \
+        --out-tokens $ORACLE_FOLDER/train.en \
+        --absolute-stack-positions  \
+        --out-stats-vocab $ORACLE_FOLDER/train.actions.vocab \
+        --use-copy ${USE_COPY} \
+        # --reduce-nodes all
+
+    echo -e "\nDev data"
+
+    python transition_amr_parser/amr_machine.py \
+        --in-aligned-amr $AMR_DEV_FILE \
+        --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
-        --out-rule-stats $ORACLE_FOLDER/dev.rules.json \
-        --copy-lemma-action
-    
-    python transition_amr_parser/amr_oracle.py \
-        --in-amr $AMR_TEST_FILE \
-        --entity-rules $ORACLE_FOLDER/entity_rules.json \
-        --out-sentences $ORACLE_FOLDER/test.en \
+        --out-tokens $ORACLE_FOLDER/dev.en \
+        --absolute-stack-positions  \
+        --use-copy ${USE_COPY} \
+        # --reduce-nodes all
+
+    echo -e "\nTest data"
+
+    python transition_amr_parser/amr_machine.py \
+        --in-aligned-amr $AMR_TEST_FILE \
+        --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
-        --out-rule-stats $ORACLE_FOLDER/test.rules.json \
-        --copy-lemma-action
-    
-    # Mark as done
+        --out-tokens $ORACLE_FOLDER/test.en \
+        --absolute-stack-positions  \
+        --use-copy ${USE_COPY} \
+        # --reduce-nodes all
+
     touch $ORACLE_FOLDER/.done
 
 fi

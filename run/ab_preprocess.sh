@@ -72,7 +72,7 @@ else
 
         python fairseq_ext/preprocess.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
-            --user-dir ../fairseq_ext \
+            --user-dir ./fairseq_ext \
             --task $TASK \
             --source-lang en \
             --target-lang actions \
@@ -91,7 +91,7 @@ else
 
         python fairseq_ext/preprocess_graphmp.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
-            --user-dir ../fairseq_ext \
+            --user-dir ./fairseq_ext \
             --task $TASK \
             --source-lang en \
             --target-lang actions \
@@ -113,7 +113,59 @@ else
     
         python fairseq_ext/preprocess_graphmp.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
-            --user-dir ../fairseq_ext \
+            --user-dir ./fairseq_ext \
+            --task $TASK \
+            --source-lang en \
+            --target-lang actions \
+            --trainpref $ORACLE_FOLDER/train \
+            --validpref $ORACLE_FOLDER/dev \
+            --testpref $ORACLE_FOLDER/test \
+            --destdir $DATA_FOLDER \
+            --embdir $EMB_FOLDER \
+            --workers 1 \
+            --pretrained-embed $PRETRAINED_EMBED \
+            --bert-layers $BERT_LAYERS
+
+    elif [[ $TASK == "amr_action_pointer_bart" ]]; then
+
+        python fairseq_ext/preprocess_bart.py \
+            $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
+            --user-dir ./fairseq_ext \
+            --task $TASK \
+            --source-lang en \
+            --target-lang actions \
+            --trainpref $ORACLE_FOLDER/train \
+            --validpref $ORACLE_FOLDER/dev \
+            --testpref $ORACLE_FOLDER/test \
+            --destdir $DATA_FOLDER \
+            --embdir $EMB_FOLDER \
+            --workers 1 \
+            --pretrained-embed $PRETRAINED_EMBED \
+            --bert-layers $BERT_LAYERS
+
+    elif [[ $TASK == "amr_action_pointer_bartsv" ]]; then
+
+        python fairseq_ext/preprocess_bartsv.py \
+            $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
+            --user-dir ./fairseq_ext \
+            --task $TASK \
+            --source-lang en \
+            --target-lang actions \
+            --node-freq-min ${NODE_FREQ_MIN:-5} \
+            --trainpref $ORACLE_FOLDER/train \
+            --validpref $ORACLE_FOLDER/dev \
+            --testpref $ORACLE_FOLDER/test \
+            --destdir $DATA_FOLDER \
+            --embdir $EMB_FOLDER \
+            --workers 1 \
+            --pretrained-embed $PRETRAINED_EMBED \
+            --bert-layers $BERT_LAYERS
+
+    elif [[ $TASK == "amr_action_pointer_bart_dyo" ]]; then
+
+        python fairseq_ext/preprocess_bart.py \
+            $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
+            --user-dir ./fairseq_ext \
             --task $TASK \
             --source-lang en \
             --target-lang actions \
@@ -128,8 +180,7 @@ else
 
     else
 
-        echo -e "Unknown task $TASK"
-        exit 1
+        echo -e "\nError: task [$TASK] not recognized\n" && exit 1
 
     fi
 

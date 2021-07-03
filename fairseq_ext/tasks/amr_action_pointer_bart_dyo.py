@@ -32,7 +32,7 @@ from fairseq_ext.amr_spec.action_info_binarize import (
 )
 from fairseq_ext.binarize import binarize_file
 from transition_amr_parser.io import read_amr2
-from transition_amr_parser.o10_amr_machine import AMRStateMachine, AMROracle, peel_pointer
+from transition_amr_parser.amr_machine import AMRStateMachine, AMROracle, peel_pointer
 from fairseq_ext.amr_spec.action_info import get_actions_states
 from fairseq_ext.data.data_utils import collate_tokens
 from fairseq_ext.utils import time_since
