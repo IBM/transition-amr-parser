@@ -4,7 +4,7 @@ set -o errexit
 set -o pipefail
 
 # setup environment
-# . set_environment.sh
+. set_environment.sh
 
 [ -z $1 ] && echo "usage: bash collect_seed_scores.sh <exp_dir>" && exit 1
 set -o nounset
