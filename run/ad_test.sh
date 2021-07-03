@@ -41,11 +41,13 @@ echo $config
 # set data split parameters 
 if [ $data_split2 == "dev" ]; then
     data_split=valid
+    data_split_name=dev
     reference_amr=$AMR_DEV_FILE
     wiki=$WIKI_DEV
     reference_amr_wiki=$AMR_DEV_FILE_WIKI
 elif [ $data_split2 == "test" ]; then
     data_split=test
+    data_split_name=test
     reference_amr=$AMR_TEST_FILE
     wiki=$WIKI_TEST
     reference_amr_wiki=$AMR_TEST_FILE_WIKI
@@ -71,11 +73,13 @@ if [ ! -f "${results_prefix}.actions" ];then
     python fairseq_ext/generate.py \
         $DATA_FOLDER  \
         --emb-dir $EMB_FOLDER \
-        --user-dir ../fairseq_ext \
+        --user-dir ./fairseq_ext \
         --task $TASK \
         --gen-subset $data_split \
+        --src-fix-emb-use $src_fix_emb_use \
         --machine-type AMR  \
         --machine-rules $ORACLE_FOLDER/train.rules.json \
+        --machine-config $ORACLE_FOLDER/machine_config.json \
         --modify-arcact-score 1 \
         --use-pred-rules $USE_PRED_RULES \
         --beam $beam_size \
@@ -88,12 +92,12 @@ if [ ! -f "${results_prefix}.actions" ];then
 fi
 
 ##### Create the AMR from the model obtained actions
-python transition_amr_parser/amr_fake_parse.py \
-    --in-sentences $ORACLE_FOLDER/${data_split2}.en \
+python transition_amr_parser/amr_machine.py \
+    --in-machine-config $ORACLE_FOLDER/machine_config.json \
+    --in-tokens $ORACLE_FOLDER/${data_split_name}.en \
     --in-actions ${results_prefix}.actions \
-    --out-amr ${results_prefix}.amr \
-    --entity-rules $ORACLE_FOLDER/entity_rules.json \
-    --in-pred-entities $ENTITIES_WITH_PREDS \
+    --out-amr ${results_prefix}.amr
+
 
 ##### SMATCH evaluation
 if [[ "$EVAL_METRIC" == "smatch" ]]; then

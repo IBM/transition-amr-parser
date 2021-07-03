@@ -147,7 +147,6 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-#SEEDS="42 43 44"
 SEEDS="42 43 44"
 MAX_EPOCH=120
 EVAL_INIT_EPOCH=81
@@ -167,6 +166,7 @@ bart_emb_composition_pred=0
 src_pool_wp2w=top
 src_avg_layers=""
 src_roberta_enc=0
+src_fix_emb_use=0
 clip_norm=0.0
 weight_decay=0.0
 loss_coef=-1
