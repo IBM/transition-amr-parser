@@ -2,7 +2,7 @@
 
 set -o errexit
 set -o pipefail
-# . set_environment.sh
+. set_environment.sh
 
 ##### data config
 if [ -z "$1" ]; then
