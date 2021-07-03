@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from fairseq_ext.data.amr_bpe import AMRActionBPEEncoder, AMRActionBartDictionary
 from fairseq_ext.amr_reform.o10_action_reformer_subtok import AMRActionReformerSubtok
-from transition_amr_parser.o10_amr_machine import AMRStateMachine
+from transition_amr_parser.amr_machine import AMRStateMachine
 
 
 if __name__ == '__main__':

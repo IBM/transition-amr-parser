@@ -8,7 +8,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.o10_amr_machine import AMRStateMachine
+from transition_amr_parser.amr_machine import AMRStateMachine
 from .action_info import get_actions_states
 from ..tokenizer import tokenize_line_tab
 from ..binarize import make_builder    # TODO move this to data folder

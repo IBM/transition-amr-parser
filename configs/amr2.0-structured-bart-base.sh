@@ -68,6 +68,9 @@ MAX_WORDS=0
 # TODO: Explain this
 USE_PRED_RULES=0
 
+# Use COPY mechanism
+USE_COPY=1
+
 ##############################################################################
 # PRETRAINED EMBEDDINGS
 ##############################################################################
@@ -157,7 +160,19 @@ update_freq=4
 warmup=4000
 dropout=0.2
 
-
+# NEW from train 
+src_roberta_emb=0
+tgt_factored_emb_out=0
+bart_emb_composition_pred=0
+src_pool_wp2w=top
+src_avg_layers=""
+src_roberta_enc=0
+clip_norm=0.0
+weight_decay=0.0
+loss_coef=-1
+dyo_run_start=-0
+dyo_run_freq=-1
+use_fp16=0
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model

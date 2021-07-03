@@ -16,7 +16,7 @@ from packaging import version
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
-from transition_amr_parser.o10_amr_machine import AMRStateMachine
+from transition_amr_parser.amr_machine import AMRStateMachine
 from fairseq_ext.utils import join_action_pointer
 
 
