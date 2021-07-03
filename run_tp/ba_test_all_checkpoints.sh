@@ -3,7 +3,7 @@
 set -o errexit
 set -o pipefail
 # setup environment
-# . set_environment.sh
+. set_environment.sh
 
 checkpoints_folder=$1
 [ -z "$checkpoints_folder" ] && \
