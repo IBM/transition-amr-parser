@@ -239,7 +239,18 @@ def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
     eval_metric = config_env_vars['EVAL_METRIC']
     scores = []
     missing_epochs = []
-    for epoch in target_epochs:
+    rest_checkpoints = []
+
+    for epoch in range(int(config_env_vars['MAX_EPOCH'])):
+
+        # store paths of checkpoint that wont need to be evaluated for deletion
+        checkpoint_file = f'{seed_folder}/checkpoint{epoch}.pt'
+        if epoch not in target_epochs:
+            if os.path.isfile(checkpoint_file):
+                rest_checkpoints.append(checkpoint_file)
+            else:
+                continue
+
         results_file = \
             f'{validation_folder}/dec-checkpoint{epoch}.{eval_metric}'
         if not os.path.isfile(results_file):
@@ -256,9 +267,15 @@ def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
     rest_epochs = sorted_scores[:-n_best]
 
     best_n_checkpoints = [f'checkpoint{n}.pt' for _, n in best_n_epochs]
-    rest_checkpoints = sorted([
-        f'{seed_folder}/checkpoint{n}.pt' for _, n in rest_epochs
-    ])
+    if sorted_scores:
+        rest_checkpoints += sorted([
+            f'{seed_folder}/checkpoint{n}.pt' for _, n in rest_epochs
+        ])
+    else:
+        # did not start yet to score any model, better keep last checkpoint.
+        # not that we delete it midway through a copy to last_checkpoint.pt
+        rest_checkpoints = rest_checkpoints[:-1]
+
     best_scores = [s for s, n in best_n_epochs]
 
     return (
@@ -590,26 +607,24 @@ def ordered_exit(signum, frame):
 
 def main(args):
 
-    # set orderd exit
+    # set ordered exit
     signal.signal(signal.SIGINT, ordered_exit)
     signal.signal(signal.SIGTERM, ordered_exit)
 
-    if args.results:
-        display_results('DATA/*/models/', args.config, args.seed,
-                        args.seed_average, args.test, longr=False)
-        exit(1)
+    checkpoints = None
+    if args.results or args.long_results:
 
-    elif args.long_results:
+        # results display and exit
         display_results('DATA/*/models/', args.config, args.seed,
-                        args.seed_average, args.test, longr=True)
-        exit(1)
+                        args.seed_average, args.test,
+                        longr=bool(args.long_results))
 
-    config_env_vars = read_config_variables(args.config)
-    if args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
+    elif args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
 
         # List checkpoints that need to be evaluated to complete training. If
         # ready=True list only those checkpoints that exist already
         assert args.seed, "Requires --seed"
+        config_env_vars = read_config_variables(args.config)
         checkpoints, target_epochs = get_checkpoints_to_eval(
             config_env_vars,
             args.seed,
@@ -621,28 +636,23 @@ def main(args):
             print(checkpoint)
             sys.stdout.flush()
 
-        listed_checkpoints = True
-
     else:
 
         # print status for this config
+        config_env_vars = read_config_variables(args.config)
         print_status(config_env_vars, args.seed)
-        listed_checkpoints = False
 
-    # Link best checkpoints and/or remove the ones evaluated taht are not top-n
     if args.link_best or args.remove:
 
-        if not listed_checkpoints:
-
-            # link best model and/or remove evaluated models that are not the
-            # best
+        # List checkpoints that need to be evaluated to complete training. If
+        # ready=True list only those checkpoints that exist already
+        assert args.seed, "Requires --seed"
+        if checkpoints is None:
             checkpoints, target_epochs = get_checkpoints_to_eval(
                 config_env_vars,
                 args.seed,
+                ready=bool(args.list_checkpoints_ready_to_eval)
             )
-            if checkpoints:
-                print(f'\nThere are {len(checkpoints)} missing checkpoints\n')
-                exit(1)
 
         assert args.seed, "Requires --seed"
         best_n, best_scores, rest_checkpoints, missing_epochs, _ = \
@@ -654,10 +664,13 @@ def main(args):
             link_best_model(best_n, config_env_vars, args.seed,
                             args.nbest)
 
-        # remove checkpoints not amoung the n-best
+        # remove checkpoints not among the n-best
         for checkpoint in rest_checkpoints:
             if os.path.isfile(checkpoint):
-                if not listed_checkpoints:
+                if not (
+                    bool(args.list_checkpoints_ready_to_eval) or
+                    bool(args.list_checkpoints_to_eval)
+                ):
                     print(f'rm {checkpoint}')
                 os.remove(checkpoint)
 
