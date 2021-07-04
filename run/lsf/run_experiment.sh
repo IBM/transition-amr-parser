@@ -171,6 +171,7 @@ if [ "$on_the_fly_decoding" = true ];then
     for seed in $SEEDS;do
 
         # wait until first model is available
+        # TODO: python run/status.py -c $config --seed $seed --wait-checkpoint-ready-to-eval
         while [ "$(python run/status.py -c $config --seed $seed --list-checkpoints-ready-to-eval)" == "" ];do
             clear
             echo "Waiting for checkpoint $EVAL_INIT_EPOCH from seed $seed to be evaluated"
