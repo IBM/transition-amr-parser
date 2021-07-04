@@ -2,7 +2,7 @@
 
 set -o errexit
 set -o pipefail
-. set_environment.sh
+# . set_environment.sh
 set -o nounset
 
 ##### root folder to store everything
