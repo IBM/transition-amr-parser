@@ -10,7 +10,7 @@
 set -o errexit
 set -o pipefail
 # setup environment
-. set_environment.sh
+# . set_environment.sh
 
 #[ -z $1 ] && echo -e "\nRun by: bash $0 [config_model.sh]" && exit 1
 #set -o nounset
