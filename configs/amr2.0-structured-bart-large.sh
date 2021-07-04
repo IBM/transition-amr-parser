@@ -75,15 +75,15 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.base
+embedding_tag=bart.large
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
 EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
 # Pretrained embeddings 
-PRETRAINED_EMBED=bart.base
-PRETRAINED_EMBED_DIM=768
+PRETRAINED_EMBED=bart.large
+PRETRAINED_EMBED_DIM=1024   # used ???
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
 # pre-stored pretrained en embeddings (not changing with oracle)
 
@@ -116,7 +116,7 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-arch=transformer_tgt_pointer_bart_base
+arch=transformer_tgt_pointer_bart_large
 
 initialize_with_bart=1
 initialize_with_bart_enc=1
@@ -127,13 +127,13 @@ bart_emb_decoder=0
 bart_emb_decoder_input=0
 bart_emb_init_composition=1
 
-pointer_dist_decoder_selfattn_layers="5"
+pointer_dist_decoder_selfattn_layers="11"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=5
+pointer_dist_decoder_selfattn_infer=11
 
 apply_tgt_src_align=1
-tgt_src_align_layers="0 1 2 3 4 5"
+tgt_src_align_layers="0 1 2 3 4 5 6 7 8 9 10 11"
 tgt_src_align_heads=2
 tgt_src_align_focus="p0c1n0 p0c0n*"
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
@@ -148,9 +148,9 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 SEEDS="42 43 44"
-MAX_EPOCH=120
-EVAL_INIT_EPOCH=81
-time_max_between_epochs=20
+MAX_EPOCH=100
+EVAL_INIT_EPOCH=61
+time_max_between_epochs=30
 
 # TODO: New
 use_fp16=1
@@ -182,23 +182,23 @@ FAIRSEQ_TRAIN_FINETUNE_ARGS=""
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
 
-if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
+if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5 6 7 8 9 10 11" ]]; then
     lay="all"
 else
     lay=""
     for n in $pointer_dist_decoder_selfattn_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
+        [[ $n < 0 || $n > 11 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
         lay=$lay$(( $n + 1 ))
     done
 fi
 
 
-if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
+if [[ $tgt_src_align_layers == "0 1 2 3 4 5 6 7 8 9 10 11" ]]; then
     cam_lay="all"
 else
     cam_lay=""
     for n in $tgt_src_align_layers; do
-        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
+        [[ $n < 0 || $n > 11 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
         cam_lay=$cam_lay$(( $n + 1 ))
     done
 fi

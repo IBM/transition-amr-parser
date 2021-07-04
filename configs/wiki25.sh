@@ -18,7 +18,7 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=AMR2.0
+TASK_TAG=wiki25
 
 # TODO: Omit these global vars and use 
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
@@ -46,8 +46,8 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
-WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
+WIKI_DEV=""
+WIKI_TEST=""
 
 ##############################################################################
 # ORACLE
@@ -148,12 +148,11 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 SEEDS="42 43 44"
-MAX_EPOCH=120
-EVAL_INIT_EPOCH=81
-time_max_between_epochs=20
+MAX_EPOCH=10
+EVAL_INIT_EPOCH=5
 
 # TODO: New
-use_fp16=1
+time_max_between_epochs=20
 lr=0.0001
 max_tokens=2048
 update_freq=4
@@ -173,6 +172,7 @@ weight_decay=0.0
 loss_coef=-1
 dyo_run_start=-0
 dyo_run_freq=-1
+use_fp16=1
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
@@ -301,12 +301,8 @@ fi
 
 
 # combine different model configuration tags to the name
-fp16_tag=""
-if [[ $use_fp16 == 1 ]]; then
-    fp16_tag="fp16-"
-fi
 model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
-optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
 MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
