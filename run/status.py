@@ -253,7 +253,7 @@ def print_status(config_env_vars, seed, do_clear=False):
             half_delta = delta // 2 + 4
             half_col2 = len(col2) // 2
             col2_crop = col2[:half_col2 - half_delta]
-            col2_crop += '[...]'
+            col2_crop += ' ... '
             col2_crop += col2[half_col2 + half_delta:]
             new_statues_lines.append(f'[{col1:^{width}}] {col2_crop}')
         else:
