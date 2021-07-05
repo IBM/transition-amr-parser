@@ -11,7 +11,6 @@ import argparse
 from collections import defaultdict
 from statistics import mean
 from transition_amr_parser.io import read_config_variables, clbar
-from ipdb import set_trace
 
 
 # Sanity check python3
@@ -224,7 +223,7 @@ def print_status(config_env_vars, seed, do_clear=False):
 
         else:
             status_lines.append((
-                f"{len(target_epochs)}/{len(target_epochs)}",
+                f"\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m",
                 f"{seed_folder}"
             ))
 

@@ -1,135 +1,114 @@
 Transition-based AMR Parser
 ============================
 
-Ongoing APT-O10-BART model
+Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.4.2`. Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. The model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test.
 
-Fast install on CCC (and maybe on x86 machines in general)
+Checkout the stack-transformer branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.2` Smatch (`81.3` with self-learning) on AMR2.0 test (this code reaches `80.5` due to the aligner implementation). Stack-Transformer can be used to reproduce our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
 
-```
-git clone git@github.com:jzhou316/transition-amr-parser.git
+The code also contains an implementation of the AMR aligner from [(Naseem et al 2019)](https://www.aclweb.org/anthology/P19-1451/) with the forced-alignment introduced in [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89).
+
+Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
+
+## IBM Internal Features
+
+IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing web-services, CCC installers/trainers, trained models, etc. 
+
+## Installation
+
+Just clone and pip install (see `set_environment.sh` below if you use a virtualenv)
+
+```bash
+git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
-git checkout apt-bart-o10
-# Activate your virtualenv inside this file, for example write
-# eval "$(/path/to/miniconda3/bin/conda shell.bash hook)"
-# [ ! -d cenv_x86 ] && conda create -y -p ./cenv_x86
-# conda activate ./cenv_x86
-# or else empty file
+pip install .  # use --editable if you plan to modify code
+```
+
+We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
+
+```bash
+[ ! -d venv ] && virtualenv venv
+. venv/bin/activate
+```
+You can leave this empty if you don't want to use it
+
+```bash
 touch set_environment.sh
-bash scripts/install_x86_with_conda.sh
 ```
 
-Fasts tests, install went ok
+train and test scripts always source this script i.e.
 
+```bash
+. set_environment.sh
 ```
+
+that will spare you activating the environments or setting up system variables and other each time, which helps when working with computer clusters. 
+
+To test if install worked
+```bash
 bash tests/correctly_installed.sh
 ```
-
-Fast full train/test with 25 sentences
-
-```
+To do a mini-test with 25 annotated sentences that we provide. This should take 1-3 minutes. It wont learn anything but at least will run all stages.
+```bash
 bash tests/minimal_test.sh
 ```
 
-Expected data structure
+If you want to align AMR data, the aligner uses additional tools that can be donwloaded and installed with
 
-```
-# amr
-amr_corpus/amr2.0/o5/jkaln.txt
-amr_corpus/amr2.0/o5/dev.txt.removedWiki.noempty.JAMRaligned
-amr_corpus/amr2.0/o5/test.txt.removedWiki.noempty.JAMRaligned
-
-# wiki
-amr_corpus/amr2.0/wiki/dev.wiki
-amr_corpus/amr2.0/wiki/dev.txt
-amr_corpus/amr2.0/wiki/test.wiki
-amr_corpus/amr2.0/wiki/test.txt
+```bash
+bash preprocess/install_alignment_tools.sh
 ```
 
-## Running Scripts
+See [here](scripts/README.md#install-details) for more install details
 
-First, make sure in the data configuration files (stored in config_files/config_data), the paths to data are correct.
+## Training a model
 
-Make sure you have the model configuartion file (usually stored in config_files/) you want to run.
+You first need to pre-process and align the data. For AMR2.0 do
 
-Make a folder to record experiment launch time and pid: `mkdir .jbsub_logs`
-
-1. run the data pre-processing:
-```
-bash run_tp/run_data.sh [data_config_file]
+```bash
+. set_environment.sh
+python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
 
-2. run the model (data pre-processing is included) **without** epoch evaluation:
+You will also need to unzip the precomputed BLINK cache
+
 ```
-CUDA_VISIBLE_DEVICES=0 bash run_tp/run_model_action-pointer.sh [model_config_file] [seed (optional); default is 42]
+unzip /path/to/linkcache.zip
 ```
 
-3. run **both** the model (data pre-processing is included) **and** the epoch evaluation:
+To launch train/test use (this will also run the aligner)
+
 ```
-CUDA_VISIBLE_DEVICES=0 bash run_tp/jbash_run_model-eval.sh [model_config_file] [seed (optional); default is 42]
-```
-this would run the two separate processes (model training and epoch evaluation) on the same GPU. To run them on different GPUs, one could use
-```
-bash run_tp/jbash_run_model-eval_2gpus.sh [model_config_file] [seed] [gpu_id_for_training] [gpu_id_for_evaluation]
+bash run/run_experiment.sh configs/amr2.0-action-pointer.sh
 ```
 
-4. run **only** the evaluation (epoch beam 1 valid evaluation and model selection, averaging, and final testing):
+you can check training status with
+
 ```
-CUDA_VISIBLE_DEVICES=0 bash run_tp/jbash_run_eval.sh [model_config_file] [seed (optional); default is 42]
-```
-
-## Running Scripts on CCC
-
-First, make sure in the data configuration files (stored in config_files/config_data), the paths to data are correct.
-
-Make sure you have the model configuartion file (usually stored in config_files/) you want to run.
-
-Make a folder to record experiment launch time and pid: `mkdir .jbsub_logs`
-
-1. run the data pre-processing:
-
-submit the following interactive bash command to CCC
-```
-bash run_tp/run_data.sh [data_config_file]
+python run/status.py --config configs/amr2.0-action-pointer.sh
 ```
 
-2. run the model (data pre-processing is included) **without** epoch evaluation:
+use `--results` to check for scores once models are finished.
 
-submit the corresponding interactive bash command (above) to CCC, or use the following script directly where job submission is wrapped inside
-```
-bash run_tp/jbsub_run_model.sh [model_config_file] [seed (optional); default is 42]
-```
+## Decode with Pre-trained model
 
-3. run **both** the model (data pre-processing is included) **and** the epoch evaluation:
+To use from the command line with a trained model do
 
-submit the corresponding interactive bash command (above) to CCC, or use the following script directly where job submission is wrapped inside
-```
-bash run_tp/jbsub_run_model-eval.sh [model_config_file] [seed (optional); default is 42]
-```
-this would run the two separate processes (model training and epoch evaluation) on the same GPU.
-
-4. run **only** the evaluation (epoch beam 1 valid evaluation and model selection, averaging, and final testing):
-
-submit the corresponding interactive bash command (above) to CCC, or use the following script directly where job submission is wrapped inside
-```
-bash run_tp/jbsub_run_eval.sh [model_config_file] [seed (optional); default is 42]
+```bash
+amr-parse -c $in_checkpoint -i $input_file -o file.amr
 ```
 
-5. run 3 random seeds, both the model (data pre-processing is included) and the epoch evaluation:
+It will parse each line of `$input_file` separately (assumed tokenized).
+`$in_checkpoint` is the Pytorch checkpoint of a trained model. The `file.amr`
+will contain the PENMAN notation AMR with additional alignment information as
+comments. Use the flag `--service` together with `-c` for an iterative parsing
+mode.
 
-submit 3 jobs separately, or use the following script directly where job submission is wrapped inside
-```
-bash run_tp/jbsub_run_model-eval_seeds.sh [model_config_file]
-```
+To use from other Python code with a trained model do
 
-## Collect Model Scores
-
-To output a summary of model scores:
-```
-bash run_tp/collect_scores.sh [checkpoint_folder]
-```
-e.g. the `[checkpoint_folder]` is of form `EXP/exp_[data&model_config_tags]/models_ep120_seed42_[optimization_tags]/` after training and evaluation is done.
-
-To examine the epoch testing and model selection results (ranked smatch scores, beam 1 on dev data):
-```
-less [checkpoint_folder]/epoch_wiki-smatch_ranks.txt
+```python
+from transition_amr_parser.parse import AMRParser
+parser = AMRParser.from_checkpoint(in_checkpoint)
+annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
+# Penman notation
+print(''.join(annotations[0][0]))
 ```
