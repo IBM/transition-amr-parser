@@ -14,3 +14,6 @@ cd pytorch_scatter
 git checkout 1.3.2
 cd ..
 pip install --editable pytorch_scatter/
+
+# sanity check
+python tests/correctly_installed.py
