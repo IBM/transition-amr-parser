@@ -1,14 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.4.0'
-
-package_data = {
-    'transition_amr_parser': [
-        'config.json',
-        'entity_rules.json',
-        'train.rules.json'
-     ]
-}
+VERSION = '0.5.0'
 
 # this is what usually goes on requirements.txt
 install_requires = [
@@ -48,5 +40,4 @@ setup(
     },
     packages=find_packages(),
     install_requires=install_requires,
-    package_data=package_data,
 )

@@ -1,9 +1,11 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.4.2`. Current code implements the `Action-Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. The model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test.
+Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.5.0`. Current code implements the `Structured-BART` model. The model yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on AMR2.0 test. 
 
-Checkout the stack-transformer branch for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.2` Smatch (`81.3` with self-learning) on AMR2.0 test (this code reaches `80.5` due to the aligner implementation). Stack-Transformer can be used to reproduce our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
+Checkout the `action-pointer-transformer` branch (version `0.4.2`) for the `Action Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. The model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test.
+
+Checkout the `stack-transformer` branch (version `0.3.4`) for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.2` Smatch (`81.3` with self-learning) on AMR2.0 test (this code reaches `80.5` due to the aligner implementation). Stack-Transformer can be used to reproduce our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
 
 The code also contains an implementation of the AMR aligner from [(Naseem et al 2019)](https://www.aclweb.org/anthology/P19-1451/) with the forced-alignment introduced in [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89).
 
@@ -15,7 +17,7 @@ IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wik
 
 ## Installation
 
-Just clone and pip install (see `set_environment.sh` below if you use a virtualenv)
+Clone and pip install (see `set_environment.sh` below if you use a virtualenv)
 
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
@@ -42,6 +44,15 @@ train and test scripts always source this script i.e.
 ```
 
 that will spare you activating the environments or setting up system variables and other each time, which helps when working with computer clusters. 
+
+You will also need Pytorch Scatter version `1.3.2`
+
+```
+git clone https://github.com/rusty1s/pytorch_scatter.git
+cd pytorch_scatter
+git checkout 1.3.2
+pip install .
+```
 
 To test if install worked
 ```bash
