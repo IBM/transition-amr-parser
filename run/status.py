@@ -244,7 +244,7 @@ def print_status(config_env_vars, seed, do_clear=False):
         delta = col1_width + 2 + len(col2) - ncol
         # correction for scape symbols
         delta_cl = len(col1) - len_print(col1)
-        if delta_cl >  0:
+        if delta_cl > 0:
             width = col1_width + delta_cl
         else:
             width = col1_width
