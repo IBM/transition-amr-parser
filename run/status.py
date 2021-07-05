@@ -1,4 +1,6 @@
 import sys
+import shutil
+from time import sleep
 import numpy as np
 from glob import glob
 import signal
@@ -82,25 +84,30 @@ def argument_parser():
              " seed",
         action='store_true'
     )
+    parser.add_argument(
+        "--wait-checkpoint-ready-to-eval",
+        help="Wait 10 seconds to check if there is a checkpoint pending to "
+             "eval, return path if it exists.",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--clear",
+        help="Clear screen before printing status",
+        action='store_true'
+    )
     args = parser.parse_args()
     return args
 
 
-def print_step_status(step_folder):
-    if os.path.isfile(f'{step_folder}/.done'):
-        print(f"[\033[92mdone\033[0m] {step_folder}")
-    elif os.path.isdir(step_folder):
-        print(f"[\033[93mpart\033[0m] {step_folder}")
-    else:
-        print(f"[pend] {step_folder}")
-
-
 def check_model_training(seed_folder, max_epoch):
 
+    diplay_lines = []
     final_checkpoint = f'{seed_folder}/checkpoint{max_epoch}.pt'
     if os.path.isfile(final_checkpoint):
         # Last epoch completed
-        print(f"[\033[92m{max_epoch}/{max_epoch}\033[0m] {seed_folder}")
+        diplay_lines.append(
+            (f"\033[92m{max_epoch}/{max_epoch}\033[0m", f"{seed_folder}")
+        )
     else:
         # Get which epochs are completed
         epochs = []
@@ -110,10 +117,16 @@ def check_model_training(seed_folder, max_epoch):
                 epochs.append(int(fetch.groups()[0]))
         if epochs:
             curr_epoch = max(epochs)
-            print(f"[\033[93m{curr_epoch}/{max_epoch}\033[0m] {seed_folder}")
+            diplay_lines.append(
+                (f"\033[93m{curr_epoch}/{max_epoch}\033[0m", f"{seed_folder}")
+            )
         else:
             curr_epoch = 0
-            print(f"[{curr_epoch}/{max_epoch}] {seed_folder}")
+            diplay_lines.append(
+                (f"{curr_epoch}/{max_epoch}", f"{seed_folder}")
+            )
+
+    return diplay_lines
 
 
 def read_results(seed_folder, eval_metric, target_epochs):
@@ -152,22 +165,31 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
 
     # construct paths
     checkpoints = []
+    epochs = []
     for epoch in missing_epochs:
         checkpoint = f'{seed_folder}/checkpoint{epoch}.pt'
         if os.path.isfile(checkpoint) or not ready:
             checkpoints.append(os.path.realpath(checkpoint))
+            epochs.append(epoch)
 
-    return checkpoints, target_epochs
+    return checkpoints, target_epochs, missing_epochs
 
 
-def print_status(config_env_vars, seed):
+def print_status(config_env_vars, seed, do_clear=False):
 
     # Inform about completed stages
     # pre-training ones
-    print()
+    status_lines = []
     for variable in ['ALIGNED_FOLDER', 'ORACLE_FOLDER', 'EMB_FOLDER',
                      'DATA_FOLDER']:
-        print_step_status(config_env_vars[variable])
+        step_folder = config_env_vars[variable]
+        if os.path.isfile(f'{step_folder}/.done'):
+            status_lines.append((f"\033[92mdone\033[0m", f"{step_folder}"))
+        elif os.path.isdir(step_folder):
+            status_lines.append((f"\033[93mpart\033[0m", f"{step_folder}"))
+        else:
+            status_lines.append((f"pend", f"{step_folder}"))
+
     # training/eval ones
     model_folder = config_env_vars['MODEL_FOLDER']
     if seed is None:
@@ -182,34 +204,65 @@ def print_status(config_env_vars, seed):
         # all checkpoints trained
         seed_folder = f'{model_folder}-seed{seed}'
         max_epoch = int(config_env_vars['MAX_EPOCH'])
-        check_model_training(seed_folder, max_epoch)
+        status_lines.extend(check_model_training(seed_folder, max_epoch))
 
         # all checkpoints evaluated
-        checkpoints, target_epochs = \
+        checkpoints, target_epochs, _ = \
             get_checkpoints_to_eval(config_env_vars, seed)
         if checkpoints:
             delta = len(target_epochs) - len(checkpoints)
             if delta > 0:
-                print(
-                    f"[\033[93m{delta}/{len(target_epochs)}\033[0m] "
+                status_lines.append((
+                    f"\033[93m{delta}/{len(target_epochs)}\033[0m",
                     f"{seed_folder}"
-                )
+                ))
             else:
-                print(f"[{delta}/{len(target_epochs)}] {seed_folder}")
+                status_lines.append((
+                    f"{delta}/{len(target_epochs)}",
+                    f"{seed_folder}"
+                ))
 
         else:
-            print(
-                f"[{len(target_epochs)}/{len(target_epochs)}] "
+            status_lines.append((
+                f"{len(target_epochs)}/{len(target_epochs)}",
                 f"{seed_folder}"
-            )
+            ))
 
         # Final model and results
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
         dec_checkpoint = f'{model_folder}-seed{seed}/{dec_checkpoint}'
         if os.path.isfile(dec_checkpoint):
-            print(f"[\033[92mdone\033[0m] {dec_checkpoint}")
+            status_lines.append((f"\033[92mdone\033[0m", f"{dec_checkpoint}"))
         else:
-            print(f"[pend] {dec_checkpoint}")
+            status_lines.append((f"pend", f"{dec_checkpoint}"))
+
+    # format lines to avoid overflowing command line size
+    ncol, _ = shutil.get_terminal_size((80, 20))
+    col1_width = max(len_print(x[0]) for x in status_lines) + 2
+    new_statues_lines = []
+    for (col1, col2) in status_lines:
+        delta = col1_width + 2 + len(col2) - ncol
+        # correction for scape symbols
+        delta_cl = len(col1) - len_print(col1)
+        if delta_cl >  0:
+            width = col1_width + delta_cl
+        else:
+            width = col1_width
+
+        if delta > 0:
+            half_delta = delta // 2 + 4
+            half_col2 = len(col2) // 2
+            col2_crop = col2[:half_col2 - half_delta]
+            col2_crop += '[...]'
+            col2_crop += col2[half_col2 + half_delta:]
+            new_statues_lines.append(f'[{col1:^{width}}] {col2_crop}')
+        else:
+            new_statues_lines.append(f'[{col1:^{width}}] {col2}')
+
+    # print
+    if do_clear:
+        os.system('clear')
+    print('\n'.join(new_statues_lines))
     print()
 
 
@@ -392,7 +445,7 @@ def average_results(results, fields, average_fields, ignore_fields,
 
 
 def display_results(models_folder, config, set_seed, seed_average, do_test,
-                    longr=False):
+                    longr=False, do_clear=False):
 
     # Table header
     results = []
@@ -434,7 +487,7 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
                 test_time = None
 
             # get experiments info
-            _, target_epochs = get_checkpoints_to_eval(
+            _, target_epochs, _ = get_checkpoints_to_eval(
                 config_env_vars,
                 seed,
                 ready=True
@@ -537,7 +590,7 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
             8: '{:.1f}'.format,
             9: '{:.1f}'.format
         }
-        print_table(fields, results, formatter=formatter)
+        print_table(fields, results, formatter=formatter, do_clear=do_clear)
 
         if config and longr:
             # single model result display
@@ -552,7 +605,7 @@ def len_print(string):
     if string is None:
         return 0
     else:
-        bash_scape = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
+        bash_scape = re.compile(r'\x1b\[\d+m|\x1b\[0m')
         return len(bash_scape.sub('', string))
 
 
@@ -572,7 +625,7 @@ def get_cell_str(row, field, formatter):
     return cell
 
 
-def print_table(header, data, formatter):
+def print_table(header, data, formatter, do_clear=False):
 
     # data structure checks
 
@@ -586,6 +639,8 @@ def print_table(header, data, formatter):
         max_col_size.append(max(row_lens))
 
     # format and print
+    if do_clear:
+        os.system('clear')
     print('')
     col_sep = ' '
     row_str = ['{:^{width}}'.format(h, width=max_col_size[n])
@@ -617,7 +672,32 @@ def main(args):
         # results display and exit
         display_results('DATA/*/models/', args.config, args.seed,
                         args.seed_average, args.test,
-                        longr=bool(args.long_results))
+                        longr=bool(args.long_results),
+                        do_clear=args.clear)
+
+    elif args.wait_checkpoint_ready_to_eval:
+
+        # List checkpoints that need to be evaluated to complete training. If
+        # ready=True list only those checkpoints that exist already
+        assert args.seed, "Requires --seed"
+        config_env_vars = read_config_variables(args.config)
+        eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
+        while True:
+
+            checkpoints, target_epochs, missing = get_checkpoints_to_eval(
+                config_env_vars,
+                args.seed,
+                ready=True
+            )
+            if missing == []:
+                print('Checkpoint evaluation complete!')
+                break
+            elif checkpoints:
+                break
+
+            print_status(config_env_vars, args.seed, do_clear=args.clear)
+            print(f'Waiting for checkpoint {eval_init_epoch}')
+            sleep(10)
 
     elif args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
 
@@ -625,7 +705,7 @@ def main(args):
         # ready=True list only those checkpoints that exist already
         assert args.seed, "Requires --seed"
         config_env_vars = read_config_variables(args.config)
-        checkpoints, target_epochs = get_checkpoints_to_eval(
+        checkpoints, target_epochs, _ = get_checkpoints_to_eval(
             config_env_vars,
             args.seed,
             ready=bool(args.list_checkpoints_ready_to_eval)
@@ -640,7 +720,7 @@ def main(args):
 
         # print status for this config
         config_env_vars = read_config_variables(args.config)
-        print_status(config_env_vars, args.seed)
+        print_status(config_env_vars, args.seed, do_clear=args.clear)
 
     if args.link_best or args.remove:
 
@@ -648,7 +728,7 @@ def main(args):
         # ready=True list only those checkpoints that exist already
         assert args.seed, "Requires --seed"
         if checkpoints is None:
-            checkpoints, target_epochs = get_checkpoints_to_eval(
+            checkpoints, target_epochs, _ = get_checkpoints_to_eval(
                 config_env_vars,
                 args.seed,
                 ready=bool(args.list_checkpoints_ready_to_eval)
