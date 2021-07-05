@@ -1,2 +1,0 @@
-ROOTDIR=EXP
-
