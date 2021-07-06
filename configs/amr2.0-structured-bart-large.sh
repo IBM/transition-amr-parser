@@ -170,9 +170,9 @@ src_roberta_enc=0
 src_fix_emb_use=0
 clip_norm=0.0
 weight_decay=0.0
-loss_coef=-1
-dyo_run_start=-0
-dyo_run_freq=-1
+loss_coef=1
+dyo_run_start=0
+dyo_run_freq=1
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
