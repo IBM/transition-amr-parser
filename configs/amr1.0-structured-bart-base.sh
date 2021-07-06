@@ -46,8 +46,8 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
-WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
+WIKI_DEV=""
+WIKI_TEST=""
 
 ##############################################################################
 # ORACLE
@@ -170,9 +170,9 @@ src_roberta_enc=0
 src_fix_emb_use=0
 clip_norm=0.0
 weight_decay=0.0
-loss_coef=-1
-dyo_run_start=-0
-dyo_run_freq=-1
+loss_coef=1
+dyo_run_start=0
+dyo_run_freq=1
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
