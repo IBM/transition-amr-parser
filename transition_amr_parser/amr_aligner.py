@@ -1238,7 +1238,7 @@ def argument_parser():
         "--rule-prior-strength",
         help="Prior strength of rules (interpreted as pseudocounts)",
         type=float,
-        default=1.0
+        default=100
     )
     parser.add_argument(
         "--force-align-ner",
