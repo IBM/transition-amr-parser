@@ -11,6 +11,7 @@ DATA*
 EXP*
 checkpoints*
 amr_corpus*
+*.zip
 #!EXPR
 */gigaword_ref.txt
 file.amr
