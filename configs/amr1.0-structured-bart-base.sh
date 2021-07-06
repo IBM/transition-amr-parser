@@ -18,7 +18,7 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=AMR2.0
+TASK_TAG=AMR1.0
 
 # TODO: Omit these global vars and use 
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
