@@ -18,9 +18,10 @@ python transition_amr_parser/amr_machine.py \
 
 python transition_amr_parser/amr_machine.py \
     --in-machine-config $oracle_folder/machine_config.json \
-    --in-tokens tmp.tokens \
+    --in-tokens $oracle_folder/train.tokens \
     --in-actions $oracle_folder/train.actions \
     --out-amr $oracle_folder/train_oracle.amr
 
 # Score
-#smatch.py -r 10 --significant 4 -f $gold_amr $oracle_folder/train_oracle.amr
+echo "Conmputing Smatch (make take long for 1K or more sentences)"
+smatch.py -r 10 --significant 4 -f $gold_amr $oracle_folder/train_oracle.amr
