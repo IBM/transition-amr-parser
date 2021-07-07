@@ -651,6 +651,7 @@ class AMR():
         FIXME: Just modifies ::node line with respect to the original
         """
         output = penman.encode(self.penman)
+        # Try first to just modify existing JAMR annotation
         new_lines = []
         modified = False
         for line in output.split('\n'):
@@ -668,7 +669,11 @@ class AMR():
                     raise Exception()
                 line = '\t'.join(items)
             new_lines.append(line)
-        assert modified
+        # if not we write it ourselves
+        if not modified:
+            from ipdb import set_trace
+            set_trace(context=30)
+            print()
         return ('\n'.join(new_lines)) + '\n'
 
 

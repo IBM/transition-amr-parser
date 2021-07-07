@@ -22,22 +22,24 @@ Clone and pip install (see `set_environment.sh` below if you use a virtualenv)
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
-pip install .  # use --editable if you plan to modify code
+. set_environment.sh     # see below
+pip install .            # use --editable if to modify code
 ```
 
 We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
 
 ```bash
+# inside set_environment.sh
 [ ! -d venv ] && virtualenv venv
 . venv/bin/activate
 ```
-You can leave this empty if you don't want to use it
+OR you can leave this empty and handle environment activation yourself i.e.
 
 ```bash
 touch set_environment.sh
 ```
 
-train and test scripts always source this script i.e.
+train and test scripts always source this script at the beggining i.e.
 
 ```bash
 . set_environment.sh
