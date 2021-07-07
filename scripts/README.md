@@ -63,9 +63,3 @@ python scripts/gold_path_metric.py --in-amr /path/to/file.amr --gold-amr /path/t
 ```
 
 To restrict to paths involving unknowns and named entities (KBQA) user the `--kb-only` flag
-
-# Remove AMR annotations with :rel
-
-This can be used together with the silver data creation config
-
-    python scripts/gold_path_metric.py /path/to/file.amr /path/to/filtered.amr
