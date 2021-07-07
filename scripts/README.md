@@ -1,6 +1,7 @@
 ## Install Details
 
 An example of `set_environment.sh` for conda
+
 ```
 # Activate conda and local virtualenv for this machine
 eval "$(/path/to/miniconda3/bin/conda shell.bash hook)"
@@ -12,6 +13,7 @@ The code has been tested on Python `3.6` and `3.7` (x86 only). Alternatively,
 you may pre-install some of the packages with conda, if this works better on
 your architecture, and the do the pip install above. You will need this for PPC
 instals.
+
 ```
 conda install -y pytorch==1.4.0 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch
 ```
@@ -22,11 +24,22 @@ This requires an extra `pip install matplotlib`. Then you can plot random or
 target aligned AMRs (following sentence order)
 
 ```
-python scripts/plot_amr.py --in-amr DATA/AMR2.0/aligned/cofill/train.txt
+python scripts/plot_amr.py --in-amr DATA/wiki25.jkaln
 ```
 
 Use `--indices` to select AMRs by the order they appear in the file. See
 `--has-*` flags to select by graph properties
+
+## Understanding the Oracle
+
+An oracle is a module that given a sentence and its AMR annotation (aligned,
+right now) provides a sequence of actions, that played on a state machine
+produce back the AMR. Current AMR oracle aka Oracle10 can be explored in
+isolation running
+
+```
+bash tests/oracles/amr_o10.sh DATA/wiki25.jkaln
+```
 
 ## Sanity check AMR 
 
