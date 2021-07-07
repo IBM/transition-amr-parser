@@ -1,7 +1,7 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.5.0`. Current code implements the `Structured-BART` model. The model yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on AMR2.0 test. 
+Transition-based parser for Abstract Meaning Representation (AMR) version `0.5.0`. Current code implements the `Structured-BART` model. The model yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on AMR2.0 test. 
 
 Checkout the `action-pointer-transformer` branch (version `0.4.2`) for the `Action Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. The model yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test.
 
@@ -26,7 +26,7 @@ cd transition-amr-parser
 pip install .            # use --editable if to modify code
 ```
 
-We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
+The code needs Pytorch `1.4` and Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
 
 ```bash
 # inside set_environment.sh
