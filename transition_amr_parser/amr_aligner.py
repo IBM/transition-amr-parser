@@ -1060,6 +1060,7 @@ def save_aligned(amrs, original_tokens, indices, amr_aligner, out_aligned_amr,
     if out_aligned_amr:
         with open(out_aligned_amr, 'w') as fid:
             for amr in final_amrs:
+                set_trace(context=30)
                 fid.write(
                     '\n'.join(amr.toJAMRString().split('\n')[3:]) + '\n\n'
                 )
