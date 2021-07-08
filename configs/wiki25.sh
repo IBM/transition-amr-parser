@@ -312,7 +312,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
 ###############################################################
 
 # Smatch evaluation with wiki
-BLINK_CACHE_PATH=DATA/EL/BLINK/linkcache
+LINKER_CACHE_PATH=DATA/EL/BLINK/linkcache
 
 ###############################################################
 # TESTS 

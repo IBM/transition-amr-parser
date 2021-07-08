@@ -2,7 +2,6 @@ import re
 import json
 from collections import Counter, defaultdict
 import subprocess
-from transition_amr_parser.amr import JAMR_CorpusReader
 import ast
 import xml.etree.ElementTree as ET
 import penman
@@ -842,37 +841,6 @@ def write_action_scores(file_path, action_scores):
                 f'{sid} {score[0]} {score[1]} {score[2]} {smatch} {length}'
                 f' {reason} {actions}\n'
             )
-
-
-def read_amr(in_amr, unicode_fixes=False):
-
-    corpus = JAMR_CorpusReader()
-    corpus.load_amrs(in_amr)
-
-    if unicode_fixes:
-
-        # Replacement rules for unicode chartacters
-        replacement_rules = {
-            'ˈtʃærɪti': 'charity',
-            '\x96': '_',
-            '⊙': 'O'
-        }
-
-        # FIXME: normalization shold be more robust. Right now use the tokens
-        # of the amr inside the oracle. This is why we need to normalize them.
-        for idx, amr in enumerate(corpus.amrs):
-            new_tokens = []
-            for token in amr.tokens:
-                forbidden = [x for x in replacement_rules.keys() if x in token]
-                if forbidden:
-                    token = token.replace(
-                        forbidden[0],
-                        replacement_rules[forbidden[0]]
-                     )
-                new_tokens.append(token)
-            amr.tokens = new_tokens
-
-    return corpus
 
 
 def read_rule_stats(rule_stats_json):
