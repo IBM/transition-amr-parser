@@ -43,13 +43,13 @@ if [ $data_split2 == "dev" ]; then
     data_split=valid
     data_split_name=dev
     reference_amr=$AMR_DEV_FILE
-    wiki=$WIKI_DEV
+    wiki=$LINKER_CACHE_PATH/dev.wiki
     reference_amr_wiki=$AMR_DEV_FILE_WIKI
 elif [ $data_split2 == "test" ]; then
     data_split=test
     data_split_name=test
     reference_amr=$AMR_TEST_FILE
-    wiki=$WIKI_TEST
+    wiki=$LINKER_CACHE_PATH/test.wiki
     reference_amr_wiki=$AMR_TEST_FILE_WIKI
 else
     echo "$2 is invalid; must be dev or test"
@@ -99,6 +99,30 @@ python transition_amr_parser/amr_machine.py \
     --out-amr ${results_prefix}.amr
 
 
+# GRAPH POST-PROCESSING
+
+# TODO: Unelegant detection of linker method (temporary)
+if [ -f "${LINKER_CACHE_PATH}/trn.wikis" ];then
+
+    # Legacy linker 
+    python scripts/add_wiki.py \
+        ${results_prefix}.amr $wiki $LINKER_CACHE_PATH \
+        > ${results_prefix}.wiki.amr
+
+else
+
+    # BLINK cache
+    python scripts/retyper.py \
+        --inputfile ${results_prefix}.amr \
+        --outputfile ${results_prefix}.wiki.amr \
+        --skipretyper \
+        --wikify \
+        --blinkcachepath $LINKER_CACHE_PATH \
+        --blinkthreshold 0.0
+
+fi
+
+
 ##### SMATCH evaluation
 if [[ "$EVAL_METRIC" == "smatch" ]]; then
 
@@ -115,16 +139,6 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     cat ${results_prefix}.smatch
 
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
-
-    # Smatch evaluation with wiki
-    # add wiki
-    python scripts/retyper.py \
-        --inputfile ${results_prefix}.amr \
-        --outputfile ${results_prefix}.wiki.amr \
-        --skipretyper \
-        --wikify \
-        --blinkcachepath $BLINK_CACHE_PATH \
-        --blinkthreshold 0.0
 
     # compute score
     echo "Computing SMATCH ---"
