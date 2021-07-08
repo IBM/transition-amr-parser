@@ -11,6 +11,7 @@ import argparse
 from collections import defaultdict
 from statistics import mean
 from transition_amr_parser.io import read_config_variables, clbar
+# from ipdb import set_trace
 
 
 # Sanity check python3
@@ -229,11 +230,20 @@ def print_status(config_env_vars, seed, do_clear=False):
 
         # Final model and results
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
+        beam_size = config_env_vars['BEAM_SIZE']
+        eval_metric = config_env_vars['EVAL_METRIC']
+        # valid_checkpoint_wiki.smatch_top5-avg.pt
+        dec_final_result = (
+            f'{model_folder}-seed{seed}/beam{beam_size}/'
+            f'valid_{dec_checkpoint}.{eval_metric}'
+        )
         dec_checkpoint = f'{model_folder}-seed{seed}/{dec_checkpoint}'
-        if os.path.isfile(dec_checkpoint):
-            status_lines.append((f"\033[92mdone\033[0m", f"{dec_checkpoint}"))
+        if os.path.isfile(dec_final_result):
+            status_lines.append(
+                (f"\033[92mdone\033[0m", f"{dec_final_result}")
+            )
         else:
-            status_lines.append((f"pend", f"{dec_checkpoint}"))
+            status_lines.append((f"pend", f"{dec_final_result}"))
 
     # format lines to avoid overflowing command line size
     ncol, _ = shutil.get_terminal_size((80, 20))
