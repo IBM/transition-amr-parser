@@ -1,44 +1,37 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch. The code includes two fundamental components.
+Transition-based parser for Abstract Meaning Representation (AMR) in Pytorch version `0.3.4`. Current code implements the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. This yields `80.2` Smatch (`81.3` with self-learning) on AMR2.0 test (this code reaches `80.5` due to the aligner implementation). Stack-Transformer can be used to reproduce our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
 
-1. A State machine and oracle transforming the sequence-to-graph task into a sequence-to-sequence problem. This follows the AMR oracles in [(Ballesteros and Al-Onaizan 2017)](https://arxiv.org/abs/1707.07755v1) with improvements from [(Naseem et al 2019)](https://arxiv.org/abs/1905.13370) and [(Fernandez Astudillo et al 2020)](https://openreview.net/pdf?id=b36spsuUAde)
+The code also contains an implementation of the AMR aligner from [(Naseem et al 2019)](https://www.aclweb.org/anthology/P19-1451/) with the forced-alignment introduced in [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89).
 
-2. The stack-Transformer [(Fernandez Astudillo et al 2020)](https://openreview.net/pdf?id=b36spsuUAde). A sequence to sequence model that also encodes stack and buffer state of the parser into its attention heads.
+Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
-Current version is `0.3.3` and yields `80.5` Smatch on the AMR2.0 test-set using the default stack-Transformer configuration. Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
+## Installation
 
-## IBM Internal Features
-
-Check [Parsing Services](https://github.ibm.com/mnlp/transition-amr-parser/wiki/Parsing-Services) for the endpoint URLs and Docker instructions. If you have acess to CCC and LDC data, we have available both the train data and trained models.
-
-## Manual Installation
-
-Clone the repository
+Clone and pip install (see `set_environment.sh` below if you use a virtualenv)
 
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
-```
-
-The code has been tested on Python `3.6.9`. We use a script to activate
-conda/pyenv and virtual environments. If you prefer to handle this yourself
-just create an empty file (the training scripts will assume it exists in any
-case).
-
-```bash
-touch set_environment.sh
-```
-
-Then for `pip` only install do
-
-```
-. set_environment.sh
+. set_environment.sh     # see below
 pip install -r scripts/stack-transformer/requirements.txt
 bash scripts/download_and_patch_fairseq.sh
 pip install --no-deps --editable fairseq-stack-transformer
-pip install --editable .
+pip install .            # use --editable if to modify code
+```
+
+The code needs Pytorch `1.1.0` and Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
+
+```bash
+# inside set_environment.sh
+[ ! -d venv ] && virtualenv venv
+. venv/bin/activate
+```
+OR you can leave this empty and handle environment activation yourself i.e.
+
+```bash
+touch set_environment.sh
 ```
 
 Alternatively for a `conda` install do
@@ -94,10 +87,10 @@ The same for AMR1.0
 python preprocess/merge_files.py /path/to/LDC2014T12/data/amrs/split/ DATA/AMR/corpora/amr1.0/
 ```
 
-You will also need to unzip the precomputed BLINK cache
+You will also need to unzip the precomputed BLINK cache (contact us to get this)
 
 ```
-unzip /dccstor/ykt-parse/SHARED/CORPORA/EL/linkcache.zip
+unzip /path/to/linkcache.zip
 ```
 
 Then just call a config to carry a desired experiment
