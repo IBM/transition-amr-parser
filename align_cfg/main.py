@@ -1420,8 +1420,6 @@ def main(args):
     # optimizer
     opt = optim.Adam(net.parameters(), lr=lr)
 
-    save_checkpoint(os.path.join(args.log_dir, 'model.init.pt'), trn_dataset, net)
-
     best_metrics = {}
 
     for epoch in range(max_epoch):
@@ -1582,14 +1580,13 @@ def main(args):
             # eval alignments
             eval_output = EvalAlignments().run(path + '.gold', path + '.pred')
 
-            val_recall = eval_output['Corpus Recall']['recall']
+            val_token_recall = eval_output['Corpus Recall']['recall']
+            epoch_metrics['val_{}_token_recall'.format(i_valid)] = val_token_recall
 
+            val_recall = eval_output['Corpus Recall using spans for gold']['recall']
             epoch_metrics['val_{}_recall'.format(i_valid)] = val_recall
 
             # save checkpoint
-
-            if check_and_update_best(best_metrics, 'val_{}_loss'.format(i_valid), val_loss, compare='lt'):
-                save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_loss.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
 
             if check_and_update_best(best_metrics, 'val_{}_recall'.format(i_valid), val_recall, compare='gt'):
                 save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_recall.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)

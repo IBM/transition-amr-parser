@@ -1,18 +1,38 @@
 import collections
 
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.amr import JAMR_CorpusReader
 
 import torch
 
 
-class Corpus:
-    pass
+def read_amr(in_amr, unicode_fixes=False):
 
+    corpus = JAMR_CorpusReader()
+    corpus.load_amrs(in_amr)
 
-def read_amr(*args, **kwargs):
-    amrs = read_amr2(*args, **kwargs)
-    corpus = Corpus()
-    corpus.amrs = amrs
+    if unicode_fixes:
+
+        # Replacement rules for unicode chartacters
+        replacement_rules = {
+            'ˈtʃærɪti': 'charity',
+            '\x96': '_',
+            '⊙': 'O'
+        }
+
+        # FIXME: normalization shold be more robust. Right now use the tokens
+        # of the amr inside the oracle. This is why we need to normalize them.
+        for idx, amr in enumerate(corpus.amrs):
+            new_tokens = []
+            for token in amr.tokens:
+                forbidden = [x for x in replacement_rules.keys() if x in token]
+                if forbidden:
+                    token = token.replace(
+                        forbidden[0],
+                        replacement_rules[forbidden[0]]
+                     )
+                new_tokens.append(token)
+            amr.tokens = new_tokens
+
     return corpus
 
 
