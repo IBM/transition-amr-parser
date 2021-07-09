@@ -1,6 +1,6 @@
 import os
 
-from transition_amr_parser.io import read_amr
+from amr_utils import read_amr
 
 
 PADDING_IDX = 0

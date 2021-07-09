@@ -1,6 +1,19 @@
 import collections
 
+from transition_amr_parser.io import read_amr2
+
 import torch
+
+
+class Corpus:
+    pass
+
+
+def read_amr(*args, **kwargs):
+    amrs = read_amr2(*args, **kwargs)
+    corpus = Corpus()
+    corpus.amrs = amrs
+    return corpus
 
 
 def get_node_ids(amr):

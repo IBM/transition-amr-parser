@@ -11,7 +11,7 @@ except:
 
 from tqdm import tqdm
 
-from transition_amr_parser.io import read_amr
+from amr_utils import read_amr
 
 from vocab import *
 

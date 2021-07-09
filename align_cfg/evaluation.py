@@ -1,7 +1,7 @@
 import collections
 
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
-from transition_amr_parser.io import read_amr
+from amr_utils import read_amr
 
 import numpy as np
 

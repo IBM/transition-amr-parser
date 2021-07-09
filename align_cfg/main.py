@@ -21,9 +21,8 @@ except:
 
 from tqdm import tqdm
 
-from transition_amr_parser.io import read_amr
-
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
+from amr_utils import read_amr
 from evaluation import EvalAlignments
 from formatter import FormatAlignments
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
@@ -79,7 +78,7 @@ def argument_parser():
         "--tst-amr",
         help="AMR input file.",
         type=str,
-        default=os.path.expanduser('~/data/AMR2.0/aligned/cofill/test.txt')
+        default=None
     )
     parser.add_argument(
         "--vocab-text",
@@ -97,6 +96,12 @@ def argument_parser():
         "--log-dir",
         help="Path to log directory.",
         default="log/demo",
+        type=str,
+    )
+    parser.add_argument(
+        "--home",
+        help="Used to specify default file paths.",
+        default="/dccstor/ykt-parse/SHARED/misc/adrozdov",
         type=str,
     )
     # Model options
@@ -255,11 +260,17 @@ def argument_parser():
                         help="Useful for book-keeping.")
     args = parser.parse_args()
 
+    if not os.path.exists(args.home):
+        args.home = os.path.expanduser('~')
+
     if args.val_amr is None:
         args.val_amr = [
-            os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt.dev-unseen-v1'),
-            os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1'),
+            os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-unseen-v1'),
+            os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1'),
         ]
+
+    if args.tst_amr is None:
+        args.tst_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/test.txt')
 
     if args.demo:
         args.trn_amr = args.val_amr[0]
@@ -267,10 +278,10 @@ def argument_parser():
 
     if args.write_only:
         if args.trn_amr is None:
-            args.trn_amr = os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt')
+            args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt')
 
     if args.trn_amr is None:
-        args.trn_amr = os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt.train-v1')
+        args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.train-v1')
 
     return args
 
