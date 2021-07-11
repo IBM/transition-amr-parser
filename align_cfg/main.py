@@ -830,7 +830,7 @@ class Net(nn.Module):
             # amr_pairwise_dist = amr_pairwise_dist / 100
             # text_pairwise_dist = text_pairwise_dist / 100
 
-            align_ = align.log().softmax(dim=1)
+            align_ = (align + 1e-8).log().softmax(dim=1)
             align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
             assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
 
