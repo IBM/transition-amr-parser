@@ -4,6 +4,8 @@ from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_i
 from amr_utils import read_amr
 
 import numpy as np
+import torch
+from tqdm import tqdm
 
 
 def format_value(val):
@@ -47,10 +49,10 @@ class MAPImpliedDistance(Metric):
         n = len(node_ids)
 
         def helper(amr, max_amr_dist=0):
-            res = []
+            vecs = collections.defaultdict(list)
 
             # TODO: Adjust for spans.
-            # TODO: Vectorize.
+            # TODO: Double check bias between gold and pred, since gold has less alignments.
             for i in range(n):
                 if node_ids[i] not in amr.alignments:
                     continue
@@ -58,33 +60,53 @@ class MAPImpliedDistance(Metric):
                 k = amr.alignments[node_ids[i]][0] - 1
 
                 for j in range(i + 1, n):
+
+                    # Only include aligned nodes.
                     if node_ids[j] not in amr.alignments:
                         continue
 
                     l = amr.alignments[node_ids[j]][0] - 1
 
-                    amr_dist = pairwise_dist[i, j].item()
+                    # TODO: Support different views.
+                    # if max_amr_dist > 0 and amr_dist > max_amr_dist:
+                    #     continue
 
-                    if max_amr_dist > 0 and amr_dist > max_amr_dist:
-                        continue
+                    vecs['i'].append(i)
+                    vecs['j'].append(j)
+                    vecs['k'].append(k)
+                    vecs['l'].append(l)
 
-                    tok_dist = np.abs(k - l).item()
-                    sq_diff = np.power(tok_dist - amr_dist, 2)
-                    res.append(sq_diff)
+                    # amr_dist = pairwise_dist[i, j].item()
+                    # tok_dist = np.abs(k - l).item()
+                    # sq_diff = np.power(tok_dist - amr_dist, 2)
+                    # res.append(sq_diff)
 
-            return res
+            if len(vecs) == 0:
+                return None
 
-        self.state['gold'].append(np.sum(helper(gold)))
-        self.state['gold_max_3'].append(np.sum(helper(gold, max_amr_dist=3)))
-        self.state['pred'].append(np.sum(helper(pred)))
-        self.state['pred_max_3'].append(np.sum(helper(pred, max_amr_dist=3)))
+            for k in list(vecs.keys()):
+                vecs[k] = torch.tensor(vecs[k], dtype=torch.long)
+
+            amr_dist = pairwise_dist[vecs['i'], vecs['j']]
+            tok_dist = torch.abs(vecs['k'] - vecs['l'])
+            sq_diff = torch.pow(tok_dist - amr_dist, 2)
+
+            return sq_diff
+
+        gold_res = helper(gold)
+        if gold_res is None:
+            return
+        pred_res = helper(pred)
+        if pred_res is None:
+            return
+
+        self.state['gold'].append(gold_res.float().mean().view(1))
+        self.state['pred'].append(pred_res.float().mean().view(1))
 
     def finish(self):
         result = dict()
-        result['pred'] = np.mean(self.state['pred']).item()
-        result['pred_max_3'] = np.mean(self.state['pred_max_3']).item()
-        result['gold'] = np.mean(self.state['gold']).item()
-        result['gold_max_3'] = np.mean(self.state['gold_max_3']).item()
+        result['pred'] = torch.cat(self.state['pred']).float().mean().item()
+        result['gold'] = torch.cat(self.state['gold']).float().mean().item()
         return result
 
 
@@ -356,25 +378,29 @@ class CorpusRecall_WithDupsAndSpans(CorpusRecall):
 
 
 class EvalAlignments(object):
-    def run(self, path_gold, path_pred, verbose=True):
+    def run(self, path_gold, path_pred, verbose=True, only_MAP=False):
 
-        metrics = [
-            # MAPImpliedDistance(),
-            SentenceRecall(),
-            CorpusRecall(),
-            CorpusRecall_ExcludeNode(),
-            CorpusRecall_DuplicateText(),
-            CorpusRecall_IgnoreURL(),
-            CorpusRecall_WithGoldSpans(),
-            CorpusRecall_WithDupsAndSpans(),
-        ]
+        if only_MAP:
+            metrics = [
+                MAPImpliedDistance(),
+            ]
+        else:
+            metrics = [
+                SentenceRecall(),
+                CorpusRecall(),
+                CorpusRecall_ExcludeNode(),
+                CorpusRecall_DuplicateText(),
+                CorpusRecall_IgnoreURL(),
+                CorpusRecall_WithGoldSpans(),
+                CorpusRecall_WithDupsAndSpans(),
+            ]
 
         gold = read_amr(path_gold).amrs
         pred = read_amr(path_pred).amrs
 
         assert len(gold) == len(pred)
 
-        for g, p in zip(gold, pred):
+        for g, p in tqdm(zip(gold, pred), desc='eval'):
 
             for m in metrics:
                 m.update(g, p)
