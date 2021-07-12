@@ -168,11 +168,13 @@ done
 # If we are doing on the fly decoding, we need to wait in this script until all
 # seeds have produced a model to launch the testers
 if [ "$on_the_fly_decoding" = true ];then
-    for seed in $SEEDS;do
 
-        # wait until first model is available
-        python run/status.py -c $config --seed $seed \
-            --wait-checkpoint-ready-to-eval --clear --remove
+    # wait until first checkpoint is available for any of the seeds. 
+    # Clean-up checkpoints and inform of status in the meanwhile
+    python run/status.py -c $config \
+        --wait-checkpoint-ready-to-eval --clear --remove
+
+    for seed in $SEEDS;do
 
         # test all available checkpoints and link the best model on dev too
         jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
@@ -185,12 +187,6 @@ if [ "$on_the_fly_decoding" = true ];then
     done
 fi
 
-# inform of progress 
-while true;do
-    clear
-    echo "Status of experiment $config"
-    echo ""
-    echo "(you can close this any time, use python run/status.py -c $config to check status)"
-    python run/status.py -c $config
-    sleep 10
-done
+# wait until final models has been evaluated 
+# NOTE checkpoints are cleaned-up by run_model_eval.sh
+python run/status.py -c $config --wait-finished --clear

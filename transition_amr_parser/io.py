@@ -531,10 +531,11 @@ class AMR():
         graph = penman.decode(penman_text)
         nodes, edges = get_simple_graph(graph)
         if tokenize:
-            assert 'snt' in graph.metadata, "AMR must contain field ::tok"
+            assert 'snt' in graph.metadata, "AMR must contain field ::snt"
             tokens, _ = protected_tokenizer(graph.metadata['snt'])
         else:
-            assert 'tok' in graph.metadata, "AMR must contain field ::tok"
+            assert 'tok' in graph.metadata, "AMR must contain field ::tok " \
+                "(or call this with tokenize=True)"
             tokens = graph.metadata['tok'].split()
         return cls(tokens, nodes, edges, graph.top, penman=graph, clean=True, connect=False)
 
