@@ -9,6 +9,7 @@ parser.add_argument('--path', default='/dccstor/ykt-parse/SHARED/misc/adrozdov/l
 parser.add_argument('--output', default='summary-output', type=str)
 parser.add_argument('--prefix', default='', type=str)
 parser.add_argument('--archive', action='store_true')
+parser.add_argument('--read-train', action='store_true')
 args = parser.parse_args()
 
 
@@ -18,14 +19,17 @@ class NoDataError(Exception):
 
 class Exp:
     @staticmethod
-    def from_logdir(logdir):
+    def from_logdir(logdir, read_train=False):
         exp = Exp(logdir)
         exp.read_flags()
         exp.read_metrics()
+        if read_train:
+            exp.read_train()
         return exp
 
     def __init__(self, logdir):
         self.logdir = logdir
+        self.amr2 = None
 
     def trim(self):
         epoch = self.recall['argmax']
@@ -75,6 +79,12 @@ class Exp:
         assert isinstance(self.flags, dict)
         assert isinstance(self.flags['model_config'], dict)
 
+    def read_train(self):
+        path = os.path.join(self.logdir + '_write_amr2', 'alignment.trn.out.pred.eval')
+        with open(path) as f:
+            data = json.loads(f.read())
+        self.amr2 = data
+
     def read_metrics(self):
         data_list = collections.defaultdict(list)
         epoch = 0
@@ -109,6 +119,7 @@ class Exp:
             o['argmin'] = argmin
             o['valmax'] = valmax
             o['valmin'] = valmin
+            o['values'] = v
 
             m[k] = o
 
@@ -163,6 +174,53 @@ class Summary:
             seeds = len(exp_list)
 
             print(f'{info} {seeds} {recall.max():.3f} {epoch[np.argmax(recall)]} {recall.mean():.3f} {epoch.mean():.1f}')
+
+    def summarize_amr2(self):
+
+        exp_list = []
+        for e in self.c.values():
+            for ee in e:
+                exp_list.append(ee)
+
+        print(len(exp_list))
+
+        values = {}
+        values['amr2_trn_recall'] = [e.amr2['Corpus Recall using spans for gold']['recall'] for e in exp_list]
+        values['amr2_val_recall_seen'] = [e.m['val_1_recall']['valmax'] for e in exp_list]
+        values['amr2_val_recall_seen_epoch'] = [e.m['val_1_recall']['argmax'] for e in exp_list]
+        values['amr2_val_loss_seen'] = [e.m['val_1_loss']['values'][epoch] for epoch, e in zip(values['amr2_val_recall_seen_epoch'], exp_list)]
+        index = collections.OrderedDict()
+        k = 'amr2_trn_recall'
+        index[k] = np.argsort(values[k])[::-1]
+        k = 'amr2_val_recall_seen'
+        index[k] = np.argsort(values[k])[::-1]
+        k = 'amr2_val_loss_seen'
+        index[k] = np.argsort(values[k])
+
+        for k in list(index.keys()):
+            index[k] = index[k].tolist()
+
+        sort_k = 'amr2_trn_recall'
+        for i, ix in enumerate(index[sort_k]):
+            e = exp_list[ix]
+
+            print(i)
+            print(e.flags['log_dir'])
+            print(e.flags)
+
+            epoch = values['amr2_val_recall_seen_epoch'][ix]
+            print('epoch = {}'.format(epoch))
+
+            for k in index.keys():
+                i_ = index[k].index(ix)
+                v = values[k][ix]
+                assert index[k][i_] == ix
+
+                if sort_k == k:
+                    assert i == i_
+
+                print('{} = {:.3f}, rank = {}'.format(k, v, i_))
+            print('')
 
     def summarize_verbose(self):
 
@@ -236,14 +294,17 @@ def main():
             continue
         logdir = os.path.join(args.path, fn)
         try:
-            exp = Exp.from_logdir(logdir)
+            exp = Exp.from_logdir(logdir, read_train=args.read_train)
             stats['found'] += 1
         except NoDataError:
             stats['skipped'] += 1
             continue
         s.add(exp)
 
-    s.summarize_verbose()
+    if args.read_train:
+        s.summarize_amr2()
+    else:
+        s.summarize_verbose()
 
     if args.archive:
         s.archive(args.output)
