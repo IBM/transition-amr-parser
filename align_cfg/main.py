@@ -130,22 +130,16 @@ def argument_parser():
         type=float,
     )
     parser.add_argument(
-        "--pr-amr-window",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=int,
-    )
-    parser.add_argument(
-        "--pr-text-window",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=int,
-    )
-    parser.add_argument(
         "--pr-after",
         help="Hyperparam for posterior regularization.",
         default=0,
         type=int,
+    )
+    parser.add_argument(
+        "--pr-epsilon",
+        help="Hyperparam for posterior regularization.",
+        default=None,
+        type=float,
     )
     parser.add_argument(
         "--pr-mode",
@@ -826,10 +820,6 @@ class Net(nn.Module):
             node_id = torch.arange(n_t, device=device)
             text_pairwise_dist = torch.abs(node_id.view(-1, 1) - node_id.view(1, -1)).float()
 
-            ## make these numbers small
-            # amr_pairwise_dist = amr_pairwise_dist / 100
-            # text_pairwise_dist = text_pairwise_dist / 100
-
             align_ = (align + 1e-8).log().softmax(dim=1)
             align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
             assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
@@ -842,20 +832,14 @@ class Net(nn.Module):
             #                 actual = align_pairwise[i, j, k, l]
             #                 assert torch.isclose(check, actual).item()
 
-            if args.pr_amr_window > 0:
-                mask = torch.ones(n_a, n_a, device=device)
-                mask[amr_pairwise_dist > args.pr_amr_window] = 0
-                align_pairwise = align_pairwise * mask.view(n_a, n_a, 1, 1)
-
             expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
             assert expected_text_dist.shape == (n_t, n_t)
 
-            pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
-
-            if args.pr_text_window > 0:
-                mask = torch.ones(n_t, n_t, device=device)
-                mask[text_pairwise_dist > args.pr_amr_window] = 0
-                pr_penalty_tmp = pr_penalty_tmp * mask
+            if args.pr_epsilon is not None:
+                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon)
+                pr_penalty_tmp = torch.where(pr_penalty_tmp > 0, pr_penalty_tmp, torch.zeros(1, device=device))
+            else:
+                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
 
             #assert torch.isclose(pr_penalty_tmp, pr_penalty_tmp.transpose(0, 1)).all().item()
             pr_penalty_triu = pr_penalty_tmp.triu()
