@@ -54,13 +54,13 @@ if __name__ == '__main__':
     try:
         import torch_scatter
         print("pytorch-scatter installed")
-    except ImportError:    
+    except ImportError:
         print("pytorch-scatter not installed")
 
     try:
         import torch_scatter.scatter_cuda
         print("torch_scatter.scatter_cuda works")
-    except ImportError:    
+    except ImportError:
         print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
         pass
 
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     try:
         from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
         print("transition_amr_parser.roberta_utils works")
-    except ImportError:    
+    except ImportError:
         print("fairseq installation failed")
         pass
 
@@ -76,7 +76,7 @@ if __name__ == '__main__':
         # scipy
         import spacy
         print('spacy installed')
-    except ImportError:    
+    except ImportError:
         print("spacy installation failed")
         pass
 

@@ -101,8 +101,13 @@ python transition_amr_parser/amr_machine.py \
 
 # GRAPH POST-PROCESSING
 
+if [ "$LINKER_CACHE_PATH" == "" ];then
+
+    # just copy AMR to wiki AMR
+    cp ${results_prefix}.amr ${results_prefix}.wiki.amr
+
 # TODO: Unelegant detection of linker method (temporary)
-if [ -f "${LINKER_CACHE_PATH}/trn.wikis" ];then
+elif [ -f "${LINKER_CACHE_PATH}/trn.wikis" ];then
 
     # Legacy linker 
     python scripts/add_wiki.py \

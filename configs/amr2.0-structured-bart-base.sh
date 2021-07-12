@@ -313,8 +313,6 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
 # ENTITY LINKING
 ###############################################################
 
-# Smatch evaluation with wiki
-
 # Old scorer
 LINKER_CACHE_PATH=""
 
@@ -328,5 +326,6 @@ LINKER_CACHE_PATH=""
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
+# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
