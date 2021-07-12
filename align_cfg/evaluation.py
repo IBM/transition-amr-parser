@@ -48,13 +48,13 @@ class MAPImpliedDistance(Metric):
         node_ids = tree['node_ids']
         n = len(node_ids)
 
-        def helper(amr, max_amr_dist=0):
+        def helper(amr, check_amr, max_amr_dist=0):
             vecs = collections.defaultdict(list)
 
             # TODO: Adjust for spans.
             # TODO: Double check bias between gold and pred, since gold has less alignments.
             for i in range(n):
-                if node_ids[i] not in amr.alignments:
+                if node_ids[i] not in check_amr.alignments:
                     continue
 
                 k = amr.alignments[node_ids[i]][0] - 1
@@ -62,7 +62,7 @@ class MAPImpliedDistance(Metric):
                 for j in range(i + 1, n):
 
                     # Only include aligned nodes.
-                    if node_ids[j] not in amr.alignments:
+                    if node_ids[j] not in check_amr.alignments:
                         continue
 
                     l = amr.alignments[node_ids[j]][0] - 1
@@ -93,10 +93,10 @@ class MAPImpliedDistance(Metric):
 
             return sq_diff
 
-        gold_res = helper(gold)
+        gold_res = helper(gold, gold)
         if gold_res is None:
             return
-        pred_res = helper(pred)
+        pred_res = helper(pred, gold)
         if pred_res is None:
             return
 
@@ -107,6 +107,12 @@ class MAPImpliedDistance(Metric):
         result = dict()
         result['pred'] = torch.cat(self.state['pred']).float().mean().item()
         result['gold'] = torch.cat(self.state['gold']).float().mean().item()
+
+        diff = torch.cat(self.state['gold']) - torch.cat(self.state['pred'])
+        index = torch.argsort(diff)
+        show = 100
+        print(' '.join([str(x) for x in index[:show].tolist()]))
+
         return result
 
 
@@ -400,7 +406,7 @@ class EvalAlignments(object):
 
         assert len(gold) == len(pred)
 
-        for g, p in tqdm(zip(gold, pred), desc='eval'):
+        for i, (g, p) in tqdm(enumerate(zip(gold, pred)), desc='eval'):
 
             for m in metrics:
                 m.update(g, p)

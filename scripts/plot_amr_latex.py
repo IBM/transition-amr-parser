@@ -8,7 +8,7 @@ import random
 import re
 import numpy as np
 from random import shuffle
-from transition_amr_parser.io import read_amr
+from transition_amr_parser.amr import JAMR_CorpusReader
 from amr_latex import get_tikz_latex
 
 def argument_parser():
@@ -69,12 +69,49 @@ def argument_parser():
         "--has-edges", nargs='+',
         help="filter for AMRs that have those nodes"
     )
+    parser.add_argument(
+        "--sortby-recall",
+        help="Sort examples by recall, only if gold-amr is provided.",
+        action='store_true'
+    )
     args = parser.parse_args()
     if args.seed is None:
         args.seed = random.randint(1, 1e8)
     if args.out_tex is None:
         args.out_tex = args.in_amr + '.tex'
     return args
+
+
+def read_amr(in_amr, unicode_fixes=False):
+
+    corpus = JAMR_CorpusReader()
+    corpus.load_amrs(in_amr)
+
+    if unicode_fixes:
+
+        # Replacement rules for unicode chartacters
+        replacement_rules = {
+            'ˈtʃærɪti': 'charity',
+            '\x96': '_',
+            '⊙': 'O'
+        }
+
+        # FIXME: normalization shold be more robust. Right now use the tokens
+        # of the amr inside the oracle. This is why we need to normalize them.
+        for idx, amr in enumerate(corpus.amrs):
+            new_tokens = []
+            for token in amr.tokens:
+                forbidden = [x for x in replacement_rules.keys() if x in token]
+                if forbidden:
+                    token = token.replace(
+                        forbidden[0],
+                        replacement_rules[forbidden[0]]
+                     )
+                new_tokens.append(token)
+            amr.tokens = new_tokens
+
+    return corpus
+
 
 def main(args):
     print(json.dumps(args.__dict__))
@@ -109,8 +146,9 @@ def main(args):
 
     if args.gold_amr is not None:
         gold_corpus = read_amr(args.gold_amr).amrs
-        sortkeys = [compare_align(g, p) for g, p in zip(gold_corpus, corpus)]
-        indices = np.argsort(sortkeys)
+        if args.sortby_recall:
+            sortkeys = [compare_align(g, p) for g, p in zip(gold_corpus, corpus)]
+            indices = np.argsort(sortkeys)
 
     fname = args.out_tex if args.out_tex.endswith(".tex") else args.out_tex + ".tex"
     fdraw = open(fname,'w')
@@ -168,9 +206,9 @@ def main(args):
         fdraw.write("\n\\begin{footnotesize}\n")
         fdraw.write(latex_str)
         fdraw.write("\n\end{footnotesize}\n")
-        fdraw.write('%' + 'pred\n')
-        fdraw.write('%' + 'index={}\n'.format(index))
-        fdraw.write('%' + 'tokens={}\n'.format(' '.join(amr.tokens)))
+        fdraw.write('pred\n')
+        fdraw.write('index={}\n'.format(index))
+        fdraw.write('tokens={}\n'.format(' '.join(amr.tokens)))
         fdraw.write('%' + '\n')
 
         if args.gold_amr is not None:
@@ -182,9 +220,9 @@ def main(args):
             fdraw.write(latex_str)
             fdraw.write("\n\end{footnotesize}\n")
 
-            recall = sortkeys[index]
-
-            fdraw.write('recall = {:.3f}\n'.format(recall))
+            if args.sortby_recall:
+                recall = sortkeys[index]
+                fdraw.write('recall = {:.3f}\n'.format(recall))
 
             fdraw.write('%' + 'gold\n')
             fdraw.write('%' + 'index={}\n'.format(index))
