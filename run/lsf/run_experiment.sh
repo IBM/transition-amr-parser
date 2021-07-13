@@ -180,6 +180,8 @@ if [ "$on_the_fly_decoding" = true ];then
 
     for seed in $SEEDS;do
 
+        checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+
         # test all available checkpoints and link the best model on dev too
         jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
         jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
