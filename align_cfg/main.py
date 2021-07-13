@@ -24,7 +24,7 @@ from tqdm import tqdm
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
 from amr_utils import read_amr
 from evaluation import EvalAlignments
-from formatter import FormatAlignments
+from formatter import FormatAlignments, FormatAlignmentsPretty
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from tree_rnn import TreeEncoder as TreeRNNEncoder
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
@@ -172,6 +172,11 @@ def argument_parser():
         type=int,
     )
     # Output options
+    parser.add_argument(
+        "--write-pretty",
+        help="If true, then write alignments to file.",
+        action='store_true',
+    )
     parser.add_argument(
         "--write-only",
         help="If true, then write alignments to file.",
@@ -1360,6 +1365,33 @@ def main(args):
     if args.cuda:
         net.cuda()
 
+    def write_align_pretty(corpus, dataset, path, formatter):
+        net.eval()
+
+        indices = np.arange(len(corpus))
+
+        print('writing to {}.pretty'.format(os.path.abspath(path)))
+        fout = open(path + '.pretty', 'w')
+        fout_gold = open(path + '.gold', 'w')
+
+        with torch.no_grad():
+            for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
+                end = min(start + batch_size, len(corpus))
+                batch_indices = indices[start:end]
+                items = [dataset[idx] for idx in batch_indices]
+                batch_map = batchify(items, cuda=args.cuda)
+
+                # forward pass
+                model_output = net(batch_map)
+
+                # write
+                for i_b, (amr, out) in enumerate(formatter.format(batch_map, model_output, batch_indices)):
+                    fout.write(out.strip() + '\n\n')
+                    fout_gold.write(amr.toJAMRString().strip() + '\n\n')
+
+        fout.close()
+        fout_gold.close()
+
     def write_align(corpus, dataset, path, formatter):
         net.eval()
 
@@ -1382,13 +1414,14 @@ def main(args):
 
         writer.close()
 
-    if args.write_only:
-        #val_dataset = val_dataset_list[0]
+    if args.write_pretty:
 
-        #path = os.path.join(args.log_dir, 'alignment.val.out')
-        #formatter = FormatAlignments(val_dataset)
-        #write_align(val_corpus, val_dataset, path, formatter)
-        #EvalAlignments().run(path + '.gold', path + '.pred')
+        path = os.path.join(args.log_dir, 'alignment.trn')
+        formatter = FormatAlignmentsPretty(trn_dataset)
+        write_align_pretty(trn_corpus, trn_dataset, path, formatter)
+        sys.exit()
+
+    if args.write_only:
 
         path = os.path.join(args.log_dir, 'alignment.trn.out')
         formatter = FormatAlignments(trn_dataset)
