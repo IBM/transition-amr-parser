@@ -133,7 +133,9 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
 
     # Smatch evaluation without wiki
 
-    echo "Computing SMATCH ---"
+    echo "Computing SMATCH between ---"
+    echo "$reference_amr"
+    echo "${results_prefix}.amr"
     smatch.py \
          --significant 4  \
          -f $reference_amr \
@@ -146,7 +148,9 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
     # compute score
-    echo "Computing SMATCH ---"
+    echo "Computing SMATCH between ---"
+    echo "$reference_amr_wiki"
+    echo "${results_prefix}.wiki.amr"
     smatch.py \
          --significant 4  \
          -f $reference_amr_wiki \

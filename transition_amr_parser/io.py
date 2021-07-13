@@ -325,6 +325,9 @@ def legacy_graph_printer(metadata, nodes, root, edges):
         amr_string = '('+amr_string+')'
     if len(nodes) == 0:
         amr_string = '(a / amr-empty)'
+    elif len(nodes) == 1 and '/' not in amr_string:
+        # FIXME: bad method to detect a constant as single node
+        amr_string = '(a / amr-empty)'
 
     output += amr_string + '\n\n'
 
