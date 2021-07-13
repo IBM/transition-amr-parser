@@ -173,6 +173,11 @@ def argument_parser():
     )
     # Output options
     parser.add_argument(
+        "--write-validation",
+        help="If true, then write alignments to file.",
+        action='store_true',
+    )
+    parser.add_argument(
         "--write-pretty",
         help="If true, then write alignments to file.",
         action='store_true',
@@ -383,13 +388,20 @@ class AMRTokenizer(object):
 
 
 class AlignmentsWriter(object):
-    def __init__(self, path, dataset, formatter):
+    def __init__(self, path, dataset, formatter, enabled=True):
+        self.enabled = enabled
+        if not self.enabled:
+            return
+
         self.fout_pred = open(path + '.pred', 'w')
         self.fout_gold = open(path + '.gold', 'w')
         self.formatter = formatter
         self.dataset = dataset
 
     def write_batch(self, batch_indices, batch_map, model_output):
+        if not self.enabled:
+            return
+
         # write
         for i_b, (out, pred_alignments) in enumerate(self.formatter.format(batch_map, model_output, batch_indices)):
             idx = batch_indices[i_b]
@@ -402,6 +414,8 @@ class AlignmentsWriter(object):
             self.fout_gold.write(amr.toJAMRString().strip() + '\n\n')
 
     def close(self):
+        if not self.enabled:
+            return
         self.fout_pred.close()
         self.fout_gold.close()
 
@@ -1552,7 +1566,7 @@ def main(args):
 
             formatter = FormatAlignments(val_dataset)
             path = os.path.join(args.log_dir, 'alignment.epoch_{}.val_{}.out'.format(epoch, i_valid))
-            writer = AlignmentsWriter(path, val_dataset, formatter)
+            writer = AlignmentsWriter(path, val_dataset, formatter, enabled=args.write_validation)
 
             def val_step(batch_indices, batch_map):
                 with torch.no_grad():
