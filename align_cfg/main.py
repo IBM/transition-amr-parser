@@ -1566,7 +1566,7 @@ def main(args):
 
             formatter = FormatAlignments(val_dataset)
             path = os.path.join(args.log_dir, 'alignment.epoch_{}.val_{}.out'.format(epoch, i_valid))
-            writer = AlignmentsWriter(path, val_dataset, formatter, enabled=args.write_validation)
+            writer = AlignmentsWriter(path, val_dataset, formatter)
 
             def val_step(batch_indices, batch_map):
                 with torch.no_grad():
@@ -1609,6 +1609,9 @@ def main(args):
 
             # eval alignments
             eval_output = EvalAlignments().run(path + '.gold', path + '.pred')
+
+            if not args.write_validation:
+                os.system('rm {} {}'.format(path + '.gold', path + '.pred'))
 
             val_token_recall = eval_output['Corpus Recall']['recall']
             epoch_metrics['val_{}_token_recall'.format(i_valid)] = val_token_recall
