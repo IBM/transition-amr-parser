@@ -836,8 +836,7 @@ class Net(nn.Module):
             assert expected_text_dist.shape == (n_t, n_t)
 
             if args.pr_epsilon is not None:
-                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon)
-                pr_penalty_tmp = torch.where(pr_penalty_tmp > 0, pr_penalty_tmp, torch.zeros(1, device=device))
+                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon).clamp(min=0)
             else:
                 pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
 
