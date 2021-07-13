@@ -204,6 +204,7 @@ def print_status(config_env_vars, seed, do_clear=False):
             "{seed} is not a trained seed for the model"
         seeds = [seed]
     # loop over each model with a different random seed
+    finished = None
     for seed in seeds:
 
         # all checkpoints trained
@@ -718,7 +719,6 @@ def main(args):
     signal.signal(signal.SIGINT, ordered_exit)
     signal.signal(signal.SIGTERM, ordered_exit)
 
-    checkpoints = None
     if args.results or args.long_results:
 
         # results display and exit
@@ -738,23 +738,30 @@ def main(args):
         else:
             seeds = config_env_vars['SEEDS'].split()
         eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
+        checkpoints = []
+        missing = []
         while not checkpoints:
+            checkpoints = []
+            missing = []
             for seed in seeds:
-                checkpoints, target_epochs, missing = get_checkpoints_to_eval(
-                    config_env_vars,
-                    seed,
-                    ready=True
-                )
+                scheckpoints, starget_epochs, smissing = \
+                    get_checkpoints_to_eval(
+                        config_env_vars,
+                        seed,
+                        ready=True
+                     )
+                checkpoints.extend(scheckpoints)
+                missing.extend(smissing)
 
                 # link and/or remove checkpoints
                 if args.link_best or args.remove:
                     link_remove(args, seed,
-                                config_env_vars, checkpoints=checkpoints,
-                                target_epochs=target_epochs)
+                                config_env_vars, checkpoints=scheckpoints,
+                                target_epochs=starget_epochs)
 
-                if missing == []:
-                    print('Checkpoint evaluation complete!')
-                    break
+            if missing == []:
+                print('Finished!')
+                break
 
             print_status(config_env_vars, None, do_clear=args.clear)
             print(
