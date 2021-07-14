@@ -11,6 +11,7 @@ import argparse
 from collections import defaultdict
 from statistics import mean
 from transition_amr_parser.io import read_config_variables, clbar
+from ipdb import set_trace
 
 
 # Sanity check python3
@@ -713,6 +714,56 @@ def link_remove(args, seed, config_env_vars, checkpoints=None,
             os.remove(checkpoint)
 
 
+def wait_checkpoint_ready_to_eval(args):
+
+    config_env_vars = read_config_variables(args.config)
+    if args.seed:
+        seeds = [args.seed]
+    else:
+        seeds = config_env_vars['SEEDS'].split()
+    eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
+    # TODO: Clearer naming
+    checkpoints = []
+    need_eval = []
+    while not checkpoints:
+        checkpoints = []
+        need_eval = []
+        for seed in seeds:
+            scheckpoints, starget_epochs, sneed_eval = \
+                get_checkpoints_to_eval(
+                    config_env_vars,
+                    seed,
+                    ready=True
+                 )
+
+            # sanity check: we did not delete checkpoints without testing them
+            if sneed_eval and max(sneed_eval) < max(starget_epochs):
+                print('\nCheckpoints may have been deleted before tesing or '
+                      'testing failed on evaluation\n')
+                print(f'missing {sneed_eval}\n')
+                exit(1)
+
+            checkpoints.extend(scheckpoints)
+            need_eval.extend(sneed_eval)
+
+            # link and/or remove checkpoints
+            if args.link_best or args.remove:
+                link_remove(args, seed,
+                            config_env_vars, checkpoints=scheckpoints,
+                            target_epochs=starget_epochs)
+
+        if need_eval == []:
+            print('Finished!')
+            break
+
+        print_status(config_env_vars, None, do_clear=args.clear)
+        print(
+            f'Waiting for checkpoint {eval_init_epoch} to evaluate'
+            ' (if you stop this script, I wont evaluate)'
+        )
+        sleep(10)
+
+
 def main(args):
 
     # set ordered exit
@@ -732,43 +783,7 @@ def main(args):
         # wait until a checkpoint to evaluate is avaliable, inform of status in
         # the meanwhile. Optionally delete checkpoints that are evaluated or do
         # not need to be evaluated
-        config_env_vars = read_config_variables(args.config)
-        if args.seed:
-            seeds = args.seed
-        else:
-            seeds = config_env_vars['SEEDS'].split()
-        eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
-        checkpoints = []
-        missing = []
-        while not checkpoints:
-            checkpoints = []
-            missing = []
-            for seed in seeds:
-                scheckpoints, starget_epochs, smissing = \
-                    get_checkpoints_to_eval(
-                        config_env_vars,
-                        seed,
-                        ready=True
-                     )
-                checkpoints.extend(scheckpoints)
-                missing.extend(smissing)
-
-                # link and/or remove checkpoints
-                if args.link_best or args.remove:
-                    link_remove(args, seed,
-                                config_env_vars, checkpoints=scheckpoints,
-                                target_epochs=starget_epochs)
-
-            if missing == []:
-                print('Finished!')
-                break
-
-            print_status(config_env_vars, None, do_clear=args.clear)
-            print(
-                f'Waiting for checkpoint {eval_init_epoch} to evaluate'
-                ' (if you stop this script, I wont evaluate)'
-            )
-            sleep(10)
+        wait_checkpoint_ready_to_eval(args)
 
     elif args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
 
@@ -793,16 +808,22 @@ def main(args):
 
     else:
 
+        if args.seed:
+            seeds = [args.seed]
+        else:
+            seeds = config_env_vars['SEEDS'].split()
+
         # print status for this config
         config_env_vars = read_config_variables(args.config)
         while True:
             fin = print_status(config_env_vars, args.seed, do_clear=args.clear)
-            if not args.wait_finished or fin:
-                break
             # link and/or remove checkpoints
             if args.link_best or args.remove:
-                for seed in config_env_vars['SEEDS'].split():
+                for seed in seeds:
                     link_remove(args, seed, config_env_vars)
+            # exit if finished
+            if not args.wait_finished or fin:
+                break
             sleep(10)
 
 
