@@ -725,6 +725,10 @@ class Net(nn.Module):
             encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm_v2':
             encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm', dropout_p=dropout)
+        elif config['amr_enc'] == 'tree_lstm_v3':
+            encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
+        elif config['amr_enc'] == 'tree_lstm_v4':
+            encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
 
         output_size = num_amr_embeddings
 
