@@ -288,9 +288,17 @@ class TreeEncoder(nn.Module):
         return msg
 
     def forward(self, batch_map):
-        g = batch_map['g']
-        rg = batch_map['rg']
+        device = batch_map['device']
 
+        #
+        g = dgl.batch([x['g'] for x in batch_map['items']])
+        g = g.to(device)
+
+        rg = dgl.reverse(g)
+        for k, v in g.edata.items():
+            rg.edata[k] = v
+
+        #
         self.g = g
         self.rg = rg
 

@@ -519,16 +519,8 @@ def batchify(items, cuda=False):
         batch_map[k] = torch.tensor(val, dtype=dtypes[k], device=device)
 
     batch_map['text_original_tokens'] = [x['text_original_tokens'] for x in items]
-
-    g = dgl.batch([x['g'] for x in items])
-    g = g.to(device)
-
-    rg = dgl.reverse(g)
-    for k, v in g.edata.items():
-        rg.edata[k] = v
-
-    batch_map['g'] = g
-    batch_map['rg'] = rg
+    batch_map['items'] = items
+    batch_map['device'] = device
 
     return batch_map
 
