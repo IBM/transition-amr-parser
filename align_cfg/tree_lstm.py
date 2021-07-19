@@ -182,6 +182,8 @@ class TreeEncoder(nn.Module):
 
         if mode == 'tree_lstm':
             self.enc = TreeLSTM(embed, size)
+        elif mode == 'tree_lstm_v2':
+            self.enc = TreeLSTM_v2(embed, size)
 
         self.embed = embed
         self.size = size
@@ -362,16 +364,19 @@ class TreeEncoder(nn.Module):
         return output, labels, labels_mask, label_node_ids
 
 
-class TreeLSTM_v2(nn.Module):
-    def __init__(self, embed, size):
+class TreeEncoder_v2(nn.Module):
+    def __init__(self, *args, **kwargs):
         super().__init__()
 
-        self.enc_in = TreeLSTM(embed, size)
-        self.enc_out = TreeLSTM(embed, size)
+        self.enc_in = TreeEncoder(*args, **kwargs)
+        self.enc_out = TreeEncoder(*args, **kwargs)
+
+        self.output_size = self.enc_in.output_size // 2 + self.enc_out.output_size
 
     def forward(self, batch_map):
-        output_in, labels, labels_mask, label_node_ids = self.enc_in(batch_map)
-        output_out, _, _, _ = self.enc_out(batch_map)
+        output_in, labels, labels_mask, label_node_ids = self.enc_in(batch_map, outside=False)
+        assert len(output_in.shape) == 3
+        output_out, _, _, _ = self.enc_out(batch_map, outside=True)
         output = torch.cat([output_in, output_out], -1)
         return output, labels, labels_mask, label_node_ids
 

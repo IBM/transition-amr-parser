@@ -28,6 +28,7 @@ from formatter import FormatAlignments, FormatAlignmentsPretty
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from tree_rnn import TreeEncoder as TreeRNNEncoder
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
+from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
 from vocab import *
 
 
@@ -722,6 +723,8 @@ class Net(nn.Module):
             encode_amr = TreeRNNEncoder(amr_embed, hidden_size, mode='etree_rnn', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm':
             encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm', dropout_p=dropout)
+        elif config['amr_enc'] == 'tree_lstm_v2':
+            encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm', dropout_p=dropout)
 
         output_size = num_amr_embeddings
 
