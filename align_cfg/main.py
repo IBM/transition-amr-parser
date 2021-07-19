@@ -1004,8 +1004,8 @@ def batch_extract_aligned_roberta(roberta, sentence_list, tokens_list, return_al
         for i, x in enumerate(alignment):
             if i == 0:
                 continue
-            if x[0] != alignment[i-1][-1]:
-                alignment[i] = [x[0] - 1] + x
+            while alignment[i - 1][-1] < x[0]:
+                alignment[i - 1].append(alignment[i - 1][-1] + 1)
         return alignment
 
     def crop(aligned_feats_list):
