@@ -543,6 +543,10 @@ class TreeEncoder_v2(nn.Module):
 
         self.output_size = self.enc_in.output_size // 2 + self.enc_out.output_size
 
+    @property
+    def embed(self):
+        return self.enc_in.embed
+
     def forward(self, batch_map):
         output_in, labels, labels_mask, label_node_ids = self.enc_in(batch_map, outside=False)
         assert len(output_in.shape) == 3
