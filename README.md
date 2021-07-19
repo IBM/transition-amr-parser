@@ -65,10 +65,10 @@ To do a mini-test with 25 annotated sentences that we provide. This should take 
 bash tests/minimal_test.sh
 ```
 
-If you want to align AMR data, the aligner uses additional tools that can be donwloaded and installed with
+If you want to align AMR data, the neural aligner requires a separate allennlp install to extract ELMO
 
 ```bash
-bash preprocess/install_alignment_tools.sh
+bash align_cfg/install.sh
 ```
 
 See [here](scripts/README.md#install-details) for more install details

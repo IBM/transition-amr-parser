@@ -1,91 +1,49 @@
-import os
-
-from amr_utils import read_amr
-
-
-PADDING_IDX = 0
-PADDING_TOK = '<PAD>'
-
-BOS_IDX = 1
-BOS_TOK = '<S>'
-
-EOS_IDX = 2
-EOS_TOK = '</S>'
-
-special_tokens = [PADDING_TOK, BOS_TOK, EOS_TOK]
-
-assert special_tokens.index(PADDING_TOK) == PADDING_IDX
-assert special_tokens.index(BOS_TOK) == BOS_IDX
-assert special_tokens.index(EOS_TOK) == EOS_IDX
-
-
-def read_text_tokens_from_amr(files):
-    tokens = set()
-
-    for path in files:
-        path = os.path.expanduser(path)
-        for amr in read_amr(path).amrs:
-            tokens.update(amr.tokens)
-
-    tokens = special_tokens + sorted(tokens)
-
-    return tokens
-
-
-def read_amr_tokens_from_amr(files):
-    tokens = set()
-
-    for path in files:
-        path = os.path.expanduser(path)
-        for amr in read_amr(path).amrs:
-            for _, label, _ in amr.edges:
-                tokens.add(label)
-            tokens.update(amr.nodes.values())
-
-    # useful for linearized parse
-    tokens.add('(')
-    tokens.add(')')
-
-    tokens = special_tokens + sorted(tokens)
-
-    return tokens
+import argparse
+from transition_amr_parser.io import read_amr2
+from align_cfg.vocab_definitions import (
+    PADDING_IDX, PADDING_TOK, BOS_IDX, BOS_TOK, EOS_IDX, EOS_TOK, special_tokens
+)
 
 
 if __name__ == '__main__':
-    import argparse
 
-    input_files = []
-
-    # AMR 2.0
-    input_files.append(os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt'))
-    input_files.append(os.path.expanduser('~/data/AMR2.0/aligned/cofill/dev.txt'))
-    input_files.append(os.path.expanduser('~/data/AMR2.0/aligned/cofill/test.txt'))
-
-    # AMR 3.0
-    input_files.append(os.path.expanduser('~/data/AMR3.0/train.txt'))
-    input_files.append(os.path.expanduser('~/data/AMR3.0/dev.txt'))
-    input_files.append(os.path.expanduser('~/data/AMR3.0/test.txt'))
-
-    # MANY
-    input_files.append(os.path.expanduser('/dccstor/ykt-parse/SHARED/misc/adrozdov/data/amr2+ontonotes+squad.txt'))
-
+    # Argument handling
     parser = argparse.ArgumentParser()
-    parser.add_argument("--in-amr", help="AMR input file.", action="append", default=input_files)
+    parser.add_argument(
+        "--in-amrs", help="AMR files to extract the vocabulary from",
+        nargs='+', required=True)
+    parser.add_argument(
+        "--out-folder", help="Folder where to store vocabulary files",
+        required=True)
     args = parser.parse_args()
 
-    input_files = args.in_amr
+    # collect infor for all AMR
+    tokens = set()
+    graph_tokens = set()
+    for amr_file in args.in_amrs:
+        for amr in read_amr2(amr_file):
+            # surface tokens
+            tokens.update(amr.tokens)
+            # graph tokens
+            for _, label, _ in amr.edges:
+                graph_tokens.add(label)
+            graph_tokens.update(amr.nodes.values())
 
-    tokens = read_text_tokens_from_amr(input_files)
+    # Add special symbols at the beginning
+    # surface
+    tokens = special_tokens + sorted(tokens)
+    # graph
+    # useful for linearized parse
+    graph_tokens.add('(')
+    graph_tokens.add(')')
+    graph_tokens = special_tokens + sorted(graph_tokens)
+
+    # write files
     print('found {} text tokens'.format(len(tokens)))
-
-    with open('align_cfg/vocab.text.2021-06-30.txt', 'w') as f:
+    with open(f'{args.out_folder}/ELMO_vocab.text.txt', 'w') as f:
         for tok in tokens:
             f.write(tok + '\n')
-
-    tokens = read_amr_tokens_from_amr(input_files)
-    print('found {} amr tokens'.format(len(tokens)))
-
-    with open('align_cfg/vocab.amr.2021-06-30.txt', 'w') as f:
+    print('found {} amr tokens'.format(len(graph_tokens)))
+    with open(f'{args.out_folder}/ELMO_vocab.amr.txt', 'w') as f:
         for tok in tokens:
             f.write(tok + '\n')
-

@@ -1,19 +1,15 @@
 import hashlib
+import argparse
 import json
 import numpy as np
 import os
 import torch
+from align_cfg.vocab_definitions import BOS_TOK, EOS_TOK, special_tokens
 
 try:
     import allennlp.modules.elmo as elmo
-except:
+except ImportError:
     print('warning: No allennlp installed.')
-
-from tqdm import tqdm
-
-from amr_utils import read_amr
-
-from vocab import *
 
 
 # files for original elmo model
@@ -44,19 +40,6 @@ def read_amr_vocab_file(path):
     return output
 
 
-def read_tokens_from_amr(files):
-    tokens = set()
-
-    for path in files:
-        path = os.path.expanduser(path)
-        for amr in tqdm(read_amr(path).amrs, desc='read'):
-            tokens.update(amr.tokens)
-
-    tokens = special_tokens + sorted(tokens)
-
-    return tokens
-
-
 def get_character_embeddings_from_elmo(tokens, cuda=False):
     assert len(special_tokens) == 3
     assert tokens[1] == BOS_TOK and tokens[2] == EOS_TOK
@@ -64,7 +47,8 @@ def get_character_embeddings_from_elmo(tokens, cuda=False):
     # Remove special tokens.
     vocab_to_cache = tokens[3:]
 
-    model = elmo.Elmo(options_file=options_file, weight_file=weights_file, requires_grad=False, num_output_representations=1)
+    model = elmo.Elmo(options_file=options_file, weight_file=weights_file,
+                      requires_grad=False, num_output_representations=1)
     model = model._elmo_lstm
     if cuda:
         model.cuda()
@@ -101,6 +85,7 @@ def write_embeddings(path, embeddings):
 
 
 def main(arg):
+
     tokens = read_text_vocab_file(args.vocab_text)
     token_hash = hash_string_list(tokens)
 
@@ -114,11 +99,10 @@ def main(arg):
 
 
 if __name__ == '__main__':
-    import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--vocab-text", type=str, default='./align_cfg/vocab.text.2021-06-28.txt',
-                        help="Vocab file.")
+    parser.add_argument("--vocab-text", type=str, help="Vocab file.",
+                        required=True)
     parser.add_argument('--cuda', action='store_true',
                         help='If true, then use GPU.')
     args = parser.parse_args()

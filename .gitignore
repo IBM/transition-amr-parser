@@ -15,6 +15,8 @@ amr_corpus*
 */gigaword_ref.txt
 file.amr
 fairseq_ext/tests_data/*
+*.npy
+*.npy.*
 
 # run scripts logs
 logs*

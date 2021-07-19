@@ -16,7 +16,7 @@ import numpy as np
 
 try:
     from fairseq.models.roberta import alignment_utils
-except:
+except ImportError:
     print('Could not import alignment_utils.')
 
 from tqdm import tqdm
@@ -1311,7 +1311,7 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
 
         new_corpus = []
         for amr in corpus:
-            sentence = ' '.join(amr.tokens) 
+            sentence = ' '.join(amr.tokens)
             bpe_tokens = roberta.encode(sentence)
             other_tokens = amr.tokens
 
