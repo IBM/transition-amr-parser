@@ -4,12 +4,14 @@ import json
 import numpy as np
 import os
 import torch
-from align_cfg.vocab_definitions import BOS_TOK, EOS_TOK, special_tokens
+from tqdm import tqdm
 
 try:
     import allennlp.modules.elmo as elmo
 except ImportError:
     print('warning: No allennlp installed.')
+
+from align_cfg.vocab_definitions import BOS_TOK, EOS_TOK, special_tokens
 
 
 # files for original elmo model
