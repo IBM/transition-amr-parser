@@ -296,6 +296,9 @@ def main():
         try:
             exp = Exp.from_logdir(logdir, read_train=args.read_train)
             stats['found'] += 1
+        except FileNotFoundError:
+            stats['skipped-file_not_found'] += 1
+            continue
         except NoDataError:
             stats['skipped'] += 1
             continue
