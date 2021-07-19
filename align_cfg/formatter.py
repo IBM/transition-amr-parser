@@ -159,3 +159,78 @@ class FormatAlignments(object):
             out_standard = convert_standard(node_alignments)
 
             yield out, out_standard
+
+
+class FormatAlignmentsPretty(object):
+    """
+    Print alignments in desired format.
+    """
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def decode_alignments(self, batch_map, model_output):
+        """
+        For each node, find most probable alignments.
+        """
+        x_t = batch_map['text_tokens']
+
+        batch_size, len_t = x_t.shape
+        device = x_t.device
+
+        y_a = model_output['labels']
+        y_a_mask = model_output['labels_mask']
+        y_a_node_ids = model_output['label_node_ids']
+
+        for i_b in range(batch_size):
+            mask_amr = y_a_mask[i_b].view(-1)
+            index_amr = torch.arange(y_a.shape[1])[mask_amr]
+            n_amr = mask_amr.sum().item()
+
+            txt = x_t[i_b]
+            mask_txt = txt != PADDING_IDX
+            index_txt = torch.arange(len_t)[mask_txt]
+            n_txt = mask_txt.sum().item()
+
+            posterior = model_output['batch_align'][i_b]
+            assert posterior.shape == (n_amr, n_txt, 1)
+
+            argmax = posterior.squeeze(2).argmax(1)
+            assert argmax.shape == (n_amr,)
+
+            node_idx = y_a_node_ids[i_b][index_amr]
+            txt = txt[index_txt]
+
+            alignment_info = {}
+            alignment_info['posterior'] = posterior
+            alignment_info['argmax'] = argmax
+            # alignment_info['node_idx'] = node_idx
+            # alignment_info['txt'] = txt
+
+            yield alignment_info
+
+    def format(self, batch_map, model_output, batch_indices, use_jamr=False):
+        for idx, alignment_info in zip(batch_indices, self.decode_alignments(batch_map, model_output)):
+            amr = self.dataset.corpus[idx]
+            text_tokens = amr.tokens
+
+            node_ids = list(sorted(amr.nodes.keys()))
+            node_names = [amr.nodes[x] for x in node_ids]
+
+            #
+            s = ''
+
+            #
+            s += '{}\n'.format(idx)
+            s += ' '.join(node_names) + '\n'
+            s += ' '.join(node_ids) + '\n'
+            s += ' '.join(text_tokens) + '\n'
+
+            #
+            for i in range(len(node_ids)):
+                for j in range(len(text_tokens)):
+                    a = alignment_info['posterior'][i, j].item()
+                    s += '{} {} {}\n'.format(i, j, a)
+
+            s += '\n'
+
+            yield amr, s

@@ -21,14 +21,14 @@ except:
 
 from tqdm import tqdm
 
-from transition_amr_parser.io import read_amr
-
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
+from amr_utils import read_amr
 from evaluation import EvalAlignments
-from formatter import FormatAlignments
+from formatter import FormatAlignments, FormatAlignmentsPretty
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from tree_rnn import TreeEncoder as TreeRNNEncoder
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
+from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
 from vocab import *
 
 
@@ -79,7 +79,7 @@ def argument_parser():
         "--tst-amr",
         help="AMR input file.",
         type=str,
-        default=os.path.expanduser('~/data/AMR2.0/aligned/cofill/test.txt')
+        default=None
     )
     parser.add_argument(
         "--vocab-text",
@@ -97,6 +97,12 @@ def argument_parser():
         "--log-dir",
         help="Path to log directory.",
         default="log/demo",
+        type=str,
+    )
+    parser.add_argument(
+        "--home",
+        help="Used to specify default file paths.",
+        default="/dccstor/ykt-parse/SHARED/misc/adrozdov",
         type=str,
     )
     # Model options
@@ -125,22 +131,16 @@ def argument_parser():
         type=float,
     )
     parser.add_argument(
-        "--pr-amr-window",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=int,
-    )
-    parser.add_argument(
-        "--pr-text-window",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=int,
-    )
-    parser.add_argument(
         "--pr-after",
         help="Hyperparam for posterior regularization.",
         default=0,
         type=int,
+    )
+    parser.add_argument(
+        "--pr-epsilon",
+        help="Hyperparam for posterior regularization.",
+        default=None,
+        type=float,
     )
     parser.add_argument(
         "--pr-mode",
@@ -173,6 +173,16 @@ def argument_parser():
         type=int,
     )
     # Output options
+    parser.add_argument(
+        "--write-validation",
+        help="If true, then write alignments to file.",
+        action='store_true',
+    )
+    parser.add_argument(
+        "--write-pretty",
+        help="If true, then write alignments to file.",
+        action='store_true',
+    )
     parser.add_argument(
         "--write-only",
         help="If true, then write alignments to file.",
@@ -255,11 +265,17 @@ def argument_parser():
                         help="Useful for book-keeping.")
     args = parser.parse_args()
 
+    if not os.path.exists(args.home):
+        args.home = os.path.expanduser('~')
+
     if args.val_amr is None:
         args.val_amr = [
-            os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt.dev-unseen-v1'),
-            os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1'),
+            os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-unseen-v1'),
+            os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1'),
         ]
+
+    if args.tst_amr is None:
+        args.tst_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/test.txt')
 
     if args.demo:
         args.trn_amr = args.val_amr[0]
@@ -267,10 +283,10 @@ def argument_parser():
 
     if args.write_only:
         if args.trn_amr is None:
-            args.trn_amr = os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt')
+            args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt')
 
     if args.trn_amr is None:
-        args.trn_amr = os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt.train-v1')
+        args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.train-v1')
 
     return args
 
@@ -373,13 +389,20 @@ class AMRTokenizer(object):
 
 
 class AlignmentsWriter(object):
-    def __init__(self, path, dataset, formatter):
+    def __init__(self, path, dataset, formatter, enabled=True):
+        self.enabled = enabled
+        if not self.enabled:
+            return
+
         self.fout_pred = open(path + '.pred', 'w')
         self.fout_gold = open(path + '.gold', 'w')
         self.formatter = formatter
         self.dataset = dataset
 
     def write_batch(self, batch_indices, batch_map, model_output):
+        if not self.enabled:
+            return
+
         # write
         for i_b, (out, pred_alignments) in enumerate(self.formatter.format(batch_map, model_output, batch_indices)):
             idx = batch_indices[i_b]
@@ -392,6 +415,8 @@ class AlignmentsWriter(object):
             self.fout_gold.write(amr.toJAMRString().strip() + '\n\n')
 
     def close(self):
+        if not self.enabled:
+            return
         self.fout_pred.close()
         self.fout_gold.close()
 
@@ -495,16 +520,8 @@ def batchify(items, cuda=False):
         batch_map[k] = torch.tensor(val, dtype=dtypes[k], device=device)
 
     batch_map['text_original_tokens'] = [x['text_original_tokens'] for x in items]
-
-    g = dgl.batch([x['g'] for x in items])
-    g = g.to(device)
-
-    rg = dgl.reverse(g)
-    for k, v in g.edata.items():
-        rg.edata[k] = v
-
-    batch_map['g'] = g
-    batch_map['rg'] = rg
+    batch_map['items'] = items
+    batch_map['device'] = device
 
     return batch_map
 
@@ -706,6 +723,12 @@ class Net(nn.Module):
             encode_amr = TreeRNNEncoder(amr_embed, hidden_size, mode='etree_rnn', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm':
             encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm', dropout_p=dropout)
+        elif config['amr_enc'] == 'tree_lstm_v2':
+            encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm', dropout_p=dropout)
+        elif config['amr_enc'] == 'tree_lstm_v3':
+            encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
+        elif config['amr_enc'] == 'tree_lstm_v4':
+            encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
 
         output_size = num_amr_embeddings
 
@@ -815,11 +838,7 @@ class Net(nn.Module):
             node_id = torch.arange(n_t, device=device)
             text_pairwise_dist = torch.abs(node_id.view(-1, 1) - node_id.view(1, -1)).float()
 
-            ## make these numbers small
-            # amr_pairwise_dist = amr_pairwise_dist / 100
-            # text_pairwise_dist = text_pairwise_dist / 100
-
-            align_ = align.log().softmax(dim=1)
+            align_ = (align + 1e-8).log().softmax(dim=1)
             align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
             assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
 
@@ -831,20 +850,13 @@ class Net(nn.Module):
             #                 actual = align_pairwise[i, j, k, l]
             #                 assert torch.isclose(check, actual).item()
 
-            if args.pr_amr_window > 0:
-                mask = torch.ones(n_a, n_a, device=device)
-                mask[amr_pairwise_dist > args.pr_amr_window] = 0
-                align_pairwise = align_pairwise * mask.view(n_a, n_a, 1, 1)
-
             expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
             assert expected_text_dist.shape == (n_t, n_t)
 
-            pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
-
-            if args.pr_text_window > 0:
-                mask = torch.ones(n_t, n_t, device=device)
-                mask[text_pairwise_dist > args.pr_amr_window] = 0
-                pr_penalty_tmp = pr_penalty_tmp * mask
+            if args.pr_epsilon is not None:
+                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon).clamp(min=0)
+            else:
+                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
 
             #assert torch.isclose(pr_penalty_tmp, pr_penalty_tmp.transpose(0, 1)).all().item()
             pr_penalty_triu = pr_penalty_tmp.triu()
@@ -999,8 +1011,8 @@ def batch_extract_aligned_roberta(roberta, sentence_list, tokens_list, return_al
         for i, x in enumerate(alignment):
             if i == 0:
                 continue
-            if x[0] != alignment[i-1][-1]:
-                alignment[i] = [x[0] - 1] + x
+            while alignment[i - 1][-1] < x[0]:
+                alignment[i - 1].append(alignment[i - 1][-1] + 1)
         return alignment
 
     def crop(aligned_feats_list):
@@ -1366,6 +1378,33 @@ def main(args):
     if args.cuda:
         net.cuda()
 
+    def write_align_pretty(corpus, dataset, path, formatter):
+        net.eval()
+
+        indices = np.arange(len(corpus))
+
+        print('writing to {}.pretty'.format(os.path.abspath(path)))
+        fout = open(path + '.pretty', 'w')
+        fout_gold = open(path + '.gold', 'w')
+
+        with torch.no_grad():
+            for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
+                end = min(start + batch_size, len(corpus))
+                batch_indices = indices[start:end]
+                items = [dataset[idx] for idx in batch_indices]
+                batch_map = batchify(items, cuda=args.cuda)
+
+                # forward pass
+                model_output = net(batch_map)
+
+                # write
+                for i_b, (amr, out) in enumerate(formatter.format(batch_map, model_output, batch_indices)):
+                    fout.write(out.strip() + '\n\n')
+                    fout_gold.write(amr.toJAMRString().strip() + '\n\n')
+
+        fout.close()
+        fout_gold.close()
+
     def write_align(corpus, dataset, path, formatter):
         net.eval()
 
@@ -1388,13 +1427,14 @@ def main(args):
 
         writer.close()
 
-    if args.write_only:
-        #val_dataset = val_dataset_list[0]
+    if args.write_pretty:
 
-        #path = os.path.join(args.log_dir, 'alignment.val.out')
-        #formatter = FormatAlignments(val_dataset)
-        #write_align(val_corpus, val_dataset, path, formatter)
-        #EvalAlignments().run(path + '.gold', path + '.pred')
+        path = os.path.join(args.log_dir, 'alignment.trn')
+        formatter = FormatAlignmentsPretty(trn_dataset)
+        write_align_pretty(trn_corpus, trn_dataset, path, formatter)
+        sys.exit()
+
+    if args.write_only:
 
         path = os.path.join(args.log_dir, 'alignment.trn.out')
         formatter = FormatAlignments(trn_dataset)
@@ -1408,8 +1448,6 @@ def main(args):
 
     # optimizer
     opt = optim.Adam(net.parameters(), lr=lr)
-
-    save_checkpoint(os.path.join(args.log_dir, 'model.init.pt'), trn_dataset, net)
 
     best_metrics = {}
 
@@ -1571,14 +1609,16 @@ def main(args):
             # eval alignments
             eval_output = EvalAlignments().run(path + '.gold', path + '.pred')
 
-            val_recall = eval_output['Corpus Recall']['recall']
+            if not args.write_validation:
+                os.system('rm {} {}'.format(path + '.gold', path + '.pred'))
 
+            val_token_recall = eval_output['Corpus Recall']['recall']
+            epoch_metrics['val_{}_token_recall'.format(i_valid)] = val_token_recall
+
+            val_recall = eval_output['Corpus Recall using spans for gold']['recall']
             epoch_metrics['val_{}_recall'.format(i_valid)] = val_recall
 
             # save checkpoint
-
-            if check_and_update_best(best_metrics, 'val_{}_loss'.format(i_valid), val_loss, compare='lt'):
-                save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_loss.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
 
             if check_and_update_best(best_metrics, 'val_{}_recall'.format(i_valid), val_recall, compare='gt'):
                 save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_recall.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
