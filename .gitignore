@@ -7,7 +7,6 @@ set_environment.sh
 # data
 PROGRESS
 DATA*
-*oracles/
 EXP*
 checkpoints*
 amr_corpus*
