@@ -287,7 +287,7 @@ class TreeEncoder(nn.Module):
 
         return msg
 
-    def forward(self, batch_map):
+    def forward(self, batch_map, outside=True):
         device = batch_map['device']
 
         #
@@ -308,28 +308,33 @@ class TreeEncoder(nn.Module):
         rg.ndata['node_features'] = node_features
 
         # compute node features
-        def inside():
+        def inside_func():
             self.mode = 'inside'
             dgl.prop_nodes_topo(rg, self.message_func, self.reduce_func, apply_node_func=self.apply_node_func)
 
-        def outside():
+        def outside_func():
             self.mode = 'outside'
             dgl.prop_nodes_topo(g, self.message_func, self.reduce_func, apply_node_func=self.apply_node_func)
 
-        inside()
-        self.precompute_counts_for_outside()
-        outside()
+        inside_func()
+        if outside:
+            self.precompute_counts_for_outside()
+            outside_func()
 
         # cleanup
         self.g = None
         self.rg = None
 
-        h = torch.cat([rg.ndata['z_ctxt_inside'], g.ndata['z_ctxt_outside']], -1)
+        h = rg.ndata['z_ctxt_inside']
+        if outside:
+            h = torch.cat([rg.ndata['z_ctxt_inside'], g.ndata['z_ctxt_outside']], -1)
 
         # reshape and compute labels / masks
         device = h.device
         batch_size = g.batch_size
-        size = self.output_size
+        size = self.output_size // 2
+        if outside:
+            size = self.output_size
 
         length_per_example = g.batch_num_nodes()
         length = length_per_example.max().item()
@@ -355,3 +360,18 @@ class TreeEncoder(nn.Module):
         output = self.dropout(output)
 
         return output, labels, labels_mask, label_node_ids
+
+
+class TreeLSTM_v2(nn.Module):
+    def __init__(self, embed, size):
+        super().__init__()
+
+        self.enc_in = TreeLSTM(embed, size)
+        self.enc_out = TreeLSTM(embed, size)
+
+    def forward(self, batch_map):
+        output_in, labels, labels_mask, label_node_ids = self.enc_in(batch_map)
+        output_out, _, _, _ = self.enc_out(batch_map)
+        output = torch.cat([output_in, output_out], -1)
+        return output, labels, labels_mask, label_node_ids
+
