@@ -139,9 +139,17 @@ def main(args):
         g = get_pairs(gold)
         p = get_pairs(pred)
 
-        total = len(g)
-        found = len(set.intersection(g, p))
-        recall = found / total if total > 0 else 1
+        total, correct = 0, 0
+        for node_id, span in gold.alignments.items():
+            total += 1
+
+            if node_id not in pred.alignments:
+                continue
+
+            if pred.alignments[node_id][0] in span:
+                correct += 1
+
+        recall = correct / total if total > 0 else 1
         return recall
 
     if args.gold_amr is not None:
