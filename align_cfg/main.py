@@ -23,7 +23,7 @@ except ImportError:
 from tqdm import tqdm
 
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
-from amr_utils import read_amr
+from transition_amr_parser.io import read_amr2
 from evaluation import EvalAlignments
 from formatter import FormatAlignments, FormatAlignmentsPretty
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
@@ -1278,7 +1278,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
 def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=True):
 
     skipped = collections.Counter()
-    corpus = read_amr(path).amrs
+    corpus = read_amr2(path)
 
     if max_length > 0:
         new_corpus = []
@@ -1362,7 +1362,7 @@ def main(args):
 
     if args.read_only:
         t = AMRTokenizer()
-        for amr in read_amr(args.trn_amr).amrs:
+        for amr in read_amr2(args.trn_amr):
             try:
                 t.dfs(amr)
             except:
