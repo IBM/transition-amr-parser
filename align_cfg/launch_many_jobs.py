@@ -24,8 +24,15 @@ conda activate {conda}
 
 cd /u/adrozdov/code/transition-amr-parser
 
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
 python -u align_cfg/main.py --cuda \
     --log-dir {log} \
+    --cache-dir ./ \
+    --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
+    --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/dev.txt \
+    --vocab-text ./align_cfg/vocab.text.2021-06-30.txt \
+    --vocab-amr ./align_cfg/vocab.amr.2021-06-30.txt \
     {flags} \
     --jbsub-eval
 """
@@ -37,6 +44,8 @@ source /u/adrozdov/.bashrc
 conda activate {conda}
 
 cd /u/adrozdov/code/transition-amr-parser
+
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
     --log-dir {log}_write_amr2 \
