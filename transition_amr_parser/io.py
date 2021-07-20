@@ -197,6 +197,8 @@ def get_simple_graph(graph):
 
     # Add constants both to node map and edges, use position in attribute as id
     for index, att in enumerate(graph.attributes()):
+        # needs to be a string
+        index = str(index)
         assert index not in name_to_node
         name_to_node[index] = att.target
         edge_epidata = graph.epidata[(att.source, att.role, att.target)]
