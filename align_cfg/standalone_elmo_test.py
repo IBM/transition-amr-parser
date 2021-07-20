@@ -50,6 +50,10 @@ if __name__ == '__main__':
     eos_vec = full_model._eos_embedding
     weights = full_model._word_embedding.weight.data
 
+    # IMPORTANT NOTE: There is a subtle bug here... The first vocab item is treated as a padding token. Keep this
+    # for now to match previous behavior, but should be fixed eventually.
+    assert weights.shape[0] == len(vocab_to_cache), (weights.shape, len(vocab_to_cache))
+
     # TEST
 
     batch = []
@@ -74,15 +78,20 @@ if __name__ == '__main__':
 
     # TEST old encoder match cached weights.
 
-    # IMPORTANT NOTE: There is a subtle bug here... The first vocab item is treated as a padding token. Keep this
-    # for now to match previous behavior, but should be fixed eventually.
-    assert weights.shape[0] == len(vocab_to_cache), (weights.shape, len(vocab_to_cache))
+    all_vocab_to_cache = [ELMoCharacterMapper.bos_token, ELMoCharacterMapper.eos_token] + vocab_to_cache
 
-    vocab_ids = elmo.batch_to_ids([[x] for x in vocab_to_cache])
+    vocab_ids = elmo.batch_to_ids([[x] for x in all_vocab_to_cache])
     vocab_output = char_embedder(vocab_ids)
     vocab_vec = vocab_output['token_embedding']
     vocab_mask = vocab_output['mask']
     vocab_vec = remove_sentence_boundaries(vocab_vec, vocab_mask)[0].squeeze(1)
+
+    check_bos_vec = vocab_vec[0]
+    check_eos_vec = vocab_vec[1]
+    vocab_vec = vocab_vec[2:]
+
+    assert torch.isclose(check_bos_vec, bos_vec, atol=1e-4).all().item() is True
+    assert torch.isclose(check_eos_vec, eos_vec, atol=1e-4).all().item() is True
 
     # IMPORTANT NOTE: There is a subtle bug here... The first vocab item is treated as a padding token. Keep this
     # for now to match previous behavior, but should be fixed eventually.
@@ -94,15 +103,20 @@ if __name__ == '__main__':
 
     # TEST new encoder match cached weights.
 
-    # IMPORTANT NOTE: There is a subtle bug here... The first vocab item is treated as a padding token. Keep this
-    # for now to match previous behavior, but should be fixed eventually.
-    assert weights.shape[0] == len(vocab_to_cache), (weights.shape, len(vocab_to_cache))
+    all_vocab_to_cache = [ELMoCharacterMapper.bos_token, ELMoCharacterMapper.eos_token] + vocab_to_cache
 
-    vocab_ids = batch_to_ids_new([[x] for x in vocab_to_cache])
+    vocab_ids = batch_to_ids_new([[x] for x in all_vocab_to_cache])
     vocab_output = char_embedder_new(vocab_ids)
     vocab_vec = vocab_output['token_embedding']
     vocab_mask = vocab_output['mask']
     vocab_vec = remove_sentence_boundaries(vocab_vec, vocab_mask)[0].squeeze(1)
+
+    check_bos_vec = vocab_vec[0]
+    check_eos_vec = vocab_vec[1]
+    vocab_vec = vocab_vec[2:]
+
+    assert torch.isclose(check_bos_vec, bos_vec, atol=1e-4).all().item() is True
+    assert torch.isclose(check_eos_vec, eos_vec, atol=1e-4).all().item() is True
 
     # IMPORTANT NOTE: There is a subtle bug here... The first vocab item is treated as a padding token. Keep this
     # for now to match previous behavior, but should be fixed eventually.

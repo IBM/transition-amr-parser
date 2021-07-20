@@ -49,6 +49,8 @@ def get_character_embeddings_from_elmo(tokens, cuda=False):
     # Remove special tokens.
     vocab_to_cache = tokens[3:]
 
+    # OLD
+
     model = elmo.Elmo(options_file=options_file, weight_file=weights_file,
                       requires_grad=False, num_output_representations=1)
     model = model._elmo_lstm
@@ -65,6 +67,8 @@ def get_character_embeddings_from_elmo(tokens, cuda=False):
     embeddings[1] = model._bos_embedding.cpu().numpy()
     embeddings[2] = model._eos_embedding.cpu().numpy()
     embeddings[3:] = model._word_embedding.weight.cpu().numpy()
+
+    # NEW
 
     return embeddings
 
