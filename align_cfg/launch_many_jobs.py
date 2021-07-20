@@ -14,7 +14,7 @@ args = parser.parse_args()
 
 queue = args.queue
 require = '-require {}'.format(args.require) if args.require is not None else ''
-conda = 'torch-1.2-new' if args.new else 'torch-1.2'
+conda = 'torch-1.4-new' if args.new else 'torch-1.4'
 
 template = """#!/usr/bin/env bash
 
