@@ -225,6 +225,12 @@ def argument_parser():
         type=str,
     )
     parser.add_argument(
+        "--load-flags",
+        help="Path to model flags.",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "--max-length",
         help="Max number of text tokens.",
         default=100,
@@ -310,6 +316,11 @@ def argument_parser():
 #
 #     if args.trn_amr is None:
 #         args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.train-v1')
+
+    if args.load_flags:
+        with open(args.load_flags) as f:
+            data = json.loads(f.read())
+        args.model_config = data['model_config']
 
     if args.write_single:
         assert args.single_input is not None
