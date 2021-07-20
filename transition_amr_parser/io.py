@@ -415,14 +415,15 @@ class AMR():
             e = (s, r, t)
             self.edges[j] = e
 
-        # handle missing nodes (this shouldn't happen but a bad sequence of actions can produce it)
+        # handle missing nodes (this shouldn't happen but a bad sequence of
+        # actions can produce it)
         for s, r, t in self.edges:
             if s not in self.nodes:
                 # breakpoint()
-                self.nodes[s] = 'NA'
+                self.nodes[s] = '<NA>'
             if t not in self.nodes:
                 # breakpoint()
-                self.nodes[t] = 'NA'
+                self.nodes[t] = '<NA>'
 
     def connect_graph(self):
         assigned_root = None
@@ -548,6 +549,7 @@ class AMR():
         field_key = re.compile(f'::[A-Za-z]+')
         metadata = defaultdict(list)
         separator = None
+        root = None
         for line in penman_text:
             if line.startswith('#'):
                 line = line[2:].strip()
@@ -563,14 +565,16 @@ class AMR():
                 if value:
                     metadata[separator].append(value)
 
-        assert 'tok' in metadata, "AMR must contain field ::tok"
         if tokenize:
             assert 'snt' in metadata, "AMR must contain field ::snt"
             tokens, _ = protected_tokenizer(metadata['snt'])
-        else:
+        elif 'tok' in metadata:
             assert 'tok' in metadata, "AMR must contain field ::tok"
             assert len(metadata['tok']) == 1
             tokens = metadata['tok'][0].split()
+        else:
+            tokens = []
+
         nodes = {}
         alignments = {}
         edges = []
