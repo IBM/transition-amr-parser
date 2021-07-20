@@ -32,22 +32,38 @@ else
 
     # Train
     python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python align_cfg/main.py \
+    python align_cfg/main.py --cuda \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
         --vocab-text $ALIGN_VOCAB_TEXT \
         --vocab-amr $ALIGN_VOCAB_AMR \
-        --write-one \
+        --write-single \
         --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
         --single-output $ALIGNED_FOLDER/train.txt
 
     # Dev
     python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
     bash preprocess/align.sh ${AMR_DEV_FILE_WIKI}.no_wiki $ALIGNED_FOLDER/dev.txt
+    python align_cfg/main.py --cuda \
+        --load $ALIGN_MODEL \
+        --load-flags $ALIGN_MODEL_FLAGS \
+        --vocab-text $ALIGN_VOCAB_TEXT \
+        --vocab-amr $ALIGN_VOCAB_AMR \
+        --write-single \
+        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --single-output $ALIGNED_FOLDER/dev.txt
     
     # Test
     python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
     bash preprocess/align.sh ${AMR_TEST_FILE_WIKI}.no_wiki $ALIGNED_FOLDER/test.txt
+    python align_cfg/main.py --cuda \
+        --load $ALIGN_MODEL \
+        --load-flags $ALIGN_MODEL_FLAGS \
+        --vocab-text $ALIGN_VOCAB_TEXT \
+        --vocab-amr $ALIGN_VOCAB_AMR \
+        --write-single \
+        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --single-output $ALIGNED_FOLDER/test.txt
 
     # Mark as done
     touch $ALIGNED_FOLDER/.done
