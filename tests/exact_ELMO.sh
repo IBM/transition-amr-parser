@@ -19,7 +19,7 @@ python align_cfg/vocab.py \
          /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR3.0/train.txt \
          /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR3.0/dev.txt \
          /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR3.0/test.txt \
-         /dccstor/ykt-parse/SHARED/misc/adrozdov/data/amr2+ontonotes+sQuad.txt \
+         /dccstor/ykt-parse/SHARED/misc/adrozdov/data/amr2+ontonotes+squad.txt \
     --out-folder TMP
 
 # Extract ELMO embeddings
