@@ -64,3 +64,6 @@ python -u align_cfg/main.py \
     --write-only \
     --batch-size 8 \
     --max-length 0
+
+# results should be written to
+# DATA.tmp/neural_aligner/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred
