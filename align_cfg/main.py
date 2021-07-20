@@ -5,6 +5,7 @@ import collections
 import json
 import os
 import sys
+from ipdb import set_trace
 
 os.environ['DGLBACKEND'] = 'pytorch'
 
@@ -63,6 +64,12 @@ def argument_parser():
 
     parser = argparse.ArgumentParser()
     # Single input parameters
+    parser.add_argument(
+        "--cache-dir",
+        help="Folder to store intermediate aligner outputs e.g. ELMO",
+        type=str,
+        required=True
+    )
     parser.add_argument(
         "--trn-amr",
         help="AMR input file.",
@@ -551,11 +558,12 @@ class Embed(nn.Module):
         self.dropout = nn.Dropout(p=dropout_p)
 
     @staticmethod
-    def from_mode(mode, size, vocab_size, vocab, project_size, dropout_p):
+    def from_mode(mode, size, vocab_size, vocab, project_size, dropout_p,
+                  cache_dir):
         if mode == 'word':
             return Embed(vocab_size, size, project_size=project_size, padding_idx=PADDING_IDX, dropout_p=dropout_p, mode='learn')
         elif mode == 'char':
-            embeddings = read_embeddings(tokens=vocab)
+            embeddings = read_embeddings(tokens=vocab, cache_dir=cache_dir)
             embeddings = torch.from_numpy(embeddings).float()
             assert embeddings.shape[0] == len(vocab)
             embed = nn.Embedding.from_pretrained(embeddings, padding_idx=PADDING_IDX, freeze=True)
@@ -564,7 +572,7 @@ class Embed(nn.Module):
 
             return Embed(vocab_size, size, project_size=project_size, padding_idx=PADDING_IDX, dropout_p=dropout_p, mode='pretrained', embed=embed)
         elif mode == 'word+char':
-            embeddings = read_embeddings(tokens=vocab)
+            embeddings = read_embeddings(tokens=vocab, cache_dir=cache_dir)
             embeddings = torch.from_numpy(embeddings).float()
             assert embeddings.shape[0] == len(vocab)
             embed = nn.Embedding.from_pretrained(embeddings, padding_idx=PADDING_IDX, freeze=True)
@@ -678,7 +686,7 @@ class Net(nn.Module):
             self.predict_2 = build_predict(hidden_size, output_size, output_mode)
 
     @staticmethod
-    def from_dataset_and_config(dataset, config):
+    def from_dataset_and_config(dataset, config, cache_dir):
 
         num_text_embeddings = len(dataset.text_tokenizer.token_TO_idx)
         num_amr_embeddings = len(dataset.amr_tokenizer.token_TO_idx)
@@ -694,6 +702,7 @@ class Net(nn.Module):
                                      dropout_p=dropout,
                                      vocab_size=num_text_embeddings,
                                      vocab=dataset.text_tokenizer.vocab,
+                                     cache_dir=cache_dir
                                      )
 
         if config['text_enc'] == 'bilstm':
@@ -711,6 +720,7 @@ class Net(nn.Module):
                                     dropout_p=dropout,
                                     vocab_size=num_amr_embeddings,
                                     vocab=dataset.amr_tokenizer.vocab,
+                                    cache_dir=cache_dir
                                     )
 
         if config['amr_enc'] == 'lstm':
@@ -1371,7 +1381,7 @@ def main(args):
     val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
 
     # net
-    net = Net.from_dataset_and_config(trn_dataset, model_config)
+    net = Net.from_dataset_and_config(trn_dataset, model_config, args.cache_dir)
     if args.load is not None:
         load_checkpoint(args.load, net)
 

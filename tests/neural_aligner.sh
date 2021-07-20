@@ -10,16 +10,17 @@ FOLDER=DATA.tmp/neural_aligner/
 cp DATA/wiki25.jkaln $FOLDER/wiki25.amr
 
 # Preprocess
-# ELMO vocabulary
+# Extract ELMO vocabulary
 python align_cfg/vocab.py --in-amrs $FOLDER/wiki25.amr --out-folder $FOLDER
-# ELMO embeddings
+# Extract ELMO embeddings
 bash align_cfg/pretrained_embeddings.sh $FOLDER 
 
 # TODO: learn alignments
 
 # align data
 python -u align_cfg/main.py \
-	--cuda \
+    --cuda \
+    --cache-dir $FOLDER \
 	--log-dir $FOLDER/version_20210709c_exp_0_seed_0_write_amr2  \
 	--model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \
 	--batch-size 8 \

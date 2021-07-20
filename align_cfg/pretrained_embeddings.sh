@@ -14,6 +14,8 @@ FOLDER=$1
 set -o nounset
 
 python align_cfg/pretrained_embeddings.py --cuda \
-    --vocab-text $FOLDER/ELMO_vocab.text.txt
+    --vocab-text $FOLDER/ELMO_vocab.text.txt \
+    --cache-dir $FOLDER/
 python align_cfg/pretrained_embeddings.py --cuda \
-    --vocab-text $FOLDER/ELMO_vocab.amr.txt
+    --vocab-text $FOLDER/ELMO_vocab.amr.txt \
+    --cache-dir $FOLDER/

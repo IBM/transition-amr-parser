@@ -67,10 +67,13 @@ def get_character_embeddings_from_elmo(tokens, cuda=False):
     return embeddings
 
 
-def read_embeddings(tokens, path=None):
+def read_embeddings(tokens, path=None, cache_dir=None):
     if path is None:
         token_hash = hash_string_list(tokens)
-        path = 'elmo.{}.npy'.format(token_hash)
+        if cache_dir:
+            path = '{}/elmo.{}.npy'.format(cache_dir, token_hash)
+        else:
+            path = 'elmo.{}.npy'.format(token_hash)
         assert os.path.exists(path), path
     embeddings = np.load(path)
     assert embeddings.shape[0] == len(tokens)
@@ -93,8 +96,8 @@ def main(arg):
 
     embeddings = get_character_embeddings_from_elmo(tokens, args.cuda)
 
-    path = 'elmo.{}.npy'.format(token_hash)
-    print('writing to {}'.format(path))
+    path = f'{args.cache_dir}/elmo.{token_hash}.npy'
+    print(f'writing to {path}')
     write_embeddings(path, embeddings)
 
 
@@ -105,6 +108,8 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('--cuda', action='store_true',
                         help='If true, then use GPU.')
+    parser.add_argument('--cache-dir', required=True,
+                        help='Folder where to store e,ebddings')
     args = parser.parse_args()
 
     main(args)
