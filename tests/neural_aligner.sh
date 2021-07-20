@@ -38,8 +38,6 @@ python -u align_cfg/main.py \
     --seed 53326601 \
     --name version_20210707d_exp_0_seed_0
 
-exit
-
 # align data
 python -u align_cfg/main.py \
     --vocab-text $FOLDER/ELMO_vocab.text.txt \
@@ -62,7 +60,7 @@ python -u align_cfg/main.py \
     --pr-mode posterior \
     --seed 53060822 \
     --name version_20210709c_exp_0_seed_0 \
-    --load /dccstor/ykt-parse/SHARED/misc/adrozdov/log/align/version_20210709c_exp_0_seed_0/model.best.val_1_recall.pt \
+    --load $FOLDER/version_20210707d_exp_0_seed_0/model.best.val_0_recall.pt  \
     --trn-amr $FOLDER/wiki25.amr \
     --write-only \
     --batch-size 8 \

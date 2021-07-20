@@ -272,9 +272,6 @@ def argument_parser():
                         help="Useful for book-keeping.")
     args = parser.parse_args()
 
-    # TODO: Ensure that we can reproduce the ELMO embeddings with the data
-    # below
-
 #    if not os.path.exists(args.home):
 #        args.home = os.path.expanduser('~')
 #     if args.val_amr is None:
@@ -421,7 +418,7 @@ class AlignmentsWriter(object):
             self.fout_pred.write(out.strip() + '\n\n')
 
             # write gold
-            self.fout_gold.write(amr.toJAMRString().strip() + '\n\n')
+            self.fout_gold.write(amr.__str__().strip() + '\n\n')
 
     def close(self):
         if not self.enabled:
@@ -1298,8 +1295,11 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
             # UNCOMMENT if you need to support the strange example in AMR2.0 with None node.
             #if ('0.0.2.1.0', ':value', '0.0.2.1.0.0') in amr.edges and '0.0.2.1.0.0' not in amr.nodes:
             #    amr.nodes['0.0.2.1.0.0'] = 'null-02' # it should be None, but that is not in our vocab.
-            t.dfs(amr)
-            new_corpus.append(amr)
+            try:
+                t.dfs(amr)
+                new_corpus.append(amr)
+            except:
+                skipped['malformed'] += 1
         corpus = new_corpus
 
     # TODO: Add support for this type of graph.
@@ -1349,7 +1349,6 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
 
 
 def main(args):
-
     batch_size = args.batch_size
     lr = args.lr
     max_epoch = args.max_epoch
@@ -1406,7 +1405,7 @@ def main(args):
                 # write
                 for i_b, (amr, out) in enumerate(formatter.format(batch_map, model_output, batch_indices)):
                     fout.write(out.strip() + '\n\n')
-                    fout_gold.write(amr.toJAMRString().strip() + '\n\n')
+                    fout_gold.write(amr.__str__().strip() + '\n\n')
 
         fout.close()
         fout_gold.close()

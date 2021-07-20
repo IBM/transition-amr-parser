@@ -104,7 +104,7 @@ class FormatAlignments(object):
 
             def fmt():
                 if use_jamr:
-                    return amr.toJAMRString()
+                    return amr.__str__()
 
                 node_TO_align = {}
                 for node_id, idx_txt in node_alignments:
@@ -139,7 +139,7 @@ class FormatAlignments(object):
                 alignments = s_alignment()
 
                 # amr
-                pretty_amr = amr.toJAMRString().split('\t')[-1].strip()
+                pretty_amr = amr.__str__().split('\t')[-1].strip()
 
                 # new output
                 out = ''
