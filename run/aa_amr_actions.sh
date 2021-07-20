@@ -43,7 +43,6 @@ else
 
     # Dev
     python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
-    bash preprocess/align.sh ${AMR_DEV_FILE_WIKI}.no_wiki $ALIGNED_FOLDER/dev.txt
     python align_cfg/main.py --cuda \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
@@ -55,7 +54,6 @@ else
     
     # Test
     python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
-    bash preprocess/align.sh ${AMR_TEST_FILE_WIKI}.no_wiki $ALIGNED_FOLDER/test.txt
     python align_cfg/main.py --cuda \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
