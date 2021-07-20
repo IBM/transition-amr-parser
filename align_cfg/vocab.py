@@ -21,7 +21,7 @@ if __name__ == '__main__':
     tokens = set()
     graph_tokens = set()
     for amr_file in args.in_amrs:
-        for amr in read_amr2(amr_file):
+        for amr in read_amr2(amr_file, ibm_format=True):
             # surface tokens
             tokens.update(amr.tokens)
             # graph tokens
@@ -45,5 +45,5 @@ if __name__ == '__main__':
             f.write(tok + '\n')
     print('found {} amr tokens'.format(len(graph_tokens)))
     with open(f'{args.out_folder}/ELMO_vocab.amr.txt', 'w') as f:
-        for tok in tokens:
+        for tok in graph_tokens:
             f.write(tok + '\n')
