@@ -1,7 +1,7 @@
 import collections
 
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
-from amr_utils import read_amr
+from transition_amr_parser.io import read_amr2
 
 import numpy as np
 import torch
@@ -135,6 +135,7 @@ class SentenceRecall(Metric):
         # Don't count examples without alignments.
         if total == 0:
             return
+
 
         recall = correct / total
 
@@ -401,8 +402,8 @@ class EvalAlignments(object):
                 CorpusRecall_WithDupsAndSpans(),
             ]
 
-        gold = read_amr(path_gold).amrs
-        pred = read_amr(path_pred).amrs
+        gold = read_amr2(path_gold, ibm_format=True)
+        pred = read_amr2(path_pred, ibm_format=True)
 
         assert len(gold) == len(pred)
 

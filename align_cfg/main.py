@@ -92,13 +92,13 @@ def argument_parser():
         "--vocab-text",
         help="Vocab file.",
         type=str,
-        default='./align_cfg/vocab.text.2021-06-30.txt'
+        # default='./align_cfg/vocab.text.2021-06-30.txt'
     )
     parser.add_argument(
         "--vocab-amr",
         help="Vocab file.",
         type=str,
-        default='./align_cfg/vocab.amr.2021-06-30.txt'
+        # default='./align_cfg/vocab.amr.2021-06-30.txt'
     )
     parser.add_argument(
         "--log-dir",
@@ -109,7 +109,7 @@ def argument_parser():
     parser.add_argument(
         "--home",
         help="Used to specify default file paths.",
-        default="/dccstor/ykt-parse/SHARED/misc/adrozdov",
+        # default="/dccstor/ykt-parse/SHARED/misc/adrozdov",
         type=str,
     )
     # Model options
@@ -272,28 +272,30 @@ def argument_parser():
                         help="Useful for book-keeping.")
     args = parser.parse_args()
 
-    if not os.path.exists(args.home):
-        args.home = os.path.expanduser('~')
+    # TODO: Ensure that we can reproduce the ELMO embeddings with the data
+    # below
 
-    if args.val_amr is None:
-        args.val_amr = [
-            os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-unseen-v1'),
-            os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1'),
-        ]
-
-    if args.tst_amr is None:
-        args.tst_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/test.txt')
-
-    if args.demo:
-        args.trn_amr = args.val_amr[0]
-        args.val_max_length = args.max_length
-
-    if args.write_only:
-        if args.trn_amr is None:
-            args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt')
-
-    if args.trn_amr is None:
-        args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.train-v1')
+#    if not os.path.exists(args.home):
+#        args.home = os.path.expanduser('~')
+#     if args.val_amr is None:
+#         args.val_amr = [
+#             os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-unseen-v1'),
+#             os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1'),
+#         ]
+#
+#     if args.tst_amr is None:
+#         args.tst_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/test.txt')
+#
+#     if args.demo:
+#         args.trn_amr = args.val_amr[0]
+#         args.val_max_length = args.max_length
+#
+#     if args.write_only:
+#         if args.trn_amr is None:
+#             args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt')
+#
+#     if args.trn_amr is None:
+#         args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.train-v1')
 
     return args
 
@@ -1278,7 +1280,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
 def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=True):
 
     skipped = collections.Counter()
-    corpus = read_amr2(path)
+    corpus = read_amr2(path, ibm_format=True)
 
     if max_length > 0:
         new_corpus = []
@@ -1296,11 +1298,8 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
             # UNCOMMENT if you need to support the strange example in AMR2.0 with None node.
             #if ('0.0.2.1.0', ':value', '0.0.2.1.0.0') in amr.edges and '0.0.2.1.0.0' not in amr.nodes:
             #    amr.nodes['0.0.2.1.0.0'] = 'null-02' # it should be None, but that is not in our vocab.
-            try:
-                t.dfs(amr)
-                new_corpus.append(amr)
-            except:
-                skipped['malformed'] += 1
+            t.dfs(amr)
+            new_corpus.append(amr)
         corpus = new_corpus
 
     # TODO: Add support for this type of graph.
@@ -1350,6 +1349,7 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
 
 
 def main(args):
+
     batch_size = args.batch_size
     lr = args.lr
     max_epoch = args.max_epoch
@@ -1362,12 +1362,8 @@ def main(args):
 
     if args.read_only:
         t = AMRTokenizer()
-        for amr in read_amr2(args.trn_amr):
-            try:
-                t.dfs(amr)
-            except:
-                import ipdb; ipdb.set_trace()
-                pass
+        for amr in read_amr2(args.trn_amr, ibm_format=True):
+            t.dfs(amr)
         sys.exit()
 
     # tokenizers

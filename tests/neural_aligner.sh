@@ -16,26 +16,54 @@ python align_cfg/vocab.py --in-amrs $FOLDER/wiki25.amr --out-folder $FOLDER
 bash align_cfg/pretrained_embeddings.sh $FOLDER 
 
 # TODO: learn alignments
+python -u align_cfg/main.py \
+    --vocab-text $FOLDER/ELMO_vocab.text.txt \
+    --vocab-amr $FOLDER/ELMO_vocab.amr.txt \
+    --trn-amr $FOLDER/wiki25.amr \
+    --val-amr $FOLDER/wiki25.amr \
+    --tst-amr $FOLDER/wiki25.amr \
+    --cuda \
+    --cache-dir $FOLDER \
+    --log-dir $FOLDER/version_20210707d_exp_0_seed_0      \
+    --model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \
+    --batch-size 4 \
+    --accum-steps 32 \
+    --lr 0.0001 \
+    --max-length 100 \
+    --verbose \
+    --max-epoch 100 \
+    --pr 0 \
+    --pr-after 1000 \
+    --pr-mode posterior \
+    --seed 53326601 \
+    --name version_20210707d_exp_0_seed_0
+
+exit
 
 # align data
 python -u align_cfg/main.py \
+    --vocab-text $FOLDER/ELMO_vocab.text.txt \
+    --vocab-amr $FOLDER/ELMO_vocab.amr.txt \
+    --trn-amr $FOLDER/wiki25.amr \
+    --val-amr $FOLDER/wiki25.amr \
+    --tst-amr $FOLDER/wiki25.amr \
     --cuda \
     --cache-dir $FOLDER \
-	--log-dir $FOLDER/version_20210709c_exp_0_seed_0_write_amr2  \
-	--model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \
-	--batch-size 8 \
-	--accum-steps 16 \
-	--lr 0.0001 \
-	--max-length 100 \
-	--verbose \
-	--max-epoch 200 \
-	--pr 0 \
-	--pr-after 1000 \
-	--pr-mode posterior \
-	--seed 53060822 \
-	--name version_20210709c_exp_0_seed_0 \
-	--load /dccstor/ykt-parse/SHARED/misc/adrozdov/log/align/version_20210709c_exp_0_seed_0/model.best.val_1_recall.pt \
-	--trn-amr $FOLDER/wiki25.amr \
-	--write-only \
-	--batch-size 8 \
-	--max-length 0
+    --log-dir $FOLDER/version_20210709c_exp_0_seed_0_write_amr2  \
+    --model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \
+    --batch-size 8 \
+    --accum-steps 16 \
+    --lr 0.0001 \
+    --max-length 100 \
+    --verbose \
+    --max-epoch 200 \
+    --pr 0 \
+    --pr-after 1000 \
+    --pr-mode posterior \
+    --seed 53060822 \
+    --name version_20210709c_exp_0_seed_0 \
+    --load /dccstor/ykt-parse/SHARED/misc/adrozdov/log/align/version_20210709c_exp_0_seed_0/model.best.val_1_recall.pt \
+    --trn-amr $FOLDER/wiki25.amr \
+    --write-only \
+    --batch-size 8 \
+    --max-length 0
