@@ -89,6 +89,18 @@ def argument_parser():
         default=None
     )
     parser.add_argument(
+        "--single-input",
+        help="AMR input file.",
+        type=str,
+        default=None
+    )
+    parser.add_argument(
+        "--single-output",
+        help="AMR output file.",
+        type=str,
+        default=None
+    )
+    parser.add_argument(
         "--vocab-text",
         help="Vocab file.",
         type=str,
@@ -196,6 +208,11 @@ def argument_parser():
         action='store_true',
     )
     parser.add_argument(
+        "--write-single",
+        help="If true, then write alignments to file.",
+        action='store_true',
+    )
+    parser.add_argument(
         "--use-jamr",
         help="If true, then write original alignments to file.",
         action='store_true',
@@ -204,6 +221,12 @@ def argument_parser():
     parser.add_argument(
         "--load",
         help="Path to model checkpoint.",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "--load-flags",
+        help="Path to model flags.",
         default=None,
         type=str,
     )
@@ -293,6 +316,18 @@ def argument_parser():
 #
 #     if args.trn_amr is None:
 #         args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.train-v1')
+
+    if args.load_flags:
+        with open(args.load_flags) as f:
+            data = json.loads(f.read())
+        args.model_config = data['model_config']
+
+    if args.write_single:
+        assert args.single_input is not None
+        assert args.single_output is not None
+
+        args.trn_amr = args.single_input
+        args.val_amr = []
 
     return args
 
@@ -395,13 +430,17 @@ class AMRTokenizer(object):
 
 
 class AlignmentsWriter(object):
-    def __init__(self, path, dataset, formatter, enabled=True):
+    def __init__(self, path_gold, path_pred, dataset, formatter, enabled=True, write_gold=True):
         self.enabled = enabled
         if not self.enabled:
             return
 
-        self.fout_pred = open(path + '.pred', 'w')
-        self.fout_gold = open(path + '.gold', 'w')
+        self.write_gold = write_gold
+
+        if write_gold:
+            self.fout_gold = open(path_gold, 'w')
+        self.fout_pred = open(path_pred, 'w')
+
         self.formatter = formatter
         self.dataset = dataset
 
@@ -418,13 +457,16 @@ class AlignmentsWriter(object):
             self.fout_pred.write(out.strip() + '\n\n')
 
             # write gold
-            self.fout_gold.write(amr.__str__().strip() + '\n\n')
+            if self.write_gold:
+                # write gold
+                self.fout_gold.write(amr.__str__().strip() + '\n\n')
 
     def close(self):
         if not self.enabled:
             return
         self.fout_pred.close()
-        self.fout_gold.close()
+        if self.write_gold:
+            self.fout_gold.close()
 
 
 class Dataset(object):
@@ -1277,7 +1319,11 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
 def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=True):
 
     skipped = collections.Counter()
-    corpus = read_amr2(path, ibm_format=True)
+
+    try:
+        corpus = read_amr2(path, ibm_format=True)
+    except:
+        corpus = read_amr2(path, ibm_format=False)
 
     if max_length > 0:
         new_corpus = []
@@ -1410,12 +1456,12 @@ def main(args):
         fout.close()
         fout_gold.close()
 
-    def write_align(corpus, dataset, path, formatter):
+    def write_align(corpus, dataset, path_gold, path_pred, formatter, write_gold=True):
         net.eval()
 
         indices = np.arange(len(corpus))
 
-        writer = AlignmentsWriter(path, dataset, formatter)
+        writer = AlignmentsWriter(path_gold, path_pred, dataset, formatter, write_gold=write_gold)
 
         with torch.no_grad():
             for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
@@ -1442,12 +1488,23 @@ def main(args):
     if args.write_only:
 
         path = os.path.join(args.log_dir, 'alignment.trn.out')
+        path_gold = path + '.gold'
+        path_pred = path + '.pred'
         formatter = FormatAlignments(trn_dataset)
-        write_align(trn_corpus, trn_dataset, path, formatter)
-        eval_output = EvalAlignments().run(path + '.gold', path + '.pred')
+        write_align(trn_corpus, trn_dataset, path_gold, path_pred, formatter)
+        eval_output = EvalAlignments().run(path_gold, path_pred)
 
-        with open(path + '.pred.eval', 'w') as f:
+        with open(path_pred + '.eval', 'w') as f:
             f.write(json.dumps(eval_output))
+
+        sys.exit()
+
+    if args.write_single:
+
+        path_gold = None
+        path_pred = args.single_output
+        formatter = FormatAlignments(trn_dataset)
+        write_align(trn_corpus, trn_dataset, path_gold, path_pred, formatter, write_gold=False)
 
         sys.exit()
 
@@ -1570,7 +1627,9 @@ def main(args):
 
             formatter = FormatAlignments(val_dataset)
             path = os.path.join(args.log_dir, 'alignment.epoch_{}.val_{}.out'.format(epoch, i_valid))
-            writer = AlignmentsWriter(path, val_dataset, formatter)
+            path_gold = path + '.gold'
+            path_pred = path + '.pred'
+            writer = AlignmentsWriter(path_gold, path_pred, val_dataset, formatter)
 
             def val_step(batch_indices, batch_map):
                 with torch.no_grad():
@@ -1647,9 +1706,10 @@ if __name__ == '__main__':
 
     print(args.__dict__)
 
-    os.system('mkdir -p {}'.format(args.log_dir))
+    if not args.write_single:
+        os.system('mkdir -p {}'.format(args.log_dir))
 
-    with open(os.path.join(args.log_dir, 'flags.json'), 'w') as f:
-        f.write(json.dumps(args.__dict__))
+        with open(os.path.join(args.log_dir, 'flags.json'), 'w') as f:
+            f.write(json.dumps(args.__dict__))
 
     main(args)

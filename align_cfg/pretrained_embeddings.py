@@ -4,17 +4,22 @@ import json
 import numpy as np
 import os
 import torch
-from align_cfg.vocab_definitions import BOS_TOK, EOS_TOK, special_tokens
+from tqdm import tqdm
 
-try:
-    import allennlp.modules.elmo as elmo
-except ImportError:
-    print('warning: No allennlp installed.')
+from align_cfg.vocab_definitions import BOS_TOK, EOS_TOK, special_tokens
+from align_cfg.standalone_elmo import batch_to_ids, ElmoCharacterEncoder, remove_sentence_boundaries
 
 
 # files for original elmo model
 weights_file = 'https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5'
 options_file = 'https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json'
+
+
+def maybe_download(remote_url, cache_dir):
+    path = os.path.join(cache_dir, os.path.basename(remote_url))
+    if not os.path.exists(path):
+        os.system(f'curl {remote_url} -o {path} -L')
+    return path
 
 
 def hash_string_list(string_list):
@@ -40,29 +45,36 @@ def read_amr_vocab_file(path):
     return output
 
 
-def get_character_embeddings_from_elmo(tokens, cuda=False):
+def get_character_embeddings_from_elmo(tokens, cache_dir, cuda=False):
     assert len(special_tokens) == 3
     assert tokens[1] == BOS_TOK and tokens[2] == EOS_TOK
 
     # Remove special tokens.
     vocab_to_cache = tokens[3:]
 
-    model = elmo.Elmo(options_file=options_file, weight_file=weights_file,
-                      requires_grad=False, num_output_representations=1)
-    model = model._elmo_lstm
+    size = 512
+    batch_size = 1024
+
+    char_embedder = ElmoCharacterEncoder(
+        options_file=maybe_download(options_file, cache_dir=cache_dir),
+        weight_file=maybe_download(weights_file, cache_dir=cache_dir),
+        requires_grad=False)
     if cuda:
-        model.cuda()
+        char_embedder.cuda()
 
-    with torch.no_grad():
-        model.create_cached_cnn_embeddings(vocab_to_cache)
+    all_vocab_to_cache = [BOS_TOK, EOS_TOK] + vocab_to_cache
 
-    size = model._word_embedding.weight.shape[1]
-    shape = (len(tokens), size)
+    shape = (1 + len(all_vocab_to_cache), size)
     embeddings = np.zeros(shape, dtype=np.float32)
-    # embeddings[0] = 0 # padding token
-    embeddings[1] = model._bos_embedding.cpu().numpy()
-    embeddings[2] = model._eos_embedding.cpu().numpy()
-    embeddings[3:] = model._word_embedding.weight.cpu().numpy()
+
+    for start in tqdm(range(0, len(all_vocab_to_cache), batch_size), desc='embed'):
+        end = min(start + batch_size, len(all_vocab_to_cache))
+        batch = all_vocab_to_cache[start:end]
+        batch_ids = batch_to_ids([[x] for x in batch])
+        output = char_embedder(batch_ids)
+        vec = remove_sentence_boundaries(output['token_embedding'], output['mask'])[0].squeeze(1)
+
+        embeddings[1 + start:1 + end] = vec
 
     return embeddings
 
@@ -94,7 +106,7 @@ def main(arg):
 
     print('found {} tokens with hash = {}'.format(len(tokens), token_hash))
 
-    embeddings = get_character_embeddings_from_elmo(tokens, args.cuda)
+    embeddings = get_character_embeddings_from_elmo(tokens, args.cache_dir, args.cuda)
 
     path = f'{args.cache_dir}/elmo.{token_hash}.npy'
     print(f'writing to {path}')
@@ -108,8 +120,8 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('--cuda', action='store_true',
                         help='If true, then use GPU.')
-    parser.add_argument('--cache-dir', required=True,
-                        help='Folder where to store e,ebddings')
+    parser.add_argument('--cache-dir', type=str, required=True,
+                        help='Folder to save elmo weights and embeddings.')
     args = parser.parse_args()
 
     main(args)
