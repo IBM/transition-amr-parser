@@ -31,7 +31,7 @@ python -u align_cfg/main.py \
     --lr 0.0001 \
     --max-length 100 \
     --verbose \
-    --max-epoch 100 \
+    --max-epoch 10 \
     --pr 0 \
     --pr-after 1000 \
     --pr-mode posterior \
@@ -61,7 +61,6 @@ python -u align_cfg/main.py \
     --seed 53060822 \
     --name version_20210709c_exp_0_seed_0 \
     --load $FOLDER/version_20210707d_exp_0_seed_0/model.best.val_0_recall.pt  \
-    --trn-amr $FOLDER/wiki25.amr \
     --write-only \
     --batch-size 8 \
     --max-length 0
