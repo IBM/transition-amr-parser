@@ -87,6 +87,7 @@ def read_embeddings(tokens, path=None, cache_dir=None):
         else:
             path = 'elmo.{}.npy'.format(token_hash)
         assert os.path.exists(path), path
+    print('reading embeddings from {} for {} tokens'.format(path, len(tokens)))
     embeddings = np.load(path)
     assert embeddings.shape[0] == len(tokens)
     return embeddings

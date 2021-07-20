@@ -5,7 +5,6 @@ import collections
 import json
 import os
 import sys
-from ipdb import set_trace
 
 os.environ['DGLBACKEND'] = 'pytorch'
 
@@ -104,12 +103,14 @@ def argument_parser():
         "--vocab-text",
         help="Vocab file.",
         type=str,
+        required=True,
         # default='./align_cfg/vocab.text.2021-06-30.txt'
     )
     parser.add_argument(
         "--vocab-amr",
         help="Vocab file.",
         type=str,
+        required=True,
         # default='./align_cfg/vocab.amr.2021-06-30.txt'
     )
     parser.add_argument(
@@ -1590,7 +1591,6 @@ def main(args):
 
                 if args.batches_per_epoch > 0 and (step + 1) == args.batches_per_epoch:
                     break
-
 
         # loop
         for batch_indices, info in tqdm(get_batch_iterator_with_info(), desc='trn-epoch[{}]'.format(epoch), disable=not args.verbose):
