@@ -568,22 +568,3 @@ def add_sentence_boundary_token_ids(tensor, mask, sentence_begin_token, sentence
         raise ValueError("add_sentence_boundary_token_ids only accepts 2D and 3D input")
 
     return tensor_with_boundary_tokens, new_mask
-
-
-if __name__ == '__main__':
-    requires_grad = False
-    option_file = 'elmo_2x4096_512_2048cnn_2xhighway_options.json'
-    weight_file = 'elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5'
-
-    # char_embedder = ElmoCharacterEncoder(
-    #     options_file=option_file,
-    #     weight_file=weight_file,
-    #     requires_grad=requires_grad)
-
-    batch = []
-    batch.append('the cat jumped over the fence'.split())
-    batch.append('cat dog'.split())
-
-    tokens_tensor = batch_to_ids(batch)
-
-
