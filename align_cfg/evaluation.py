@@ -154,12 +154,11 @@ class CorpusRecall(Metric):
         total, correct = 0, 0
 
         for node_id in gold_align.keys():
-            p = pred_align[node_id][0] - 1
-            g = gold_align[node_id][0] - 1
-
+            # ignore unaligned nodes for the purpose of computing stats
+            if gold_align[node_id] is None:
+                continue
             total += 1
-
-            if p == g:
+            if pred_align[node_id][0] == gold_align[node_id][0]:
                 correct += 1
 
         self.state['total'].append(total)
@@ -198,6 +197,10 @@ class CorpusRecall_ExcludeNode(CorpusRecall):
                 skipped += 1
                 continue
 
+            # Ignore unaligned nodes
+            if gold_align[node_id] is None:
+                continue
+
             p = pred_align[node_id][0] - 1
             g = gold_align[node_id][0] - 1
 
@@ -231,6 +234,11 @@ class CorpusRecall_DuplicateText(CorpusRecall):
         text_counts = collections.Counter(gold.tokens)
 
         for node_id in gold_align.keys():
+
+            # Ignore unaligned nodes
+            if gold_align[node_id] is None:
+                continue
+
             p = pred_align[node_id][0] - 1
             g = gold_align[node_id][0] - 1
 
@@ -276,6 +284,11 @@ class CorpusRecall_IgnoreURL(CorpusRecall):
         total, correct = 0, 0
 
         for node_id in gold_align.keys():
+
+            # Ignore unaligned nodes
+            if gold_align[node_id] is None:
+                continue
+
             p = pred_align[node_id][0] - 1
             g = gold_align[node_id][0] - 1
 
@@ -306,6 +319,10 @@ class CorpusRecall_WithGoldSpans(CorpusRecall):
         for node_id in gold_align.keys():
             assert len(pred_align[node_id]) == 1
             p = pred_align[node_id][0] - 1
+
+            # Ignore unaligned nodes
+            if gold_align[node_id] is None:
+                continue
 
             g0 = gold_align[node_id][0] - 1
             g1 = gold_align[node_id][-1] - 1
@@ -338,6 +355,10 @@ class CorpusRecall_WithDupsAndSpans(CorpusRecall):
         for node_id in gold_align.keys():
             assert len(pred_align[node_id]) == 1
             p = pred_align[node_id][0] - 1
+
+            # Ignore unaligned nodes
+            if gold_align[node_id] is None:
+                continue
 
             g0 = gold_align[node_id][0] - 1
             g1 = gold_align[node_id][-1] - 1
