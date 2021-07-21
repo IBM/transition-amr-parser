@@ -1316,14 +1316,13 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
-def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=True):
+def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False,
+              check_for_bpe=True):
 
     skipped = collections.Counter()
 
-    try:
-        corpus = read_amr2(path, ibm_format=True)
-    except:
-        corpus = read_amr2(path, ibm_format=False)
+    # FIXME: This reads AMR from JAMR notation
+    corpus = read_amr2(path, ibm_format=True)
 
     if max_length > 0:
         new_corpus = []
