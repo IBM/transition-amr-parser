@@ -1323,7 +1323,7 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False,
     skipped = collections.Counter()
 
     # FIXME: This reads AMR from JAMR notation
-    corpus = read_amr2(path, ibm_format=True)
+    corpus = read_amr2(path, ibm_format=False)
 
     if max_length > 0:
         new_corpus = []
@@ -1407,7 +1407,7 @@ def main(args):
 
     if args.read_only:
         t = AMRTokenizer()
-        for amr in read_amr2(args.trn_amr, ibm_format=True):
+        for amr in read_amr2(args.trn_amr, ibm_format=False):
             t.dfs(amr)
         sys.exit()
 
