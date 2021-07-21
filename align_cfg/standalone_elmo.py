@@ -448,10 +448,7 @@ class ElmoCharacterEncoder(nn.Module):
         """
         # Add BOS/EOS
         mask = (inputs > 0).sum(dim=-1) > 0
-        character_ids_with_bos_eos, mask_with_bos_eos = add_sentence_boundary_token_ids(
-            inputs, mask, self._beginning_of_sentence_characters, self._end_of_sentence_characters
-        )
-
+        character_ids_with_bos_eos, mask_with_bos_eos = add_sentence_boundary_token_ids( inputs, mask, self._beginning_of_sentence_characters, self._end_of_sentence_characters)
         # the character id embedding
         max_chars_per_token = self._options["char_cnn"]["max_characters_per_token"]
         # (batch_size * sequence_length, max_chars_per_token, embed_dim)
@@ -466,7 +463,7 @@ class ElmoCharacterEncoder(nn.Module):
         elif cnn_options["activation"] == "relu":
             activation = torch.nn.functional.relu
         else:
-            raise ConfigurationError("Unknown activation")
+            raise Exception("Unknown activation")
 
         # (batch_size * sequence_length, embed_dim, max_chars_per_token)
         character_embedding = torch.transpose(character_embedding, 1, 2)
