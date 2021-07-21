@@ -1687,7 +1687,7 @@ def main(args):
             if check_and_update_best(best_metrics, 'val_{}_recall'.format(i_valid), val_recall, compare='gt'):
                 save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_recall.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
 
-                if i_valid == 1 and args.jbsub_eval:
+                if i_valid == 0 and args.jbsub_eval:
 
                     stdout_path = os.path.join(args.log_dir, 'eval.stdout.txt')
                     stderr_path = os.path.join(args.log_dir, 'eval.stderr.txt')
