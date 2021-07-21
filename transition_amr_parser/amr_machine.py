@@ -15,7 +15,8 @@ from transition_amr_parser.io import (
     AMR,
     read_amr2,
     read_tokenized_sentences,
-    write_tokenized_sentences
+    write_tokenized_sentences,
+    read_neural_alignments
 )
 from ipdb import set_trace
 
@@ -105,6 +106,17 @@ def fix_alignments(gold_amr):
     return gold_amr, unaligned_nodes_original
 
 
+def sample_alignments(gold_amr, alignment_probs):
+    node_token_joint = alignment_probs['p_node_and_token']
+    node_marginal = node_token_joint.sum(1, keepdims=True)
+    token_posterior = node_token_joint / node_marginal
+    for idx, node_id in enumerate(alignment_probs['node_short_id']):
+        alignment = np.random.multinomial(1, token_posterior[idx, :]).argmax()
+        gold_amr.alignments[node_id] = [alignment]
+
+    return gold_amr
+
+
 def normalize(token):
     """
     Normalize token or node
@@ -117,7 +129,8 @@ def normalize(token):
 
 class AMROracle():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False, use_copy=True):
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
+                 use_copy=True):
 
         # Remove nodes that have all their edges created
         self.reduce_nodes = reduce_nodes
@@ -128,7 +141,11 @@ class AMROracle():
         # use copy action
         self.use_copy = use_copy
 
-    def reset(self, gold_amr):
+    def reset(self, gold_amr, alignment_probs=None):
+
+        # if probabilties provided sample alignments from them
+        if alignment_probs:
+            gold_amr = sample_alignments(gold_amr, alignment_probs)
 
         # Force align missing nodes and store names for stats
         self.gold_amr, self.unaligned_nodes = fix_alignments(gold_amr)
@@ -177,7 +194,9 @@ class AMROracle():
             edges.sort(reverse=True)
             new_edges_for_node = []
             for (_, idx) in edges:
-                new_edges_for_node.append(self.pend_edges_by_node[node_id][idx])
+                new_edges_for_node.append(
+                    self.pend_edges_by_node[node_id][idx]
+                )
             self.pend_edges_by_node[node_id] = new_edges_for_node
 
         # Will store gold_amr.nodes.keys() and edges as we predict them
@@ -210,7 +229,8 @@ class AMROracle():
                 self.pend_edges_by_node[tgt].remove((src, label, tgt))
                 self.pend_edges_by_node[current_id].remove((src, label, tgt))
                 # return [f'LA({label[1:]};{index})'], [1.0]
-                assert label[0] == ':'    # NOTE include the relation marker ':' in action names
+                # NOTE include the relation marker ':' in action names
+                assert label[0] == ':'
                 return [f'>LA({index},{label})'], [1.0]
 
             elif (
@@ -230,7 +250,8 @@ class AMROracle():
                 self.pend_edges_by_node[src].remove((src, label, tgt))
                 self.pend_edges_by_node[current_id].remove((src, label, tgt))
                 # return [f'RA({label[1:]};{index})'], [1.0]
-                assert label[0] == ':'    # NOTE include the relation marker ':' in action names
+                # NOTE include the relation marker ':' in action names
+                assert label[0] == ':'
                 return [f'>RA({index},{label})'], [1.0]
 
     def get_reduce_action(self, machine, top=True):
@@ -298,7 +319,11 @@ class AMROracle():
             # tracking and scoring of graph
             target_node = normalize(self.gold_amr.nodes[nid])
 
-            if self.use_copy and normalize(machine.tokens[machine.tok_cursor]) == target_node:
+            if (
+                self.use_copy
+                and normalize(machine.tokens[machine.tok_cursor])
+                    == target_node
+            ):
                 # COPY
                 return [('COPY', nid)], [1.0]
             else:
@@ -314,7 +339,8 @@ class AMROracle():
 
 class AMRStateMachine():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False, use_copy=True):
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
+                 use_copy=True):
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
@@ -332,8 +358,9 @@ class AMRStateMachine():
             'SHIFT',   # Move cursor
             'COPY',    # Copy word under cursor to node (add node to stack)
             'ROOT',    # Label node as root
-            '>LA',      # Arc from node under cursor (<label>, <to position>) (to be different from LA the city)
-            '>RA',      # Arc to node under cursor (<label>, <from position>)
+            '>LA',     # Arc from node under cursor (<label>, <to position>)
+                       # (to be different from LA the city)
+            '>RA',     # Arc to node under cursor (<label>, <from position>)
             'CLOSE',   # Close machine
             # ...      # create node with ... as name (add node to stack)
             'NODE'     # other node names
@@ -349,7 +376,9 @@ class AMRStateMachine():
             self.base_action_vocabulary.remove('COPY')
 
     def canonical_action_to_dict(self, vocab):
-        """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
+        """
+        Map the canonical actions to ids in a vocabulary, each canonical action
+        corresponds to a set of ids.
 
         CLOSE is mapped to eos </s> token.
         """
@@ -357,7 +386,8 @@ class AMRStateMachine():
         vocab_act_count = 0
         assert vocab.eos_word == '</s>'
         for i in range(len(vocab)):
-            # NOTE can not directly use "for act in vocab" -> this will never stop since no stopping iter implemented
+            # NOTE can not directly use "for act in vocab" -> this will never
+            # stop since no stopping iter implemented
             act = vocab[i]
             if act in ['<s>', '<pad>', '<unk>', '<mask>'] or act.startswith('madeupword'):
                 continue
@@ -365,42 +395,7 @@ class AMRStateMachine():
             if cano_act in self.base_action_vocabulary:
                 vocab_act_count += 1
                 canonical_act_ids.setdefault(cano_act, []).append(i)
-        # print for debugging
-        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
         return canonical_act_ids
-
-    # def canonical_action_to_dict_bpe(self, vocab):
-    #     """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
-    #     Here the mapping is specially dealing with shared bpe vocabulary, with possible node splits.
-
-    #     CLOSE is mapped to eos </s> token.
-    #     """
-    #     canonical_act_ids = dict()
-    #     vocab_act_count = 0
-    #     assert vocab.eos_word == '</s>'
-    #     for i in range(len(vocab)):
-    #         # NOTE can not directly use "for act in vocab" -> this will never stop since no stopping iter implemented
-    #         act = vocab[i]
-    #         if act in ['<s>', '<pad>', '<unk>', '<mask>'] or act.startswith('madeupword'):
-    #             continue
-    #         # NOTE remove the start of token space in bpe symbols
-    #         if act[0].startswith(vocab.bpe.INIT):
-    #             act = act[1:]
-    #         # NOTE the subtokens are currently included in the class of "NODE" base action, which
-    #         # is allowed at every step except after the last SHIFT
-
-    #         # NOTE in the bart bpe vocabulary both "CLOSE" and "ĠCLOSE" exist -> they should be mapped to eos
-    #         if act == 'CLOSE':
-    #             # skip these conflicting CLOSE tokens
-    #             continue
-
-    #         cano_act = self.get_base_action(act) if i != vocab.eos() else 'CLOSE'
-    #         if cano_act in self.base_action_vocabulary:
-    #             vocab_act_count += 1
-    #             canonical_act_ids.setdefault(cano_act, []).append(i)
-    #     # print for debugging
-    #     # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
-    #     return canonical_act_ids
 
     def reset(self, tokens):
         '''
@@ -469,7 +464,8 @@ class AMRStateMachine():
         if action in self.base_action_vocabulary:
             return action
         # remaining ones are ['>LA', '>RA', 'NODE']
-        # NOTE need to deal with both '>LA(pos,label)' and '>LA(label)', as in the vocabulary the pointers are peeled off
+        # NOTE need to deal with both '>LA(pos,label)' and '>LA(label)', as in
+        # the vocabulary the pointers are peeled off
         if arc_regex.match(action) or arc_nopointer_regex.match(action):
             return action[:3]
         return 'NODE'
@@ -484,20 +480,24 @@ class AMRStateMachine():
             valid_base_actions.extend(gen_node_actions)
 
         if self.action_history and \
-                self.get_base_action(self.action_history[-1]) in (gen_node_actions + ['ROOT', '>LA', '>RA']):
+                self.get_base_action(self.action_history[-1]) \
+                in (gen_node_actions + ['ROOT', '>LA', '>RA']):
             valid_base_actions.extend(['>LA', '>RA'])
 
         if self.action_history and \
-                self.get_base_action(self.action_history[-1]) in gen_node_actions:
+                self.get_base_action(self.action_history[-1]) \
+                in gen_node_actions:
             if max_1root:
-                # force to have at most 1 root (but it can always be with no root)
+                # force to have at most 1 root (but it can always be with no
+                # root)
                 if not self.root:
                     valid_base_actions.append('ROOT')
             else:
                 valid_base_actions.append('ROOT')
 
         if self.tok_cursor == len(self.tokens):
-            assert not valid_base_actions and self.action_history[-1] == 'SHIFT'
+            assert not valid_base_actions \
+                and self.action_history[-1] == 'SHIFT'
             valid_base_actions.append('CLOSE')
 
         if self.reduce_nodes:
@@ -861,7 +861,14 @@ class StatsForVocab:
 def oracle(args):
 
     # Read AMR
-    amrs = read_amr2(args.in_aligned_amr, ibm_format=True)
+    amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
+    amrs = read_amr2(amr_file, ibm_format=True)
+    # read AMR alignments if provided
+    if args.in_alignment_probs:
+        corpus_align_probs = read_neural_alignments(args.in_alignment_probs)
+        assert len(corpus_align_probs) == len(amrs)
+    else:
+        corpus_align_probs = None
 
     # broken annotations that we ignore in stats
     # 'DATA/AMR2.0/aligned/cofill/train.txt'
@@ -900,12 +907,14 @@ def oracle(args):
         # print(idx)    # 96 for AMR2.0 test data infinit loop
         # if idx == 96:
         #     breakpoint()
-
         # spawn new machine for this sentence
         machine.reset(amr.tokens)
 
         # initialize new oracle for this AMR
-        oracle.reset(amr)
+        if corpus_align_probs:
+            oracle.reset(amr, alignment_probs=corpus_align_probs[idx])
+        else:
+            oracle.reset(amr)
 
         # proceed left to right throught the sentence generating nodes
         while not machine.is_closed:
@@ -1014,15 +1023,18 @@ def main(args):
         assert not args.in_aligned_amr
         play(args)
 
-    elif args.in_aligned_amr:
+    elif args.in_aligned_amr or args.in_amr:
         # Run oracle and determine actions from AMR
-        assert args.in_aligned_amr
+        assert args.in_aligned_amr or (args.in_amr and args.in_alignment_probs)
         assert args.out_actions
         assert args.out_tokens
         assert args.out_machine_config
         assert not args.in_tokens
         assert not args.in_actions
         oracle(args)
+
+    else:
+        raise Exception('Needs --in-actions or --in-*amr')
 
 
 def argument_parser():
@@ -1033,6 +1045,17 @@ def argument_parser():
         "--in-aligned-amr",
         help="In file containing AMR in penman format AND IBM graph notation "
              "(::node, etc). Graph read from the latter and not penman",
+        type=str
+    )
+    parser.add_argument(
+        "--in-amr",
+        help="In file containing AMR in penman format, requires "
+             "--in-alignment-probs",
+        type=str
+    )
+    parser.add_argument(
+        "--in-alignment-probs",
+        help="Alignment probabilities produced by align_cfg/main.py",
         type=str
     )
     # ORACLE
