@@ -28,14 +28,12 @@ if [ -f $ALIGNED_FOLDER/.done ]; then
 
 else
 
-    [ ! -d "$ALIGNED_FOLDER" ] && mkdir -p $ALIGNED_FOLDER
+    mkdir -p $ALIGNED_FOLDER
 
     # Train
-    python preprocess/remove_wiki.py \
-        $AMR_TRAIN_FILE_WIKI \
-        ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python align_cfg/main.py \
-        --cuda \
+    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    python align_cfg/main.py --cuda \
+        --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
@@ -46,11 +44,9 @@ else
         --single-output $ALIGNED_FOLDER/train.txt
 
     # Dev
-    python preprocess/remove_wiki.py \
-        $AMR_DEV_FILE_WIKI \
-        ${AMR_DEV_FILE_WIKI}.no_wiki
-    python align_cfg/main.py \
-        --cuda \
+    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
+    python align_cfg/main.py --cuda \
+        --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
@@ -61,12 +57,10 @@ else
         --single-output $ALIGNED_FOLDER/dev.txt
     
     # Test
-    pytHon preprocess/remove_wiki.py \
-        $AMR_TEST_FILE_WIKI \
-        ${AMR_TEST_FILE_WIKI}.no_wiki
-    pytHon align_cfg/main.py \
-        --cuda \
-        --cache-dir $ALIGN_MODEL \
+    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
+    python align_cfg/main.py --cuda \
+        --no-jamr \
+        --cache-dir $ALIGNED_FOLDER \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
         --vocab-text $ALIGN_VOCAB_TEXT \

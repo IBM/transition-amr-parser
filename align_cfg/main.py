@@ -214,8 +214,8 @@ def argument_parser():
         action='store_true',
     )
     parser.add_argument(
-        "--use-jamr",
-        help="If true, then write original alignments to file.",
+        "--no-jamr",
+        help="If true, then read penman. Otherwise, read JAMR.",
         action='store_true',
     )
     # Other options
@@ -1323,7 +1323,7 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False,
     skipped = collections.Counter()
 
     # FIXME: This reads AMR from JAMR notation
-    corpus = read_amr2(path, ibm_format=False)
+    corpus = read_amr2(path, ibm_format=args.no_jamr)
 
     if max_length > 0:
         new_corpus = []

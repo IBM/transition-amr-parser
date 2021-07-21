@@ -33,10 +33,10 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 # cofill: combination of JAMR and EM plus filling of missing alignments
 align_tag=align_cfg
 
-ALIGN_MODEL=/dccstor/ykt-parse/SHARED/misc/adrozdov/log/align/version_20210709c_exp_0_seed_0/model.best.val_1_recall.pt
-ALIGN_MODEL_FLAGS=/dccstor/ykt-parse/SHARED/misc/adrozdov/log/align/version_20210709c_exp_0_seed_0/flags.json
-ALIGN_VOCAB_TEXT=align_cfg/vocab.text.2021-06-30.txt
-ALIGN_VOCAB_AMR=align_cfg/vocab.amr.2021-06-30.txt
+ALIGN_MODEL=DATA/AMR2.0/aligned/align_cfg/model.pt
+ALIGN_MODEL_FLAGS=DATA/AMR2.0/aligned/align_cfg/flags.json
+ALIGN_VOCAB_TEXT=DATA/AMR2.0/aligned/align_cfg/vocab.text.2021-06-30.txt
+ALIGN_VOCAB_AMR=DATA/AMR2.0/aligned/align_cfg/vocab.amr.2021-06-30.txt
 
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
