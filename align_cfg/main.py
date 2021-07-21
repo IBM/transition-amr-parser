@@ -1693,6 +1693,7 @@ def main(args):
                     stderr_path = os.path.join(args.log_dir, 'eval.stderr.txt')
                     script_path = os.path.join(args.log_dir, 'eval_script.txt')
                     cmd = 'jbsub -cores 1+1 -mem 30g -q x86_6h -out {} -err {} bash {}'.format(stdout_path, stderr_path, script_path)
+                    print(cmd)
                     os.system(cmd)
 
         save_metrics(os.path.join(args.log_dir, 'model.epoch_{}.metrics'.format(epoch)), epoch_metrics)
