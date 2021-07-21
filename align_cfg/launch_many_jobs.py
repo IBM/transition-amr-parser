@@ -14,7 +14,10 @@ args = parser.parse_args()
 
 queue = args.queue
 require = '-require {}'.format(args.require) if args.require is not None else ''
-conda = 'torch-1.2-new' if args.new else 'torch-1.2'
+conda = 'torch-1.4-new' if args.new else 'torch-1.4'
+
+
+# Note: We use a sample of train for dev.
 
 template = """#!/usr/bin/env bash
 
@@ -24,8 +27,15 @@ conda activate {conda}
 
 cd /u/adrozdov/code/transition-amr-parser
 
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
 python -u align_cfg/main.py --cuda \
     --log-dir {log} \
+    --cache-dir ./ \
+    --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
+    --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
+    --vocab-text ./align_cfg/vocab.text.2021-06-30.txt \
+    --vocab-amr ./align_cfg/vocab.amr.2021-06-30.txt \
     {flags} \
     --jbsub-eval
 """
@@ -37,6 +47,8 @@ source /u/adrozdov/.bashrc
 conda activate {conda}
 
 cd /u/adrozdov/code/transition-amr-parser
+
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
     --log-dir {log}_write_amr2 \
