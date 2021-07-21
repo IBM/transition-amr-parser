@@ -16,6 +16,9 @@ queue = args.queue
 require = '-require {}'.format(args.require) if args.require is not None else ''
 conda = 'torch-1.4-new' if args.new else 'torch-1.4'
 
+
+# Note: We use a sample of train for dev.
+
 template = """#!/usr/bin/env bash
 
 source /u/adrozdov/.bashrc
@@ -30,7 +33,7 @@ python -u align_cfg/main.py --cuda \
     --log-dir {log} \
     --cache-dir ./ \
     --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
-    --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/dev.txt \
+    --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
     --vocab-text ./align_cfg/vocab.text.2021-06-30.txt \
     --vocab-amr ./align_cfg/vocab.amr.2021-06-30.txt \
     {flags} \
