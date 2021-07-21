@@ -13,16 +13,23 @@ cp DATA/wiki25.jkaln $FOLDER/wiki25.amr
 # Extract ELMO vocabulary
 python align_cfg/vocab.py --in-amrs $FOLDER/wiki25.amr --out-folder $FOLDER
 # Extract ELMO embeddings
-bash align_cfg/pretrained_embeddings.sh $FOLDER 
+python align_cfg/pretrained_embeddings.py  \
+    --cuda \
+    --vocab-text $FOLDER/ELMO_vocab.text.txt \
+    --cache-dir $FOLDER/
+python align_cfg/pretrained_embeddings.py \
+    --cuda \
+    --vocab-text $FOLDER/ELMO_vocab.amr.txt \
+    --cache-dir $FOLDER/
 
 # TODO: learn alignments
 python -u align_cfg/main.py \
+    --cuda \
     --vocab-text $FOLDER/ELMO_vocab.text.txt \
     --vocab-amr $FOLDER/ELMO_vocab.amr.txt \
     --trn-amr $FOLDER/wiki25.amr \
     --val-amr $FOLDER/wiki25.amr \
     --tst-amr $FOLDER/wiki25.amr \
-    --cuda \
     --cache-dir $FOLDER \
     --log-dir $FOLDER/version_20210707d_exp_0_seed_0      \
     --model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \

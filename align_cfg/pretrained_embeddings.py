@@ -71,10 +71,12 @@ def get_character_embeddings_from_elmo(tokens, cache_dir, cuda=False):
         end = min(start + batch_size, len(all_vocab_to_cache))
         batch = all_vocab_to_cache[start:end]
         batch_ids = batch_to_ids([[x] for x in batch])
+        if cuda:
+            batch_ids = batch_ids.cuda()
         output = char_embedder(batch_ids)
         vec = remove_sentence_boundaries(output['token_embedding'], output['mask'])[0].squeeze(1)
 
-        embeddings[1 + start:1 + end] = vec
+        embeddings[1 + start:1 + end] = vec.cpu()
 
     return embeddings
 
