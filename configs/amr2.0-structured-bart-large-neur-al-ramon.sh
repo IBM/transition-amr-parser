@@ -39,8 +39,8 @@ ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
 # aligner model
 # could be stored here or elsewhere. Added info on README.m about copying the
 # model 
-ALIGN_MODEL=$ALIGNED_FOLDER/model.best.val_1_recall.pt
-ALIGNED_FOLDER=$ALIGNED_FOLDER/flags.json
+ALIGN_MODEL=$ALIGNED_FOLDER/model.best.val_0_recall.pt
+ALIGN_MODEL_FLAGS=$ALIGNED_FOLDER/flags.json
 ALIGN_VOCAB_TEXT=$ALIGNED_FOLDER/vocab.text.2021-06-30.txt
 ALIGN_VOCAB_AMR=$ALIGNED_FOLDER/vocab.amr.2021-06-30.txt
 

@@ -28,11 +28,15 @@ if [ -f $ALIGNED_FOLDER/.done ]; then
 
 else
 
-    mkdir -p $ALIGNED_FOLDER
+    [ ! -d "$ALIGNED_FOLDER" ] && mkdir -p $ALIGNED_FOLDER
 
     # Train
-    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python align_cfg/main.py --cuda \
+    python preprocess/remove_wiki.py \
+        $AMR_TRAIN_FILE_WIKI \
+        ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    python align_cfg/main.py \
+        --cuda \
+        --cache-dir $ALIGNED_FOLDER \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
         --vocab-text $ALIGN_VOCAB_TEXT \
@@ -42,8 +46,12 @@ else
         --single-output $ALIGNED_FOLDER/train.txt
 
     # Dev
-    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
-    python align_cfg/main.py --cuda \
+    python preprocess/remove_wiki.py \
+        $AMR_DEV_FILE_WIKI \
+        ${AMR_DEV_FILE_WIKI}.no_wiki
+    python align_cfg/main.py \
+        --cuda \
+        --cache-dir $ALIGNED_FOLDER \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
         --vocab-text $ALIGN_VOCAB_TEXT \
@@ -53,8 +61,12 @@ else
         --single-output $ALIGNED_FOLDER/dev.txt
     
     # Test
-    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
-    python align_cfg/main.py --cuda \
+    pytHon preprocess/remove_wiki.py \
+        $AMR_TEST_FILE_WIKI \
+        ${AMR_TEST_FILE_WIKI}.no_wiki
+    pytHon align_cfg/main.py \
+        --cuda \
+        --cache-dir $ALIGN_MODEL \
         --load $ALIGN_MODEL \
         --load-flags $ALIGN_MODEL_FLAGS \
         --vocab-text $ALIGN_VOCAB_TEXT \
