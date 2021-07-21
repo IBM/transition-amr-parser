@@ -30,16 +30,19 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 # AMR ALIGNMENT
 ##############################################################################
 
-# cofill: combination of JAMR and EM plus filling of missing alignments
+# TODO: more descriptive tag e.g. ibm1_pseudo_tree_lstm
 align_tag=align_cfg
-
-ALIGN_MODEL=/dccstor/ykt-parse/SHARED/misc/adrozdov/log/align/version_20210709c_exp_0_seed_0/model.best.val_1_recall.pt
-ALIGN_MODEL_FLAGS=/dccstor/ykt-parse/SHARED/misc/adrozdov/log/align/version_20210709c_exp_0_seed_0/flags.json
-ALIGN_VOCAB_TEXT=align_cfg/vocab.text.2021-06-30.txt
-ALIGN_VOCAB_AMR=align_cfg/vocab.amr.2021-06-30.txt
 
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
+
+# aligner model
+# could be stored here or elsewhere. Added info on README.m about copying the
+# model 
+ALIGN_MODEL=$ALIGNED_FOLDER/model.best.val_1_recall.pt
+ALIGNED_FOLDER=$ALIGNED_FOLDER/flags.json
+ALIGN_VOCAB_TEXT=$ALIGNED_FOLDER/vocab.text.2021-06-30.txt
+ALIGN_VOCAB_AMR=$ALIGNED_FOLDER/vocab.amr.2021-06-30.txt
 
 # aligned AMR
 

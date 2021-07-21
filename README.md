@@ -82,6 +82,16 @@ You first need to pre-process and align the data. For AMR2.0 do
 python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
 
+If you have a trained aligner model, copy it to the aligner folder
+
+``` 
+mkdir -p DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/model.best.val_1_recall.pt DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/flags.json DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/vocab.text.2021-06-30.txt DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/vocab.amr.2021-06-30.txt DATA/AMR2.0/aligned/align_cfg/
+``` 
+
 You will also need to unzip the precomputed BLINK cache
 
 ```
