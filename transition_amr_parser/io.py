@@ -29,29 +29,31 @@ def read_neural_alignments(alignments_file):
                 example_id, node_names, node_short_id, text_tokens = \
                     sentence_alignment[:4]
 
-                num_nodes = len(node_names.split())
+                # FIXME: Some node name have "some space" need to be saped
+                # num_nodes = len(node_names.split())
+                num_nodes = len(node_short_id.split())
                 num_tokens = len(text_tokens.split())
-                p_node_by_token = np.zeros((num_nodes, num_tokens))
+                p_node_and_token = np.zeros((num_nodes, num_tokens))
                 node_indices = set()
                 token_indices = set()
                 for pair in sentence_alignment[4:]:
                     node_idx, token_idx, prob = pair.split()
                     node_idx, token_idx = int(node_idx), int(token_idx)
-                    p_node_by_token[node_idx, token_idx] = float(prob)
+                    p_node_and_token[node_idx, token_idx] = float(prob)
                     node_indices.add(node_idx)
                     token_indices.add(token_idx)
 
                 # sanity check
                 assert list(node_indices) == list(range(num_nodes))
                 assert list(token_indices) == list(range(num_tokens))
+                # assert len(node_short_id.split()) == len(node_names.split())
 
-                import ipdb; ipdb.set_trace(context=30)
                 alignments.append(dict(
                     example_id=example_id,
                     node_short_id=node_short_id.split(),
-                    node_names=node_names.split(),
+                    # node_names=node_names.split(),
                     text_tokens=text_tokens.split(),
-                    p_node_by_token=p_node_by_token
+                    p_node_and_token=p_node_and_token
                 ))
                 sentence_alignment = []
             else:
@@ -990,7 +992,3 @@ def read_sentences(file_path, add_root_token=False):
                 line = line + " <ROOT>"
             sentences.append(line)
     return sentences
-
-
-if __name__ == '__main__':
-    read_neural_alignments('DATA/AMR2.0/aligned/align_cfg/alignment.trn.pretty')
