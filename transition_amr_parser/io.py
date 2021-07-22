@@ -387,6 +387,14 @@ def legacy_graph_printer(metadata, nodes, root, edges):
 default_rel = ':rel'
 
 
+def validate_alignments(amr):
+    assert amr.alignments is not None, "JAMR notation expects amr.alignments"
+    assert amr.tokens, "JAMR notation expects amr.tokens"
+    indices = [y for x in filter(None, amr.alignments.values()) for y in x]
+    assert max(indices) < len(amr.tokens) and min(indices) >= 0, \
+        "Invalid token range"
+
+
 class AMR():
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
@@ -585,7 +593,8 @@ class AMR():
         graph = penman.decode(penman_text)
         nodes, edges = get_simple_graph(graph)
         if tokenize:
-            assert 'snt' in graph.metadata, "AMR must contain field ::tok"
+            assert 'snt' in graph.metadata, "AMR must contain field ::snt"
+            # FIXME: This is a rather simpler tokenizer
             tokens, _ = protected_tokenizer(graph.metadata['snt'])
         else:
             assert 'tok' in graph.metadata, "AMR must contain field ::tok"
@@ -688,13 +697,20 @@ class AMR():
                       f'{nodes}\t{s}\t{t}\t\n'
         return output
 
-    def __str__(self):
+    def __str__(self, jamr=None):
 
-        if self.penman:
-            return ' '.join(self.tokens) + '\n\n' + penman.encode(self.penman)
-        else:
+        # if unspecified, print JAMR notation if we read JAMR notation
+        # (ibm_format =True) and ignore it otherwise
+        if jamr is None:
+            jamr = not bool(self.penman)
+        if jamr:
+            # if we want to print alignments, ensure the alignments and tokens
+            # make sense
+            validate_alignments(self)
             return legacy_graph_printer(self.get_metadata(), self.nodes,
                                         self.root, self.edges)
+        else:
+            return ' '.join(self.tokens) + '\n\n' + penman.encode(self.penman)
 
     def parents(self, node_id):
         return self.edges_by_child.get(node_id, [])
