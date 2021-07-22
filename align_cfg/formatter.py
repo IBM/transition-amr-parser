@@ -4,6 +4,10 @@ import torch
 
 from vocab import *
 
+import penman
+from penman import layout
+from penman._format import _format_node
+
 
 class FormatAlignments(object):
     """
@@ -139,7 +143,7 @@ class FormatAlignments(object):
                 alignments = s_alignment()
 
                 # amr
-                pretty_amr = amr.__str__().split('\t')[-1].strip()
+                pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
 
                 # new output
                 out = ''
