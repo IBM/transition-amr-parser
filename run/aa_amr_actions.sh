@@ -30,6 +30,14 @@ else
 
     mkdir -p $ALIGNED_FOLDER
 
+    # Generate embeddings
+    python align_cfg/pretrained_embeddings.py --cuda \
+        --cache-dir $ALIGNED_FOLDER \
+        --vocab-text $ALIGN_VOCAB_TEXT
+    python align_cfg/pretrained_embeddings.py --cuda \
+        --cache-dir $ALIGNED_FOLDER \
+        --vocab-text $ALIGN_VOCAB_AMR
+
     # Train
     echo "align train"
     python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki

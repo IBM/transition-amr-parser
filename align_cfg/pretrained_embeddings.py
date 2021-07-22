@@ -1,8 +1,10 @@
-import hashlib
 import argparse
+import hashlib
 import json
-import numpy as np
 import os
+import sys
+
+import numpy as np
 import torch
 from tqdm import tqdm
 
@@ -32,16 +34,16 @@ def hash_string_list(string_list):
 def read_text_vocab_file(path):
     output = []
     with open(path) as f:
-        for line in f:
-            output.append(line.rstrip())
+        for token in f.read().splitlines():
+            output.append(token)
     return output
 
 
 def read_amr_vocab_file(path):
     output = []
     with open(path) as f:
-        for line in f:
-            output.append(line.rstrip())
+        for token in f.read().splitlines():
+            output.append(token)
     return output
 
 
@@ -108,10 +110,14 @@ def main(arg):
     token_hash = hash_string_list(tokens)
 
     print('found {} tokens with hash = {}'.format(len(tokens), token_hash))
+    path = f'{args.cache_dir}/elmo.{token_hash}.npy'
+
+    if os.path.exists(path):
+        print('embeddings found at {}, exiting'.format(path))
+        sys.exit()
 
     embeddings = get_character_embeddings_from_elmo(tokens, args.cache_dir, args.cuda)
 
-    path = f'{args.cache_dir}/elmo.{token_hash}.npy'
     print(f'writing to {path}')
     write_embeddings(path, embeddings)
 
