@@ -938,6 +938,9 @@ class Net(nn.Module):
             # get labels
             local_y_a = y_a[i_b][local_y_a_mask].view(n_a, 1, 1)
 
+            assert n_a > 0, (n_a, n_t)
+            assert n_t > 0, (n_a, n_t)
+
             # info
             info = {}
             info['n_a'] = n_a
@@ -1323,7 +1326,10 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False,
     skipped = collections.Counter()
 
     # FIXME: This reads AMR from JAMR notation
-    corpus = read_amr2(path, ibm_format=args.no_jamr)
+    if args.no_jamr:
+        corpus = read_amr2(path, ibm_format=False, tokenize=True)
+    else:
+        corpus = read_amr2(path, ibm_format=False)
 
     if max_length > 0:
         new_corpus = []

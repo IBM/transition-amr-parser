@@ -31,6 +31,7 @@ else
     mkdir -p $ALIGNED_FOLDER
 
     # Train
+    echo "align train"
     python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
     python align_cfg/main.py --cuda \
         --no-jamr \
@@ -44,6 +45,7 @@ else
         --single-output $ALIGNED_FOLDER/train.txt
 
     # Dev
+    echo "align dev"
     python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
     python align_cfg/main.py --cuda \
         --no-jamr \
@@ -57,6 +59,7 @@ else
         --single-output $ALIGNED_FOLDER/dev.txt
     
     # Test
+    echo "align test"
     python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
     python align_cfg/main.py --cuda \
         --no-jamr \
