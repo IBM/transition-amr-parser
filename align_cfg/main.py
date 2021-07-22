@@ -218,6 +218,11 @@ def argument_parser():
         help="If true, then read penman. Otherwise, read JAMR.",
         action='store_true',
     )
+    parser.add_argument(
+        "--aligner-training-and-eval",
+        help="Set when training or evaluating aligner.",
+        action='store_true',
+    )
     # Other options
     parser.add_argument(
         "--load",
@@ -1232,8 +1237,11 @@ class Encoder(nn.Module):
         return output, labels, labels_mask, label_node_ids
 
 
-def load_checkpoint(path, net):
-    toload = torch.load(path)
+def load_checkpoint(path, net, cuda=False):
+    try:
+        toload = torch.load(path)
+    except:
+        toload = torch.load(path, map_location=torch.device('cpu'))
 
     state_dict = net.state_dict()
 
@@ -1326,10 +1334,14 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False,
     skipped = collections.Counter()
 
     # FIXME: This reads AMR from JAMR notation
-    if args.no_jamr:
-        corpus = read_amr2(path, ibm_format=False, tokenize=True)
+    if args.aligner_training_and_eval:
+        # We need to read the alignments for validation and other eval.
+        corpus = read_amr2(path, ibm_format=True)
     else:
-        corpus = read_amr2(path, ibm_format=False)
+        if args.no_jamr:
+            corpus = read_amr2(path, ibm_format=False, tokenize=True)
+        else:
+            corpus = read_amr2(path, ibm_format=False)
 
     if max_length > 0:
         new_corpus = []
