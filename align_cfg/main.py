@@ -21,7 +21,7 @@ except ImportError:
 
 from tqdm import tqdm
 
-from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
+from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
 from transition_amr_parser.io import read_amr2
 from evaluation import EvalAlignments
 from formatter import FormatAlignments, FormatAlignmentsPretty
@@ -371,25 +371,19 @@ class AMRTokenizer(object):
         node_ids = get_node_ids(amr)
         node_TO_idx = {k: i for i, k in enumerate(node_ids)}
 
-        seen = set()
-
-        seen.add(amr.root)
-
         # build tree
         g = collections.defaultdict(list)
         g_labels = {}
 
+        safe_edges = get_tree_edges(amr)
+
         def sortkey(x):
-            s, y, t = x
-            return (s, t)
+            s, y, t, a, b = x
+            return (a, b)
 
-        for e in sorted(amr.edges, key=sortkey):
-            s, y, t = e
-            if t in seen:
-                continue
-            assert s <= t
-            seen.add(t)
-
+        for e in sorted(safe_edges, key=sortkey):
+            s, y, t, a, b = e
+            assert a <= b
             g[s].append(t)
             g_labels[(s, t)] = y
 
@@ -1328,8 +1322,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
-def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False,
-              check_for_bpe=True):
+def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=False):
 
     skipped = collections.Counter()
 
@@ -1356,14 +1349,8 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False,
         new_corpus = []
         t = AMRTokenizer()
         for amr in corpus:
-            # UNCOMMENT if you need to support the strange example in AMR2.0 with None node.
-            #if ('0.0.2.1.0', ':value', '0.0.2.1.0.0') in amr.edges and '0.0.2.1.0.0' not in amr.nodes:
-            #    amr.nodes['0.0.2.1.0.0'] = 'null-02' # it should be None, but that is not in our vocab.
-            try:
-                t.dfs(amr)
-                new_corpus.append(amr)
-            except:
-                skipped['malformed'] += 1
+            t.dfs(amr)
+            new_corpus.append(amr)
         corpus = new_corpus
 
     # TODO: Add support for this type of graph.

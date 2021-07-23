@@ -40,11 +40,39 @@ def get_node_ids(amr):
     return list(sorted(amr.nodes.keys()))
 
 
-def convert_amr_to_tree(amr):
-    seen = set()
+def get_tree_edges(amr):
 
-    # Note: If we skip adding the root, then cycles may form.
+    node_TO_edges = collections.defaultdict(list)
+    for e in amr.edges:
+        s, y, t = e
+        node_TO_edges[s].append(e)
+
+    new_edges = []
+
+    seen = set()
     seen.add(amr.root)
+
+    def helper(root, prefix='0'):
+        if root not in node_TO_edges:
+            return
+
+        for i, e in enumerate(node_TO_edges[root]):
+            s, y, t = e
+            assert s == root
+            if t in seen:
+                continue
+            seen.add(t)
+            new_prefix = '{}.{}'.format(prefix, i)
+            new_e = (s, y, t, prefix, new_prefix)
+            new_edges.append(new_e)
+            helper(t, prefix=new_prefix)
+
+    helper(amr.root)
+
+    return new_edges
+
+
+def convert_amr_to_tree(amr):
 
     tree = {}
     tree['root'] = amr.root
@@ -53,16 +81,15 @@ def convert_amr_to_tree(amr):
     tree['edges'] = []
     tree['node_ids'] = get_node_ids(amr)
 
+    safe_edges = get_tree_edges(amr)
+
     def sortkey(x):
-        s, y, t = x
+        s, y, t, a, b = x
+        return (a, b)
 
-        return (s, t)
-
-    for e in sorted(amr.edges, key=sortkey):
-        s, y, t = e
-        if t in seen:
-            continue
-        seen.add(t)
+    for e in sorted(safe_edges, key=sortkey):
+        s, y, t, a, b = e
+        assert a <= b
 
         tree['node_to_children'][s].append(t)
         tree['edge_to_label'][(s, t)] = y
