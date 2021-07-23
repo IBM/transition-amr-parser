@@ -100,15 +100,14 @@ class FormatAlignments(object):
                 for i, (node_id, idx_txt) in enumerate(alignments):
                     if i > 0:
                         body += ' '
-                    a_id = node_ids[node_id]
                     if isinstance(idx_txt, list):
                         start = idx_txt[0]
                         end = idx_txt[-1] + 1
                         assert start >= 0
                         assert end >= 0
-                        body += '{}-{}|{}'.format(start, end, node_id)
+                        body += '{}-{}|{}'.format(start, end, node_ids[node_id])
                     else:
-                        body += '{}-{}|{}'.format(idx_txt - 1, idx_txt, node_id)
+                        body += '{}-{}|{}'.format(idx_txt - 1, idx_txt, node_ids[node_id])
                 body += ' '
 
                 return prefix + body + suffix
@@ -157,9 +156,10 @@ class FormatAlignments(object):
                 alignments_str = s_alignment(alignments)
 
                 # amr
-                assert amr.penman is None
-                pretty_amr = amr.__str__().split('\t')[-1].strip()
-                # pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
+                if amr.penman is None:
+                    pretty_amr = amr.__str__().split('\t')[-1].strip()
+                else:
+                    pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
 
                 # new output
                 out = ''
@@ -188,7 +188,10 @@ class FormatAlignments(object):
 
 
             out_pred = fmt(node_alignments)
-            out_gold = fmt(convert_gold_alignments())
+            if amr.alignments is None:
+                out_gold = None
+            else:
+                out_gold = fmt(convert_gold_alignments())
             out_standard = convert_standard(node_alignments)
 
             yield out_pred, out_gold, out_standard
