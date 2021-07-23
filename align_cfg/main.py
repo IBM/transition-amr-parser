@@ -455,17 +455,17 @@ class AlignmentsWriter(object):
             return
 
         # write
-        for i_b, (out, pred_alignments) in enumerate(self.formatter.format(batch_map, model_output, batch_indices)):
+        for i_b, (out_pred, out_gold, pred_alignments) in enumerate(self.formatter.format(batch_map, model_output, batch_indices)):
             idx = batch_indices[i_b]
             amr = self.dataset.corpus[idx]
 
             # write pred
-            self.fout_pred.write(out.strip() + '\n\n')
+            self.fout_pred.write(out_pred.strip() + '\n\n')
 
             # write gold
             if self.write_gold:
                 # write gold
-                self.fout_gold.write(amr.__str__().strip() + '\n\n')
+                self.fout_gold.write(out_gold.strip() + '\n\n')
 
     def close(self):
         if not self.enabled:

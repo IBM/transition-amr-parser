@@ -91,29 +91,43 @@ class FormatAlignments(object):
 
                 return output
 
-            def s_alignment():
+            def s_alignment(alignments):
                 dt_string = datetime.datetime.isoformat(datetime.datetime.now())
                 prefix = '# ::alignments '
                 suffix = '::annotator neural ibm model 1 v.01 ::date {}'.format(dt_string)
 
                 body = ''
-                for i, (node_id, idx_txt) in enumerate(node_alignments):
+                for i, (node_id, idx_txt) in enumerate(alignments):
                     if i > 0:
                         body += ' '
                     a_id = node_ids[node_id]
-                    body += '{}-{}|{}'.format(idx_txt, idx_txt + 1, node_id)
+                    if isinstance(idx_txt, list):
+                        start = idx_txt[0]
+                        end = idx_txt[-1] + 1
+                        assert start >= 0
+                        assert end >= 0
+                        body += '{}-{}|{}'.format(start, end, node_id)
+                    else:
+                        body += '{}-{}|{}'.format(idx_txt - 1, idx_txt, node_id)
                 body += ' '
 
                 return prefix + body + suffix
 
-            def fmt():
+            def fmt(alignments):
                 if use_jamr:
                     return amr.__str__()
 
                 node_TO_align = {}
-                for node_id, idx_txt in node_alignments:
+                for node_id, idx_txt in alignments:
                     node_id = node_ids[node_id]
-                    node_TO_align[node_id] = '{}-{}'.format(idx_txt - 1, idx_txt)
+                    if isinstance(idx_txt, list):
+                        start = idx_txt[0]
+                        end = idx_txt[-1] + 1
+                        assert start >= 0
+                        assert end >= 0
+                        node_TO_align[node_id] = '{}-{}'.format(start, end)
+                    else:
+                        node_TO_align[node_id] = '{}-{}'.format(idx_txt - 1, idx_txt)
 
                 # tok
                 tok = '# ::tok ' + ' '.join(amr.tokens)
@@ -140,16 +154,18 @@ class FormatAlignments(object):
                     edges.append('# ::edge\t' + '\t'.join(row))
 
                 # get alignments
-                alignments = s_alignment()
+                alignments_str = s_alignment(alignments)
 
                 # amr
-                pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
+                assert amr.penman is None
+                pretty_amr = amr.__str__().split('\t')[-1].strip()
+                # pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
 
                 # new output
                 out = ''
                 out += tok + '\n'
                 if len(nodes) > 0:
-                    out += alignments + '\n'
+                    out += alignments_str + '\n'
                     out += '\n'.join(nodes) + '\n'
                 if len(edges) > 0:
                     out += '\n'.join(edges) + '\n'
@@ -159,10 +175,23 @@ class FormatAlignments(object):
 
             alignments = convert(node_alignments)
 
-            out = fmt()
+            def convert_gold_alignments():
+                new_alignments = []
+
+                for node_id, a in amr.alignments.items():
+                    new_node_id = node_ids.index(node_id)
+                    assert isinstance(a, list)
+                    # assert len(a) == 1, a
+
+                    new_alignments.append((new_node_id, a))
+                return new_alignments
+
+
+            out_pred = fmt(node_alignments)
+            out_gold = fmt(convert_gold_alignments())
             out_standard = convert_standard(node_alignments)
 
-            yield out, out_standard
+            yield out_pred, out_gold, out_standard
 
 
 class FormatAlignmentsPretty(object):
