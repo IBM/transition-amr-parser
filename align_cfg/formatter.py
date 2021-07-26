@@ -133,15 +133,18 @@ class FormatAlignments(object):
 
                 # nodes
                 nodes = []
-                for node_id, name in amr.nodes.items():
-                    a = node_TO_align[node_id]
+                for node_id, a in node_TO_align.items():
+                    name = amr.nodes[node_id]
                     nodes.append('# ::node\t{}\t{}\t{}'.format(node_id, name, a))
 
                 # root
                 node_id = amr.root
-                a = node_TO_align[node_id]
+                a = node_TO_align.get(node_id, None)
                 name = amr.nodes[node_id]
-                nodes.append('# ::root\t{}\t{}\t{}'.format(node_id, name, a))
+                if a is not None:
+                    nodes.append('# ::root\t{}\t{}\t{}'.format(node_id, name, a))
+                else:
+                    nodes.append('# ::root\t{}\t{}'.format(node_id, name))
 
                 # edges
                 edges = []
@@ -180,7 +183,7 @@ class FormatAlignments(object):
 
                 for node_id, a in amr.alignments.items():
                     new_node_id = node_ids.index(node_id)
-                    assert isinstance(a, list)
+                    assert isinstance(a, list), (node_id, a)
                     # assert len(a) == 1, a
 
                     new_alignments.append((new_node_id, a))

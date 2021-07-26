@@ -260,6 +260,11 @@ def argument_parser():
         action='store_true',
     )
     parser.add_argument(
+        "--allow-cpu",
+        help="If true, then allow fallback to CPU if GPU not available.",
+        action='store_true',
+    )
+    parser.add_argument(
         "--verbose",
         help="If true, then print progress bars.",
         action='store_true',
@@ -301,27 +306,10 @@ def argument_parser():
                         help="Useful for book-keeping.")
     args = parser.parse_args()
 
-#    if not os.path.exists(args.home):
-#        args.home = os.path.expanduser('~')
-#     if args.val_amr is None:
-#         args.val_amr = [
-#             os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-unseen-v1'),
-#             os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1'),
-#         ]
-#
-#     if args.tst_amr is None:
-#         args.tst_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/test.txt')
-#
-#     if args.demo:
-#         args.trn_amr = args.val_amr[0]
-#         args.val_max_length = args.max_length
-#
-#     if args.write_only:
-#         if args.trn_amr is None:
-#             args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt')
-#
-#     if args.trn_amr is None:
-#         args.trn_amr = os.path.join(args.home, 'data/AMR2.0/aligned/cofill/train.txt.train-v1')
+    if args.allow_cpu and args.cuda:
+        if not torch.cuda.is_available():
+            print('WARNING: CUDA not available. Falling back to CPU.')
+            args.cuda = False
 
     if args.load_flags:
         with open(args.load_flags) as f:
@@ -1322,7 +1310,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
-def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=False):
+def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=False, remove_empty_align=True):
 
     skipped = collections.Counter()
 
@@ -1392,6 +1380,19 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
 
             new_corpus.append(amr)
         corpus = new_corpus
+
+    if remove_empty_align and corpus[0].alignments is not None:
+        stats = collections.Counter()
+
+        for amr in corpus:
+            node_ids = list(amr.alignments.keys())
+            for k in node_ids:
+                if amr.alignments[k] is None:
+                    del amr.alignments[k]
+                    stats['is-none'] += 1
+                else:
+                    stats['exists'] += 1
+        print('remove_empty_align: {}'.format(stats))
 
 
     print('read {}, total = {}, skipped = {}'.format(path, len(corpus), skipped))
