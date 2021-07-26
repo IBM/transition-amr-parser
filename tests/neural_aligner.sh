@@ -6,60 +6,27 @@ set -o nounset
 # UNCOMMENT to start test from blank slate.
 # It's preferable not to delete this directory since it forces a re-download
 # of model checkpoints (i.e., elmo).
-# rm -R DATA.tmp/neural_aligner/
+# rm -Rf DATA/wiki25/*
 
-# prepare data
-mkdir -p DATA.tmp/neural_aligner/
-FOLDER=DATA.tmp/neural_aligner/
-cp DATA/wiki25.jkaln $FOLDER/wiki25.amr
+# Train aligner
+bash run/train_aligner.sh configs/wiki25-neur-al-sampling.sh 
 
-# Preprocess
-# Build aligner vocabulary.
-python align_cfg/vocab.py \
-    --in-amrs $FOLDER/wiki25.amr \
-    --out-text $FOLDER/vocab.text.txt \
-    --out-amr $FOLDER/vocab.amr.txt
-# Pre-compute token embeddings.
-python align_cfg/pretrained_embeddings.py \
-    --cuda --allow-cpu \
-    --vocab $FOLDER/vocab.text.txt \
-    --cache-dir $FOLDER/
-python align_cfg/pretrained_embeddings.py \
-    --cuda --allow-cpu \
-    --vocab $FOLDER/vocab.amr.txt \
-    --cache-dir $FOLDER/
-
-# Learn alignments.
-python -u align_cfg/main.py --aligner-training-and-eval \
-    --cuda --allow-cpu \
-    --vocab-text $FOLDER/vocab.text.txt \
-    --vocab-amr $FOLDER/vocab.amr.txt \
-    --trn-amr $FOLDER/wiki25.amr \
-    --val-amr $FOLDER/wiki25.amr \
-    --cache-dir $FOLDER \
-    --log-dir $FOLDER/test_train_aligner \
-    --model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 20, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 20, "dropout": 0.3, "context": "xy", "hidden_size": 20, "prior": "attn", "output_mode": "tied"}' \
-    --batch-size 4 \
-    --accum-steps 2 \
-    --lr 0.0001 \
-    --max-length 100 \
-    --verbose \
-    --max-epoch 5 \
-    --seed 12345
+# load config
+. configs/wiki25-neur-al-sampling.sh 
 
 # Align data.
-mkdir -p $FOLDER/version_20210709c_exp_0_seed_0_write_amr2
+mkdir -p $ALIGNED_FOLDER/version_20210709c_exp_0_seed_0_write_amr2
 python -u align_cfg/main.py --no-jamr \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/vocab.text.txt \
-    --vocab-amr $FOLDER/vocab.amr.txt \
+    --vocab-text $ALIGN_VOCAB_TEXT \
+    --vocab-amr $ALIGN_VOCAB_AMR \
     --write-single \
-    --single-input $FOLDER/wiki25.amr \
-    --single-output $FOLDER/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred \
-    --cache-dir $FOLDER \
+    --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+    --single-output $ALIGNED_FOLDER/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred \
+    --cache-dir $ALIGNED_FOLDER \
     --verbose \
-    --load $FOLDER/test_train_aligner/model.best.val_0_recall.pt  \
-    --load-flags $FOLDER/test_train_aligner/flags.json \
+    --load $ALIGN_MODEL  \
+    --load-flags $ALIGN_MODEL_FLAGS \
     --batch-size 8 \
     --max-length 0
 
