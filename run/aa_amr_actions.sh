@@ -67,7 +67,6 @@ else
 
     fi
 
-    # Train
     echo "align train"
     python align_cfg/main.py --cuda \
         --no-jamr \
@@ -89,9 +88,15 @@ else
         --load-flags $ALIGN_MODEL_FLAGS \
         --vocab-text $ALIGN_VOCAB_TEXT \
         --vocab-amr $ALIGN_VOCAB_AMR \
-        --write-single \
-        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/dev.txt
+        --trn-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --val-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --log-dir $ALIGNED_FOLDER \
+        --write-pretty
+
+    # Dev
+    python preprocess/remove_wiki.py \
+		$AMR_DEV_FILE_WIKI \
+		$ALIGNED_FOLDER/dev.txt
     
     # Test
     echo "align test"
@@ -126,6 +131,8 @@ else
     cp $ALIGNED_FOLDER/train.txt $ORACLE_FOLDER/ref_train.amr
     cp $ALIGNED_FOLDER/dev.txt $ORACLE_FOLDER/ref_dev.amr
     cp $ALIGNED_FOLDER/test.txt $ORACLE_FOLDER/ref_test.amr
+    # copy alignment probabilities 
+    cp $ALIGNED_FOLDER/alignment.trn.pretty $ORACLE_FOLDER/
 
     echo -e "\nTrain data"
    
