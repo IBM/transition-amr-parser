@@ -16,5 +16,8 @@ git checkout 1.3.2
 cd ..
 pip install --editable pytorch_scatter/
 
+# install DGL for neural aligner
+conda install -y -c dglteam "dgl-cuda10.1<0.5"
+
 # sanity check
 python tests/correctly_installed.py
