@@ -95,13 +95,11 @@ else
         --write-pretty
 
     # Dev
+    echo "align dev"
     python preprocess/remove_wiki.py \
 		$AMR_DEV_FILE_WIKI \
 		$ALIGNED_FOLDER/dev.txt
 
-    # Dev
-    echo "align dev"
-    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
     python align_cfg/main.py --cuda \
         --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
