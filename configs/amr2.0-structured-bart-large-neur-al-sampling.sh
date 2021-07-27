@@ -39,8 +39,8 @@ ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
 # alignment model files
 ALIGN_MODEL=$ALIGNED_FOLDER/model.pt
 ALIGN_MODEL_FLAGS=$ALIGNED_FOLDER/flags.json
-ALIGN_VOCAB_TEXT=$ALIGNED_FOLDER/ELMO_vocab.text.txt
-ALIGN_VOCAB_AMR=$ALIGNED_FOLDER/ELMO_vocab.amr.txt
+ALIGN_VOCAB_TEXT=$ALIGNED_FOLDER/vocab.text.txt
+ALIGN_VOCAB_AMR=$ALIGNED_FOLDER/vocab.amr.txt
 
 # TODO: Omit these and use ALIGNED_FOLDER
 AMR_TRAIN_FILE=$ALIGNED_FOLDER/train.txt
@@ -58,7 +58,7 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 ##############################################################################
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states
+ORACLE_TAG=o10_act-states-sample_a
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
