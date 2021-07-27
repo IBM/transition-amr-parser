@@ -58,7 +58,7 @@ WIKI_TEST=""
 ##############################################################################
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states
+ORACLE_TAG=o10_act-states-sample_a
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
