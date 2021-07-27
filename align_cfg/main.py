@@ -257,7 +257,7 @@ def argument_parser():
     parser.add_argument(
         "--max-length",
         help="Max number of text tokens.",
-        default=100,
+        default=0,
         type=int,
     )
     parser.add_argument(
