@@ -31,7 +31,7 @@ from fairseq_ext.amr_spec.action_info_binarize import (
     load_actstates_fromfile
 )
 from fairseq_ext.binarize import binarize_file
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.io import read_amr2, read_neural_alignments
 from transition_amr_parser.amr_machine import AMRStateMachine, AMROracle, peel_pointer
 from fairseq_ext.amr_spec.action_info import get_actions_states
 from fairseq_ext.data.data_utils import collate_tokens
@@ -114,6 +114,14 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     # gold AMR with alignments (to enable running oracle on the fly)
     aligned_amr_path = os.path.join(data_path, f'{split}.aligned.gold-amr')
     gold_amrs = read_amr2(aligned_amr_path, ibm_format=True)
+    # read alignment probabilities
+    if split == 'train':
+        amr_alig_probs_path = os.path.join(data_path, 'alignment.trn.pretty')
+        corpus_align_probs = read_neural_alignments(amr_alig_probs_path)
+        assert len(gold_amrs) == len(corpus_align_probs), \
+            "Different number of AMR and probabilities"
+    else:
+        corpus_align_probs = None
 
     # build dataset
     dataset = AMRActionPointerDataset(src_tokens=src_tokens,
@@ -142,6 +150,7 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
                                       tgt_actedge_directions=tgt_actstates.get('tgt_actedge_directions', None),
                                       # gold AMR with alignments (to enable running oracle on the fly)
                                       gold_amrs=gold_amrs,
+                                      corpus_align_probs=corpus_align_probs,
                                       # batching
                                       left_pad_source=True,
                                       left_pad_target=False,
@@ -652,7 +661,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         return data_samples
 
-    def run_oracle_get_data(self, aligned_amr, machine, oracle) -> Tuple[List[str], Dict, Dict]:
+    def run_oracle_get_data(self, aligned_amr, align_probs, machine, oracle) -> Tuple[List[str], Dict, Dict]:
         """Run oracle for a gold AMR graph with alignments, get the needed parser states at the same time, and
         numericalize the data into Tensors finally.
 
@@ -668,7 +677,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         machine.reset(aligned_amr.tokens)
 
         # initialize new oracle for this AMR
-        oracle.reset(aligned_amr)
+        oracle.reset(aligned_amr, alignment_probs=align_probs)
 
         # store needed parser states
         allowed_cano_actions = []
@@ -800,7 +809,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         return actions, actions_states, data_piece
 
-    def run_oracle_get_data_batch(self, aligned_amrs) -> Tuple[List[List[str]], List[Dict]]:
+    def run_oracle_get_data_batch(self, aligned_amrs, align_probs) -> Tuple[List[List[str]], List[Dict]]:
         """Run oracle on the fly and get needed parser states and numerical Tensor data for each batch.
 
         Args:
@@ -812,9 +821,12 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         action_sequences = []
         data_samples = []
         # for amr in tqdm(aligned_amrs, desc='dynamic_oracle'):
-        for amr in aligned_amrs:
+        for index, amr in enumerate(aligned_amrs):
+            # get alignment probabilities if available
+            aprobs = align_probs[index] if align_probs else None
             # get the action sequence
-            actions, actions_states, data_piece = self.run_oracle_get_data(amr, self.machine, self.oracle)
+            actions, actions_states, data_piece = self.run_oracle_get_data(
+                amr, aprobs, self.machine, self.oracle)
             action_sequences.append(actions)
             # append the numerical data for one sentence/amr
             data_samples.append(data_piece)
@@ -967,7 +979,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         # run oracle, extract parser states, convert everything to tensors
         # start = time.time()
-        action_sequences, data_samples = self.run_oracle_get_data_batch(sample['gold_amrs'])
+        action_sequences, data_samples = self.run_oracle_get_data_batch(
+            sample['gold_amrs'],
+            sample.get('align_probs', None),
+        )
         # print('time for running oracle and getting data', time.time() - start)
 
         # collate tensors into batch, with paddings

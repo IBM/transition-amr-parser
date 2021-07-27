@@ -111,8 +111,12 @@ def fix_alignments(gold_amr):
 
 
 def sample_alignments(gold_amr, alignment_probs):
+    # this contains p(node, token_pos | tokens)
     node_token_joint = alignment_probs['p_node_and_token']
+    # summing we can get p(node | tokens)
     node_marginal = node_token_joint.sum(1, keepdims=True)
+    # p(token_pos | nodes, tokens)
+    #    = p(node, token_pos | tokens) / p(node | tokens)
     token_posterior = node_token_joint / node_marginal
     for idx, node_id in enumerate(alignment_probs['node_short_id']):
         alignment = np.random.multinomial(1, token_posterior[idx, :]).argmax()

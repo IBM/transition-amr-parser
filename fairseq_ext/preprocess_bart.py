@@ -267,6 +267,11 @@ def main(args):
                     os.path.join(os.path.dirname(pref), split_amr),
                     os.path.join(args.destdir, f'{split}.aligned.gold-amr')
                 )
+                if split == 'train':
+                    shutil.copyfile(
+                        os.path.join(os.path.dirname(pref), 'alignment.trn.pretty'),
+                        os.path.join(args.destdir, 'alignment.trn.pretty')
+                    )
 
     # save action states information to assist training with auxiliary info
     # assume one training file, one validation file, and one test file
