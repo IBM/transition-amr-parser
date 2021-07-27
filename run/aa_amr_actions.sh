@@ -98,7 +98,7 @@ else
     echo "align dev"
     python preprocess/remove_wiki.py \
 		$AMR_DEV_FILE_WIKI \
-		$ALIGNED_FOLDER/dev.txt
+		${AMR_DEV_FILE_WIKI}.no_wiki
 
     python align_cfg/main.py --cuda \
         --no-jamr \
@@ -108,7 +108,7 @@ else
         --vocab-text $ALIGN_VOCAB_TEXT \
         --vocab-amr $ALIGN_VOCAB_AMR \
         --write-single \
-        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --single-input ${AMR_DEV_FILE_WIKI}.no_wiki \
         --single-output $ALIGNED_FOLDER/dev.txt
 
     
@@ -133,7 +133,7 @@ else
         --vocab-text $ALIGN_VOCAB_TEXT \
         --vocab-amr $ALIGN_VOCAB_AMR \
         --write-single \
-        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --single-input ${AMR_TEST_FILE_WIKI}.no_wiki \
         --single-output $ALIGNED_FOLDER/test.txt
 
     # Mark as done
