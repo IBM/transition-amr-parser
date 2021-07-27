@@ -35,8 +35,8 @@ align_tag=align_cfg
 
 ALIGN_MODEL=DATA/AMR2.0/aligned/align_cfg/model.pt
 ALIGN_MODEL_FLAGS=DATA/AMR2.0/aligned/align_cfg/flags.json
-ALIGN_VOCAB_TEXT=DATA/AMR2.0/aligned/align_cfg/ELMO_vocab.text.txt
-ALIGN_VOCAB_AMR=DATA/AMR2.0/aligned/align_cfg/ELMO_vocab.amr.txt
+ALIGN_VOCAB_TEXT=DATA/AMR2.0/aligned/align_cfg/vocab.text.txt
+ALIGN_VOCAB_AMR=DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt
 
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
