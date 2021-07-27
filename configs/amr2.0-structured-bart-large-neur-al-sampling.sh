@@ -33,15 +33,14 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 # cofill: combination of JAMR and EM plus filling of missing alignments
 align_tag=align_cfg
 
-ALIGN_MODEL=DATA/AMR2.0/aligned/align_cfg/model.pt
-ALIGN_MODEL_FLAGS=DATA/AMR2.0/aligned/align_cfg/flags.json
-ALIGN_VOCAB_TEXT=DATA/AMR2.0/aligned/align_cfg/vocab.text.txt
-ALIGN_VOCAB_AMR=DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt
-
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
 
-# aligned AMR
+# alignment model files
+ALIGN_MODEL=$ALIGNED_FOLDER/model.pt
+ALIGN_MODEL_FLAGS=$ALIGNED_FOLDER/flags.json
+ALIGN_VOCAB_TEXT=$ALIGNED_FOLDER/ELMO_vocab.text.txt
+ALIGN_VOCAB_AMR=$ALIGNED_FOLDER/ELMO_vocab.amr.txt
 
 # TODO: Omit these and use ALIGNED_FOLDER
 AMR_TRAIN_FILE=$ALIGNED_FOLDER/train.txt
@@ -177,7 +176,7 @@ clip_norm=0.0
 weight_decay=0.0
 loss_coef=1
 dyo_run_start=400
-dyo_run_freq=5
+dyo_run_freq=1
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
