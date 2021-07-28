@@ -59,7 +59,7 @@ def argument_parser():
     )
     parser.add_argument(
         "--wait-finished",
-        help="Average numbers over seeds",
+        help="Print status until final model created",
         action='store_true'
     )
     parser.add_argument(
