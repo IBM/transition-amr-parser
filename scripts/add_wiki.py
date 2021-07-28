@@ -1,4 +1,4 @@
-#!/usr/bin/python
+import os
 import sys
 
 
@@ -9,13 +9,25 @@ if __name__ == '__main__':
     famr = open(famr)
     fwiki = open(fwiki)
     ftrn = open(f"{wiki_folder}/trn.wikis")
-
     wiki_ht = {}
     for line in ftrn:
         if len(line.strip().split('\t')) != 2:
             continue
         (n,w) = line.strip().split('\t')
         wiki_ht[n] = w
+
+    # FIXME: Temporary fix for AMR3.0
+    amr3_file = f"{wiki_folder}/amr3trn.wikis"
+    if os.path.isfile(amr3_file):
+        ftrn3 = open(amr3_file)
+        for line in ftrn3:
+            if len(line.strip().split('\t')) != 2:
+                continue
+            (n,w) = line.strip().split('\t')
+            if n[-1:]==' ':
+                n = n[:-1]
+            if n not in wiki_ht:
+                wiki_ht[n] = w
 
     all_wikis = []
     wikis = []
