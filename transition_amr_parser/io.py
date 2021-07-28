@@ -340,7 +340,7 @@ default_rel = ':rel'
 class AMR():
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, clean=True, connect=False):
+                 alignments=None, clean=True, connect=False, id=None):
 
         # make graph un editable
         self.tokens = tokens
@@ -348,6 +348,7 @@ class AMR():
         self.edges = edges
         self.penman = penman
         self.alignments = alignments
+        self.id = id
 
         # edges by parent
         self.edges_by_parent = defaultdict(list)
@@ -540,7 +541,13 @@ class AMR():
             assert 'tok' in graph.metadata, "AMR must contain field ::tok " \
                 "(or call this with tokenize=True)"
             tokens = graph.metadata['tok'].split()
-        return cls(tokens, nodes, edges, graph.top, penman=graph, clean=True, connect=False)
+
+        graph_id = None
+        if 'id' in graph.metadata:
+            graph_id = graph.metadata['id']
+
+        return cls(tokens, nodes, edges, graph.top, penman=graph, clean=True,
+                   connect=False, id=graph_id)
 
     @classmethod
     def from_metadata(cls, penman_text, tokenize=False):
@@ -598,8 +605,14 @@ class AMR():
             elif key == 'root':
                 root = value[0].split('\t')[1]
 
+        # read metadata
+        graph_id = None
+        if metadata['id']:
+            graph_id = metadata['id'][0].strip()
+
         return cls(tokens, nodes, edges, root, penman=None,
-                   alignments=alignments, clean=True, connect=False)
+                   alignments=alignments, clean=True, connect=False,
+                   id=graph_id)
 
     def get_metadata(self):
         """
@@ -680,11 +693,15 @@ class AMR():
         return ('\n'.join(new_lines)) + '\n'
 
 
-def read_amr2(file_path, ibm_format=False, tokenize=False):
+def read_amr2(file_path, ibm_format=False, tokenize=False, bar=True):
     with open(file_path) as fid:
         raw_amr = []
         raw_amrs = []
-        for line in tqdm(fid.readlines(), desc='Reading AMR'):
+        if bar:
+            bar = tqdm
+        else:
+            def bar(x, desc=None): return x
+        for line in bar(fid.readlines(), desc='Reading AMR'):
             if line.strip() == '':
                 if ibm_format:
                     # From ::node, ::edge etc
