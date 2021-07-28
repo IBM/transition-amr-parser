@@ -808,13 +808,14 @@ def main(args):
 
     else:
 
+        # print status for this config
+        config_env_vars = read_config_variables(args.config)
+
         if args.seed:
             seeds = [args.seed]
         else:
             seeds = config_env_vars['SEEDS'].split()
 
-        # print status for this config
-        config_env_vars = read_config_variables(args.config)
         while True:
             fin = print_status(config_env_vars, args.seed, do_clear=args.clear)
             # link and/or remove checkpoints
