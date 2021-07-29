@@ -12,8 +12,13 @@ def get_node_hash(amr, nid):
 
 def map_node_ids(amr, ref_amr):
 
-    nid_map = {}
+    # id ref AMR by name+children+parent hash
+    ref_node_by_key = defaultdict(list)
+    for nid in ref_amr.nodes.keys():
+        ref_node_by_key[get_node_hash(ref_amr, nid)].append(nid)
 
+    # assign nodes based on hash
+    nid_map = {}
     num_amb = 0
     missing = []
     ref_found = []
@@ -28,6 +33,8 @@ def map_node_ids(amr, ref_amr):
         nid_map[nid] = ref_ids[0]
         ref_found.append(ref_ids[0])
 
+    # assing missing nodes based on name. This assumes missing names are due to
+    # reasons other than ambigous names
     if missing:
         ref_missing = list(set(ref_amr.nodes.keys()) - set(ref_found))
         ref_miss_by_name = {ref_amr.nodes[nid]: nid for nid in ref_missing}
@@ -56,20 +63,15 @@ assert len(amrs) == len(ref_amrs)
 aligned_amrs = []
 for amr, ref_amr in zip(amrs, ref_amrs):
 
-    # id ref AMR by name+children+parent hash
-    ref_node_by_key = defaultdict(list)
-    for nid in ref_amr.nodes.keys():
-        ref_node_by_key[get_node_hash(ref_amr, nid)].append(nid)
-
     # simulated alignment, here we select at random
     # NOTE: We need to give tokens consisten with alignment!
     amr.tokens = ref_amr.tokens
-    amr.alignments = {}
 
     # map node ids in, otherwise identical, AMR graphs
     nid_map = map_node_ids(amr, ref_amr)
 
     # use map to assign alignments
+    amr.alignments = {}
     for nid in amr.nodes.keys():
         amr.alignments[nid] = ref_amr.alignments[nid_map[nid]]
 

@@ -11,7 +11,7 @@ import argparse
 from collections import defaultdict
 from statistics import mean
 from transition_amr_parser.io import read_config_variables, clbar
-# from ipdb import set_trace
+from ipdb import set_trace
 
 
 # Sanity check python3
@@ -55,6 +55,11 @@ def argument_parser():
     parser.add_argument(
         "--seed-average",
         help="Average numbers over seeds",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--wait-finished",
+        help="Print status until final model created",
         action='store_true'
     )
     parser.add_argument(
@@ -179,6 +184,7 @@ def print_status(config_env_vars, seed, do_clear=False):
 
     # Inform about completed stages
     # pre-training ones
+    finished = False
     status_lines = []
     for variable in ['ALIGNED_FOLDER', 'ORACLE_FOLDER', 'EMB_FOLDER',
                      'DATA_FOLDER']:
@@ -199,7 +205,11 @@ def print_status(config_env_vars, seed, do_clear=False):
             "{seed} is not a trained seed for the model"
         seeds = [seed]
     # loop over each model with a different random seed
+    finished = {}
     for seed in seeds:
+
+        # default unfinished
+        finished[seed] = False
 
         # all checkpoints trained
         seed_folder = f'{model_folder}-seed{seed}'
@@ -239,6 +249,7 @@ def print_status(config_env_vars, seed, do_clear=False):
         )
         dec_checkpoint = f'{model_folder}-seed{seed}/{dec_checkpoint}'
         if os.path.isfile(dec_final_result):
+            finished[seed] = True
             status_lines.append(
                 (f"\033[92mdone\033[0m", f"{dec_final_result}")
             )
@@ -273,6 +284,8 @@ def print_status(config_env_vars, seed, do_clear=False):
         os.system('clear')
     print('\n'.join(new_statues_lines))
     print()
+
+    return all(finished.values())
 
 
 def get_score_from_log(file_path, score_name):
@@ -666,7 +679,92 @@ def print_table(header, data, formatter, do_clear=False):
 
 def ordered_exit(signum, frame):
     print("\nStopped by user\n")
-    exit(0)
+    # exit with error to stop other scripts coming afterwards
+    exit(1)
+
+
+def link_remove(args, seed, config_env_vars, checkpoints=None,
+                target_epochs=None):
+
+    # List checkpoints that need to be evaluated to complete training. If
+    # ready=True list only those checkpoints that exist already
+    if checkpoints is None:
+        checkpoints, target_epochs, _ = get_checkpoints_to_eval(
+            config_env_vars,
+            seed,
+            ready=bool(args.list_checkpoints_ready_to_eval)
+        )
+
+    # get checkpoints that still need to be created, those scored and those
+    # deletable
+    # TODO: Unify with code above
+    best_n, best_scores, rest_checkpoints, missing_epochs, _ = \
+        get_best_checkpoints(config_env_vars, seed, target_epochs,
+                             n_best=args.nbest)
+
+    # link best model if all results are done
+    if missing_epochs == [] and args.link_best:
+        link_best_model(best_n, config_env_vars, seed, args.nbest)
+
+    # remove checkpoints not among the n-best
+    for checkpoint in rest_checkpoints:
+        if os.path.isfile(checkpoint):
+            if not (
+                bool(args.list_checkpoints_ready_to_eval) or
+                bool(args.list_checkpoints_to_eval)
+            ):
+                print(f'rm {checkpoint}')
+            os.remove(checkpoint)
+
+
+def wait_checkpoint_ready_to_eval(args):
+
+    config_env_vars = read_config_variables(args.config)
+    if args.seed:
+        seeds = [args.seed]
+    else:
+        seeds = config_env_vars['SEEDS'].split()
+    eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
+    # TODO: Clearer naming
+    checkpoints = []
+    need_eval = []
+    while not checkpoints:
+        checkpoints = []
+        need_eval = []
+        for seed in seeds:
+            scheckpoints, starget_epochs, sneed_eval = \
+                get_checkpoints_to_eval(
+                    config_env_vars,
+                    seed,
+                    ready=True
+                 )
+
+            # sanity check: we did not delete checkpoints without testing them
+            if sneed_eval and max(sneed_eval) < max(starget_epochs):
+                print('\nCheckpoints may have been deleted before tesing or '
+                      'testing failed on evaluation\n')
+                print(f'missing {sneed_eval}\n')
+                exit(1)
+
+            checkpoints.extend(scheckpoints)
+            need_eval.extend(sneed_eval)
+
+            # link and/or remove checkpoints
+            if args.link_best or args.remove:
+                link_remove(args, seed,
+                            config_env_vars, checkpoints=scheckpoints,
+                            target_epochs=starget_epochs)
+
+        if need_eval == []:
+            print('Finished!')
+            break
+
+        print_status(config_env_vars, None, do_clear=args.clear)
+        print(
+            f'Waiting for checkpoint to evaluate'
+            ' (if you stop this script, I wont evaluate)'
+        )
+        sleep(10)
 
 
 def main(args):
@@ -675,7 +773,6 @@ def main(args):
     signal.signal(signal.SIGINT, ordered_exit)
     signal.signal(signal.SIGTERM, ordered_exit)
 
-    checkpoints = None
     if args.results or args.long_results:
 
         # results display and exit
@@ -686,27 +783,10 @@ def main(args):
 
     elif args.wait_checkpoint_ready_to_eval:
 
-        # List checkpoints that need to be evaluated to complete training. If
-        # ready=True list only those checkpoints that exist already
-        assert args.seed, "Requires --seed"
-        config_env_vars = read_config_variables(args.config)
-        eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
-        while True:
-
-            checkpoints, target_epochs, missing = get_checkpoints_to_eval(
-                config_env_vars,
-                args.seed,
-                ready=True
-            )
-            if missing == []:
-                print('Checkpoint evaluation complete!')
-                break
-            elif checkpoints:
-                break
-
-            print_status(config_env_vars, args.seed, do_clear=args.clear)
-            print(f'Waiting for checkpoint {eval_init_epoch}')
-            sleep(10)
+        # wait until a checkpoint to evaluate is avaliable, inform of status in
+        # the meanwhile. Optionally delete checkpoints that are evaluated or do
+        # not need to be evaluated
+        wait_checkpoint_ready_to_eval(args)
 
     elif args.list_checkpoints_ready_to_eval or args.list_checkpoints_to_eval:
 
@@ -720,7 +800,11 @@ def main(args):
             ready=bool(args.list_checkpoints_ready_to_eval)
         )
 
-        # print checkpoints to be
+        # link and/or remove checkpoints
+        if args.link_best or args.remove:
+            link_remove(args, args.seed, config_env_vars)
+
+        # print checkpoints to be evaluated
         for checkpoint in checkpoints:
             print(checkpoint)
             sys.stdout.flush()
@@ -729,39 +813,22 @@ def main(args):
 
         # print status for this config
         config_env_vars = read_config_variables(args.config)
-        print_status(config_env_vars, args.seed, do_clear=args.clear)
 
-    if args.link_best or args.remove:
+        if args.seed:
+            seeds = [args.seed]
+        else:
+            seeds = config_env_vars['SEEDS'].split()
 
-        # List checkpoints that need to be evaluated to complete training. If
-        # ready=True list only those checkpoints that exist already
-        assert args.seed, "Requires --seed"
-        if checkpoints is None:
-            checkpoints, target_epochs, _ = get_checkpoints_to_eval(
-                config_env_vars,
-                args.seed,
-                ready=bool(args.list_checkpoints_ready_to_eval)
-            )
-
-        assert args.seed, "Requires --seed"
-        best_n, best_scores, rest_checkpoints, missing_epochs, _ = \
-            get_best_checkpoints(config_env_vars, args.seed, target_epochs,
-                                 n_best=args.nbest)
-
-        # link best model if all results are done
-        if missing_epochs == [] and args.link_best:
-            link_best_model(best_n, config_env_vars, args.seed,
-                            args.nbest)
-
-        # remove checkpoints not among the n-best
-        for checkpoint in rest_checkpoints:
-            if os.path.isfile(checkpoint):
-                if not (
-                    bool(args.list_checkpoints_ready_to_eval) or
-                    bool(args.list_checkpoints_to_eval)
-                ):
-                    print(f'rm {checkpoint}')
-                os.remove(checkpoint)
+        while True:
+            fin = print_status(config_env_vars, args.seed, do_clear=args.clear)
+            # link and/or remove checkpoints
+            if args.link_best or args.remove:
+                for seed in seeds:
+                    link_remove(args, seed, config_env_vars)
+            # exit if finished
+            if not args.wait_finished or fin:
+                break
+            sleep(10)
 
 
 if __name__ == '__main__':
