@@ -13,5 +13,15 @@ bash tests/create_wiki25_mockup.sh
 # rm -R -f DATA/wiki25/oracles
 # rm -R -f DATA/wiki25/models
 
-#bash run/run_experiment.sh configs/wiki25.sh  
-bash run/run_experiment.sh configs/wiki25-neur-al-sampling.sh
+# config=configs/wiki25-neur-al-sampling.sh
+config=configs/wiki25.sh  
+bash run/run_experiment.sh $config
+
+# check if final result is there
+. $config
+
+if [ -f "${MODEL_FOLDER}-seed42/beam10/valid_${DECODING_CHECKPOINT}.wiki.smatch" ];then
+    printf "\n[\033[92mOK\033[0m] $0\n"
+else
+    printf "\n[\033[91mFAILED\033[0m] $0\n"
+fi

@@ -156,8 +156,9 @@ else
     cp $ALIGNED_FOLDER/train.txt $ORACLE_FOLDER/ref_train.amr
     cp $ALIGNED_FOLDER/dev.txt $ORACLE_FOLDER/ref_dev.amr
     cp $ALIGNED_FOLDER/test.txt $ORACLE_FOLDER/ref_test.amr
-    # copy alignment probabilities 
-    cp $ALIGNED_FOLDER/alignment.trn.pretty $ORACLE_FOLDER/
+    # copy alignment probabilities (if provided)
+    [ -f "$ALIGNED_FOLDER/alignment.trn.pretty" ] \
+        && cp $ALIGNED_FOLDER/alignment.trn.pretty $ORACLE_FOLDER/
 
     echo -e "\nTrain data"
    
