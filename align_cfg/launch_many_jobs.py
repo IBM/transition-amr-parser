@@ -32,11 +32,11 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 python -u align_cfg/main.py --cuda \
         --aligner-training-and-eval \
     --log-dir {log} \
-    --cache-dir DATA/AMR2.0/aligned/align_cfg \
     --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
-    --vocab-text DATA/AMR2.0/aligned/align_cfg/vocab.text.txt \
-    --vocab-amr DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt \
+    --cache-dir ./tmp-aligner \
+    --vocab-text ./tmp-aligner/vocab.text.txt \
+    --vocab-amr ./tmp-aligner/vocab.amr.txt \
     {flags} \
     --jbsub-eval
 """
@@ -54,13 +54,13 @@ export PYTHONPATH=$PYTHONPATH:$(pwd)
 python -u align_cfg/main.py --cuda \
         --aligner-training-and-eval \
     --log-dir {log}_write_amr2 \
-    --cache-dir DATA/AMR2.0/aligned/align_cfg \
     {flags} \
     --load {log}/model.best.val_0_recall.pt \
     --trn-amr ~/data/AMR2.0/aligned/cofill/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
-    --vocab-text DATA/AMR2.0/aligned/align_cfg/vocab.text.txt \
-    --vocab-amr DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt \
+    --cache-dir ./tmp-aligner \
+    --vocab-text ./tmp-aligner/vocab.text.txt \
+    --vocab-amr ./tmp-aligner/vocab.amr.txt \
     --write-only \
     --batch-size 8 \
     --max-length 0
@@ -68,13 +68,13 @@ python -u align_cfg/main.py --cuda \
 python -u align_cfg/main.py --cuda \
         --aligner-training-and-eval \
     --log-dir {log}_write_amr3 \
-    --cache-dir DATA/AMR2.0/aligned/align_cfg \
     {flags} \
     --load {log}/model.best.val_0_recall.pt \
     --trn-amr ~/data/AMR3.0/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
-    --vocab-text DATA/AMR2.0/aligned/align_cfg/vocab.text.txt \
-    --vocab-amr DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt \
+    --cache-dir ./tmp-aligner \
+    --vocab-text ./tmp-aligner/vocab.text.txt \
+    --vocab-amr ./tmp-aligner/vocab.amr.txt \
     --write-only \
     --batch-size 8 \
     --max-length 0
