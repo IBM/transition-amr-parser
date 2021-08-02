@@ -38,11 +38,11 @@ def main(args):
 
             print(f'current {len(tokens)} tokens and {len(graph_tokens)} graph tokens in vocab\n')
 
-            summary[(amr_file, 'jamr')] = f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ JAMR'
+            summary[(amr_file, 'jamr')] = (True, f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ JAMR')
         except:
             print('could not read as JAMR\n')
 
-            summary[(amr_file, 'jamr')] = 'failed'
+            summary[(amr_file, 'jamr')] = (False, 'failed')
 
 
         try:
@@ -66,11 +66,11 @@ def main(args):
 
             print(f'current {len(tokens)} tokens and {len(graph_tokens)} graph tokens in vocab\n')
 
-            summary[(amr_file, 'penman')] = f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ PENMAN'
+            summary[(amr_file, 'penman')] = (True, f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ PENMAN')
         except:
-            print('could not read as JAMR\n')
+            print('could not read as PENMAN\n')
 
-            summary[(amr_file, 'penman')] = 'failed'
+            summary[(amr_file, 'penman')] = (False, 'failed')
 
     for tok in special_tokens:
         if tok in tokens:
@@ -87,23 +87,26 @@ def main(args):
     graph_tokens.add(')')
     graph_tokens = special_tokens + sorted(graph_tokens)
 
-    # write files
-    print('found {} text tokens'.format(len(tokens)))
-    with open(f'{args.out_folder}/ELMO_vocab.text.txt', 'w') as f:
-        for tok in tokens:
-            f.write(tok + '\n')
-    print('found {} amr tokens'.format(len(graph_tokens)))
-    with open(f'{args.out_folder}/ELMO_vocab.amr.txt', 'w') as f:
-        for tok in graph_tokens:
-            f.write(tok + '\n')
-
     # print summary
     print('summary\n-------')
 
     for k, v in summary.items():
+        success, msg = v
         print(k)
-        print(v)
+        print(msg)
         print('')
+
+    print('writing...')
+
+    # write files
+    print('found {} text tokens'.format(len(tokens)))
+    with open(args.out_text, 'w') as f:
+        for tok in tokens:
+            f.write(tok + '\n')
+    print('found {} amr tokens'.format(len(graph_tokens)))
+    with open(args.out_amr, 'w') as f:
+        for tok in graph_tokens:
+            f.write(tok + '\n')
 
 
 if __name__ == '__main__':
@@ -112,10 +115,13 @@ if __name__ == '__main__':
     # Argument handling
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--in-amrs", help="AMR files to extract the vocabulary from",
+        "--in-amrs", help="Read AMR files to determine vocabulary.",
         nargs='+', required=True)
     parser.add_argument(
-        "--out-folder", help="Folder where to store vocabulary files",
+        "--out-text", help="Output text vocab.",
+        required=True)
+    parser.add_argument(
+        "--out-amr", help="Output amr vocab.",
         required=True)
     args = parser.parse_args()
 

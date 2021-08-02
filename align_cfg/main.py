@@ -65,7 +65,7 @@ def argument_parser():
     # Single input parameters
     parser.add_argument(
         "--cache-dir",
-        help="Folder to store intermediate aligner outputs e.g. ELMO",
+        help="Folder to store intermediate aligner outputs e.g. pre-computed token embeddings.",
         type=str,
         required=True
     )

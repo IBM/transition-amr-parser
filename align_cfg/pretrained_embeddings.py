@@ -106,7 +106,7 @@ def write_embeddings(path, embeddings):
 
 def main(arg):
 
-    tokens = read_text_vocab_file(args.vocab_text)
+    tokens = read_text_vocab_file(args.vocab)
     token_hash = hash_string_list(tokens)
 
     print('found {} tokens with hash = {}'.format(len(tokens), token_hash))
@@ -125,7 +125,7 @@ def main(arg):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--vocab-text", type=str, help="Vocab file.",
+    parser.add_argument("--vocab", type=str, help="Vocab file.",
                         required=True)
     parser.add_argument('--cuda', action='store_true',
                         help='If true, then use GPU.')

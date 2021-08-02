@@ -14,23 +14,23 @@ FOLDER=DATA.tmp/neural_aligner/
 cp DATA/wiki25.jkaln $FOLDER/wiki25.amr
 
 # Preprocess
-# Extract ELMO vocabulary
+# Build aligner vocabulary.
 python align_cfg/vocab.py --in-amrs $FOLDER/wiki25.amr --out-folder $FOLDER
-# Extract ELMO embeddings
+# Pre-compute token embeddings.
 python align_cfg/pretrained_embeddings.py \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/ELMO_vocab.text.txt \
+    --vocab-text $FOLDER/vocab.text.txt \
     --cache-dir $FOLDER/
 python align_cfg/pretrained_embeddings.py \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/ELMO_vocab.amr.txt \
+    --vocab-text $FOLDER/vocab.amr.txt \
     --cache-dir $FOLDER/
 
 # Learn alignments.
 python -u align_cfg/main.py --aligner-training-and-eval \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/ELMO_vocab.text.txt \
-    --vocab-amr $FOLDER/ELMO_vocab.amr.txt \
+    --vocab-text $FOLDER/vocab.text.txt \
+    --vocab-amr $FOLDER/vocab.amr.txt \
     --trn-amr $FOLDER/wiki25.amr \
     --val-amr $FOLDER/wiki25.amr \
     --cache-dir $FOLDER \
@@ -48,8 +48,8 @@ python -u align_cfg/main.py --aligner-training-and-eval \
 mkdir -p $FOLDER/version_20210709c_exp_0_seed_0_write_amr2
 python -u align_cfg/main.py --no-jamr \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/ELMO_vocab.text.txt \
-    --vocab-amr $FOLDER/ELMO_vocab.amr.txt \
+    --vocab-text $FOLDER/vocab.text.txt \
+    --vocab-amr $FOLDER/vocab.amr.txt \
     --write-single \
     --single-input $FOLDER/wiki25.amr \
     --single-output $FOLDER/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred \
