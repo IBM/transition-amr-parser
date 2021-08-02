@@ -30,6 +30,7 @@ cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
+        --aligner-training-and-eval \
     --log-dir {log} \
     --cache-dir DATA/AMR2.0/aligned/align_cfg \
     --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
@@ -51,6 +52,7 @@ cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
+        --aligner-training-and-eval \
     --log-dir {log}_write_amr2 \
     --cache-dir DATA/AMR2.0/aligned/align_cfg \
     {flags} \
@@ -64,6 +66,7 @@ python -u align_cfg/main.py --cuda \
     --max-length 0
 
 python -u align_cfg/main.py --cuda \
+        --aligner-training-and-eval \
     --log-dir {log}_write_amr3 \
     --cache-dir DATA/AMR2.0/aligned/align_cfg \
     {flags} \
