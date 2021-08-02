@@ -14,7 +14,7 @@ args = parser.parse_args()
 
 queue = args.queue
 require = '-require {}'.format(args.require) if args.require is not None else ''
-conda = 'torch-1.4-new' if args.new else 'torch-1.4'
+conda = 'torch-1.4-new'
 
 
 # Note: We use a sample of train for dev.
@@ -25,17 +25,17 @@ source /u/adrozdov/.bashrc
 
 conda activate {conda}
 
-cd /u/adrozdov/code/transition-amr-parser
+cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
     --log-dir {log} \
-    --cache-dir ./ \
+    --cache-dir DATA/AMR2.0/aligned/align_cfg \
     --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
-    --vocab-text ./align_cfg/vocab.text.2021-06-30.txt \
-    --vocab-amr ./align_cfg/vocab.amr.2021-06-30.txt \
+    --vocab-text DATA/AMR2.0/aligned/align_cfg/vocab.text.txt \
+    --vocab-amr DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt \
     {flags} \
     --jbsub-eval
 """
@@ -46,24 +46,32 @@ source /u/adrozdov/.bashrc
 
 conda activate {conda}
 
-cd /u/adrozdov/code/transition-amr-parser
+cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
     --log-dir {log}_write_amr2 \
+    --cache-dir DATA/AMR2.0/aligned/align_cfg \
     {flags} \
-    --load {log}/model.best.val_1_recall.pt \
+    --load {log}/model.best.val_0_recall.pt \
     --trn-amr ~/data/AMR2.0/aligned/cofill/train.txt \
+    --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
+    --vocab-text DATA/AMR2.0/aligned/align_cfg/vocab.text.txt \
+    --vocab-amr DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt \
     --write-only \
     --batch-size 8 \
     --max-length 0
 
 python -u align_cfg/main.py --cuda \
     --log-dir {log}_write_amr3 \
+    --cache-dir DATA/AMR2.0/aligned/align_cfg \
     {flags} \
-    --load {log}/model.best.val_1_recall.pt \
+    --load {log}/model.best.val_0_recall.pt \
     --trn-amr ~/data/AMR3.0/train.txt \
+    --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
+    --vocab-text DATA/AMR2.0/aligned/align_cfg/vocab.text.txt \
+    --vocab-amr DATA/AMR2.0/aligned/align_cfg/vocab.amr.txt \
     --write-only \
     --batch-size 8 \
     --max-length 0
