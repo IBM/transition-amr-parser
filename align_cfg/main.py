@@ -462,6 +462,7 @@ class Dataset(object):
         self.corpus = corpus
         self.text_tokenizer = text_tokenizer
         self.amr_tokenizer = amr_tokenizer
+        self.cached = {}
 
     def get_dgl_graph(self, amr):
         vocab = self.amr_tokenizer.token_TO_idx
@@ -504,6 +505,8 @@ class Dataset(object):
         return g, pairwise_dist
 
     def __getitem__(self, idx):
+        if idx in self.cached:
+            return self.cached[idx]
         amr = self.corpus[idx]
 
         item = {}
@@ -522,6 +525,8 @@ class Dataset(object):
         g, pairwise_dist = self.get_dgl_graph(amr)
         item['g'] = g
         item['amr_pairwise_dist'] = pairwise_dist
+
+        self.cached[idx] = item
 
         return item
 
@@ -1518,6 +1523,15 @@ def main(args):
     opt = optim.Adam(net.parameters(), lr=lr)
 
     best_metrics = {}
+
+    for idx in tqdm(range(len(trn_corpus)), desc='cache-trn', disable=not args.verbose):
+        _ = trn_dataset[idx]
+
+    for i_val in range(len(val_corpus_list)):
+        val_corpus = val_corpus_list[i_val]
+        val_dataset = val_dataset_list[i_val]
+        for idx in tqdm(range(len(val_corpus)), desc='cache-val', disable=not args.verbose):
+            _ = val_dataset[idx]
 
     for epoch in range(max_epoch):
 
