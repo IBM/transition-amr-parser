@@ -1,3 +1,4 @@
+import collections
 import json
 
 from align_cfg.vocab_definitions import (
@@ -6,9 +7,29 @@ from align_cfg.vocab_definitions import (
 from transition_amr_parser.io import read_amr2
 
 
+def get_tokens(path, ibm_format=False, tokenize=False):
+    local_tokens = set()
+    local_graph_tokens = set()
+
+    for amr in read_amr2(path, ibm_format=ibm_format, tokenize=tokenize):
+        # surface tokens
+        local_tokens.update(amr.tokens)
+        # graph tokens
+        for _, label, _ in amr.edges:
+            local_graph_tokens.add(label)
+        local_graph_tokens.update(amr.nodes.values())
+
+    return local_tokens, local_graph_tokens
+
+
 def main(args):
 
-    summary = {}
+    summary = collections.defaultdict(list)
+
+    settings = []
+    settings.append((True, False))
+    settings.append((False, False))
+    settings.append((True, False))
 
     # collect information for all AMR
     tokens = set()
@@ -17,61 +38,33 @@ def main(args):
 
         print('reading {}\n'.format(amr_file))
 
-        try:
-            # JAMR
-            local_tokens = set()
-            local_graph_tokens = set()
+        for ibm_format, tokenize in settings:
 
-            for amr in read_amr2(amr_file, ibm_format=False):
-                # surface tokens
-                local_tokens.update(amr.tokens)
-                # graph tokens
-                for _, label, _ in amr.edges:
-                    graph_tokens.add(label)
-                local_graph_tokens.update(amr.nodes.values())
+            try:
+                txt_toks, amr_toks = get_tokens(amr_file, ibm_format=True, tokenize=False)
+                tokens = set.union(tokens, txt_toks)
+                graph_tokens = set.union(graph_tokens, amr_toks)
 
-            print(f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ JAMR\n')
+                o = {}
+                o['txt'] = len(txt_toks)
+                o['amr'] = len(amr_toks)
+                o['setting'] = (ibm_format, tokenize)
+                o['success'] = True
 
-            # Update
-            tokens = set.union(tokens, local_tokens)
-            graph_tokens = set.union(graph_tokens, local_graph_tokens)
+                summary[amr_file].append(o)
+                print(o)
+            except Exception as e:
+                o = {}
+                o['setting'] = (ibm_format, tokenize)
+                o['success'] = True
 
-            print(f'current {len(tokens)} tokens and {len(graph_tokens)} graph tokens in vocab\n')
+                summary[amr_file].append(o)
+                print(o)
+                print(e)
 
-            summary[(amr_file, 'jamr')] = (True, f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ JAMR')
-        except:
-            print('could not read as JAMR\n')
-
-            summary[(amr_file, 'jamr')] = (False, 'failed')
-
-
-        try:
-            # PENMAN
-            local_tokens = set()
-            local_graph_tokens = set()
-
-            for amr in read_amr2(amr_file, ibm_format=False, tokenize=True):
-                # surface tokens
-                local_tokens.update(amr.tokens)
-                # graph tokens
-                for _, label, _ in amr.edges:
-                    graph_tokens.add(label)
-                local_graph_tokens.update(amr.nodes.values())
-
-            print(f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ PENMAN\n')
-
-            # Update
-            tokens = set.union(tokens, local_tokens)
-            graph_tokens = set.union(graph_tokens, local_graph_tokens)
-
-            print(f'current {len(tokens)} tokens and {len(graph_tokens)} graph tokens in vocab\n')
-
-            summary[(amr_file, 'penman')] = (True, f'found {len(tokens)} tokens and {len(graph_tokens)} graph tokens w/ PENMAN')
-        except:
-            print('could not read as PENMAN\n')
-
-            summary[(amr_file, 'penman')] = (False, 'failed')
-
+    graph_tokens.add('<NA>')
+    graph_tokens.add('(')
+    graph_tokens.add(')')
     for tok in special_tokens:
         if tok in tokens:
             tokens.remove(tok)
@@ -83,17 +76,15 @@ def main(args):
     tokens = special_tokens + sorted(tokens)
     # graph
     # useful for linearized parse
-    graph_tokens.add('(')
-    graph_tokens.add(')')
     graph_tokens = special_tokens + sorted(graph_tokens)
 
     # print summary
     print('summary\n-------')
 
     for k, v in summary.items():
-        success, msg = v
         print(k)
-        print(msg)
+        for vv in v:
+            print(vv)
         print('')
 
     print('writing...')

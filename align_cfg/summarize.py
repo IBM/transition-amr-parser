@@ -186,9 +186,9 @@ class Summary:
 
         values = {}
         values['amr2_trn_recall'] = [e.amr2['Corpus Recall using spans for gold']['recall'] for e in exp_list]
-        values['amr2_val_recall_seen'] = [e.m['val_1_recall']['valmax'] for e in exp_list]
-        values['amr2_val_recall_seen_epoch'] = [e.m['val_1_recall']['argmax'] for e in exp_list]
-        values['amr2_val_loss_seen'] = [e.m['val_1_loss']['values'][epoch] for epoch, e in zip(values['amr2_val_recall_seen_epoch'], exp_list)]
+        values['amr2_val_recall_seen'] = [e.m['val_0_recall']['valmax'] for e in exp_list]
+        values['amr2_val_recall_seen_epoch'] = [e.m['val_0_recall']['argmax'] for e in exp_list]
+        values['amr2_val_loss_seen'] = [e.m['val_0_loss']['values'][epoch] for epoch, e in zip(values['amr2_val_recall_seen_epoch'], exp_list)]
         index = collections.OrderedDict()
         k = 'amr2_trn_recall'
         index[k] = np.argsort(values[k])[::-1]
@@ -224,10 +224,10 @@ class Summary:
 
     def summarize_verbose(self):
 
-        keys = ['val_0_ppl', 'val_0_recall', 'val_1_ppl', 'val_1_recall']
+        keys = ['val_0_ppl', 'val_0_recall']
         keys2 = ['min', 'max', 'min', 'max']
 
-        sortby = ('val_1_recall', 'valmax', -1)
+        sortby = ('val_0_recall', 'valmax', -1)
 
         exp_list = []
         for e in self.c.values():
