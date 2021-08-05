@@ -3,7 +3,10 @@ import os
 
 os.environ['DGLBACKEND'] = 'pytorch'
 
-import dgl
+try:
+    import dgl
+except:
+    pass
 
 import torch
 import torch.nn as nn

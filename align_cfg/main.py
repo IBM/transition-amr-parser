@@ -8,7 +8,13 @@ import sys
 
 os.environ['DGLBACKEND'] = 'pytorch'
 
-import dgl
+try:
+    import dgl
+    has_dgl = True
+except:
+    print('Warning: To use DGL, install.')
+    has_dgl = False
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -550,9 +556,10 @@ class Dataset(object):
         item['amr_node_ids'] = token_ids
         item['amr_node_mask'] = [False if x < 0 else True for x in token_ids]
 
-        g, pairwise_dist = self.get_dgl_graph(amr)
-        item['g'] = g
-        item['amr_pairwise_dist'] = pairwise_dist
+        if has_dgl:
+            g, pairwise_dist = self.get_dgl_graph(amr)
+            item['g'] = g
+            item['amr_pairwise_dist'] = pairwise_dist
 
         if has_geometric:
             item['geometric_data'] = self.get_geometric_data(amr)
@@ -575,6 +582,9 @@ def batchify(items, cuda=False):
 
     batch_map = {}
     for k in dtypes.keys():
+        if k not in items[0]:
+            continue
+
         if dtypes[k] is list:
             batch_map[k] = [item[k].to(device) for item in items]
             continue
@@ -910,34 +920,37 @@ class Net(nn.Module):
             elif self.align_mode == 'prior':
                 align = alpha
 
-            # posterior regularization
-            amr_pairwise_dist = info['amr_pairwise_dist'].float()
-            node_id = torch.arange(n_t, device=device)
-            text_pairwise_dist = torch.abs(node_id.view(-1, 1) - node_id.view(1, -1)).float()
+            if args.pr > 0:
+                # posterior regularization
+                amr_pairwise_dist = info['amr_pairwise_dist'].float()
+                node_id = torch.arange(n_t, device=device)
+                text_pairwise_dist = torch.abs(node_id.view(-1, 1) - node_id.view(1, -1)).float()
 
-            align_ = (align + 1e-8).log().softmax(dim=1)
-            align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
-            assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
+                align_ = (align + 1e-8).log().softmax(dim=1)
+                align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
+                assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
 
-            # for i in range(n_a):
-            #     for j in range(n_a):
-            #         for k in range(n_t):
-            #             for l in range(n_t):
-            #                 check = align[i, k] * align[j, l]
-            #                 actual = align_pairwise[i, j, k, l]
-            #                 assert torch.isclose(check, actual).item()
+                # for i in range(n_a):
+                #     for j in range(n_a):
+                #         for k in range(n_t):
+                #             for l in range(n_t):
+                #                 check = align[i, k] * align[j, l]
+                #                 actual = align_pairwise[i, j, k, l]
+                #                 assert torch.isclose(check, actual).item()
 
-            expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
-            assert expected_text_dist.shape == (n_t, n_t)
+                expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
+                assert expected_text_dist.shape == (n_t, n_t)
 
-            if args.pr_epsilon is not None:
-                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon).clamp(min=0)
+                if args.pr_epsilon is not None:
+                    pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon).clamp(min=0)
+                else:
+                    pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
+
+                #assert torch.isclose(pr_penalty_tmp, pr_penalty_tmp.transpose(0, 1)).all().item()
+                pr_penalty_triu = pr_penalty_tmp.triu()
+                pr = pr_penalty_triu.pow(2).sum().view(1)
             else:
-                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
-
-            #assert torch.isclose(pr_penalty_tmp, pr_penalty_tmp.transpose(0, 1)).all().item()
-            pr_penalty_triu = pr_penalty_tmp.triu()
-            pr = pr_penalty_triu.pow(2).sum().view(1)
+                pr = 0
 
             return alpha, p, loss, loss_notreduced, align, pr
 
@@ -970,7 +983,9 @@ class Net(nn.Module):
             info = {}
             info['n_a'] = n_a
             info['n_t'] = n_t
-            info['amr_pairwise_dist'] = batch_map['amr_pairwise_dist'][i_b]
+
+            if has_dgl:
+                info['amr_pairwise_dist'] = batch_map['amr_pairwise_dist'][i_b]
 
             result = func(local_h_t, local_z_t, local_h_a, local_y_a, info)
 
@@ -1597,7 +1612,9 @@ def main(args):
 
             metrics['trn_loss'] += [x.item() for x in model_output['batch_loss']]
             metrics['trn_loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
-            metrics['trn_pr'] += [x.item() for x in model_output['batch_pr']]
+
+            if args.pr > 0:
+                metrics['trn_pr'] += [x.item() for x in model_output['batch_pr']]
 
             del loss
 

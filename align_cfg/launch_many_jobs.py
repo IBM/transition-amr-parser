@@ -9,12 +9,18 @@ parser.add_argument('--input', default='align_cfg/experiments.jsonl')
 parser.add_argument('--require', default=None, type=str)
 parser.add_argument('--queue', default='x86_24h', type=str)
 parser.add_argument('--new', action='store_true')
+parser.add_argument('--latest', action='store_true')
 parser.add_argument('--force', action='store_true')
+parser.add_argument('--jbsub-eval', action='store_true')
 args = parser.parse_args()
 
 queue = args.queue
 require = '-require {}'.format(args.require) if args.require is not None else ''
 conda = 'torch-1.4-new'
+if args.latest:
+    conda = '/dccstor/ykt-parse/SHARED/misc/adrozdov/envs/latest'
+
+jbsub_eval = '--jbsub-eval' if args.jbsub_eval else ''
 
 
 # Note: We use a sample of train for dev.
@@ -30,15 +36,16 @@ cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
-        --aligner-training-and-eval \
+    --aligner-training-and-eval \
     --log-dir {log} \
-    --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
+    --max-length 100 \
+    --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.train-v1 \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
     --cache-dir ./tmp-aligner \
     --vocab-text ./tmp-aligner/vocab.text.txt \
-    --vocab-amr ./tmp-aligner/vocab.amr.txt \
+    --vocab-amr  ./tmp-aligner/vocab.amr.txt \
     {flags} \
-    --jbsub-eval
+    {jbsub_eval}
 """
 
 eval_template = """#!/usr/bin/env bash
@@ -52,7 +59,7 @@ cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 python -u align_cfg/main.py --cuda \
-        --aligner-training-and-eval \
+    --aligner-training-and-eval \
     --log-dir {log}_write_amr2 \
     {flags} \
     --load {log}/model.best.val_0_recall.pt \
@@ -60,21 +67,21 @@ python -u align_cfg/main.py --cuda \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
     --cache-dir ./tmp-aligner \
     --vocab-text ./tmp-aligner/vocab.text.txt \
-    --vocab-amr ./tmp-aligner/vocab.amr.txt \
+    --vocab-amr  ./tmp-aligner/vocab.amr.txt \
     --write-only \
     --batch-size 8 \
     --max-length 0
 
 python -u align_cfg/main.py --cuda \
-        --aligner-training-and-eval \
+    --aligner-training-and-eval \
     --log-dir {log}_write_amr3 \
     {flags} \
     --load {log}/model.best.val_0_recall.pt \
     --trn-amr ~/data/AMR3.0/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
-    --cache-dir ./tmp-aligner \
+    --cache-dir ./tmp-aligner
     --vocab-text ./tmp-aligner/vocab.text.txt \
-    --vocab-amr ./tmp-aligner/vocab.amr.txt \
+    --vocab-amr  ./tmp-aligner/vocab.amr.txt \
     --write-only \
     --batch-size 8 \
     --max-length 0
@@ -95,7 +102,9 @@ def render(template, cfg, logdir):
     return template.format(
         conda=conda,
         log=logdir,
-        flags=flags)
+        flags=flags,
+        jbsub_eval=jbsub_eval,
+        )
 
 
 def launch_exp(logdir, train=True):
