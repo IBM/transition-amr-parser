@@ -162,10 +162,70 @@ def main(args):
         c2.update(seq)
 
     print('COPY {} {}'.format(c1['COPY'], c2['COPY']))
+    print('SHIFT {} {}'.format(c1['SHIFT'], c2['SHIFT']))
 
     if c1['SHIFT'] != c2['SHIFT']:
         print('WARNING: Found different amount of SHIFTS. {} != {}'.format(c1['SHIFT'], c2['SHIFT']), file=sys.stderr)
 
+    l1 = np.mean([len(x) for x in ref_actions])
+    l2 = np.mean([len(x) for x in new_actions])
+    print('AVG_LENGTH {:.3f} {:.3f}'.format(l1, l2))
+
+    def ignore_shift(seq):
+        return [x for x in seq if x != 'SHIFT']
+
+    l1 = np.mean([len(ignore_shift(x)) for x in ref_actions])
+    l2 = np.mean([len(ignore_shift(x)) for x in new_actions])
+    print('AVG_LENGTH[IGNORE_SHIFT] {:.3f} {:.3f}'.format(l1, l2))
+
+    def only_arcs(seq):
+        return [x for x in seq if x.startswith('>')]
+
+    def is_node(seq):
+        return [(not x.startswith('>')) and x != 'SHIFT' for x in seq]
+
+    def is_arc(seq):
+        return [x.startswith('>') for x in seq]
+
+    c = collections.defaultdict(list)
+
+    for i, (seq1, seq2) in enumerate(zip(ref_actions, new_actions)):
+
+        cum_nodes = np.cumsum(is_node(seq1))
+        num_candidate_nodes = cum_nodes[is_arc(seq1)]
+        c['pool_candidate_nodes_1'].append(num_candidate_nodes.sum())
+
+        cum_nodes = np.cumsum(is_node(seq2))
+        num_candidate_nodes = cum_nodes[is_arc(seq2)]
+        c['pool_candidate_nodes_2'].append(num_candidate_nodes.sum())
+
+    n1 = np.mean(c['pool_candidate_nodes_1'])
+    n2 = np.mean(c['pool_candidate_nodes_2'])
+    print('AVG_POOL_CANDIDATE_NODES {:.3f} {:.3f}'.format(n1, n2))
+
+    diff = np.array(c['pool_candidate_nodes_1']) - np.array(c['pool_candidate_nodes_2'])
+    c1 = c['pool_candidate_nodes_1']
+    c2 = c['pool_candidate_nodes_2']
+    argmax = np.argmax(diff)
+    argmin = np.argmin(diff)
+    print('MIN_DIFF_CANDIDATE_NODES {:.3f} {} {}'.format(diff.min(), c1[argmin], c2[argmin]))
+    print('MAX_DIFF_CANDIDATE_NODES {:.3f} {} {}'.format(diff.max(), c1[argmax], c2[argmax]))
+
+    # for i, (seq1, seq2, amr1, amr2) in enumerate(zip(ref_actions, new_actions, amr_corpus, amr2_corpus)):
+
+    #     cum_nodes_1 = np.cumsum(is_node(seq1))
+    #     num_candidate_nodes_1 = cum_nodes_1[is_arc(seq1)]
+
+    #     cum_nodes_2 = np.cumsum(is_node(seq2))
+    #     num_candidate_nodes_2 = cum_nodes_2[is_arc(seq2)]
+
+    #     n1 = num_candidate_nodes_1.sum()
+    #     n2 = num_candidate_nodes_2.sum()
+    #     diff = n1 - n2
+
+    #     if np.abs(diff) > 10:
+    #         import ipdb; ipdb.set_trace()
+    #         pass
 
 
 if __name__ == '__main__':
