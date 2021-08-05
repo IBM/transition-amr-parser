@@ -210,7 +210,7 @@ def main(args):
         # plot
         alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
         
-        latex_str = get_tikz_latex(amr.tokens, amr.nodes, amr.edges, alignments)
+        latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
         fdraw.write("\n\\begin{footnotesize}\n")
         fdraw.write(latex_str)
         fdraw.write("\n\end{footnotesize}\n")
@@ -223,7 +223,7 @@ def main(args):
             amr = gold_corpus[index]
             alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
 
-            latex_str = get_tikz_latex(amr.tokens, amr.nodes, amr.edges, alignments)
+            latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
             fdraw.write("\n\\begin{footnotesize}\n")
             fdraw.write(latex_str)
             fdraw.write("\n\end{footnotesize}\n")

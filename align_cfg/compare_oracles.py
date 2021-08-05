@@ -1,5 +1,7 @@
 """
 
+# TODO: Just measure COPY separately as an option so that you use the whole data.
+
 # Create oracles
 
 python transition_amr_parser/amr_machine.py --use-copy 1 \
