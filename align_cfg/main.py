@@ -29,7 +29,16 @@ from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_tex
 from tree_rnn import TreeEncoder as TreeRNNEncoder
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
 from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
+from gcn import GCNEncoder
 from vocab import *
+
+try:
+    from torch_geometric.data import Batch, Data
+    from torch_geometric.nn import GCNConv
+    has_geometric = True
+except:
+    print('Warning: To use GCN install pytorch geometric.')
+    has_geometric = False
 
 
 class RobertaLoader:
@@ -504,6 +513,25 @@ class Dataset(object):
 
         return g, pairwise_dist
 
+    def get_geometric_data(self, amr):
+        vocab = self.amr_tokenizer.token_TO_idx
+
+        node_ids = get_node_ids(amr)
+        node_TO_idx = {k: i for i, k in enumerate(node_ids)}
+
+        edge_index = []
+        for xin, label, xout in amr.edges:
+            a = node_TO_idx[xin]
+            b = node_TO_idx[xout]
+            edge_index.append([a, b])
+            edge_index.append([b, a])
+
+        node_labels = [amr.nodes[k] for k in node_ids]
+        node_tokens = torch.tensor([vocab[tok] for tok in node_labels], dtype=torch.long)
+        edge_index = torch.tensor(edge_index, dtype=torch.long)
+        data = Data(edge_index=edge_index.t().contiguous(), y=node_tokens, num_nodes=len(node_ids))
+        return data
+
     def __getitem__(self, idx):
         if idx in self.cached:
             return self.cached[idx]
@@ -525,6 +553,9 @@ class Dataset(object):
         g, pairwise_dist = self.get_dgl_graph(amr)
         item['g'] = g
         item['amr_pairwise_dist'] = pairwise_dist
+
+        if has_geometric:
+            item['geometric_data'] = self.get_geometric_data(amr)
 
         self.cached[idx] = item
 
@@ -773,6 +804,8 @@ class Net(nn.Module):
             encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm_v4':
             encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
+        elif config['amr_enc'] == 'gcn':
+            encode_amr = GCNEncoder(amr_embed, hidden_size, mode='gcn', dropout_p=dropout)
 
         output_size = num_amr_embeddings
 
