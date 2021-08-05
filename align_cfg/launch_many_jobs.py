@@ -79,7 +79,7 @@ python -u align_cfg/main.py --cuda \
     --load {log}/model.best.val_0_recall.pt \
     --trn-amr ~/data/AMR3.0/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
-    --cache-dir ./tmp-aligner
+    --cache-dir ./tmp-aligner \
     --vocab-text ./tmp-aligner/vocab.text.txt \
     --vocab-amr  ./tmp-aligner/vocab.amr.txt \
     --write-only \
