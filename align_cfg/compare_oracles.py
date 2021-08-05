@@ -1,7 +1,5 @@
 """
 
-# TODO: Just measure COPY separately as an option so that you use the whole data.
-
 # Create oracles
 
 python transition_amr_parser/amr_machine.py --use-copy 1 \
@@ -29,12 +27,6 @@ python transition_amr_parser/amr_machine.py --use-copy 1 \
     --out-tokens DATA/AMR2.0/aligned/align_cfg/dev.tokens \
     --absolute-stack-positions
 
-python transition_amr_parser/amr_machine.py \
-    --in-machine-config DATA/AMR2.0/aligned/align_cfg/machine_config.json \
-    --in-tokens DATA/AMR2.0/aligned/align_cfg/dev.tokens \
-    --in-actions DATA/AMR2.0/aligned/align_cfg/dev.actions  \
-    --out-amr DATA/AMR2.0/aligned/align_cfg/dev_oracle.amr
-
 #
 
 python transition_amr_parser/amr_machine.py --use-copy 1 \
@@ -51,6 +43,7 @@ import argparse
 import collections
 import json
 import os
+import sys
 
 import numpy as np
 
@@ -128,8 +121,8 @@ def main(args):
     assert len(ref_actions) == len(new_actions)
     assert len(ref_actions) == len(amr_corpus)
 
-    amr_corpus, ref_actions, amr2_corpus, new_actions = validate(
-        amr_corpus, ref_actions, amr2_corpus, new_actions)
+    # amr_corpus, ref_actions, amr2_corpus, new_actions = validate(
+    #     amr_corpus, ref_actions, amr2_corpus, new_actions)
 
     m1 = Machine(amr_corpus, ref_actions)
     m2 = Machine(amr2_corpus, new_actions)
@@ -159,6 +152,19 @@ def main(args):
             print('+', x, c1, c2, c2-c1)
         elif c2 - c1 < 0:
             print('-', x, c1, c2, c2-c1)
+
+    # check SHIFT
+    c1 = collections.Counter()
+    for seq in ref_actions:
+        c1.update(seq)
+    c2 = collections.Counter()
+    for seq in new_actions:
+        c2.update(seq)
+
+    print('COPY {} {}'.format(c1['COPY'], c2['COPY']))
+
+    if c1['SHIFT'] != c2['SHIFT']:
+        print('WARNING: Found different amount of SHIFTS. {} != {}'.format(c1['SHIFT'], c2['SHIFT']), file=sys.stderr)
 
 
 
