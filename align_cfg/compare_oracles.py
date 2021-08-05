@@ -194,10 +194,12 @@ def main(args):
         cum_nodes = np.cumsum(is_node(seq1))
         num_candidate_nodes = cum_nodes[is_arc(seq1)]
         c['pool_candidate_nodes_1'].append(num_candidate_nodes.sum())
+        c['candidate_nodes_1'].append(num_candidate_nodes)
 
         cum_nodes = np.cumsum(is_node(seq2))
         num_candidate_nodes = cum_nodes[is_arc(seq2)]
         c['pool_candidate_nodes_2'].append(num_candidate_nodes.sum())
+        c['candidate_nodes_2'].append(num_candidate_nodes)
 
     n1 = np.mean(c['pool_candidate_nodes_1'])
     n2 = np.mean(c['pool_candidate_nodes_2'])
@@ -210,6 +212,9 @@ def main(args):
     argmin = np.argmin(diff)
     print('MIN_DIFF_CANDIDATE_NODES {:.3f} {} {}'.format(diff.min(), c1[argmin], c2[argmin]))
     print('MAX_DIFF_CANDIDATE_NODES {:.3f} {} {}'.format(diff.max(), c1[argmax], c2[argmax]))
+
+    import ipdb; ipdb.set_trace()
+    pass
 
     # for i, (seq1, seq2, amr1, amr2) in enumerate(zip(ref_actions, new_actions, amr_corpus, amr2_corpus)):
 
