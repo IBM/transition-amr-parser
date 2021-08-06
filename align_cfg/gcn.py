@@ -3,7 +3,7 @@ import torch.nn as nn
 
 try:
     from torch_geometric.data import Batch, Data
-    from torch_geometric.nn import GCNConv
+    import torch_geometric.nn as gnn
 except:
     pass
 
@@ -14,7 +14,7 @@ class GCNEncoder(nn.Module):
     def __init__(self, embed, size, mode='gcn', dropout_p=0):
         super().__init__()
 
-        self.enc = GCN(embed, size)
+        self.enc = GCN(embed, size, mode=mode)
 
         self.embed = embed
         self.size = size
@@ -75,7 +75,7 @@ class GCNEncoder(nn.Module):
 
 
 class GCN(torch.nn.Module):
-    def __init__(self, embed, size):
+    def __init__(self, embed, size, mode='gcn'):
         super().__init__()
 
         self.embed = embed
@@ -86,8 +86,18 @@ class GCN(torch.nn.Module):
 
         self.W_node = nn.Linear(input_size, size)
 
-        self.conv1 = GCNConv(size, size)
-        self.conv2 = GCNConv(size, size)
+        if mode == 'gcn':
+            self.conv1 = gnn.GCNConv(size, size)
+            self.conv2 = gnn.GCNConv(size, size)
+        elif mode == 'gcn_transformer':
+            self.conv1 = gnn.TransformerConv(size, size)
+            self.conv2 = gnn.TransformerConv(size, size)
+        elif mode == 'gcn_film':
+            self.conv1 = gnn.FiLMConv(size, size)
+            self.conv2 = gnn.FiLMConv(size, size)
+        elif mode == 'gcn_gated':
+            self.conv1 = gnn.GatedGraphConv(size, num_layers=2)
+        self.mode = mode
 
         self.mask_vec = nn.Parameter(torch.FloatTensor(input_size).normal_())
 
@@ -105,8 +115,12 @@ class GCN(torch.nn.Module):
 
         x, edge_index = data.x, data.edge_index
 
-        x = self.conv1(x, edge_index)
-        x = torch.relu(x)
-        x = self.conv2(x, edge_index)
+        if self.mode == 'gcn_gated':
+            x = self.conv1(x, edge_index)
+
+        else:
+            x = self.conv1(x, edge_index)
+            x = torch.relu(x)
+            x = self.conv2(x, edge_index)
 
         return x
