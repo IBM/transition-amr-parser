@@ -117,7 +117,7 @@ TASK=amr_action_pointer_bart_dyo
 ##### model configuration
 shift_pointer_value=1
 apply_tgt_actnode_masks=0
-tgt_vocab_masks=1
+tgt_vocab_masks=0
 share_decoder_embed=0
 
 arch=transformer_tgt_pointer_bart_base

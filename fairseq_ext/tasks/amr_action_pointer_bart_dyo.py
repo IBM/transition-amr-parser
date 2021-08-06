@@ -756,19 +756,21 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                           'token_cursors': token_cursors}
 
         # convert state vectors to tensors
-        allowed_cano_actions = actions_states['allowed_cano_actions']
-        del actions_states['allowed_cano_actions']
-        vocab_mask = torch.zeros(len(allowed_cano_actions), len(self.tgt_dict), dtype=torch.uint8)
-        for i, act_allowed in enumerate(allowed_cano_actions):
-            # vocab_ids_allowed = list(set().union(*[set(canonical_act_ids[act]) for act in act_allowed]))
-            # this is a bit faster than above
-            vocab_ids_allowed = list(
-                itertools.chain.from_iterable(
-                    [self.canonical_act_ids[act] for act in act_allowed]
-                )
-            )
-            vocab_mask[i][vocab_ids_allowed] = 1
-        data_piece['tgt_vocab_masks'] = vocab_mask
+        if self.args.apply_tgt_vocab_masks:
+            allowed_cano_actions = actions_states['allowed_cano_actions']
+            del actions_states['allowed_cano_actions']
+            vocab_mask = torch.zeros(len(allowed_cano_actions), len(self.tgt_dict), dtype=torch.uint8)
+            for i, act_allowed in enumerate(allowed_cano_actions):
+                # vocab_ids_allowed = list(set().union(*[set(canonical_act_ids[act]) for act in act_allowed]))
+                # this is a bit faster than above
+                vocab_ids_allowed = []
+                for act in act_allowed:
+                    vocab_ids_allowed.extend([j for j in self.canonical_act_ids[act]])
+                vocab_mask[i][vocab_ids_allowed] = 1
+            data_piece['tgt_vocab_masks'] = vocab_mask
+
+        else:
+            data_piece['tgt_vocab_masks'] = None
 
         for k, v in actions_states.items():
             data_key = names_states2data[k]
@@ -794,6 +796,9 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                     append_eos=False,
                     reverse_order=False
                 ).long()    # NOTE default return type here is torch.int32, conversion to long is needed
+
+            elif not self.args.apply_tgt_vocab_masks and k == 'allowed_cano_actions':
+                data_piece[data_key] = None
             else:
                 data_piece[data_key] = torch.tensor(v)    # int64
 
@@ -805,7 +810,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # remove the last CLOSE in the action states
         for k, v in data_piece.items():
             if k in names_data:
-                data_piece[k] = v[:-1]
+                if v is None:
+                    data_piece[k] = None
+                else:
+                    data_piece[k] = v[:-1]
 
         return actions, actions_states, data_piece
 
@@ -898,7 +906,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             return merged
 
         if collate_tgt_states:
-            tgt_vocab_masks = merge_tgt_vocab_masks()
+            if data_samples[0]['tgt_vocab_masks'] is not None:
+                tgt_vocab_masks = merge_tgt_vocab_masks()
+            else:
+                tgt_vocab_masks = None
             tgt_actnode_masks = merge('tgt_actnode_masks', pad_idx=0)
             tgt_src_cursors = merge('tgt_src_cursors')
         else:
