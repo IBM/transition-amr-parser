@@ -69,6 +69,7 @@ class GCNEncoder(nn.Module):
             offset += n
 
         output = new_h
+        output = self.dropout(output)
 
         return output, labels, labels_mask, label_node_ids
 

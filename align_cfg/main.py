@@ -1027,7 +1027,7 @@ class Net(nn.Module):
             if has_dgl:
                 info['amr_pairwise_dist'] = batch_map['amr_pairwise_dist'][i_b]
 
-            if args.mask > 0:
+            if args.mask > 0 and self.training:
                 info['mask'] = batch_map['mask'][i_b]
 
             result = func(local_h_t, local_z_t, local_h_a, local_y_a, info)
