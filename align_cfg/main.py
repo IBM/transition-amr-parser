@@ -37,6 +37,7 @@ from tree_lstm import TreeEncoder as TreeLSTMEncoder
 from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
 from gcn import GCNEncoder
 from vocab import *
+from vocab_definitions import MaskInfo
 
 try:
     from torch_geometric.data import Batch, Data
@@ -207,6 +208,12 @@ def argument_parser():
         default=20,
         type=int,
     )
+    parser.add_argument(
+        "--mask",
+        help="Chance to mask input token.",
+        default=0,
+        type=float,
+        )
     # Output options
     parser.add_argument(
         "--write-validation",
@@ -551,10 +558,15 @@ class Dataset(object):
         item['text_tokens'] = self.text_tokenizer.indexify(tokens)
 
         # amr
+
+        ## specific for linearized parse.
         tokens, token_ids = self.amr_tokenizer.dfs(amr)
         item['amr_tokens'] = self.amr_tokenizer.indexify(tokens)
         item['amr_node_ids'] = token_ids
         item['amr_node_mask'] = [False if x < 0 else True for x in token_ids]
+
+        ##
+        item['amr_nodes'] = get_node_ids(amr)
 
         if has_dgl:
             g, pairwise_dist = self.get_dgl_graph(amr)
@@ -569,7 +581,7 @@ class Dataset(object):
         return item
 
 
-def batchify(items, cuda=False):
+def batchify(items, cuda=False, train=False):
     device = torch.cuda.current_device() if cuda else None
 
     dtypes = {
@@ -604,6 +616,28 @@ def batchify(items, cuda=False):
     batch_map['text_original_tokens'] = [x['text_original_tokens'] for x in items]
     batch_map['items'] = items
     batch_map['device'] = device
+
+    if args.mask > 0 and train:
+        batch_mask = []
+        for x in items:
+            tokens = [MaskInfo.unchanged, MaskInfo.masked]
+            probs = [1 - args.mask, args.mask]
+            size = len(x['amr_nodes'])
+            mask = np.random.choice(tokens, p=probs, size=size)
+
+            # If only 1 item, then never mask.
+            if size == 1:
+                mask[0] = MaskInfo.unchanged_and_predict
+
+            # If nothing is masked, then always predict at least one item.
+            if mask.sum() == 0:
+                mask[np.random.randint(0, size)] = MaskInfo.unchanged_and_predict
+
+            assert mask.sum() > 0
+
+            mask = torch.from_numpy(mask).long()
+            batch_mask.append(mask)
+        batch_map['mask'] = batch_mask
 
     return batch_map
 
@@ -864,6 +898,12 @@ class Net(nn.Module):
         def align_and_predict(h_t, z_t, h_a, y_a, info):
             n_a, n_t = info['n_a'], info['n_t']
 
+            if self.training and 'mask' in info:
+                # Only predict for masked items.
+                h_a = h_a[info['mask'] > 0]
+                y_a = y_a[info['mask'] > 0]
+                n_a = h_a.shape[0]
+
             def get_h_for_predict(context):
                 if self.context == 'xy':
                     h_a_expand = h_a.expand(n_a, n_t, size_a)
@@ -986,6 +1026,9 @@ class Net(nn.Module):
 
             if has_dgl:
                 info['amr_pairwise_dist'] = batch_map['amr_pairwise_dist'][i_b]
+
+            if args.mask > 0:
+                info['mask'] = batch_map['mask'][i_b]
 
             result = func(local_h_t, local_z_t, local_h_a, local_y_a, info)
 
@@ -1665,7 +1708,7 @@ def main(args):
         # loop
         for batch_indices, info in tqdm(get_batch_iterator_with_info(), desc='trn-epoch[{}]'.format(epoch), disable=not args.verbose):
             items = [trn_dataset[idx] for idx in batch_indices]
-            batch_map = batchify(items, cuda=args.cuda)
+            batch_map = batchify(items, cuda=args.cuda, train=True)
             trn_step(batch_indices, batch_map, info)
 
         trn_loss = np.mean(metrics['trn_loss'])

@@ -7,6 +7,8 @@ try:
 except:
     pass
 
+from vocab_definitions import MaskInfo
+
 
 class GCNEncoder(nn.Module):
     def __init__(self, embed, size, mode='gcn', dropout_p=0):
@@ -86,11 +88,19 @@ class GCN(torch.nn.Module):
         self.conv1 = GCNConv(size, size)
         self.conv2 = GCNConv(size, size)
 
-    def compute_node_features(self, node_tokens):
-        return self.W_node(self.embed(node_tokens))
+        self.mask_vec = nn.Parameter(torch.FloatTensor(input_size).normal_())
+
+    def compute_node_features(self, node_tokens, mask=None):
+        if mask is None:
+            return self.W_node(self.embed(node_tokens))
+        else:
+            m = torch.cat(mask, 0)
+            e = self.embed(node_tokens)
+            e[m == MaskInfo.masked] = self.mask_vec
+            return self.W_node(e)
 
     def forward(self, batch_map, data):
-        data.x = self.compute_node_features(data.y)
+        data.x = self.compute_node_features(data.y, mask=batch_map.get('mask', None))
 
         x, edge_index = data.x, data.edge_index
 

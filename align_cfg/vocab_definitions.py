@@ -1,3 +1,8 @@
+class MaskInfo:
+    unchanged = 0
+    masked = 1
+    unchanged_and_predict = 2
+
 PADDING_IDX = 0
 PADDING_TOK = '<PAD>'
 
