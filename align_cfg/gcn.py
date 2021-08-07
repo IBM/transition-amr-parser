@@ -11,10 +11,12 @@ from vocab_definitions import MaskInfo
 
 
 class GCNEncoder(nn.Module):
-    def __init__(self, embed, size, mode='gcn', dropout_p=0):
+    def __init__(self, embed, size, mode='gcn', dropout_p=0, num_layers=None):
         super().__init__()
 
-        self.enc = GCN(embed, size, mode=mode)
+        num_layers = 2 if num_layers is None else num_layers
+
+        self.enc = GCN(embed, size, mode=mode, num_layers=num_layers)
 
         self.embed = embed
         self.size = size
@@ -75,9 +77,10 @@ class GCNEncoder(nn.Module):
 
 
 class GCN(torch.nn.Module):
-    def __init__(self, embed, size, mode='gcn'):
+    def __init__(self, embed, size, mode='gcn', num_layers=2):
         super().__init__()
 
+        self.num_layers = num_layers
         self.embed = embed
         self.size = size
         self.output_size = size
@@ -87,16 +90,16 @@ class GCN(torch.nn.Module):
         self.W_node = nn.Linear(input_size, size)
 
         if mode == 'gcn':
-            self.conv1 = gnn.GCNConv(size, size)
-            self.conv2 = gnn.GCNConv(size, size)
+            for i in range(num_layers):
+                setattr(self, 'conv{}'.format(i + 1), gnn.GCNConv(size, size))
         elif mode == 'gcn_transformer':
-            self.conv1 = gnn.TransformerConv(size, size)
-            self.conv2 = gnn.TransformerConv(size, size)
+            for i in range(num_layers):
+                setattr(self, 'conv{}'.format(i + 1), gnn.TransformerConv(size, size))
         elif mode == 'gcn_film':
-            self.conv1 = gnn.FiLMConv(size, size)
-            self.conv2 = gnn.FiLMConv(size, size)
+            for i in range(num_layers):
+                setattr(self, 'conv{}'.format(i + 1), gnn.FiLMConv(size, size))
         elif mode == 'gcn_gated':
-            self.conv1 = gnn.GatedGraphConv(size, num_layers=2)
+            self.conv1 = gnn.GatedGraphConv(size, num_layers=num_layers)
         self.mode = mode
 
         self.mask_vec = nn.Parameter(torch.FloatTensor(input_size).normal_())
@@ -119,8 +122,9 @@ class GCN(torch.nn.Module):
             x = self.conv1(x, edge_index)
 
         else:
-            x = self.conv1(x, edge_index)
-            x = torch.relu(x)
-            x = self.conv2(x, edge_index)
+            for i in range(self.num_layers):
+                x = getattr(self, 'conv{}'.format(i + 1))(x, edge_index)
+                if i < self.num_layers - 1:
+                    x = torch.relu(x)
 
         return x

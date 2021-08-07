@@ -211,9 +211,11 @@ def main(args):
         alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
         
         latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
+        fdraw.write("\n\\resizebox{\\columnwidth}{!}{%\n")
         fdraw.write("\n\\begin{footnotesize}\n")
         fdraw.write(latex_str)
         fdraw.write("\n\end{footnotesize}\n")
+        fdraw.write("\n}\n")
         fdraw.write('pred\n')
         fdraw.write('index={}\n'.format(index))
         fdraw.write('tokens={}\n'.format(' '.join(amr.tokens)))
@@ -224,9 +226,11 @@ def main(args):
             alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
 
             latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
+            fdraw.write("\n\\resizebox{\\columnwidth}{!}{%\n")
             fdraw.write("\n\\begin{footnotesize}\n")
             fdraw.write(latex_str)
             fdraw.write("\n\end{footnotesize}\n")
+            fdraw.write("\n}\n")
 
             if args.sortby_recall:
                 recall = sortkeys[index]

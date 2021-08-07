@@ -802,6 +802,7 @@ class Net(nn.Module):
         embedding_dim = config['embedding_dim']
         hidden_size = config['hidden_size']
         dropout = config['dropout']
+        num_amr_layers = config.get('num_amr_layers', None)
 
         # TEXT
 
@@ -849,7 +850,7 @@ class Net(nn.Module):
         elif config['amr_enc'] == 'tree_lstm_v4':
             encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
         elif config['amr_enc'].startswith('gcn'):
-            encode_amr = GCNEncoder(amr_embed, hidden_size, mode=config['amr_enc'], dropout_p=dropout)
+            encode_amr = GCNEncoder(amr_embed, hidden_size, mode=config['amr_enc'], dropout_p=dropout, num_layers=num_amr_layers)
 
         output_size = num_amr_embeddings
 
@@ -862,6 +863,7 @@ class Net(nn.Module):
         del kwargs['text_emb'], kwargs['text_enc'], kwargs['text_project']
         del kwargs['amr_emb'], kwargs['amr_enc'], kwargs['amr_project']
         del kwargs['embedding_dim'], kwargs['hidden_size'], kwargs['dropout']
+        del kwargs['num_amr_layers']
 
         net = Net(**kwargs)
 
