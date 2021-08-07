@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--launch', action='store_true')
@@ -12,6 +13,7 @@ parser.add_argument('--new', action='store_true')
 parser.add_argument('--latest', action='store_true')
 parser.add_argument('--force', action='store_true')
 parser.add_argument('--jbsub-eval', action='store_true')
+parser.add_argument('--eval-only', action='store_true')
 args = parser.parse_args()
 
 queue = args.queue
@@ -63,7 +65,7 @@ python -u align_cfg/main.py --cuda \
     --log-dir {log}_write_amr2 \
     {flags} \
     --load {log}/model.best.val_0_recall.pt \
-    --trn-amr ~/data/AMR2.0/aligned/cofill/train.txt \
+    --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
     --cache-dir ./tmp-aligner \
     --vocab-text ./tmp-aligner/vocab.text.txt \
@@ -77,7 +79,7 @@ python -u align_cfg/main.py --cuda \
     --log-dir {log}_write_amr3 \
     {flags} \
     --load {log}/model.best.val_0_recall.pt \
-    --trn-amr ~/data/AMR3.0/train.txt \
+    --trn-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR3.0/aligned/cofill/train.txt \
     --val-amr /dccstor/ykt-parse/SHARED/misc/adrozdov/data/AMR2.0/aligned/cofill/train.txt.dev-seen-v1 \
     --cache-dir ./tmp-aligner \
     --vocab-text ./tmp-aligner/vocab.text.txt \
@@ -153,16 +155,16 @@ with open(args.input) as f:
         with open(script_path, 'w') as fs:
             fs.write(script)
 
-        if args.launch:
-            jobid = launch_exp(logdir, train=True)
-
         # Auto-launch eval.
         script = render(eval_template, cfg, logdir)
         script_path = os.path.join(logdir, 'eval_script.txt')
         with open(script_path, 'w') as fs:
             fs.write(script)
 
-        # Note: Does not appear to use -depend correctly.
-        if args.launch and False:
+        if args.eval_only:
             jobid = launch_exp(logdir, train=False)
+            continue
+
+        if args.launch:
+            jobid = launch_exp(logdir, train=True)
 
