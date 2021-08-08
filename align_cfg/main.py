@@ -1373,6 +1373,7 @@ def save_metrics(path, metrics):
 
 def default_model_config():
     config = {}
+    config['num_amr_layers'] = 2
     config['text_emb'] = 'word'
     config['text_enc'] = 'bilstm'
     config['text_project'] = 0
