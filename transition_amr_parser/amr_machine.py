@@ -110,7 +110,7 @@ def fix_alignments(gold_amr):
     return gold_amr, unaligned_nodes_original
 
 
-def sample_alignments(gold_amr, alignment_probs):
+def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     # this contains p(node, token_pos | tokens)
     node_token_joint = alignment_probs['p_node_and_token']
     # summing we can get p(node | tokens)
@@ -118,6 +118,10 @@ def sample_alignments(gold_amr, alignment_probs):
     # p(token_pos | nodes, tokens)
     #    = p(node, token_pos | tokens) / p(node | tokens)
     token_posterior = node_token_joint / node_marginal
+
+    # token_posterior = token_posterior**temperature \
+    #    / (token_posterior**temperature).sum(1, keepdims=True)
+
     for idx, node_id in enumerate(alignment_probs['node_short_id']):
         alignment = np.random.multinomial(1, token_posterior[idx, :]).argmax()
         gold_amr.alignments[node_id] = [alignment]
@@ -138,13 +142,16 @@ def normalize(token):
 class AMROracle():
 
     def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
-                 use_copy=True):
+                 use_copy=True, alignment_sampling_temperature=1.0):
 
         # Remove nodes that have all their edges created
         self.reduce_nodes = reduce_nodes
         # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
         # rather than relative to end of self.node_stack
         self.absolute_stack_pos = absolute_stack_pos
+
+        # sampling temperature
+        self.alignment_sampling_temperature = alignment_sampling_temperature
 
         # use copy action
         self.use_copy = use_copy
@@ -153,7 +160,8 @@ class AMROracle():
 
         # if probabilties provided sample alignments from them
         if alignment_probs:
-            gold_amr = sample_alignments(gold_amr, alignment_probs)
+            gold_amr = sample_alignments(gold_amr, alignment_probs,
+                                         self.alignment_sampling_temperature)
 
         # Force align missing nodes and store names for stats
         self.gold_amr, self.unaligned_nodes = fix_alignments(gold_amr)
@@ -920,7 +928,8 @@ def oracle(args):
 
         # initialize new oracle for this AMR
         if corpus_align_probs:
-            oracle.reset(amr, alignment_probs=corpus_align_probs[idx])
+            oracle.reset(amr, alignment_probs=corpus_align_probs[idx],
+                         alignment_sampling_temp=args.alignment_sampling_temp)
         else:
             oracle.reset(amr)
 
@@ -1065,6 +1074,11 @@ def argument_parser():
         "--in-alignment-probs",
         help="Alignment probabilities produced by align_cfg/main.py",
         type=str
+    )
+    parser.add_argument(
+        "--alignment-sampling-temp",
+        help="Temperature for sampling alignments",
+        type=str,
     )
     # ORACLE
     parser.add_argument(

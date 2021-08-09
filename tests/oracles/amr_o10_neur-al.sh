@@ -13,10 +13,11 @@ oracle_folder=DATA/AMR2.0/oracles/o10_pinitos/
 mkdir -p $oracle_folder 
 
 gold_amr=DATA/AMR2.0/aligned/align_cfg/alignment.trn.gold 
+gold_amr_alignments=DATA/AMR2.0/aligned/align_cfg/alignment.trn.pretty
 
 python transition_amr_parser/amr_machine.py \
     --in-amr $gold_amr \
-    --in-alignment-probs DATA/AMR2.0/aligned/align_cfg/alignment.trn.pretty \
+    --in-alignment-probs $gold_amr_alignments \
     --out-machine-config $oracle_folder/machine_config.json \
     --out-actions $oracle_folder/train.actions \
     --out-tokens $oracle_folder/train.tokens \
