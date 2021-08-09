@@ -56,7 +56,11 @@ def graph_alignments(unaligned_nodes, amr):
             # if max(amr.alignments[tgt]) <= fix_alignments.get(src, 0):
             #     breakpoint()
             fix_alignments[src] = max(amr.alignments[tgt])
-        elif (
+    if len(fix_alignments):
+        return fix_alignments
+
+    for (src, _, tgt) in amr.edges:
+        if (
             tgt in unaligned_nodes
             and amr.alignments[src] is not None
             and min(amr.alignments[src])
