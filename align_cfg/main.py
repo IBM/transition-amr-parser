@@ -718,32 +718,20 @@ class TiedSoftmax(nn.Module):
 
 class Net(nn.Module):
     def __init__(self, encode_text, encode_amr, output_size,
-                 output_mode='linear', prior='attn', align_mode='posterior', context='xy',
-                 context_2=None, lambda_context=0.5, output_space='vocab'):
+                 output_mode='linear', prior='attn', context='xy',
+                 ):
         super().__init__()
 
         self.output_size = output_size
         self.output_mode = output_mode
-        self.output_space = output_space
-
         self.prior = prior
-        self.align_mode = align_mode
-        self.context = context
 
         self.encode_text = encode_text
         self.encode_amr = encode_amr
         self.project = nn.Linear(self.encode_text.output_size, self.encode_amr.output_size, bias=False)
 
-        if self.output_space == 'graph':
-            self.project_o = nn.Linear(self.encode_text.output_size, self.encode_amr.output_size, bias=False)
-
-        def get_hidden_size(context):
-            if context == 'xy':
-                size = self.encode_text.output_size + self.encode_amr.output_size
-            elif context == 'x':
-                size = self.encode_text.output_size
-            elif context == 'e':
-                size = self.encode_text.embed.output_size
+        def get_hidden_size():
+            size = self.encode_text.output_size + self.encode_amr.output_size
             return size
 
         def build_predict(hidden_size, output_size, output_mode):
@@ -760,17 +748,8 @@ class Net(nn.Module):
                 layer = TiedSoftmax(hidden_size, embeddings)
             return layer
 
-        # 1st context
-        hidden_size = get_hidden_size(self.context)
+        hidden_size = get_hidden_size()
         self.predict = build_predict(hidden_size, output_size, output_mode)
-
-        # 2nd context
-        self.context_2 = context_2
-        self.lambda_context = lambda_context
-
-        if self.context_2 is not None:
-            hidden_size = get_hidden_size(self.context_2)
-            self.predict_2 = build_predict(hidden_size, output_size, output_mode)
 
     @staticmethod
     def from_dataset_and_config(dataset, config, cache_dir):
@@ -877,61 +856,48 @@ class Net(nn.Module):
                 y_a = y_a[info['mask'] > 0]
                 n_a = h_a.shape[0]
 
-            def get_h_for_predict(context):
-                if self.context == 'xy':
-                    h_a_expand = h_a.expand(n_a, n_t, size_a)
-                    h_t_expand = h_t.expand(n_a, n_t, size_t)
-                    h = torch.cat([h_a_expand, h_t_expand], -1)
-                elif self.context == 'x':
-                    h = h_t.expand(n_a, n_t, size_t)
+            def get_h_for_predict():
+                h_a_expand = h_a.expand(n_a, n_t, size_a)
+                h_t_expand = h_t.expand(n_a, n_t, size_t)
+                h = torch.cat([h_a_expand, h_t_expand], -1)
                 return h
 
-            if self.output_space == 'vocab':
+            def get_likelihood():
                 # output distribution
-                h_for_predict = get_h_for_predict(self.context)
+                h_for_predict = get_h_for_predict()
                 dist = torch.softmax(self.predict(h_for_predict), 2)
                 assert dist.shape == (n_a, n_t, self.output_size)
-
-                # (optional) 2nd context
-                if self.context_2 is not None:
-                    dist_1 = dist
-
-                    h_for_predict_2 = get_h_for_predict(self.context_2)
-                    dist_2 = torch.softmax(self.predict(h_for_predict_2), 2)
-                    assert dist_2.shape == (n_a, n_t, self.output_size)
-
-                    new_dist = (1 - self.lambda_context) * dist_1 + self.lambda_context * dist_2
-
-                    dist = new_dist
 
                 # output probability
                 index = y_a.expand(n_a, n_t, 1)
                 p = dist.gather(index=index, dim=-1)
                 assert p.shape == (n_a, n_t, 1)
 
-            elif self.output_space == 'graph':
-                s_t = self.project_o(h_t)
-                logits = torch.sum(s_t.view(1, n_t, 1, size_a) * h_a.view(1, 1, n_a, size_a), -1)
-                dist = torch.softmax(logits, 2).expand(n_a, n_t, n_a)
-                index = torch.arange(n_a, dtype=torch.long, device=device).view(n_a, 1, 1).expand(n_a, n_t, 1)
-                p = dist.gather(index=index, dim=-1)
-                assert p.shape == (n_a, n_t, 1)
+                return p
 
-            # alignment distribution
-            if self.prior == 'unif':
-                alpha = torch.full((n_a, n_t, 1), 1/n_t, dtype=torch.float, device=device)
-            elif self.prior == 'attn':
-                alpha = torch.softmax(torch.sum(h_a * z_t, -1, keepdims=True), 1)
-            assert alpha.shape == (n_a, n_t, 1)
+            def get_posterior(prior, likelihood):
+                return prior * likelihood
+
+            def get_prior():
+                if self.prior == 'unif':
+                    prior = torch.full((n_a, n_t, 1), 1/n_t, dtype=torch.float, device=device)
+                elif self.prior == 'attn':
+                    prior = torch.softmax(torch.sum(h_a * z_t, -1, keepdims=True), 1)
+                assert prior.shape == (n_a, n_t, 1)
+                return prior
+
+            # likelihood
+            p = get_likelihood()
+
+            # prior
+            alpha = get_prior()
+
+            # posterior
+            align = get_posterior(alpha, p)
 
             # marginal probability
             loss_notreduced = -(torch.sum(alpha * p, 1) + 1e-8).log()
             loss = loss_notreduced.sum(0)
-
-            if self.align_mode == 'posterior':
-                align = alpha * p
-            elif self.align_mode == 'prior':
-                align = alpha
 
             if args.pr > 0:
                 # posterior regularization
@@ -942,14 +908,6 @@ class Net(nn.Module):
                 align_ = (align + 1e-8).log().softmax(dim=1)
                 align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
                 assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
-
-                # for i in range(n_a):
-                #     for j in range(n_a):
-                #         for k in range(n_t):
-                #             for l in range(n_t):
-                #                 check = align[i, k] * align[j, l]
-                #                 actual = align_pairwise[i, j, k, l]
-                #                 assert torch.isclose(check, actual).item()
 
                 expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
                 assert expected_text_dist.shape == (n_t, n_t)
@@ -1168,20 +1126,18 @@ def save_metrics(path, metrics):
 
 def default_model_config():
     config = {}
-    config['num_amr_layers'] = 2
     config['text_emb'] = 'word'
     config['text_enc'] = 'bilstm'
     config['text_project'] = 0
     config['amr_emb'] = 'word'
     config['amr_enc'] = 'bilstm'
     config['amr_project'] = 0
+    config['num_amr_layers'] = 2
     config['embedding_dim'] = 100
     config['hidden_size'] = 100
     config['dropout'] = 0
     config['output_mode'] = 'linear'
-    config['output_space'] = 'vocab'
     config['prior'] = 'attn'
-    config['context'] = 'xy'
     return config
 
 
