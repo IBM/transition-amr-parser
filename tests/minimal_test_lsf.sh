@@ -2,6 +2,8 @@ set -o errexit
 set -o pipefail
 set -o nounset 
 
+config=configs/wiki25.sh  
+
 # Delete previous runs is exist
 rm -Rf DATA/wiki25/*
 
@@ -9,7 +11,7 @@ rm -Rf DATA/wiki25/*
 bash tests/create_wiki25_mockup.sh
 
 # Run local test
-bash run/lsf/run_experiment.sh configs/wiki25.sh  
+bash run/lsf/run_experiment.sh $config  
 
 # check if final result is there
 . $config

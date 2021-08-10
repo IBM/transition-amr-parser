@@ -2,8 +2,12 @@ set -o errexit
 set -o pipefail
 set -o nounset 
 
+# config=configs/wiki25-neur-al-sampling.sh
+config=configs/wiki25.sh  
+
 # Delete previous runs is exist
 rm -Rf DATA/wiki25/*
+
 # simulate completed corpora extraction and alignment
 bash tests/create_wiki25_mockup.sh
 
@@ -13,8 +17,6 @@ bash tests/create_wiki25_mockup.sh
 # rm -R -f DATA/wiki25/oracles
 # rm -R -f DATA/wiki25/models
 
-# config=configs/wiki25-neur-al-sampling.sh
-config=configs/wiki25.sh  
 bash run/run_experiment.sh $config
 
 # check if final result is there
