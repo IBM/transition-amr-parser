@@ -20,11 +20,6 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 
-try:
-    from fairseq.models.roberta import alignment_utils
-except ImportError:
-    print('Could not import alignment_utils.')
-
 from tqdm import tqdm
 
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
@@ -46,18 +41,6 @@ try:
 except:
     print('Warning: To use GCN install pytorch geometric.')
     has_geometric = False
-
-
-class RobertaLoader:
-    def __init__(self):
-        self.roberta = None
-
-    def load(self):
-        if self.roberta is None:
-            self.roberta = torch.hub.load('pytorch/fairseq', 'roberta.large')
-        return self.roberta
-
-roberta_loader = RobertaLoader()
 
 
 class JSONConfig(object):
@@ -314,10 +297,6 @@ def argument_parser():
     )
     parser.add_argument(
         "--skip-validation",
-        action='store_true'
-    )
-    parser.add_argument(
-        "--check-for-bpe",
         action='store_true'
     )
     parser.add_argument(
@@ -817,10 +796,6 @@ class Net(nn.Module):
 
         if config['text_enc'] == 'bilstm':
             encode_text = Encoder(text_embed, hidden_size, mode='text', bidirectional=True, dropout_p=dropout)
-        elif config['text_enc'] == 'roberta':
-            encode_text = RobertaEncoder(text_embed, hidden_size, dropout_p=dropout, use_lstm=False)
-        elif config['text_enc'] == 'roberta+lstm':
-            encode_text = RobertaEncoder(text_embed, hidden_size, dropout_p=dropout, use_lstm=True)
 
         # AMR
 
@@ -1061,182 +1036,6 @@ class Net(nn.Module):
         return model_output
 
 
-def align_features_to_words(roberta, features, alignment):
-    """
-    Align given features to words.
-
-    Args:
-        roberta (RobertaHubInterface): RoBERTa instance
-        features (torch.Tensor): features to align of shape `(T_bpe x C)`
-        alignment: alignment between BPE tokens and words returned by
-            func:`align_bpe_to_words`.
-    """
-    assert features.dim() == 2
-
-    bpe_counts = collections.Counter(j for bpe_indices in alignment for j in bpe_indices)
-    assert bpe_counts[0] == 0  # <s> shouldn't be aligned
-    denom = features.new([bpe_counts.get(j, 1) for j in range(len(features))])
-    weighted_features = features / denom.unsqueeze(-1)
-
-    output = [weighted_features[0]]
-    largest_j = -1
-    for bpe_indices in alignment:
-        output.append(weighted_features[bpe_indices].sum(dim=0))
-        largest_j = max(largest_j, *bpe_indices)
-    for j in range(largest_j + 1, len(features)):
-        output.append(weighted_features[j])
-    output = torch.stack(output)
-    check = torch.isclose(output.sum(dim=0), features.sum(dim=0), atol=1e-4).all().item()
-    assert check is True
-    #assert torch.all(torch.abs(output.sum(dim=0) - features.sum(dim=0)) < 1e-4)
-    return output
-
-
-def extract_aligned_roberta(roberta, sentence, tokens, return_all_hiddens=False):
-    ''' Code inspired from:
-       https://github.com/pytorch/fairseq/blob/master/fairseq/models/roberta/hub_interface.py
-       https://github.com/pytorch/fairseq/issues/1106#issuecomment-547238856
-
-    Aligns roberta embeddings for an input tokenization of words for a sentence
-
-    Inputs:
-    1. roberta: roberta fairseq class
-    2. sentence: sentence in string
-    3. tokens: tokens of the sentence in which the alignment is to be done
-
-    Outputs: Aligned roberta features
-    '''
-
-    # tokenize both with GPT-2 BPE and get alignment with given tokens
-    bpe_toks = roberta.encode(sentence)
-    alignment = alignment_utils.align_bpe_to_words(roberta, bpe_toks, tokens)
-
-    # NOTE: This is a dirty hack to make sure that alignments are contiguous. On rare occasion
-    # the space is dropped from tokenization: `Oh , who to believe ??????????????`
-    # Ideally, we simply use the alignment as provided rather than prepend the space.
-    for i, x in enumerate(alignment):
-        if i == 0:
-            continue
-        if x[0] != alignment[i-1][-1]:
-            alignment[i] = [x[0] - 1] + x
-
-    # extract features and align them
-    features = roberta.extract_features(bpe_toks, return_all_hiddens=return_all_hiddens)
-    features = features.squeeze(0)   #Batch-size = 1
-    #aligned_feats = alignment_utils.align_features_to_words(roberta, features, alignment)
-    aligned_feats = align_features_to_words(roberta, features, alignment)
-
-    return aligned_feats[1:-1]  #exclude <s> and </s> tokens
-
-
-def batch_extract_aligned_roberta(roberta, sentence_list, tokens_list, return_all_hiddens=False):
-    batch_size = len(sentence_list)
-
-    def pad(bpe_toks_list, pad_idx=0):
-        max_length = max([x.shape[-1] for x in bpe_toks_list])
-        device = bpe_toks_list[0].device
-
-        new_tensor = torch.full((batch_size, max_length), 0, dtype=torch.long, device=device)
-
-        for i_b, x in enumerate(bpe_toks_list):
-            length = x.shape[-1]
-            new_tensor[i_b, :length] = x
-
-        return new_tensor
-
-    def fix_alignments(alignment):
-        # NOTE: This is a dirty hack to make sure that alignments are contiguous. On rare occasion
-        # the space is dropped from tokenization: `Oh , who to believe ??????????????`
-        # Ideally, we simply use the alignment as provided rather than prepend the space.
-        for i, x in enumerate(alignment):
-            if i == 0:
-                continue
-            while alignment[i - 1][-1] < x[0]:
-                alignment[i - 1].append(alignment[i - 1][-1] + 1)
-        return alignment
-
-    def crop(aligned_feats_list):
-        offset = 1
-        new_feats = []
-        for i_b in range(batch_size):
-            length = len(tokens_list[i_b])
-            new_feats.append(aligned_feats_list[i_b][offset:offset+length])
-        return new_feats
-
-
-    # tokenize both with GPT-2 BPE and get alignment with given tokens
-    bpe_toks_list = [roberta.encode(sentence) for sentence in sentence_list]
-    bpe_toks_tensor = pad(bpe_toks_list)
-    alignment_list = [fix_alignments(alignment_utils.align_bpe_to_words(roberta, bpe_toks, tokens))
-                      for bpe_toks, tokens in zip(bpe_toks_list, tokens_list)]
-
-    # extract features and align them
-    features = roberta.extract_features(bpe_toks_tensor, return_all_hiddens=return_all_hiddens)
-    aligned_feats_list = [align_features_to_words(roberta, features[i_b], alignment_list[i_b]) for i_b in range(batch_size)]
-    cropped_feats = crop(aligned_feats_list)
-
-    return cropped_feats
-
-
-class RobertaEncoder(nn.Module):
-    def __init__(self, embed, hidden_size, dropout_p=0, use_lstm=False):
-        super().__init__()
-
-        self.use_lstm = use_lstm
-        self.roberta_size = 1024
-        self.hidden_size = hidden_size
-        self.output_size = hidden_size
-
-        self.project = nn.Linear(self.roberta_size, self.hidden_size, bias=False)
-
-        self.dropout_p = dropout_p
-        self.dropout = nn.Dropout(p=dropout_p)
-
-        if use_lstm:
-            self.lstm = Encoder(embed, hidden_size, bidirectional=True, mode='text', dropout_p=dropout_p, input_size=self.output_size)
-            self.output_size = self.lstm.output_size
-
-    def forward(self, batch_map):
-        #
-        tokens = batch_map['text_tokens']
-        tokens_mask = None
-        labels = None
-        labels_mask = None
-        label_node_ids = None
-        node_ids = None
-
-        #
-        batch_size, length = tokens.shape
-        roberta_size = self.roberta_size
-        hidden_size = self.hidden_size
-        device = tokens.device
-
-        #
-        roberta = roberta_loader.load()
-        shape = (batch_size, length, roberta_size)
-
-        with torch.no_grad():
-            output = torch.full(shape, 0, dtype=torch.float, device=device)
-
-            tokens_list = batch_map['text_original_tokens']
-            sentence_list = [' '.join(x) for x in tokens_list]
-            vectors_list = batch_extract_aligned_roberta(roberta, sentence_list, tokens_list)
-
-            offset = 1
-            for i_b, vec in enumerate(vectors_list):
-                local_length = len(tokens_list[i_b])
-                assert vec.shape == (local_length, roberta_size)
-                output[i_b, offset:offset + local_length] = vec
-
-        output = self.project(output)
-        output = self.dropout(output)
-
-        if self.use_lstm:
-            return self.lstm(batch_map, input_vector=output)
-
-        return output, labels, labels_mask, label_node_ids
-
-
 class Encoder(nn.Module):
     def __init__(self, embed, hidden_size, bidirectional=True, mode='text', dropout_p=0, input_size=None):
         super().__init__()
@@ -1409,7 +1208,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
-def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, check_for_bpe=False, remove_empty_align=True):
+def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, remove_empty_align=True):
 
     skipped = collections.Counter()
 
@@ -1447,36 +1246,6 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
             if len(amr.edges) == 0:
                 skipped['no-edges'] += 1
                 continue
-            new_corpus.append(amr)
-        corpus = new_corpus
-
-    if check_for_bpe:
-        roberta = roberta_loader.load()
-
-        def clean(text):
-            return text.strip()
-
-        new_corpus = []
-        for amr in corpus:
-            sentence = ' '.join(amr.tokens)
-            bpe_tokens = roberta.encode(sentence)
-            other_tokens = amr.tokens
-
-            try:
-                # remove whitespaces to simplify alignment
-                bpe_tokens = [roberta.task.source_dictionary.string([x]) for x in bpe_tokens]
-                bpe_tokens = [
-                    clean(roberta.bpe.decode(x) if x not in {"<s>", ""} else x) for x in bpe_tokens
-                ]
-                other_tokens = [clean(str(o)) for o in other_tokens]
-
-                # strip leading <s>
-                bpe_tokens = bpe_tokens[1:]
-                assert "".join(bpe_tokens) == "".join(other_tokens)
-            except:
-                skipped['bpe'] += 1
-                continue
-
             new_corpus.append(amr)
         corpus = new_corpus
 
@@ -1520,10 +1289,10 @@ def main(args):
     text_tokenizer, amr_tokenizer = init_tokenizers(text_vocab_file=args.vocab_text, amr_vocab_file=args.vocab_amr)
 
     # read data
-    trn_corpus = safe_read(args.trn_amr, max_length=args.max_length, check_for_bpe=args.check_for_bpe)
+    trn_corpus = safe_read(args.trn_amr, max_length=args.max_length)
     trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
 
-    val_corpus_list = [safe_read(path, max_length=args.val_max_length, check_for_bpe=args.check_for_bpe) for path in args.val_amr]
+    val_corpus_list = [safe_read(path, max_length=args.val_max_length) for path in args.val_amr]
     val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
 
     # net
