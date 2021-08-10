@@ -4,12 +4,9 @@
 
 set -o errexit
 set -o pipefail
-. set_environment.sh
-[ -z $1 ] && echo "$0 <amr_file (no wiki)>" && exit 1
-gold_amr=$1
 set -o nounset 
 
-oracle_folder=DATA/AMR2.0/oracles/o10_pinitos/
+oracle_folder=DATA.tmp/$(basename $0)/$(basename $gold_amr)/
 mkdir -p $oracle_folder 
 
 gold_amr=DATA/AMR2.0/aligned/align_cfg/alignment.trn.gold 
