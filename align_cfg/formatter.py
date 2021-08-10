@@ -2,11 +2,11 @@ import datetime
 
 import torch
 
-from vocab import *
-
 import penman
 from penman import layout
 from penman._format import _format_node
+
+from alignment_decoder import AlignmentDecoder
 
 
 class FormatAlignments(object):
@@ -16,47 +16,14 @@ class FormatAlignments(object):
     def __init__(self, dataset):
         self.dataset = dataset
 
-    def decode_alignments(self, batch_map, model_output):
-        """
-        For each node, find most probable alignments.
-        """
-        x_t = batch_map['text_tokens']
-
-        batch_size, len_t = x_t.shape
-        device = x_t.device
-
-        y_a = model_output['labels']
-        y_a_mask = model_output['labels_mask']
-        y_a_node_ids = model_output['label_node_ids']
-
-        for i_b in range(batch_size):
-            indexa = torch.arange(y_a.shape[1])
-            m_ = y_a_mask[i_b].view(-1)
-            n = m_.sum().item()
-            indexa_ = indexa[m_]
-
-            indext = torch.arange(len_t)
-            t = x_t[i_b]
-            mt = t != PADDING_IDX
-            nt = mt.sum().item()
-            indext_ = indext[mt]
-
-            align = model_output['batch_align'][i_b]
-            assert align.shape == (n, nt, 1)
-
-            argmax = align.squeeze(2).argmax(1)
-            assert argmax.shape == (n,)
-
-            node_alignments = []
-            for j in range(n):
-                node_id = y_a_node_ids[i_b, indexa_[j]].item()
-                idx_txt = indext_[argmax[j].item()].item()
-                node_alignments.append((node_id, idx_txt))
-
-            yield node_alignments
-
     def format(self, batch_map, model_output, batch_indices, use_jamr=False):
-        for idx, node_alignments in zip(batch_indices, self.decode_alignments(batch_map, model_output)):
+        alignment_info_ = AlignmentDecoder().batch_decode(batch_map, model_output)
+
+        for idx, ainfo in zip(batch_indices, alignment_info_):
+
+            node_alignments = ainfo['node_alignments']
+
+            #
             amr = self.dataset.corpus[idx]
             text_tokens = amr.tokens
 
@@ -206,48 +173,15 @@ class FormatAlignmentsPretty(object):
     def __init__(self, dataset):
         self.dataset = dataset
 
-    def decode_alignments(self, batch_map, model_output):
-        """
-        For each node, find most probable alignments.
-        """
-        x_t = batch_map['text_tokens']
-
-        batch_size, len_t = x_t.shape
-        device = x_t.device
-
-        y_a = model_output['labels']
-        y_a_mask = model_output['labels_mask']
-        y_a_node_ids = model_output['label_node_ids']
-
-        for i_b in range(batch_size):
-            mask_amr = y_a_mask[i_b].view(-1)
-            index_amr = torch.arange(y_a.shape[1])[mask_amr]
-            n_amr = mask_amr.sum().item()
-
-            txt = x_t[i_b]
-            mask_txt = txt != PADDING_IDX
-            index_txt = torch.arange(len_t)[mask_txt]
-            n_txt = mask_txt.sum().item()
-
-            posterior = model_output['batch_align'][i_b]
-            assert posterior.shape == (n_amr, n_txt, 1)
-
-            argmax = posterior.squeeze(2).argmax(1)
-            assert argmax.shape == (n_amr,)
-
-            node_idx = y_a_node_ids[i_b][index_amr]
-            txt = txt[index_txt]
-
-            alignment_info = {}
-            alignment_info['posterior'] = posterior
-            alignment_info['argmax'] = argmax
-            # alignment_info['node_idx'] = node_idx
-            # alignment_info['txt'] = txt
-
-            yield alignment_info
-
     def format(self, batch_map, model_output, batch_indices, use_jamr=False):
-        for idx, alignment_info in zip(batch_indices, self.decode_alignments(batch_map, model_output)):
+        alignment_info_ = AlignmentDecoder().batch_decode(batch_map, model_output)
+
+        for idx, ainfo in zip(batch_indices, alignment_info_):
+
+            posterior = ainfo['posterior']
+
+            #
+
             amr = self.dataset.corpus[idx]
             text_tokens = amr.tokens
 
@@ -266,7 +200,7 @@ class FormatAlignmentsPretty(object):
             #
             for i in range(len(node_ids)):
                 for j in range(len(text_tokens)):
-                    a = alignment_info['posterior'][i, j].item()
+                    a = posterior[i, j].item()
                     s += '{} {} {}\n'.format(i, j, a)
 
             s += '\n'
