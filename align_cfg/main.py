@@ -418,46 +418,6 @@ class AMRTokenizer(object):
         return [self.token_TO_idx[x] for x in tokens]
 
 
-class AlignmentsWriter(object):
-    def __init__(self, path_gold, path_pred, dataset, formatter, enabled=True, write_gold=True):
-        self.enabled = enabled
-        if not self.enabled:
-            return
-
-        self.write_gold = write_gold
-
-        if write_gold:
-            self.fout_gold = open(path_gold, 'w')
-        self.fout_pred = open(path_pred, 'w')
-
-        self.formatter = formatter
-        self.dataset = dataset
-
-    def write_batch(self, batch_indices, batch_map, model_output):
-        if not self.enabled:
-            return
-
-        # write
-        for i_b, (out_pred, out_gold) in enumerate(self.formatter.format(batch_map, model_output, batch_indices)):
-            idx = batch_indices[i_b]
-            amr = self.dataset.corpus[idx]
-
-            # write pred
-            self.fout_pred.write(out_pred.strip() + '\n\n')
-
-            # write gold
-            if self.write_gold:
-                # write gold
-                self.fout_gold.write(out_gold.strip() + '\n\n')
-
-    def close(self):
-        if not self.enabled:
-            return
-        self.fout_pred.close()
-        if self.write_gold:
-            self.fout_gold.close()
-
-
 class Dataset(object):
     def __init__(self, corpus, text_tokenizer=None, amr_tokenizer=None):
         self.corpus = corpus
@@ -1250,7 +1210,7 @@ def maybe_write(context):
 
         indices = np.arange(len(corpus))
 
-        writer = AlignmentsWriter(path_gold, path_pred, dataset, formatter, write_gold=write_gold)
+        predictions = collections.defaultdict(list)
 
         with torch.no_grad():
             for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
@@ -1262,10 +1222,25 @@ def maybe_write(context):
                 # forward pass
                 model_output = net(batch_map)
 
-                # write
-                writer.write_batch(batch_indices, batch_map, model_output)
+                # save alignments for eval.
+                for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
+                    amr = corpus[idx]
+                    node_ids = get_node_ids(amr)
+                    alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
 
-        writer.close()
+                predictions['amr'].append(amr)
+                predictions['alignments'].append(alignments)# write alignments
+
+        # write pred
+        with open(path_pred, 'w') as f_pred:
+            for amr, alignments in zip(predictions['amr'], predictions['alignments']):
+                f_pred.write(amr_to_string(amr, alignments).strip() + '\n\n')
+
+        # write gold
+        if write_gold:
+            with open(path_gold, 'w') as f_gold:
+                for amr, alignments in zip(predictions['amr'], predictions['alignments']):
+                       f_gold.write(amr_to_string(amr).strip() + '\n\n')
 
     if args.write_pretty:
 
