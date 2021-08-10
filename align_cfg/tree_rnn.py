@@ -81,21 +81,6 @@ class TreeRNN(nn.Module):
         return z_out
 
 
-class ETreeRNN(TreeRNN):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        input_size = self.input_size
-        size = self.size
-
-        self.W_edge = nn.Linear(input_size, size, bias=False)
-
-    def update_with_edge_label(self, z, e_label):
-        e = self.W_edge(self.embed(e_label))
-        assert e.shape == z.shape, (e.shape, z.shape)
-        return torch.tanh(e + z)
-
-
 class TreeEncoder(nn.Module):
     def __init__(self, embed, size, mode='tree_rnn', dropout_p=0):
         super().__init__()
@@ -106,8 +91,6 @@ class TreeEncoder(nn.Module):
 
         if mode == 'tree_rnn':
             self.enc = TreeRNN(embed, size)
-        elif mode == 'etree_rnn':
-            self.enc = ETreeRNN(embed, size)
 
         self.dropout_p = dropout_p
         self.dropout = nn.Dropout(p=dropout_p)

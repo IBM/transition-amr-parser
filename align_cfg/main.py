@@ -792,8 +792,6 @@ class Net(nn.Module):
             encode_amr = Encoder(amr_embed, hidden_size, mode='amr', bidirectional=True, dropout_p=dropout)
         elif config['amr_enc'] == 'tree_rnn':
             encode_amr = TreeRNNEncoder(amr_embed, hidden_size, mode='tree_rnn', dropout_p=dropout)
-        elif config['amr_enc'] == 'etree_rnn':
-            encode_amr = TreeRNNEncoder(amr_embed, hidden_size, mode='etree_rnn', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm':
             encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm_v2':
@@ -1160,7 +1158,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
-def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, remove_empty_align=True):
+def safe_read(path, max_length=0, check_for_edges=False, remove_empty_align=True):
 
     skipped = collections.Counter()
 
@@ -1183,15 +1181,6 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
             new_corpus.append(amr)
         corpus = new_corpus
 
-    if check_for_cycles:
-        new_corpus = []
-        t = AMRTokenizer()
-        for amr in corpus:
-            t.dfs(amr)
-            new_corpus.append(amr)
-        corpus = new_corpus
-
-    # TODO: Add support for this type of graph.
     if check_for_edges:
         new_corpus = []
         for amr in corpus:
@@ -1214,46 +1203,19 @@ def safe_read(path, check_for_cycles=True, max_length=0, check_for_edges=False, 
                     stats['exists'] += 1
         print('remove_empty_align: {}'.format(stats))
 
-
     print('read {}, total = {}, skipped = {}'.format(path, len(corpus), skipped))
 
     return corpus
 
 
-def main(args):
+def maybe_write(context):
+
+    args = context['args']
+    net = context['net']
+    dataset = context['dataset']
+    corpus = dataset.corpus
+
     batch_size = args.batch_size
-    lr = args.lr
-    max_epoch = args.max_epoch
-    seed = args.seed
-
-    model_config = JSONConfig(default_model_config()).parse(args.model_config)
-
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-
-    if args.read_only:
-        t = AMRTokenizer()
-        for amr in read_amr2(args.trn_amr, ibm_format=False):
-            t.dfs(amr)
-        sys.exit()
-
-    # tokenizers
-    text_tokenizer, amr_tokenizer = init_tokenizers(text_vocab_file=args.vocab_text, amr_vocab_file=args.vocab_amr)
-
-    # read data
-    trn_corpus = safe_read(args.trn_amr, max_length=args.max_length)
-    trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
-
-    val_corpus_list = [safe_read(path, max_length=args.val_max_length) for path in args.val_amr]
-    val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
-
-    # net
-    net = Net.from_dataset_and_config(trn_dataset, model_config, args.cache_dir)
-    if args.load is not None:
-        load_checkpoint(args.load, net)
-
-    if args.cuda:
-        net.cuda()
 
     def write_align_pretty(corpus, dataset, path, formatter):
         net.eval()
@@ -1307,8 +1269,8 @@ def main(args):
     if args.write_pretty:
 
         path = os.path.join(args.log_dir, 'alignment.trn')
-        formatter = FormatAlignmentsPretty(trn_dataset)
-        write_align_pretty(trn_corpus, trn_dataset, path, formatter)
+        formatter = FormatAlignmentsPretty(dataset)
+        write_align_pretty(corpus, dataset, path, formatter)
         sys.exit()
 
     if args.write_only:
@@ -1316,8 +1278,8 @@ def main(args):
         path = os.path.join(args.log_dir, 'alignment.trn.out')
         path_gold = path + '.gold'
         path_pred = path + '.pred'
-        formatter = FormatAlignments(trn_dataset)
-        write_align(trn_corpus, trn_dataset, path_gold, path_pred, formatter)
+        formatter = FormatAlignments(dataset)
+        write_align(corpus, dataset, path_gold, path_pred, formatter)
         eval_output = EvalAlignments().run(path_gold, path_pred)
 
         with open(path_pred + '.eval', 'w') as f:
@@ -1329,15 +1291,64 @@ def main(args):
 
         path_gold = None
         path_pred = args.single_output
-        formatter = FormatAlignments(trn_dataset)
-        write_align(trn_corpus, trn_dataset, path_gold, path_pred, formatter, write_gold=False)
+        formatter = FormatAlignments(dataset)
+        write_align(corpus, dataset, path_gold, path_pred, formatter, write_gold=False)
 
         sys.exit()
 
-    # optimizer
+
+def main(args):
+    batch_size = args.batch_size
+    lr = args.lr
+    max_epoch = args.max_epoch
+    seed = args.seed
+
+    model_config = JSONConfig(default_model_config()).parse(args.model_config)
+
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+    if args.read_only:
+        t = AMRTokenizer()
+        for amr in read_amr2(args.trn_amr, ibm_format=False):
+            t.dfs(amr)
+        sys.exit()
+
+    # TOKENIZERS
+
+    text_tokenizer, amr_tokenizer = init_tokenizers(text_vocab_file=args.vocab_text, amr_vocab_file=args.vocab_amr)
+
+    # DATA
+
+    trn_corpus = safe_read(args.trn_amr, max_length=args.max_length)
+    trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
+
+    val_corpus_list = [safe_read(path, max_length=args.val_max_length) for path in args.val_amr]
+    val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
+
+    # MODEL
+
+    net = Net.from_dataset_and_config(trn_dataset, model_config, args.cache_dir)
+    if args.load is not None:
+        load_checkpoint(args.load, net)
+
+    if args.cuda:
+        net.cuda()
+
+    # ALTERNATIVE to training. Will exit if triggered.
+
+    context = {}
+    context['args'] = args
+    context['net'] = net
+    context['dataset'] = trn_dataset
+
+    maybe_write(context)
+
+    # OPTIMIZER
+
     opt = optim.Adam(net.parameters(), lr=lr)
 
-    best_metrics = {}
+    # CACHE dataset items.
 
     for idx in tqdm(range(len(trn_corpus)), desc='cache-trn', disable=not args.verbose):
         _ = trn_dataset[idx]
@@ -1348,12 +1359,16 @@ def main(args):
         for idx in tqdm(range(len(val_corpus)), desc='cache-val', disable=not args.verbose):
             _ = val_dataset[idx]
 
+    # MAIN
+
+    best_metrics = {}
+
     for epoch in range(max_epoch):
 
         epoch_metrics = {}
         epoch_metrics['epoch'] = epoch
 
-        # TRAIN
+        # TRAINING
 
         print('\n\n' + '@' * 40 + '\n' + 'TRAIN' + '\n')
 
@@ -1447,7 +1462,7 @@ def main(args):
         print('trn epoch = {}, loss = {:.3f}, loss-nr = {:.3f}, ppl = {:.3f}, pr = {:.3f}'.format(
             epoch, trn_loss, trn_loss_notreduced, trn_ppl, trn_pr))
 
-        # VALID
+        # VALIDATION
 
         if args.skip_validation:
             continue
