@@ -6,7 +6,19 @@ import penman
 from penman import layout
 from penman._format import _format_node
 
+from amr_utils import get_node_ids
+
 from alignment_decoder import AlignmentDecoder
+
+
+class AMRStringHelper(object):
+    def f(self):
+        pass
+
+
+def amr_to_string(amr, alignments=None):
+    if alignments is None:
+        alignments = amr.alignments
 
 
 class FormatAlignments(object):
@@ -21,41 +33,11 @@ class FormatAlignments(object):
 
         for idx, ainfo in zip(batch_indices, alignment_info_):
 
-            node_alignments = ainfo['node_alignments']
-
             #
             amr = self.dataset.corpus[idx]
             text_tokens = amr.tokens
-
-            node_ids = list(sorted(amr.nodes.keys()))
-
-            def convert(node_alignments):
-                output = []
-
-                for node_id, idx_txt in node_alignments:
-                    node_id = node_ids[node_id]
-
-                    # indexing should account for padding
-                    # TODO: Redo the text indexing to be more tidy...
-                    t = text_tokens[idx_txt - 1]
-                    a = amr.nodes[node_id]
-                    a_id = node_id
-
-                    assert a_id is not None
-
-                    output.append((a, a_id, t))
-
-                return output
-
-            def convert_standard(node_alignments):
-                output = {}
-
-                for node_id, idx_txt in node_alignments:
-                    # indexing should account for padding
-                    a_id = node_ids[node_id]
-                    output[a_id] = [idx_txt]
-
-                return output
+            node_ids = get_node_ids(amr)
+            alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
 
             def s_alignment(alignments):
                 dt_string = datetime.datetime.isoformat(datetime.datetime.now())
@@ -63,36 +45,28 @@ class FormatAlignments(object):
                 suffix = '::annotator neural ibm model 1 v.01 ::date {}'.format(dt_string)
 
                 body = ''
-                for i, (node_id, idx_txt) in enumerate(alignments):
+                for i, (node_id, a) in enumerate(alignments.items()):
                     if i > 0:
                         body += ' '
-                    if isinstance(idx_txt, list):
-                        start = idx_txt[0]
-                        end = idx_txt[-1] + 1
-                        assert start >= 0
-                        assert end >= 0
-                        body += '{}-{}|{}'.format(start, end, node_ids[node_id])
-                    else:
-                        body += '{}-{}|{}'.format(idx_txt - 1, idx_txt, node_ids[node_id])
+                    assert isinstance(a, list)
+                    start = a[0]
+                    end = a[-1] + 1
+                    assert start >= 0
+                    assert end >= 0
+                    body += '{}-{}|{}'.format(start, end, node_id)
                 body += ' '
 
                 return prefix + body + suffix
 
             def fmt(alignments):
-                if use_jamr:
-                    return amr.__str__()
-
                 node_TO_align = {}
-                for node_id, idx_txt in alignments:
-                    node_id = node_ids[node_id]
-                    if isinstance(idx_txt, list):
-                        start = idx_txt[0]
-                        end = idx_txt[-1] + 1
-                        assert start >= 0
-                        assert end >= 0
-                        node_TO_align[node_id] = '{}-{}'.format(start, end)
-                    else:
-                        node_TO_align[node_id] = '{}-{}'.format(idx_txt - 1, idx_txt)
+                for node_id, a in alignments.items():
+                    assert isinstance(a, list)
+                    start = a[0]
+                    end = a[-1] + 1
+                    assert start >= 0
+                    assert end >= 0
+                    node_TO_align[node_id] = '{}-{}'.format(start, end)
 
                 # tok
                 tok = '# ::tok ' + ' '.join(amr.tokens)
@@ -142,28 +116,13 @@ class FormatAlignments(object):
 
                 return out
 
-            alignments = convert(node_alignments)
-
-            def convert_gold_alignments():
-                new_alignments = []
-
-                for node_id, a in amr.alignments.items():
-                    new_node_id = node_ids.index(node_id)
-                    assert isinstance(a, list), (node_id, a)
-                    # assert len(a) == 1, a
-
-                    new_alignments.append((new_node_id, a))
-                return new_alignments
-
-
-            out_pred = fmt(node_alignments)
+            out_pred = fmt(alignments)
             if amr.alignments is None:
                 out_gold = None
             else:
-                out_gold = fmt(convert_gold_alignments())
-            out_standard = convert_standard(node_alignments)
+                out_gold = fmt(amr.alignments)
 
-            yield out_pred, out_gold, out_standard
+            yield out_pred, out_gold
 
 
 class FormatAlignmentsPretty(object):

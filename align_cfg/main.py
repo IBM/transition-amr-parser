@@ -437,7 +437,7 @@ class AlignmentsWriter(object):
             return
 
         # write
-        for i_b, (out_pred, out_gold, pred_alignments) in enumerate(self.formatter.format(batch_map, model_output, batch_indices)):
+        for i_b, (out_pred, out_gold) in enumerate(self.formatter.format(batch_map, model_output, batch_indices)):
             idx = batch_indices[i_b]
             amr = self.dataset.corpus[idx]
 

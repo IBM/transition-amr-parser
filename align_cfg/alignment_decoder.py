@@ -54,8 +54,8 @@ class AlignmentDecoder(object):
             node_alignments = []
             for j in range(n):
                 node_id = y_a_node_ids[i_b, b_indexa[j]].item()
-                idx_txt = b_indext[argmax[j].item()].item()
-                node_alignments.append((node_id, idx_txt))
+                idx_txt = argmax[j].item()
+                node_alignments.append((node_id, [idx_txt]))
 
             # result
 
