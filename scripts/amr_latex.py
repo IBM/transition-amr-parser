@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import collections
 import sys
 import re
 import string
@@ -20,7 +21,41 @@ def replace_symbols(line):
 
     return line
 
-def get_tikz_latex(tokens, nodes, edges, alignments):
+def get_node_depth(amr):
+
+    node_TO_edges = collections.defaultdict(list)
+    for e in amr.edges:
+        s, y, t = e
+        node_TO_edges[s].append(e)
+
+    new_edges = []
+
+    seen = set()
+    seen.add(amr.root)
+
+    node_TO_lvl = {}
+    node_TO_lvl[amr.root] = 0
+
+    def helper(root, prefix='0'):
+        if root not in node_TO_edges:
+            return
+
+        for i, e in enumerate(node_TO_edges[root]):
+            s, y, t = e
+            assert s == root
+            if t in seen:
+                continue
+            seen.add(t)
+            new_prefix = '{}.{}'.format(prefix, i)
+            node_TO_lvl[t] = new_prefix.count('.')
+
+            helper(t, prefix=new_prefix)
+
+    helper(amr.root)
+
+    return node_TO_lvl
+
+def get_tikz_latex(amr, tokens, nodes, edges, alignments):
 
     for i in range(len(tokens)):
         tokens[i] = replace_symbols(tokens[i])
@@ -42,9 +77,10 @@ def get_tikz_latex(tokens, nodes, edges, alignments):
                 children[node].append(edge[2])
 
     node_keys = nodes.keys()
+    node_TO_lvl = get_node_depth(amr)
     levels = {}
     for node in nodes:
-        lvl = node.count(".")
+        lvl = node_TO_lvl[node]
         if lvl not in levels:
             levels[lvl] = []
         levels[lvl].append(node)

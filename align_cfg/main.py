@@ -8,7 +8,13 @@ import sys
 
 os.environ['DGLBACKEND'] = 'pytorch'
 
-import dgl
+try:
+    import dgl
+    has_dgl = True
+except:
+    print('Warning: To use DGL, install.')
+    has_dgl = False
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -29,7 +35,17 @@ from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_tex
 from tree_rnn import TreeEncoder as TreeRNNEncoder
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
 from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
+from gcn import GCNEncoder
 from vocab import *
+from vocab_definitions import MaskInfo
+
+try:
+    from torch_geometric.data import Batch, Data
+    from torch_geometric.nn import GCNConv
+    has_geometric = True
+except:
+    print('Warning: To use GCN install pytorch geometric.')
+    has_geometric = False
 
 
 class RobertaLoader:
@@ -192,6 +208,12 @@ def argument_parser():
         default=20,
         type=int,
     )
+    parser.add_argument(
+        "--mask",
+        help="Chance to mask input token.",
+        default=0,
+        type=float,
+        )
     # Output options
     parser.add_argument(
         "--write-validation",
@@ -504,6 +526,25 @@ class Dataset(object):
 
         return g, pairwise_dist
 
+    def get_geometric_data(self, amr):
+        vocab = self.amr_tokenizer.token_TO_idx
+
+        node_ids = get_node_ids(amr)
+        node_TO_idx = {k: i for i, k in enumerate(node_ids)}
+
+        edge_index = []
+        for xin, label, xout in amr.edges:
+            a = node_TO_idx[xin]
+            b = node_TO_idx[xout]
+            edge_index.append([a, b])
+            edge_index.append([b, a])
+
+        node_labels = [amr.nodes[k] for k in node_ids]
+        node_tokens = torch.tensor([vocab[tok] for tok in node_labels], dtype=torch.long)
+        edge_index = torch.tensor(edge_index, dtype=torch.long)
+        data = Data(edge_index=edge_index.t().contiguous(), y=node_tokens, num_nodes=len(node_ids))
+        return data
+
     def __getitem__(self, idx):
         if idx in self.cached:
             return self.cached[idx]
@@ -517,21 +558,30 @@ class Dataset(object):
         item['text_tokens'] = self.text_tokenizer.indexify(tokens)
 
         # amr
+
+        ## specific for linearized parse.
         tokens, token_ids = self.amr_tokenizer.dfs(amr)
         item['amr_tokens'] = self.amr_tokenizer.indexify(tokens)
         item['amr_node_ids'] = token_ids
         item['amr_node_mask'] = [False if x < 0 else True for x in token_ids]
 
-        g, pairwise_dist = self.get_dgl_graph(amr)
-        item['g'] = g
-        item['amr_pairwise_dist'] = pairwise_dist
+        ##
+        item['amr_nodes'] = get_node_ids(amr)
+
+        if has_dgl:
+            g, pairwise_dist = self.get_dgl_graph(amr)
+            item['g'] = g
+            item['amr_pairwise_dist'] = pairwise_dist
+
+        if has_geometric:
+            item['geometric_data'] = self.get_geometric_data(amr)
 
         self.cached[idx] = item
 
         return item
 
 
-def batchify(items, cuda=False):
+def batchify(items, cuda=False, train=False):
     device = torch.cuda.current_device() if cuda else None
 
     dtypes = {
@@ -544,6 +594,9 @@ def batchify(items, cuda=False):
 
     batch_map = {}
     for k in dtypes.keys():
+        if k not in items[0]:
+            continue
+
         if dtypes[k] is list:
             batch_map[k] = [item[k].to(device) for item in items]
             continue
@@ -563,6 +616,28 @@ def batchify(items, cuda=False):
     batch_map['text_original_tokens'] = [x['text_original_tokens'] for x in items]
     batch_map['items'] = items
     batch_map['device'] = device
+
+    if args.mask > 0 and train:
+        batch_mask = []
+        for x in items:
+            tokens = [MaskInfo.unchanged, MaskInfo.masked]
+            probs = [1 - args.mask, args.mask]
+            size = len(x['amr_nodes'])
+            mask = np.random.choice(tokens, p=probs, size=size)
+
+            # If only 1 item, then never mask.
+            if size == 1:
+                mask[0] = MaskInfo.unchanged_and_predict
+
+            # If nothing is masked, then always predict at least one item.
+            if mask.sum() == 0:
+                mask[np.random.randint(0, size)] = MaskInfo.unchanged_and_predict
+
+            assert mask.sum() > 0
+
+            mask = torch.from_numpy(mask).long()
+            batch_mask.append(mask)
+        batch_map['mask'] = batch_mask
 
     return batch_map
 
@@ -727,6 +802,7 @@ class Net(nn.Module):
         embedding_dim = config['embedding_dim']
         hidden_size = config['hidden_size']
         dropout = config['dropout']
+        num_amr_layers = config.get('num_amr_layers', None)
 
         # TEXT
 
@@ -773,6 +849,8 @@ class Net(nn.Module):
             encode_amr = TreeLSTMEncoder(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm_v4':
             encode_amr = TreeLSTMEncoder_v2(amr_embed, hidden_size, mode='tree_lstm_v3', dropout_p=dropout)
+        elif config['amr_enc'].startswith('gcn'):
+            encode_amr = GCNEncoder(amr_embed, hidden_size, mode=config['amr_enc'], dropout_p=dropout, num_layers=num_amr_layers)
 
         output_size = num_amr_embeddings
 
@@ -785,6 +863,7 @@ class Net(nn.Module):
         del kwargs['text_emb'], kwargs['text_enc'], kwargs['text_project']
         del kwargs['amr_emb'], kwargs['amr_enc'], kwargs['amr_project']
         del kwargs['embedding_dim'], kwargs['hidden_size'], kwargs['dropout']
+        del kwargs['num_amr_layers']
 
         net = Net(**kwargs)
 
@@ -820,6 +899,12 @@ class Net(nn.Module):
 
         def align_and_predict(h_t, z_t, h_a, y_a, info):
             n_a, n_t = info['n_a'], info['n_t']
+
+            if self.training and 'mask' in info:
+                # Only predict for masked items.
+                h_a = h_a[info['mask'] > 0]
+                y_a = y_a[info['mask'] > 0]
+                n_a = h_a.shape[0]
 
             def get_h_for_predict(context):
                 if self.context == 'xy':
@@ -877,34 +962,37 @@ class Net(nn.Module):
             elif self.align_mode == 'prior':
                 align = alpha
 
-            # posterior regularization
-            amr_pairwise_dist = info['amr_pairwise_dist'].float()
-            node_id = torch.arange(n_t, device=device)
-            text_pairwise_dist = torch.abs(node_id.view(-1, 1) - node_id.view(1, -1)).float()
+            if args.pr > 0:
+                # posterior regularization
+                amr_pairwise_dist = info['amr_pairwise_dist'].float()
+                node_id = torch.arange(n_t, device=device)
+                text_pairwise_dist = torch.abs(node_id.view(-1, 1) - node_id.view(1, -1)).float()
 
-            align_ = (align + 1e-8).log().softmax(dim=1)
-            align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
-            assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
+                align_ = (align + 1e-8).log().softmax(dim=1)
+                align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
+                assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
 
-            # for i in range(n_a):
-            #     for j in range(n_a):
-            #         for k in range(n_t):
-            #             for l in range(n_t):
-            #                 check = align[i, k] * align[j, l]
-            #                 actual = align_pairwise[i, j, k, l]
-            #                 assert torch.isclose(check, actual).item()
+                # for i in range(n_a):
+                #     for j in range(n_a):
+                #         for k in range(n_t):
+                #             for l in range(n_t):
+                #                 check = align[i, k] * align[j, l]
+                #                 actual = align_pairwise[i, j, k, l]
+                #                 assert torch.isclose(check, actual).item()
 
-            expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
-            assert expected_text_dist.shape == (n_t, n_t)
+                expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
+                assert expected_text_dist.shape == (n_t, n_t)
 
-            if args.pr_epsilon is not None:
-                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon).clamp(min=0)
+                if args.pr_epsilon is not None:
+                    pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon).clamp(min=0)
+                else:
+                    pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
+
+                #assert torch.isclose(pr_penalty_tmp, pr_penalty_tmp.transpose(0, 1)).all().item()
+                pr_penalty_triu = pr_penalty_tmp.triu()
+                pr = pr_penalty_triu.pow(2).sum().view(1)
             else:
-                pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
-
-            #assert torch.isclose(pr_penalty_tmp, pr_penalty_tmp.transpose(0, 1)).all().item()
-            pr_penalty_triu = pr_penalty_tmp.triu()
-            pr = pr_penalty_triu.pow(2).sum().view(1)
+                pr = 0
 
             return alpha, p, loss, loss_notreduced, align, pr
 
@@ -937,7 +1025,12 @@ class Net(nn.Module):
             info = {}
             info['n_a'] = n_a
             info['n_t'] = n_t
-            info['amr_pairwise_dist'] = batch_map['amr_pairwise_dist'][i_b]
+
+            if has_dgl:
+                info['amr_pairwise_dist'] = batch_map['amr_pairwise_dist'][i_b]
+
+            if args.mask > 0 and self.training:
+                info['mask'] = batch_map['mask'][i_b]
 
             result = func(local_h_t, local_z_t, local_h_a, local_y_a, info)
 
@@ -1280,6 +1373,7 @@ def save_metrics(path, metrics):
 
 def default_model_config():
     config = {}
+    config['num_amr_layers'] = 2
     config['text_emb'] = 'word'
     config['text_enc'] = 'bilstm'
     config['text_project'] = 0
@@ -1564,7 +1658,9 @@ def main(args):
 
             metrics['trn_loss'] += [x.item() for x in model_output['batch_loss']]
             metrics['trn_loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
-            metrics['trn_pr'] += [x.item() for x in model_output['batch_pr']]
+
+            if args.pr > 0:
+                metrics['trn_pr'] += [x.item() for x in model_output['batch_pr']]
 
             del loss
 
@@ -1615,7 +1711,7 @@ def main(args):
         # loop
         for batch_indices, info in tqdm(get_batch_iterator_with_info(), desc='trn-epoch[{}]'.format(epoch), disable=not args.verbose):
             items = [trn_dataset[idx] for idx in batch_indices]
-            batch_map = batchify(items, cuda=args.cuda)
+            batch_map = batchify(items, cuda=args.cuda, train=True)
             trn_step(batch_indices, batch_map, info)
 
         trn_loss = np.mean(metrics['trn_loss'])
