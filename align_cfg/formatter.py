@@ -91,31 +91,6 @@ def amr_to_string(amr, alignments=None):
     return body
 
 
-class FormatAlignments(object):
-    """
-    Print alignments in desired format.
-    """
-    def __init__(self, dataset):
-        self.dataset = dataset
-
-    def format(self, batch_map, model_output, batch_indices, use_jamr=False):
-        alignment_info_ = AlignmentDecoder().batch_decode(batch_map, model_output)
-
-        for idx, ainfo in zip(batch_indices, alignment_info_):
-            #
-            amr = self.dataset.corpus[idx]
-            node_ids = get_node_ids(amr)
-            alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
-
-            out_pred = amr_to_string(amr, alignments=alignments)
-            if amr.alignments is None:
-                out_gold = None
-            else:
-                out_gold = amr_to_string(amr, alignments=amr.alignments)
-
-            yield out_pred, out_gold
-
-
 class FormatAlignmentsPretty(object):
     """
     Print alignments in desired format.

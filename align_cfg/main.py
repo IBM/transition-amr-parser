@@ -32,7 +32,7 @@ from tqdm import tqdm
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
 from alignment_decoder import AlignmentDecoder
 from evaluation import EvalAlignments
-from formatter import FormatAlignments, FormatAlignmentsPretty, amr_to_string
+from formatter import FormatAlignmentsPretty, amr_to_string
 from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from transition_amr_parser.io import read_amr2
@@ -1205,7 +1205,7 @@ def maybe_write(context):
         fout.close()
         fout_gold.close()
 
-    def write_align(corpus, dataset, path_gold, path_pred, formatter, write_gold=True):
+    def write_align(corpus, dataset, path_gold, path_pred, write_gold=True):
         net.eval()
 
         indices = np.arange(len(corpus))
@@ -1254,8 +1254,7 @@ def maybe_write(context):
         path = os.path.join(args.log_dir, 'alignment.trn.out')
         path_gold = path + '.gold'
         path_pred = path + '.pred'
-        formatter = FormatAlignments(dataset)
-        write_align(corpus, dataset, path_gold, path_pred, formatter)
+        write_align(corpus, dataset, path_gold, path_pred)
         eval_output = EvalAlignments().run(path_gold, path_pred)
 
         with open(path_pred + '.eval', 'w') as f:
@@ -1267,8 +1266,7 @@ def maybe_write(context):
 
         path_gold = None
         path_pred = args.single_output
-        formatter = FormatAlignments(dataset)
-        write_align(corpus, dataset, path_gold, path_pred, formatter, write_gold=False)
+        write_align(corpus, dataset, path_gold, path_pred, write_gold=False)
 
         sys.exit()
 
