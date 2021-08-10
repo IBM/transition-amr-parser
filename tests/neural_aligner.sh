@@ -3,16 +3,18 @@ set -o pipefail
 . set_environment.sh
 set -o nounset
 
+config=configs/wiki25-neur-al-sampling.sh
+
 # UNCOMMENT to start test from blank slate.
 # It's preferable not to delete this directory since it forces a re-download
 # of model checkpoints (i.e., elmo).
 # rm -Rf DATA/wiki25/*
 
 # Train aligner
-bash run/train_aligner.sh configs/wiki25-neur-al-sampling.sh 
+bash run/train_aligner.sh $config 
 
 # load config
-. configs/wiki25-neur-al-sampling.sh 
+. $config 
 
 # Align data.
 mkdir -p $ALIGNED_FOLDER/version_20210709c_exp_0_seed_0_write_amr2

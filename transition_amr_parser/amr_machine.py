@@ -119,12 +119,25 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     #    = p(node, token_pos | tokens) / p(node | tokens)
     token_posterior = node_token_joint / node_marginal
 
-    # token_posterior = token_posterior**temperature \
-    #    / (token_posterior**temperature).sum(1, keepdims=True)
+    # sharpen / flatten by temperature
+    phi = token_posterior**(1. / temperature)
+    token_posterior2 = phi / phi.sum(1, keepdims=True)
+
+    if gold_amr.alignments is None:
+        gold_amr.alignments = {}
 
     for idx, node_id in enumerate(alignment_probs['node_short_id']):
-        alignment = np.random.multinomial(1, token_posterior[idx, :]).argmax()
+        alignment = np.random.multinomial(1, token_posterior2[idx, :]).argmax()
         gold_amr.alignments[node_id] = [alignment]
+
+    assert set(gold_amr.alignments.keys()) <= set(gold_amr.nodes.keys()), \
+        'node ids from graph and alignment probabilities do not match' \
+        ', maybe read JAMR format when alignments are PENMAN?'
+
+    assert (
+        set([y for x in gold_amr.alignments.values() for y in x])
+        <= set(range(len(gold_amr.tokens)))
+    ), 'Alignment token positions out of bounds with respect to given tokens'
 
     return gold_amr
 
@@ -156,12 +169,12 @@ class AMROracle():
         # use copy action
         self.use_copy = use_copy
 
-    def reset(self, gold_amr, alignment_probs=None):
+    def reset(self, gold_amr, alignment_probs=None, alignment_sampling_temp=1.0):
 
         # if probabilties provided sample alignments from them
         if alignment_probs:
             gold_amr = sample_alignments(gold_amr, alignment_probs,
-                                         self.alignment_sampling_temperature)
+                                         alignment_sampling_temp)
 
         # Force align missing nodes and store names for stats
         self.gold_amr, self.unaligned_nodes = fix_alignments(gold_amr)
@@ -878,7 +891,8 @@ def oracle(args):
 
     # Read AMR
     amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
-    amrs = read_amr2(amr_file, ibm_format=True)
+    amrs = read_amr2(amr_file, ibm_format=not args.amr_from_penman,
+                     tokenize=args.amr_from_penman)
     # read AMR alignments if provided
     if args.in_alignment_probs:
         corpus_align_probs = read_neural_alignments(args.in_alignment_probs)
@@ -1071,6 +1085,11 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
+        "--amr-from-penman",
+        help="Read AMR and alignments from PENMAN and not JAMR (meta-data)",
+        action='store_true'
+    )
+    parser.add_argument(
         "--in-alignment-probs",
         help="Alignment probabilities produced by align_cfg/main.py",
         type=str
@@ -1078,6 +1097,7 @@ def argument_parser():
     parser.add_argument(
         "--alignment-sampling-temp",
         help="Temperature for sampling alignments",
+        default=1.0,
         type=str,
     )
     # ORACLE

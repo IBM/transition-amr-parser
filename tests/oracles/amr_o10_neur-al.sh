@@ -4,29 +4,54 @@
 
 set -o errexit
 set -o pipefail
+. set_environment.sh
 set -o nounset 
 
-oracle_folder=DATA.tmp/$(basename $0)/$(basename $gold_amr)/
-mkdir -p $oracle_folder 
+config=configs/wiki25-neur-al-sampling.sh
 
-gold_amr=DATA/AMR2.0/aligned/align_cfg/alignment.trn.gold 
-gold_amr_alignments=DATA/AMR2.0/aligned/align_cfg/alignment.trn.pretty
+# load config
+. $config
+
+# Reuiqres a trained model
+[ ! -f "$ALIGNED_FOLDER/model.pt" ] \
+    && echo -e "\nRun bash test/neural_aligner.sh $config\n" \
+    && exit 1
+
+if [ ! -f "$ALIGNED_FOLDER/alignment.trn.pretty" ];then
+    
+    # Get alignment probabilities
+    python align_cfg/main.py --cuda \
+        --no-jamr \
+        --cache-dir $ALIGNED_FOLDER \
+        --load $ALIGN_MODEL \
+        --load-flags $ALIGN_MODEL_FLAGS \
+        --vocab-text $ALIGN_VOCAB_TEXT \
+        --vocab-amr $ALIGN_VOCAB_AMR \
+        --trn-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --val-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+        --log-dir $ALIGNED_FOLDER \
+        --write-pretty
+    
+fi
+
+mkdir -p $ORACLE_FOLDER
 
 python transition_amr_parser/amr_machine.py \
-    --in-amr $gold_amr \
-    --in-alignment-probs $gold_amr_alignments \
-    --out-machine-config $oracle_folder/machine_config.json \
-    --out-actions $oracle_folder/train.actions \
-    --out-tokens $oracle_folder/train.tokens \
+    --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+    --amr-from-penman \
+    --in-alignment-probs $ALIGNED_FOLDER/alignment.trn.pretty \
+    --out-machine-config $ORACLE_FOLDER/machine_config.json \
+    --out-actions $ORACLE_FOLDER/train.actions \
+    --out-tokens $ORACLE_FOLDER/train.tokens \
     --absolute-stack-positions  \
     # --reduce-nodes all
 
 python transition_amr_parser/amr_machine.py \
-    --in-machine-config $oracle_folder/machine_config.json \
-    --in-tokens $oracle_folder/train.tokens \
-    --in-actions $oracle_folder/train.actions \
-    --out-amr $oracle_folder/train_oracle.amr
+    --in-machine-config $ORACLE_FOLDER/machine_config.json \
+    --in-tokens $ORACLE_FOLDER/train.tokens \
+    --in-actions $ORACLE_FOLDER/train.actions \
+    --out-amr $ORACLE_FOLDER/train_oracle.amr
 
 # Score
 echo "Conmputing Smatch (make take long for 1K or more sentences)"
-smatch.py -r 10 --significant 4 -f $gold_amr $oracle_folder/train_oracle.amr
+smatch.py -r 10 --significant 4 -f ${AMR_TRAIN_FILE_WIKI}.no_wiki $ORACLE_FOLDER/train_oracle.amr

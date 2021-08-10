@@ -34,7 +34,6 @@ if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
     echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
     exit 1
 fi    
- 
 
 ## This will store the final model
 mkdir -p ${MODEL_FOLDER}-seed${seed}
