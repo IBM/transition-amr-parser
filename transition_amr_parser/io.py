@@ -175,8 +175,73 @@ def yellow_font(string):
 
 
 def protected_tokenizer(sentence_string):
-    separator_re = re.compile(r'[\.,;:?!"\' \(\)\[\]\{\}]')
-    return simple_tokenizer(sentence_string, separator_re)
+
+    # Do not split these strings
+    protected_re = re.compile(
+        r'[0-9][0-9,\.:/-]+[0-9]'          # quantities, time, dates
+        r'|[0-9]+[\.](?!\w)'               # enumerate
+        r'|(\W|^)[A-Za-z][\.](?!\w)'       # itemize
+        r'|\b([A-Z]\.)+'                   # acronym with periods (e.g. U.S.)
+        r'|!+|\?+|\.+|-+'                  # emphatic
+        r'|etc\.|i\.e\.|e\.g\.'            # latin abbreviations
+        r'|\b[Nn]o\.|\bUS\$|\b[Mm]r\.|\b[Mm]s\.'   # ...
+        r'|a\.m\.'                         # other abbreviations
+        r'|:\)|:\('                        # basic emoticons
+        # contractions
+        r'|[A-Za-z]+\'[A-Za-z]{3,}'        # quotes inside words
+        r'|n\'t(?!\w)'                     # negative contraction (needed?)
+        r'|\'m(?!\w)'                      # other contractions
+        r'|\'ve(?!\w)'                     # other contractions
+        r'|\'ll(?!\w)'                     # other contractions
+        r'|\'d(?!\w)'                      # other contractions
+        # r'|\'t(?!\w)'                      # other contractions
+        r'|\'re(?!\w)'                     # other contractions
+        r'|\'s(?!\w)'                      # saxon genitive
+        #
+        r'|<<|>>'                          # weird symbols
+    )
+
+    # otherwise split by these symbols
+    # TODO: Do we really need to split by - ?
+    sep_re = re.compile(r'[/~\*%\.,;:?!"\' \(\)\[\]\{\}-]')
+
+    # iterate over protected sequences, tokenize unprotected and append
+    # protected strings
+    tokens = []
+    positions = []
+    start = 0
+    for point in protected_re.finditer(sentence_string):
+
+        # extract preceeding and protected strings
+        end = point.start()
+        preceeding_str = sentence_string[start:end]
+        protected_str = sentence_string[end:point.end()]
+
+        if preceeding_str:
+            # tokenize preceeding string keep protected string as is
+            for token, (start2, end2) in zip(
+                *simple_tokenizer(preceeding_str, sep_re)
+            ):
+                tokens.append(token)
+                positions.append((start + start2, start + end2))
+        tokens.append(protected_str)
+        positions.append((end, point.end()))
+
+        # move cursor
+        start = point.end()
+
+    # Termination
+    end = len(sentence_string)
+    if start < end:
+        ending_str = sentence_string[start:end]
+        if ending_str.strip():
+            for token, (start2, end2) in zip(
+                *simple_tokenizer(ending_str, sep_re)
+            ):
+                tokens.append(token)
+                positions.append((start + start2, start + end2))
+
+    return tokens, positions
 
 
 def simple_tokenizer(sentence_string, separator_re):
