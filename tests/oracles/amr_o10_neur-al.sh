@@ -2,12 +2,20 @@
 # Unit test for the oracle with neural aligners
 #
 
-set -o errexit
+set -o errexit 
 set -o pipefail
-. set_environment.sh
-set -o nounset 
+if [ -z $1 ];then 
 
-config=configs/wiki25-neur-al-sampling.sh
+    # Standard mini-test with wiki25, sampling
+    config=configs/wiki25-neur-al-sampling.sh  
+
+else
+
+    # custom config mini-test
+    config=$1
+fi
+. set_environment.sh
+set -o nounset
 
 # load config
 . $config
@@ -38,7 +46,7 @@ mkdir -p $ORACLE_FOLDER
 
 python transition_amr_parser/amr_machine.py \
     --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-    --amr-from-penman \
+    --no-jamr \
     --in-alignment-probs $ALIGNED_FOLDER/alignment.trn.pretty \
     --out-machine-config $ORACLE_FOLDER/machine_config.json \
     --out-actions $ORACLE_FOLDER/train.actions \

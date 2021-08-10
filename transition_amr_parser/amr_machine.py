@@ -891,8 +891,8 @@ def oracle(args):
 
     # Read AMR
     amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
-    amrs = read_amr2(amr_file, ibm_format=not args.amr_from_penman,
-                     tokenize=args.amr_from_penman)
+    amrs = read_amr2(amr_file, ibm_format=not args.no_jamr,
+                     tokenize=args.no_jamr)
     # read AMR alignments if provided
     if args.in_alignment_probs:
         corpus_align_probs = read_neural_alignments(args.in_alignment_probs)
@@ -1085,7 +1085,7 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
-        "--amr-from-penman",
+        "--no-jamr",
         help="Read AMR and alignments from PENMAN and not JAMR (meta-data)",
         action='store_true'
     )

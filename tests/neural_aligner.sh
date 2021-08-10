@@ -1,24 +1,32 @@
-set -o errexit
+set -o errexit 
 set -o pipefail
+if [ -z $1 ];then 
+
+    # Standard mini-test with wiki25, sampling
+    config=configs/wiki25-neur-al-sampling.sh  
+
+else
+
+    # custom config mini-test
+    config=$1
+fi
 . set_environment.sh
 set -o nounset
-
-config=configs/wiki25-neur-al-sampling.sh
-
-# UNCOMMENT to start test from blank slate.
-# It's preferable not to delete this directory since it forces a re-download
-# of model checkpoints (i.e., elmo).
-# rm -Rf DATA/wiki25/*
-
-# Train aligner
-bash run/train_aligner.sh $config 
 
 # load config
 . $config 
 
+# Clean-up
+[ -d "$ALIGNED_FOLDER" ] && rm -R "$ALIGNED_FOLDER"
+mkdir -p "$ALIGNED_FOLDER"
+
+# Train aligner
+bash run/train_aligner.sh $config 
+
 # Align data.
 mkdir -p $ALIGNED_FOLDER/version_20210709c_exp_0_seed_0_write_amr2
-python -u align_cfg/main.py --no-jamr \
+python -u align_cfg/main.py \
+    --no-jamr \
     --cuda --allow-cpu \
     --vocab-text $ALIGN_VOCAB_TEXT \
     --vocab-amr $ALIGN_VOCAB_AMR \
