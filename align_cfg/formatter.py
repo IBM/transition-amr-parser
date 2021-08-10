@@ -61,7 +61,6 @@ class FormatAlignments(object):
             text_tokens = amr.tokens
 
             node_ids = list(sorted(amr.nodes.keys()))
-            amr_tokens, _ = self.dataset.amr_tokenizer.dfs(amr)
 
             def convert(node_alignments):
                 output = []
