@@ -15,6 +15,13 @@ except:
     print('Warning: To use DGL, install.')
     has_dgl = False
 
+try:
+    from torch_geometric.data import Batch, Data
+    has_geometric = True
+except:
+    print('Warning: To use GCN install pytorch geometric.')
+    has_geometric = False
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -23,24 +30,16 @@ import numpy as np
 from tqdm import tqdm
 
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
-from transition_amr_parser.io import read_amr2
 from evaluation import EvalAlignments
 from formatter import FormatAlignments, FormatAlignmentsPretty
+from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
-from tree_rnn import TreeEncoder as TreeRNNEncoder
+from transition_amr_parser.io import read_amr2
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
 from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
-from gcn import GCNEncoder
+from tree_rnn import TreeEncoder as TreeRNNEncoder
 from vocab import *
 from vocab_definitions import MaskInfo
-
-try:
-    from torch_geometric.data import Batch, Data
-    from torch_geometric.nn import GCNConv
-    has_geometric = True
-except:
-    print('Warning: To use GCN install pytorch geometric.')
-    has_geometric = False
 
 
 class JSONConfig(object):
@@ -842,17 +841,14 @@ class Net(nn.Module):
 
         net = Net(**kwargs)
 
-        param_count = 0
+        param_count, param_count_rqeuires_grad = 0, 0
         for name, p in net.named_parameters():
-            should_count = True
-            if 'embed.embed' in name:
-                should_count = False
-            elif 'inv_embed' in name:
-                should_count = False
-            print(name, tuple(p.shape), p.shape.numel(), should_count, p.requires_grad)
-            if should_count:
-                param_count += p.shape.numel()
-        print('# of parameters = {}'.format(param_count))
+            o = collections.OrderedDict(name=name, shape=p.shape, numel=p.shape.numel(), requires_grad=p.requires_grad)
+            print(json.dumps(o))
+            param_count += p.shape.numel()
+            if p.requires_grad:
+                param_count_rqeuires_grad += p.shape.numel()
+        print('# of parameters = {} , # of trainable-parameters = {}'.format(param_count, param_count_rqeuires_grad))
 
         return net
 
