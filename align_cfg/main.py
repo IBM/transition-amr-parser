@@ -30,8 +30,9 @@ import numpy as np
 from tqdm import tqdm
 
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
+from alignment_decoder import AlignmentDecoder
 from evaluation import EvalAlignments
-from formatter import FormatAlignments, FormatAlignmentsPretty
+from formatter import FormatAlignments, FormatAlignmentsPretty, amr_to_string
 from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from transition_amr_parser.io import read_amr2
@@ -1476,11 +1477,7 @@ def main(args):
 
             val_corpus = val_corpus_list[i_valid]
 
-            formatter = FormatAlignments(val_dataset)
-            path = os.path.join(args.log_dir, 'alignment.epoch_{}.val_{}.out'.format(epoch, i_valid))
-            path_gold = path + '.gold'
-            path_pred = path + '.pred'
-            writer = AlignmentsWriter(path_gold, path_pred, val_dataset, formatter)
+            val_predictions = collections.defaultdict(list)
 
             def val_step(batch_indices, batch_map):
                 with torch.no_grad():
@@ -1496,7 +1493,14 @@ def main(args):
 
                     del loss
 
-                    writer.write_batch(batch_indices, batch_map, model_output)
+                    # save alignments for eval.
+                    for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
+                        amr = val_corpus[idx]
+                        node_ids = get_node_ids(amr)
+                        alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
+
+                    val_predictions['amr'].append(amr)
+                    val_predictions['alignments'].append(alignments)
 
             # batch iterator
             indices = [i for i, _ in enumerate(sorted(val_corpus, key=lambda x: -len(x.tokens)))]
@@ -1508,8 +1512,6 @@ def main(args):
                 batch_map = batchify(items, cuda=args.cuda)
                 val_step(batch_indices, batch_map)
 
-            writer.close()
-
             val_loss = np.mean(metrics['val_{}_loss'.format(i_valid)])
             val_loss_notreduced = np.mean(metrics['val_{}_loss_notreduced'.format(i_valid)])
             val_ppl = 2 ** (val_loss_notreduced / np.log(2))
@@ -1520,6 +1522,16 @@ def main(args):
 
             print('val_{} epoch = {}, loss = {:.3f}, loss-nr = {:.3f}, ppl = {:.3f}'.format(
                 i_valid, epoch, val_loss, val_loss_notreduced, val_ppl))
+
+            # write alignments
+            path = os.path.join(args.log_dir, 'alignment.epoch_{}.val_{}.out'.format(epoch, i_valid))
+            path_gold = path + '.gold'
+            path_pred = path + '.pred'
+
+            with open(path_gold, 'w') as f_gold, open(path_pred, 'w') as f_pred:
+                for amr, alignments in zip(val_predictions['amr'], val_predictions['alignments']):
+                    f_gold.write(amr_to_string(amr).strip() + '\n\n')
+                    f_pred.write(amr_to_string(amr, alignments).strip() + '\n\n')
 
             # eval alignments
             eval_output = EvalAlignments().run(path + '.gold', path + '.pred')

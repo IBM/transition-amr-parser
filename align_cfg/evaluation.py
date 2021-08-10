@@ -1,4 +1,5 @@
 import collections
+import os
 
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
 from transition_amr_parser.io import read_amr2
@@ -407,6 +408,9 @@ class CorpusRecall_WithDupsAndSpans(CorpusRecall):
 
 class EvalAlignments(object):
     def run(self, path_gold, path_pred, verbose=True, only_MAP=False):
+
+        assert os.path.exists(path_gold)
+        assert os.path.exists(path_pred)
 
         if only_MAP:
             metrics = [
