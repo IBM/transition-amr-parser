@@ -29,7 +29,7 @@ def main(args):
     settings = []
     settings.append((True, False))
     settings.append((False, False))
-    settings.append((True, False))
+    settings.append((False, True))
 
     # collect information for all AMR
     tokens = set()
@@ -41,7 +41,7 @@ def main(args):
         for ibm_format, tokenize in settings:
 
             try:
-                txt_toks, amr_toks = get_tokens(amr_file, ibm_format=True, tokenize=False)
+                txt_toks, amr_toks = get_tokens(amr_file, ibm_format=ibm_format, tokenize=tokenize)
                 tokens = set.union(tokens, txt_toks)
                 graph_tokens = set.union(graph_tokens, amr_toks)
 
