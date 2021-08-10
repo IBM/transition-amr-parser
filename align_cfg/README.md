@@ -16,3 +16,5 @@ Changes for CPU:
 conda install -y pytorch==1.4.0 torchvision==0.5.0 -c pytorch
 pip install dgl==0.4.3.post2
 ```
+
+For GCN support, need to install latest torch-geometric.
