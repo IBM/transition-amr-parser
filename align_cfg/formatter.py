@@ -12,13 +12,83 @@ from alignment_decoder import AlignmentDecoder
 
 
 class AMRStringHelper(object):
-    def f(self):
-        pass
+    @staticmethod
+    def tok(amr):
+        return '# ::tok ' + ' '.join(amr.tokens)
+
+    @staticmethod
+    def nodes(amr, alignments):
+        output = []
+        for node_id, a in alignments.items():
+            name = amr.nodes[node_id]
+            output.append('# ::node\t{}\t{}\t{}-{}'.format(node_id, name, a[0], a[-1] + 1))
+        return output
+
+    @staticmethod
+    def root(amr, alignments):
+        name = amr.nodes[amr.root]
+        if amr.root in alignments:
+            a = alignments[amr.root]
+            return '# ::root\t{}\t{}\t{}-{}'.format(amr.root, name, a[0], a[-1] + 1)
+        else:
+            return '# ::root\t{}\t{}'.format(amr.root, name)
+
+    @staticmethod
+    def edges(amr, alignments):
+        edges = []
+        for edge_in, label, edge_out in amr.edges:
+            name_in = amr.nodes[edge_in]
+            name_out = amr.nodes[edge_out]
+            if label.startswith(':'):
+                label = label[1:]
+            row = [name_in, label, name_out, edge_in, edge_out]
+            edges.append('# ::edge\t' + '\t'.join(row))
+        return edges
+
+    @staticmethod
+    def alignments(amr, alignments):
+        dt_string = datetime.datetime.isoformat(datetime.datetime.now())
+        prefix = '# ::alignments '
+        suffix = '::annotator neural ibm model 1 v.01 ::date {}'.format(dt_string)
+
+        body = ''
+        for i, (node_id, a) in enumerate(alignments.items()):
+            if i > 0:
+                body += ' '
+            assert isinstance(a, list)
+            start = a[0]
+            end = a[-1] + 1
+            assert start >= 0
+            assert end >= 0
+            body += '{}-{}|{}'.format(start, end, node_id)
+        body += ' '
+
+        return prefix + body + suffix
+
+    @staticmethod
+    def amr(amr):
+        if amr.penman is None:
+            pretty_amr = amr.__str__().split('\t')[-1].strip()
+        else:
+            pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
+        return pretty_amr
 
 
 def amr_to_string(amr, alignments=None):
     if alignments is None:
         alignments = amr.alignments
+
+    body = ''
+    body += AMRStringHelper.tok(amr) + '\n'
+    if len(amr.nodes) > 0:
+        body += AMRStringHelper.alignments(amr, alignments) + '\n'
+        body += '\n'.join(AMRStringHelper.nodes(amr, alignments)) + '\n'
+        body += AMRStringHelper.root(amr, alignments) + '\n'
+    if len(amr.edges) > 0:
+        body += '\n'.join(AMRStringHelper.edges(amr, alignments)) + '\n'
+    body += AMRStringHelper.amr(amr) + '\n'
+
+    return body
 
 
 class FormatAlignments(object):
@@ -32,95 +102,16 @@ class FormatAlignments(object):
         alignment_info_ = AlignmentDecoder().batch_decode(batch_map, model_output)
 
         for idx, ainfo in zip(batch_indices, alignment_info_):
-
             #
             amr = self.dataset.corpus[idx]
-            text_tokens = amr.tokens
             node_ids = get_node_ids(amr)
             alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
 
-            def s_alignment(alignments):
-                dt_string = datetime.datetime.isoformat(datetime.datetime.now())
-                prefix = '# ::alignments '
-                suffix = '::annotator neural ibm model 1 v.01 ::date {}'.format(dt_string)
-
-                body = ''
-                for i, (node_id, a) in enumerate(alignments.items()):
-                    if i > 0:
-                        body += ' '
-                    assert isinstance(a, list)
-                    start = a[0]
-                    end = a[-1] + 1
-                    assert start >= 0
-                    assert end >= 0
-                    body += '{}-{}|{}'.format(start, end, node_id)
-                body += ' '
-
-                return prefix + body + suffix
-
-            def fmt(alignments):
-                node_TO_align = {}
-                for node_id, a in alignments.items():
-                    assert isinstance(a, list)
-                    start = a[0]
-                    end = a[-1] + 1
-                    assert start >= 0
-                    assert end >= 0
-                    node_TO_align[node_id] = '{}-{}'.format(start, end)
-
-                # tok
-                tok = '# ::tok ' + ' '.join(amr.tokens)
-
-                # nodes
-                nodes = []
-                for node_id, a in node_TO_align.items():
-                    name = amr.nodes[node_id]
-                    nodes.append('# ::node\t{}\t{}\t{}'.format(node_id, name, a))
-
-                # root
-                node_id = amr.root
-                a = node_TO_align.get(node_id, None)
-                name = amr.nodes[node_id]
-                if a is not None:
-                    nodes.append('# ::root\t{}\t{}\t{}'.format(node_id, name, a))
-                else:
-                    nodes.append('# ::root\t{}\t{}'.format(node_id, name))
-
-                # edges
-                edges = []
-                for edge_in, label, edge_out in amr.edges:
-                    name_in = amr.nodes[edge_in]
-                    name_out = amr.nodes[edge_out]
-                    label = label[1:]
-                    row = [name_in, label, name_out, edge_in, edge_out]
-                    edges.append('# ::edge\t' + '\t'.join(row))
-
-                # get alignments
-                alignments_str = s_alignment(alignments)
-
-                # amr
-                if amr.penman is None:
-                    pretty_amr = amr.__str__().split('\t')[-1].strip()
-                else:
-                    pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
-
-                # new output
-                out = ''
-                out += tok + '\n'
-                if len(nodes) > 0:
-                    out += alignments_str + '\n'
-                    out += '\n'.join(nodes) + '\n'
-                if len(edges) > 0:
-                    out += '\n'.join(edges) + '\n'
-                out += pretty_amr + '\n'
-
-                return out
-
-            out_pred = fmt(alignments)
+            out_pred = amr_to_string(amr, alignments=alignments)
             if amr.alignments is None:
                 out_gold = None
             else:
-                out_gold = fmt(amr.alignments)
+                out_gold = amr_to_string(amr, alignments=amr.alignments)
 
             yield out_pred, out_gold
 
