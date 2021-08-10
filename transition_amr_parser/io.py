@@ -176,30 +176,46 @@ def yellow_font(string):
 
 def protected_tokenizer(sentence_string):
 
+    # quote normalization
+    sentence_string = sentence_string.replace('``', '"')
+    sentence_string = sentence_string.replace("''", '"')
+    sentence_string = sentence_string.replace("“", '"')
+
+    # currency normalization
+    #sentence_string = sentence_string.replace("£", 'GBP')
+
     # Do not split these strings
-    protected_re = re.compile(
-        r'[0-9][0-9,\.:/-]+[0-9]'          # quantities, time, dates
-        r'|[0-9]+[\.](?!\w)'               # enumerate
-        r'|(\W|^)[A-Za-z][\.](?!\w)'       # itemize
-        r'|\b([A-Z]\.)+'                   # acronym with periods (e.g. U.S.)
-        r'|!+|\?+|\.+|-+'                  # emphatic
-        r'|etc\.|i\.e\.|e\.g\.'            # latin abbreviations
-        r'|\b[Nn]o\.|\bUS\$|\b[Mm]r\.|\b[Mm]s\.'   # ...
-        r'|a\.m\.'                         # other abbreviations
-        r'|:\)|:\('                        # basic emoticons
-        # contractions
-        r'|[A-Za-z]+\'[A-Za-z]{3,}'        # quotes inside words
-        r'|n\'t(?!\w)'                     # negative contraction (needed?)
-        r'|\'m(?!\w)'                      # other contractions
-        r'|\'ve(?!\w)'                     # other contractions
-        r'|\'ll(?!\w)'                     # other contractions
-        r'|\'d(?!\w)'                      # other contractions
-        # r'|\'t(?!\w)'                      # other contractions
-        r'|\'re(?!\w)'                     # other contractions
-        r'|\'s(?!\w)'                      # saxon genitive
+    protected_re = re.compile("|".join([
+        # URLs (this conflicts with many other cases, we should normalize URLs
+        # a priri both on text and AMR)
+        #r'((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*',
         #
-        r'|<<|>>'                          # weird symbols
-    )
+        r'[0-9][0-9,\.:/-]+[0-9]',         # quantities, time, dates
+        r'^[0-9][\.](?!\w)',               # enumerate
+        r'\b[A-Za-z][\.](?!\w)',           # itemize
+        r'\b([A-Z]\.)+[A-Z]?',             # acronym with periods (e.g. U.S.)
+        r'!+|\?+|-+|\.+',                  # emphatic
+        r'etc\.|i\.e\.|e\.g\.|v\.s\.|p\.s\.|ex\.',     # latin abbreviations
+        r'\b[Nn]o\.|\bUS\$|\b[Mm]r\.',     # ...
+        r'\b[Mm]s\.|\bSt\.|\bsr\.|a\.m\.', # other abbreviations
+        r':\)|:\(',                        # basic emoticons
+        # contractions
+        r'[A-Za-z]+\'[A-Za-z]{3,}',        # quotes inside words
+        r'n\'t(?!\w)',                     # negative contraction (needed?)
+        r'\'m(?!\w)',                      # other contractions
+        r'\'ve(?!\w)',                     # other contractions
+        r'\'ll(?!\w)',                     # other contractions
+        r'\'d(?!\w)',                      # other contractions
+        #r'\'t(?!\w)'                      # other contractions
+        r'\'re(?!\w)',                     # other contractions
+        r'\'s(?!\w)',                      # saxon genitive
+        #
+        r'<<|>>',                          # weird symbols
+        #
+        r'Al-[a-zA-z]+|al-[a-zA-z]+',      # Arabic article
+        # months
+        r'Jan\.|Feb\.|Mar\.|Apr\.|Jun\.|Jul\.|Aug\.|Sep\.|Oct\.|Nov\.|Dec\.'
+    ]))
 
     # otherwise split by these symbols
     # TODO: Do we really need to split by - ?

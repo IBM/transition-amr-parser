@@ -1,10 +1,12 @@
 import sys
 import re
 from transition_amr_parser.io import protected_tokenizer
+from random import shuffle
 
 
 if __name__ == '__main__':
 
+    #do_break = True
     do_break = False
 
     # AMR file with ::snt and ::tok fields (JAMR)
@@ -21,14 +23,29 @@ if __name__ == '__main__':
 
     assert len(tokens) == len(sents)
 
+    indices = list(range(len(tokens)))
+    shuffle(indices)
+
     count = 0
-    for index in range(len(tokens)):
+    for index in indices:
+
+        #if index != 4836:
+        #    continue
 
         new_tokens = ' '.join(protected_tokenizer(sents[index])[0])
 
         if tokens[index] == new_tokens:
             count += 1
-        elif do_break:
+        elif do_break: # and index not in [
+#             384, 385, 973, 1541,
+#             669,                 # 'a
+#             865,                 # 120.
+#             1335,                # gov't
+#             1411,                # !!!)
+#             1520,                # PA.
+#         ]:
+            print(index)
+            print(sents[index])
             print(tokens[index])
             print(new_tokens)
             import ipdb; ipdb.set_trace(context=30)
