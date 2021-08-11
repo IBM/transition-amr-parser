@@ -38,6 +38,9 @@ def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edg
                 if amr.alignments[k] is None:
                     del amr.alignments[k]
                     stats['is-none'] += 1
+                elif k not in amr.nodes:
+                    del amr.alignments[k]
+                    stats['is-not-node'] += 1
                 else:
                     stats['exists'] += 1
         print('remove_empty_align: {}'.format(stats))

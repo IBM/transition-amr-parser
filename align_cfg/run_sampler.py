@@ -1,5 +1,26 @@
 # -*- coding: utf-8 -*-
 
+"""
+
+# Create uniform random alignment.
+
+mkdir -p DATA/AMR3.0-aligners/random
+python align_cfg/run_sampler.py --aligner-training-and-eval \
+    --in-amr DATA/AMR3.0-aligners/best-lstm-write_amr3/alignment.trn.out.gold \
+    --out-amr DATA/AMR3.0-aligners/random/train.txt \
+    --mode mode_uniform --seed 111
+
+# And oracle.
+
+python transition_amr_parser/amr_machine.py --use-copy 1 \
+    --in-aligned-amr DATA/AMR3.0-aligners/random/train.txt \
+    --out-machine-config DATA/AMR3.0-aligners/random/machine_config.json \
+    --out-actions DATA/AMR3.0-aligners/random/train.actions \
+    --out-tokens DATA/AMR3.0-aligners/random/train.tokens \
+    --absolute-stack-positions
+
+"""
+
 import argparse
 import collections
 import copy
@@ -83,6 +104,34 @@ def argument_parser():
     return args
 
 
+def run_mode_uniform(args):
+    """ Sample once per sentence and write.
+
+    """
+    corpus = safe_read(args.in_amr)
+
+    # sample
+    new_alignments = []
+    for amr in tqdm(corpus, desc='sample'):
+        text_tokens = amr.tokens
+        node_ids = get_node_ids(amr)
+        shape = (len(node_ids), len(text_tokens))
+        pt_posterior = torch.ones(shape, dtype=torch.float)
+        logits = (pt_posterior + 1e-8).log()
+        probs = torch.softmax(logits / args.temp, 1)
+
+        dist = torch.distributions.multinomial.Multinomial(total_count=1, probs=probs)
+        sample = dist.sample().argmax(1).tolist()
+
+        a = {node_ids[i]: [sample[i]] for i in range(len(node_ids))}
+        new_alignments.append(a)
+
+    # write
+    with open(args.out_amr, 'w') as f_out:
+        for amr, a in zip(corpus, new_alignments):
+            f_out.write(amr_to_string(amr, alignments=a).strip() + '\n\n')
+
+
 def run_mode_1(args):
     """ Sample once per sentence and write.
 
@@ -98,9 +147,12 @@ def run_mode_1(args):
         shape = (len(node_ids), len(text_tokens))
         assert posterior.shape == shape, (posterior.shape, shape)
         pt_posterior = torch.from_numpy(posterior).float()
+        if args.uniform:
+            pt_posterior.fill_(1)
         logits = (pt_posterior + 1e-8).log()
+        probs = torch.softmax(logits / args.temp, 1)
 
-        dist = torch.distributions.multinomial.Multinomial(logits=logits / args.temp)
+        dist = torch.distributions.multinomial.Multinomial(total_count=1, probs=probs)
         sample = dist.sample().argmax(1).tolist()
 
         a = {node_ids[i]: [sample[i]] for i in range(len(node_ids))}
