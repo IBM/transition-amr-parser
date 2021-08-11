@@ -32,7 +32,7 @@ from tqdm import tqdm
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
 from alignment_decoder import AlignmentDecoder
 from evaluation import EvalAlignments
-from formatter import FormatAlignmentsPretty, amr_to_string
+from formatter import amr_to_pretty_format, amr_to_string
 from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from transition_amr_parser.io import read_amr2
@@ -1178,14 +1178,14 @@ def maybe_write(context):
 
     batch_size = args.batch_size
 
-    def write_align_pretty(corpus, dataset, path, formatter):
+    def write_align_pretty(corpus, dataset, path):
         net.eval()
 
         indices = np.arange(len(corpus))
 
         print('writing to {}.pretty'.format(os.path.abspath(path)))
-        fout = open(path + '.pretty', 'w')
-        fout_gold = open(path + '.gold', 'w')
+        f_pretty = open(path + '.pretty', 'w')
+        f_gold = open(path + '.gold', 'w')
 
         with torch.no_grad():
             for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
@@ -1197,13 +1197,18 @@ def maybe_write(context):
                 # forward pass
                 model_output = net(batch_map)
 
-                # write
-                for i_b, (amr, out) in enumerate(formatter.format(batch_map, model_output, batch_indices)):
-                    fout.write(out.strip() + '\n\n')
-                    fout_gold.write(amr.__str__().strip() + '\n\n')
+                # write pretty alignment info
+                for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
+                    amr = corpus[idx]
+                    f_pretty.write(amr_to_pretty_format(amr, ainfo, idx).strip() + '\n\n')
 
-        fout.close()
-        fout_gold.close()
+                # write reference amr
+                for idx in batch_indices:
+                    amr = corpus[idx]
+                    f_gold.write(amr_to_string(amr).strip() + '\n\n')
+
+        f_pretty.close()
+        f_gold.close()
 
     def write_align(corpus, dataset, path_gold, path_pred, write_gold=True):
         net.eval()
@@ -1245,8 +1250,7 @@ def maybe_write(context):
     if args.write_pretty:
 
         path = os.path.join(args.log_dir, 'alignment.trn')
-        formatter = FormatAlignmentsPretty(dataset)
-        write_align_pretty(corpus, dataset, path, formatter)
+        write_align_pretty(corpus, dataset, path)
         sys.exit()
 
     if args.write_only:

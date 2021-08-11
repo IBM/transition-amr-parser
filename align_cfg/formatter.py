@@ -91,43 +91,50 @@ def amr_to_string(amr, alignments=None):
     return body
 
 
-class FormatAlignmentsPretty(object):
-    """
-    Print alignments in desired format.
-    """
-    def __init__(self, dataset):
-        self.dataset = dataset
+def amr_to_pretty_format(amr, ainfo, idx):
+    posterior = ainfo['posterior']
 
-    def format(self, batch_map, model_output, batch_indices, use_jamr=False):
-        alignment_info_ = AlignmentDecoder().batch_decode(batch_map, model_output)
+    text_tokens = amr.tokens
+    node_ids = get_node_ids(amr)
+    node_names = [amr.nodes[x] for x in node_ids]
 
-        for idx, ainfo in zip(batch_indices, alignment_info_):
+    shape = (len(node_ids), len(text_tokens), 1)
 
-            posterior = ainfo['posterior']
+    assert posterior.shape == shape, 'expected = {} , actual = {}'.format(shape, posterior.shape)
 
-            #
+    #
+    s = ''
 
-            amr = self.dataset.corpus[idx]
-            text_tokens = amr.tokens
+    #
+    s += '{}\n'.format(idx)           # 0
+    s += ' '.join(node_names) + '\n'  # 1
+    s += ' '.join(node_ids) + '\n'    # 2
+    s += ' '.join(text_tokens) + '\n' # 3
 
-            node_ids = list(sorted(amr.nodes.keys()))
-            node_names = [amr.nodes[x] for x in node_ids]
+    #
+    for i in range(len(node_ids)):
+        for j in range(len(text_tokens)):
+            a = posterior[i, j].item()
+            s += '{} {} {}\n'.format(i, j, a)
 
-            #
-            s = ''
+    s += '\n'
 
-            #
-            s += '{}\n'.format(idx)
-            s += ' '.join(node_names) + '\n'
-            s += ' '.join(node_ids) + '\n'
-            s += ' '.join(text_tokens) + '\n'
+    return s
 
-            #
-            for i in range(len(node_ids)):
-                for j in range(len(text_tokens)):
-                    a = posterior[i, j].item()
-                    s += '{} {} {}\n'.format(i, j, a)
 
-            s += '\n'
+def read_amr_pretty_format(s):
+    lines = s.split('\n')
 
-            yield amr, s
+    node_ids = lines[2].strip().split()
+    text_tokens = lines[3].strip().split()
+
+    assert len(lines) == (len(node_ids) * len(text_tokens) + 4)
+
+    posterior = np.zeros((len(node_ids), len(text_tokens)), dtype=np.float32)
+
+    for i in range(len(node_ids)):
+        for j in range(len(text_tokens)):
+            x = lines[4 + i * len(node_ids) + j]
+            posterior[i, j] = float(x.split()[-1])
+
+    return posterior
