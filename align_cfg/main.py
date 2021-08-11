@@ -30,6 +30,7 @@ import numpy as np
 from tqdm import tqdm
 
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
+from amr_utils import safe_read as safe_read_
 from alignment_decoder import AlignmentDecoder
 from evaluation import EvalAlignments
 from formatter import amr_to_pretty_format, amr_to_string
@@ -41,6 +42,18 @@ from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
 from tree_rnn import TreeEncoder as TreeRNNEncoder
 from vocab import *
 from vocab_definitions import MaskInfo
+
+
+def safe_read(path, **kwargs):
+    if args.aligner_training_and_eval:
+        kwargs['ibm_format'], kwargs['tokenize'] = True, False
+    else:
+        if args.no_jamr:
+            kwargs['ibm_format'], kwargs['tokenize'] = False, True
+        else:
+            kwargs['ibm_format'], kwargs['tokenize'] = False, False
+
+    return safe_read_(path, **kwargs)
 
 
 class JSONConfig(object):
@@ -1117,56 +1130,6 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     assert amr_tokenizer.token_TO_idx[PADDING_TOK] == PADDING_IDX
 
     return text_tokenizer, amr_tokenizer
-
-
-def safe_read(path, max_length=0, check_for_edges=False, remove_empty_align=True):
-
-    skipped = collections.Counter()
-
-    # FIXME: This reads AMR from JAMR notation
-    if args.aligner_training_and_eval:
-        # We need to read the alignments for validation and other eval.
-        corpus = read_amr2(path, ibm_format=True)
-    else:
-        if args.no_jamr:
-            corpus = read_amr2(path, ibm_format=False, tokenize=True)
-        else:
-            corpus = read_amr2(path, ibm_format=False)
-
-    if max_length > 0:
-        new_corpus = []
-        for amr in corpus:
-            if len(amr.tokens) > max_length:
-                skipped['max-length'] += 1
-                continue
-            new_corpus.append(amr)
-        corpus = new_corpus
-
-    if check_for_edges:
-        new_corpus = []
-        for amr in corpus:
-            if len(amr.edges) == 0:
-                skipped['no-edges'] += 1
-                continue
-            new_corpus.append(amr)
-        corpus = new_corpus
-
-    if remove_empty_align and corpus[0].alignments is not None:
-        stats = collections.Counter()
-
-        for amr in corpus:
-            node_ids = list(amr.alignments.keys())
-            for k in node_ids:
-                if amr.alignments[k] is None:
-                    del amr.alignments[k]
-                    stats['is-none'] += 1
-                else:
-                    stats['exists'] += 1
-        print('remove_empty_align: {}'.format(stats))
-
-    print('read {}, total = {}, skipped = {}'.format(path, len(corpus), skipped))
-
-    return corpus
 
 
 def maybe_write(context):

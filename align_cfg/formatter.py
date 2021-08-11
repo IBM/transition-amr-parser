@@ -1,10 +1,13 @@
 import datetime
 
+import numpy as np
 import torch
 
 import penman
 from penman import layout
 from penman._format import _format_node
+
+from tqdm import tqdm
 
 from amr_utils import get_node_ids
 
@@ -122,7 +125,7 @@ def amr_to_pretty_format(amr, ainfo, idx):
     return s
 
 
-def read_amr_pretty_format(s):
+def read_amr_pretty_format(amr, s):
     lines = s.split('\n')
 
     node_ids = lines[2].strip().split()
@@ -134,7 +137,34 @@ def read_amr_pretty_format(s):
 
     for i in range(len(node_ids)):
         for j in range(len(text_tokens)):
-            x = lines[4 + i * len(node_ids) + j]
+            x = lines[4 + i * len(text_tokens) + j]
             posterior[i, j] = float(x.split()[-1])
 
     return posterior
+
+
+def read_amr_pretty_file(path, corpus):
+    i = 0
+
+    posterior_list = []
+
+    with open(path) as f:
+        s = None
+
+        for line in tqdm(f, desc='read-pretty'):
+            if not line.strip():
+                if s is not None and s.strip():
+                    amr = corpus[i]
+                    posterior_list.append(read_amr_pretty_format(amr, s.strip()))
+                    i += 1
+                    s = None
+                continue
+
+            if s is None:
+                s = ''
+
+            s += line
+
+    assert len(corpus) == len(posterior_list)
+
+    return posterior_list

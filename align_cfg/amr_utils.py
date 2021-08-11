@@ -2,6 +2,50 @@ import collections
 
 import torch
 
+from transition_amr_parser.io import read_amr2
+
+
+def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edges=False, remove_empty_align=True):
+
+    skipped = collections.Counter()
+
+    corpus = read_amr2(path, ibm_format=ibm_format, tokenize=tokenize)
+
+    if max_length > 0:
+        new_corpus = []
+        for amr in corpus:
+            if len(amr.tokens) > max_length:
+                skipped['max-length'] += 1
+                continue
+            new_corpus.append(amr)
+        corpus = new_corpus
+
+    if check_for_edges:
+        new_corpus = []
+        for amr in corpus:
+            if len(amr.edges) == 0:
+                skipped['no-edges'] += 1
+                continue
+            new_corpus.append(amr)
+        corpus = new_corpus
+
+    if remove_empty_align and corpus[0].alignments is not None:
+        stats = collections.Counter()
+
+        for amr in corpus:
+            node_ids = list(amr.alignments.keys())
+            for k in node_ids:
+                if amr.alignments[k] is None:
+                    del amr.alignments[k]
+                    stats['is-none'] += 1
+                else:
+                    stats['exists'] += 1
+        print('remove_empty_align: {}'.format(stats))
+
+    print('read {}, total = {}, skipped = {}'.format(path, len(corpus), skipped))
+
+    return corpus
+
 
 def get_node_ids(amr):
     return list(sorted(amr.nodes.keys()))
