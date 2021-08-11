@@ -211,35 +211,45 @@ def main(args):
         alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
         
         latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
-        fdraw.write("\n\\resizebox{\\columnwidth}{!}{%\n")
-        fdraw.write("\n\\begin{footnotesize}\n")
-        fdraw.write(latex_str)
-        fdraw.write("\n\end{footnotesize}\n")
-        fdraw.write("\n}\n")
-        fdraw.write('pred\n')
-        fdraw.write('index={}\n'.format(index))
-        fdraw.write('tokens={}\n'.format(' '.join(amr.tokens)))
-        fdraw.write('%' + '\n')
 
-        if args.gold_amr is not None:
-            amr = gold_corpus[index]
-            alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
+        try:
+            output_str = ''
 
-            latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
-            fdraw.write("\n\\resizebox{\\columnwidth}{!}{%\n")
-            fdraw.write("\n\\begin{footnotesize}\n")
-            fdraw.write(latex_str)
-            fdraw.write("\n\end{footnotesize}\n")
-            fdraw.write("\n}\n")
+            output_str += "\n\\resizebox{\\columnwidth}{!}{%\n"
+            output_str += "\n\\begin{footnotesize}\n"
+            output_str += latex_str
+            output_str += "\n\end{footnotesize}\n"
+            output_str += "\n}\n"
+            output_str += 'pred\n'
+            output_str += 'index={}\n'.format(index)
+            output_str += 'tokens={}\n'.format(' '.join(amr.tokens))
+            output_str += '%' + '\n'
 
-            if args.sortby_recall:
-                recall = sortkeys[index]
-                fdraw.write('recall = {:.3f}\n'.format(recall))
+            if args.gold_amr is not None:
+                amr = gold_corpus[index]
+                alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
 
-            fdraw.write('%' + 'gold\n')
-            fdraw.write('%' + 'index={}\n'.format(index))
-            fdraw.write('%' + 'tokens={}\n'.format(' '.join(amr.tokens)))
-            fdraw.write('%' + '\n')
+                latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
+                output_str += "\n\\resizebox{\\columnwidth}{!}{%\n"
+                output_str += "\n\\begin{footnotesize}\n"
+                output_str += latex_str
+                output_str += "\n\end{footnotesize}\n"
+                output_str += "\n}\n"
+
+                if args.sortby_recall:
+                    recall = sortkeys[index]
+                    output_str += 'recall = {:.3f}\n'.format(recall)
+
+                output_str += '%' + 'gold\n'
+                output_str += '%' + 'index={}\n'.format(index)
+                output_str += '%' + 'tokens={}\n'.format(' '.join(amr.tokens))
+                output_str += '%' + '\n'
+
+        except:
+            print('WARNING: Skipping.')
+            continue
+
+        fdraw.write(output_str)
 
         found += 1
         
