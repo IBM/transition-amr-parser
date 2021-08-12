@@ -305,8 +305,12 @@ fi
 
 
 # combine different model configuration tags to the name
+fp16_tag=""
+if [[ $use_fp16 == 1 ]]; then
+    fp16_tag="fp16-"
+fi
 model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
-optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
 MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
@@ -316,7 +320,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
 ###############################################################
 
 # Smatch evaluation with wiki
-LINKER_CACHE_PATH=DATA/EL/BLINK/linkcache
+LINKER_CACHE_PATH=""
 
 ###############################################################
 # TESTS 

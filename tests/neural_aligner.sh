@@ -3,7 +3,7 @@ set -o pipefail
 if [ -z $1 ];then 
 
     # Standard mini-test with wiki25, sampling
-    config=configs/wiki25-neur-al-sampling.sh  
+    config=configs/wiki25-structured-bart-base-neur-al.sh
 
 else
 
