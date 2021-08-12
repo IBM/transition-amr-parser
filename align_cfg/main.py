@@ -45,13 +45,13 @@ from vocab_definitions import MaskInfo
 
 
 def safe_read(path, **kwargs):
+    # TODO: Rename to --jamr or similar
     if args.aligner_training_and_eval:
+        # read JAMR
         kwargs['ibm_format'], kwargs['tokenize'] = True, False
     else:
-        if args.no_jamr:
-            kwargs['ibm_format'], kwargs['tokenize'] = False, True
-        else:
-            kwargs['ibm_format'], kwargs['tokenize'] = False, False
+        # read PENMAN
+        kwargs['ibm_format'], kwargs['tokenize'] = False, False
 
     return safe_read_(path, **kwargs)
 
@@ -1260,11 +1260,26 @@ def main(args):
     text_tokenizer, amr_tokenizer = init_tokenizers(text_vocab_file=args.vocab_text, amr_vocab_file=args.vocab_amr)
 
     # DATA
-
     trn_corpus = safe_read(args.trn_amr, max_length=args.max_length)
+    # sanity check: we should allways have tokens
+    assert all(bool(amr) for amr in trn_corpus), \
+        "{args.trn_amr} must be tokenized"
+    # sanity check: --write-only expects alignments to compare with
+    if args.write_only:
+        assert all(bool(amr.alignments) for amr in trn_corpus), \
+            f"--write-only assumes {args.trn_amr} will be aligned"
     trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
 
     val_corpus_list = [safe_read(path, max_length=args.val_max_length) for path in args.val_amr]
+    if args.write_only:
+        for val_corpus, path in zip(val_corpus_list, args.val_amr):
+            # sanity check: --write-only expects alignments to compare with
+            assert all(bool(amr.alignments) for amr in val_corpus), \
+                f"--write-only assumes {path} will be aligned"
+            # sanity check: we should allways have tokens
+            assert all(bool(amr) for amr in val_corpus), \
+                "{path} must be tokenized"
+
     val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
 
     # MODEL

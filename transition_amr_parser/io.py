@@ -174,7 +174,22 @@ def yellow_font(string):
     return "\033[93m%s\033[0m" % string
 
 
-def protected_tokenizer(sentence_string):
+def protected_tokenizer(sentence_string, simple=False):
+
+    if simple:
+        # simplest possible tokenizer
+        # split by these symbols
+        sep_re = re.compile(r'[\.,;:?!"\' \(\)\[\]\{\}]')
+        return simple_tokenizer(sentence_string, sep_re)
+    else:
+        # imitates JAMR (97% sentece acc on AMR2.0)
+        # split by these symbols
+        # TODO: Do we really need to split by - ?
+        sep_re = re.compile(r'[/~\*%\.,;:?!"\' \(\)\[\]\{\}-]')
+        return jamr_like_tokenizer(sentence_string, sep_re)
+
+
+def jamr_like_tokenizer(sentence_string, sep_re):
 
     # quote normalization
     sentence_string = sentence_string.replace('``', '"')
@@ -216,10 +231,6 @@ def protected_tokenizer(sentence_string):
         # months
         r'Jan\.|Feb\.|Mar\.|Apr\.|Jun\.|Jul\.|Aug\.|Sep\.|Oct\.|Nov\.|Dec\.'
     ]))
-
-    # otherwise split by these symbols
-    # TODO: Do we really need to split by - ?
-    sep_re = re.compile(r'[/~\*%\.,;:?!"\' \(\)\[\]\{\}-]')
 
     # iterate over protected sequences, tokenize unprotected and append
     # protected strings
@@ -666,6 +677,8 @@ class AMR():
         # if 'From among them' in ' '.join(self.tokens):
         #     breakpoint()
 
+    # TODO: Deprecate tokenize. Avoid implicit tokenization.
+
     @classmethod
     def from_penman(cls, penman_text, tokenize=False):
         """
@@ -824,7 +837,6 @@ class AMR():
             new_lines.append(line)
         # if not we write it ourselves
         if not modified:
-            from ipdb import set_trace
             set_trace(context=30)
             print()
         return ('\n'.join(new_lines)) + '\n'

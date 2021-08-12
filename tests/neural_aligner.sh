@@ -64,6 +64,8 @@ python -u align_cfg/main.py --no-jamr \
     --max-length 0
 
 # results should be written to
-# DATA.tmp/neural_aligner/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred
-python -c "import os; assert os.path.exists('DATA.tmp/neural_aligner/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred')"
-
+if [ -f "$FOLDER/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred" ];then
+    printf "\n[\033[92mOK\033[0m] $0\n\n"
+else
+    printf "\n[\033[91mFAILED\033[0m] $0\n\n"
+fi
