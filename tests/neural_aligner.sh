@@ -15,15 +15,18 @@ cp DATA/wiki25.jkaln $FOLDER/wiki25.amr
 
 # Preprocess
 # Build aligner vocabulary.
-python align_cfg/vocab.py --in-amrs $FOLDER/wiki25.amr --out-folder $FOLDER
+python align_cfg/vocab.py \
+    --in-amrs $FOLDER/wiki25.amr \
+    --out-text $FOLDER/vocab.text.txt \
+    --out-amr $FOLDER/vocab.amr.txt
 # Pre-compute token embeddings.
 python align_cfg/pretrained_embeddings.py \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/vocab.text.txt \
+    --vocab $FOLDER/vocab.text.txt \
     --cache-dir $FOLDER/
 python align_cfg/pretrained_embeddings.py \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/vocab.amr.txt \
+    --vocab $FOLDER/vocab.amr.txt \
     --cache-dir $FOLDER/
 
 # Learn alignments.
