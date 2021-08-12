@@ -37,9 +37,9 @@ else
     # tokenize
     # use --simple for barebones tokenization otherwise imitates JAMR
     # TODO: Add if [ JAMR_EVAL ] here to ignore this
-    python scripts/amr_tokenize.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python scripts/amr_tokenize.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
-    python scripts/amr_tokenize.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
+    python scripts/tokenize_amr.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    python scripts/tokenize_amr.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
+    python scripts/tokenize_amr.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
 
     # Generate embeddings for the aligner
     python align_cfg/pretrained_embeddings.py --cuda \
