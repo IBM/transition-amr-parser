@@ -1141,7 +1141,34 @@ def maybe_write(context):
 
     batch_size = args.batch_size
 
-    def write_align_pretty(corpus, dataset, path):
+    if args.read_only:
+        t = AMRTokenizer()
+        for amr in read_amr2(args.trn_amr, ibm_format=False):
+            t.dfs(amr)
+        sys.exit()
+
+    # tokenizers
+    text_tokenizer, amr_tokenizer = init_tokenizers(text_vocab_file=args.vocab_text, amr_vocab_file=args.vocab_amr)
+
+    # read data
+    trn_corpus = safe_read(args.trn_amr, max_length=args.max_length, check_for_bpe=args.check_for_bpe)
+    # no empty tokens
+    assert all(bool(amr.tokens) for amr in trn_corpus), \
+        f"One or more AMR in {args.trn_amr} had no tokens"
+    trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
+
+    val_corpus_list = [safe_read(path, max_length=args.val_max_length, check_for_bpe=args.check_for_bpe) for path in args.val_amr]
+    val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
+
+    # net
+    net = Net.from_dataset_and_config(trn_dataset, model_config, args.cache_dir)
+    if args.load is not None:
+        load_checkpoint(args.load, net)
+
+    if args.cuda:
+        net.cuda()
+
+    def write_align_pretty(corpus, dataset, path, formatter):
         net.eval()
 
         indices = np.arange(len(corpus))
