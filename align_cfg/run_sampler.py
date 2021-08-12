@@ -57,8 +57,7 @@ def argument_parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', default='mode_1', type=str)
-    parser.add_argument('--n-samples-ckpt', default=10, type=int)
-    parser.add_argument('--n-samples', default=100, type=int)
+    parser.add_argument('--n-samples', action='append', default=[], type=int)
     parser.add_argument(
         "--in-amr",
         help="AMR input file.",
@@ -100,6 +99,9 @@ def argument_parser():
         type=int,
     )
     args = parser.parse_args()
+
+    if len(args.n_samples) == 0:
+        args.n_samples.append(10)
 
     return args
 
@@ -174,9 +176,8 @@ def run_mode_2(args):
     ckpt = collections.defaultdict(list)
 
     def print_so_far():
-        print('init', np.mean([x['d'] for x in ckpt['init']]))
-        print('best_ckpt', np.mean([x['d'] for x in ckpt['best_ckpt']]))
-        print('best', np.mean([x['d'] for x in ckpt['best']]))
+        for k, v in ckpt.items():
+            print(k, np.mean([x['d'] for x in v]))
 
     # sample
     for i, (amr, posterior) in enumerate(zip(corpus, posterior_list)):
@@ -200,9 +201,10 @@ def run_mode_2(args):
 
         init_a_info = dict(d=d, a=amr.alignments)
         best_a_info = init_a_info
-        best_a_info_ckpt = None
 
-        for i_sample in range(args.n_samples):
+        ckpt['init'].append(init_a_info)
+
+        for i_sample in range(max(args.n_samples)):
             sample = dist.sample().argmax(1).tolist()
 
             a = {node_ids[i]: [sample[i]] for i in range(len(node_ids))}
@@ -216,39 +218,40 @@ def run_mode_2(args):
             if d < best_a_info['d']:
                 best_a_info = a_info
 
-            if i_sample == args.n_samples_ckpt - 1:
-                best_a_info_ckpt = best_a_info
-
-        ckpt['init'].append(init_a_info)
-        ckpt['best'].append(best_a_info)
-        ckpt['best_ckpt'].append(best_a_info_ckpt)
+            for n_sample in args.n_samples:
+                if i_sample == n_sample - 1:
+                    ckpt['best-{}'.format(n_sample)].append(best_a_info)
 
         # log
         prefix = '[{}/{} {:.3f}%]'.format(i, len(corpus), i / len(corpus) * 100)
+        print(prefix)
 
         d_init = init_a_info['d']
         d_best = best_a_info['d']
-        d_best_ckpt = best_a_info_ckpt['d']
-
         d_diff = d_best - d_init
-        d_str = 'd:( init = {:.3f} , best = {:.3f} , diff = {:.3f} )'.format(d_init, d_best, d_diff)
+        d_best_str = 'd:( init = {:.3f} , best = {:.3f} , diff = {:.3f} )'.format(d_init, d_best, d_diff)
+        print(d_best_str)
 
-        d_diff = d_best - d_best_ckpt
-        d_str_ckpt = 'd_ckpt:( best_ckpt = {:.3f} , best = {:.3f} , diff = {:.3f} )'.format(d_best_ckpt, d_best, d_diff)
+        n_samples_list = sorted(args.n_samples)
 
-        print(prefix)
-        print(d_str)
-        print(d_str_ckpt)
-        print()
+        for n_sample in n_samples_list:
+            d_best_ckpt = ckpt['best-{}'.format(n_sample)][-1]['d']
+            d_diff_best = d_best - d_best_ckpt
+            d_diff_init = d_best_ckpt - d_init
+
+            d_str_ckpt = 'd[n={}]:( best_ckpt = {:.3f} , diff_init = {:.3f} , diff_best = {:.3f} )'.format(n_sample, d_best_ckpt, d_diff_init, d_diff_best)
+            print(d_str_ckpt)
+
+        print('')
 
         if i % 1000 == 0:
             print('=' * 80)
             print_so_far()
             print('\n\n')
 
-    print('init', np.mean([x['d'] for x in ckpt['init']]))
-    print('best_ckpt', np.mean([x['d'] for x in ckpt['best_ckpt']]))
-    print('best', np.mean([x['d'] for x in ckpt['best']]))
+    print('=' * 80)
+    print_so_far()
+    print('\n\n')
 
 
 def main(args):
