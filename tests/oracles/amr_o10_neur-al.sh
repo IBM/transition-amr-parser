@@ -44,14 +44,18 @@ fi
 
 mkdir -p $ORACLE_FOLDER
 
+#    --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+#    --no-jamr \
+
 python transition_amr_parser/amr_machine.py \
-    --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-    --no-jamr \
+    --in-aligned-amr $AMR_TRAIN_FILE \
     --in-alignment-probs $ALIGNED_FOLDER/alignment.trn.pretty \
     --out-machine-config $ORACLE_FOLDER/machine_config.json \
     --out-actions $ORACLE_FOLDER/train.actions \
     --out-tokens $ORACLE_FOLDER/train.tokens \
     --absolute-stack-positions  \
+    --out-stats-vocab $ORACLE_FOLDER/train.actions.vocab \
+    --use-copy ${USE_COPY} \
     # --reduce-nodes all
 
 python transition_amr_parser/amr_machine.py \
