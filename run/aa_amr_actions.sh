@@ -30,7 +30,18 @@ else
 
     mkdir -p $ALIGNED_FOLDER
 
-    # Generate embeddings
+    # remove wiki, tokenize sentences unless we use JAMR reference
+    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
+    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
+    # tokenize
+    # use --simple for barebones tokenization otherwise imitates JAMR
+    # TODO: Add if [ JAMR_EVAL ] here to ignore this
+    python scripts/tokenize_amr.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
+    python scripts/tokenize_amr.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
+    python scripts/tokenize_amr.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
+
+    # Generate embeddings for the aligner
     python align_cfg/pretrained_embeddings.py --cuda \
         --cache-dir $ALIGNED_FOLDER \
         --vocab-text $ALIGN_VOCAB_TEXT
@@ -40,7 +51,6 @@ else
 
     # Train
     echo "align train"
-    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
     python align_cfg/main.py --cuda \
         --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
@@ -54,7 +64,6 @@ else
 
     # Dev
     echo "align dev"
-    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
     python align_cfg/main.py --cuda \
         --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
@@ -68,7 +77,6 @@ else
     
     # Test
     echo "align test"
-    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
     python align_cfg/main.py --cuda \
         --no-jamr \
         --cache-dir $ALIGNED_FOLDER \

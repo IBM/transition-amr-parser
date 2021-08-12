@@ -174,9 +174,101 @@ def yellow_font(string):
     return "\033[93m%s\033[0m" % string
 
 
-def protected_tokenizer(sentence_string):
-    separator_re = re.compile(r'[\.,;:?!"\' \(\)\[\]\{\}]')
-    return simple_tokenizer(sentence_string, separator_re)
+def protected_tokenizer(sentence_string, simple=False):
+
+    if simple:
+        # simplest possible tokenizer
+        # split by these symbols
+        sep_re = re.compile(r'[\.,;:?!"\' \(\)\[\]\{\}]')
+        return simple_tokenizer(sentence_string, sep_re)
+    else:
+        # imitates JAMR (97% sentece acc on AMR2.0)
+        # split by these symbols
+        # TODO: Do we really need to split by - ?
+        sep_re = re.compile(r'[/~\*%\.,;:?!"\' \(\)\[\]\{\}-]')
+        return jamr_like_tokenizer(sentence_string, sep_re)
+
+
+def jamr_like_tokenizer(sentence_string, sep_re):
+
+    # quote normalization
+    sentence_string = sentence_string.replace('``', '"')
+    sentence_string = sentence_string.replace("''", '"')
+    sentence_string = sentence_string.replace("“", '"')
+
+    # currency normalization
+    #sentence_string = sentence_string.replace("£", 'GBP')
+
+    # Do not split these strings
+    protected_re = re.compile("|".join([
+        # URLs (this conflicts with many other cases, we should normalize URLs
+        # a priri both on text and AMR)
+        #r'((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}([a-zA-Z0-9\.\&\/\?\:@\-_=#])*',
+        #
+        r'[0-9][0-9,\.:/-]+[0-9]',         # quantities, time, dates
+        r'^[0-9][\.](?!\w)',               # enumerate
+        r'\b[A-Za-z][\.](?!\w)',           # itemize
+        r'\b([A-Z]\.)+[A-Z]?',             # acronym with periods (e.g. U.S.)
+        r'!+|\?+|-+|\.+',                  # emphatic
+        r'etc\.|i\.e\.|e\.g\.|v\.s\.|p\.s\.|ex\.',     # latin abbreviations
+        r'\b[Nn]o\.|\bUS\$|\b[Mm]r\.',     # ...
+        r'\b[Mm]s\.|\bSt\.|\bsr\.|a\.m\.', # other abbreviations
+        r':\)|:\(',                        # basic emoticons
+        # contractions
+        r'[A-Za-z]+\'[A-Za-z]{3,}',        # quotes inside words
+        r'n\'t(?!\w)',                     # negative contraction (needed?)
+        r'\'m(?!\w)',                      # other contractions
+        r'\'ve(?!\w)',                     # other contractions
+        r'\'ll(?!\w)',                     # other contractions
+        r'\'d(?!\w)',                      # other contractions
+        #r'\'t(?!\w)'                      # other contractions
+        r'\'re(?!\w)',                     # other contractions
+        r'\'s(?!\w)',                      # saxon genitive
+        #
+        r'<<|>>',                          # weird symbols
+        #
+        r'Al-[a-zA-z]+|al-[a-zA-z]+',      # Arabic article
+        # months
+        r'Jan\.|Feb\.|Mar\.|Apr\.|Jun\.|Jul\.|Aug\.|Sep\.|Oct\.|Nov\.|Dec\.'
+    ]))
+
+    # iterate over protected sequences, tokenize unprotected and append
+    # protected strings
+    tokens = []
+    positions = []
+    start = 0
+    for point in protected_re.finditer(sentence_string):
+
+        # extract preceeding and protected strings
+        end = point.start()
+        preceeding_str = sentence_string[start:end]
+        protected_str = sentence_string[end:point.end()]
+
+        if preceeding_str:
+            # tokenize preceeding string keep protected string as is
+            for token, (start2, end2) in zip(
+                *simple_tokenizer(preceeding_str, sep_re)
+            ):
+                tokens.append(token)
+                positions.append((start + start2, start + end2))
+        tokens.append(protected_str)
+        positions.append((end, point.end()))
+
+        # move cursor
+        start = point.end()
+
+    # Termination
+    end = len(sentence_string)
+    if start < end:
+        ending_str = sentence_string[start:end]
+        if ending_str.strip():
+            for token, (start2, end2) in zip(
+                *simple_tokenizer(ending_str, sep_re)
+            ):
+                tokens.append(token)
+                positions.append((start + start2, start + end2))
+
+    return tokens, positions
 
 
 def simple_tokenizer(sentence_string, separator_re):
@@ -585,6 +677,8 @@ class AMR():
         # if 'From among them' in ' '.join(self.tokens):
         #     breakpoint()
 
+    # TODO: Deprecate tokenize. Avoid implicit tokenization.
+
     @classmethod
     def from_penman(cls, penman_text, tokenize=False):
         """
@@ -743,7 +837,6 @@ class AMR():
             new_lines.append(line)
         # if not we write it ourselves
         if not modified:
-            from ipdb import set_trace
             set_trace(context=30)
             print()
         return ('\n'.join(new_lines)) + '\n'

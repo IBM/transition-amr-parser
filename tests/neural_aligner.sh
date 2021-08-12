@@ -15,15 +15,18 @@ cp DATA/wiki25.jkaln $FOLDER/wiki25.amr
 
 # Preprocess
 # Build aligner vocabulary.
-python align_cfg/vocab.py --in-amrs $FOLDER/wiki25.amr --out-folder $FOLDER
+python align_cfg/vocab.py \
+    --in-amrs $FOLDER/wiki25.amr \
+    --out-text $FOLDER/vocab.text.txt \
+    --out-amr $FOLDER/vocab.amr.txt
 # Pre-compute token embeddings.
 python align_cfg/pretrained_embeddings.py \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/vocab.text.txt \
+    --vocab $FOLDER/vocab.text.txt \
     --cache-dir $FOLDER/
 python align_cfg/pretrained_embeddings.py \
     --cuda --allow-cpu \
-    --vocab-text $FOLDER/vocab.amr.txt \
+    --vocab $FOLDER/vocab.amr.txt \
     --cache-dir $FOLDER/
 
 # Learn alignments.
@@ -61,6 +64,8 @@ python -u align_cfg/main.py --no-jamr \
     --max-length 0
 
 # results should be written to
-# DATA.tmp/neural_aligner/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred
-python -c "import os; assert os.path.exists('DATA.tmp/neural_aligner/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred')"
-
+if [ -f "$FOLDER/version_20210709c_exp_0_seed_0_write_amr2/alignment.trn.out.pred" ];then
+    printf "\n[\033[92mOK\033[0m] $0\n\n"
+else
+    printf "\n[\033[91mFAILED\033[0m] $0\n\n"
+fi
