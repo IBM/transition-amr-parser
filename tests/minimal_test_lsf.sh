@@ -3,8 +3,7 @@ set -o pipefail
 if [ -z $1 ];then 
 
     # Standard mini-test with wiki25
-
-    config=configs/wiki25.sh  
+    config=configs/wiki25-structured-bart-base.sh 
 
     # Delete previous runs is exist
     rm -Rf DATA/wiki25/*
