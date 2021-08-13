@@ -1197,8 +1197,8 @@ def maybe_write(context):
                     node_ids = get_node_ids(amr)
                     alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
 
-                predictions['amr'].append(amr)
-                predictions['alignments'].append(alignments)# write alignments
+                    predictions['amr'].append(amr)
+                    predictions['alignments'].append(alignments)# write alignments
 
         # write pred
         with open(path_pred, 'w') as f_pred:
