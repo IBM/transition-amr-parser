@@ -54,11 +54,11 @@ else
         # tokenize sentences unless we use JAMR reference
         # use --simple for barebones tokenization otherwise imitates JAMR
         python scripts/tokenize_amr.py \
-            --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki --simple
+            --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
         python scripts/tokenize_amr.py \
-            --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki --simple
+            --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
         python scripts/tokenize_amr.py \
-            --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki --simple
+            --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
     
         # generate ELMO vocabulary
         python align_cfg/vocab.py \
@@ -103,7 +103,6 @@ else
         --val-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
         --log-dir $ALIGNED_FOLDER \
         --write-pretty
-
 
     python align_cfg/main.py --cuda \
         --no-jamr \

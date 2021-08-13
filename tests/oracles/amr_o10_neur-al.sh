@@ -78,5 +78,5 @@ python transition_amr_parser/amr_machine.py \
     --out-amr $ORACLE_FOLDER/train_oracle.amr
 
 # Score
-echo "Computing Smatch (make take long for 1K or more sentences)"
+echo "Computing Smatch (may take long for 1K or more sentences)"
 smatch.py -r 10 --significant 4 -f ${AMR_TRAIN_FILE_WIKI}.no_wiki $ORACLE_FOLDER/train_oracle.amr
