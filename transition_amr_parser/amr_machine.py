@@ -530,8 +530,6 @@ class AMRStateMachine():
             valid_base_actions.append('CLOSE')
 
         if self.reduce_nodes:
-            raise NotImplementedError
-
             if len(self.node_stack) > 0:
                 valid_base_actions.append('REDUCE')
             if len(self.node_stack) > 1:
@@ -843,7 +841,21 @@ class StatsForVocab:
         self.right_arcs = Counter()
         self.control = Counter()
 
+        # node stack stats (candidate pool for the pointer)
+        self.node_stack_corpus = []
+
     def update(self, action, machine):
+
+        # new sentence
+        if len(machine.action_history) == 1:
+            self.node_stack_corpus.append([])
+        # update stats for node stack size
+        # if we have an arc action, store pool size
+        if action.startswith('>LA') or action.startswith('>RA'):
+            # store for current sentence
+            pool_size = len(machine.node_stack) - 1
+            self.node_stack_corpus[-1].append(pool_size)
+
         if self.no_close:
             if action in ['CLOSE', '_CLOSE_']:
                 return
@@ -864,6 +876,13 @@ class StatsForVocab:
             self.nodes.update([action])
 
     def display(self):
+
+        # Uniform Pointer Perplexity
+        UPP_sents = list(map(np.mean, self.node_stack_corpus))
+        print(f'Uniform Pointer Perplexity: {np.mean(UPP_sents):.2f}')
+        print(f'max UPP: {np.max(UPP_sents):.2f}'
+              f' (sent {np.argmax(UPP_sents)})')
+
         print('Total number of different node names:')
         print(len(list(self.nodes.keys())))
         print('Most frequent node names:')
@@ -907,10 +926,13 @@ def oracle(args):
         17055,  # (3, ':mod', 7), (3, ':mod', 7)
         27076,  # '0.0.2.1.0.0' is on ::edges but not ::nodes
         # for AMR 3.0 data: DATA/AMR3.0/aligned/cofill/train.txt
-        9296,   # self-loop: "# ::edge vote-01 condition vote-01 0.0.2 0.0.2", "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
+        9296,   # self-loop: "# ::edge vote-01 condition vote-01 0.0.2 0.0.2",
+                # "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
     ]
-    # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list and used for both oracles, since:
-    #      this would NOT change the oracle actions, but only ignore sanity checks and displayed stats after oracle run
+    # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list
+    # and used for both oracles, since: this would NOT change the oracle
+    # actions, but only ignore sanity checks and displayed stats after oracle
+    # run
 
     # Initialize machine
     machine = AMRStateMachine(

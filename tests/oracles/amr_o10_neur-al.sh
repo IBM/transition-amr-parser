@@ -25,7 +25,7 @@ set -o nounset
     && echo -e "\nRun bash test/neural_aligner.sh $config\n" \
     && exit 1
 
-#if [ ! -f "$ALIGNED_FOLDER/alignment.trn.pretty" ];then
+if [ ! -f "$ALIGNED_FOLDER/alignment.trn.pretty" ];then
 
     # Align
     python align_cfg/main.py --cuda \
@@ -52,7 +52,7 @@ set -o nounset
         --log-dir $ALIGNED_FOLDER \
         --write-pretty
     
-#fi
+fi
 
 mkdir -p $ORACLE_FOLDER
 
