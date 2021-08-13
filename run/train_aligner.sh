@@ -27,11 +27,11 @@ python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
 python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
 # tokenize
 # TODO:  This assumes we provide JAMR tokenization (for now)
-if [ false ];then
-    python scripts/tokenize_amr.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python scripts/tokenize_amr.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
-    python scripts/tokenize_amr.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
-fi
+#if [ false ];then
+python scripts/tokenize_amr.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
+python scripts/tokenize_amr.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
+python scripts/tokenize_amr.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
+#fi
 
 # generate ELMO vocabulary
 python align_cfg/vocab.py \
