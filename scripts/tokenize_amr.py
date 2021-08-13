@@ -37,7 +37,10 @@ def main(args):
             out_raw_amr.append(line)
 
     if existing_tokenization:
-        print('\nWARNING: Ignored existing tokenization in {args.in_amr}\n')
+        print(
+            f'\033[93mWARNING\033[0m:'
+            f' Overwrote existing tokenization in {args.in_amr}'
+        )
 
     # write
     with open(args.in_amr, 'w') as fid:

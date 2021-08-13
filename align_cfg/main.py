@@ -1165,10 +1165,11 @@ def maybe_write(context):
                     amr = corpus[idx]
                     f_pretty.write(amr_to_pretty_format(amr, ainfo, idx).strip() + '\n\n')
 
-                # write reference amr
-                for idx in batch_indices:
-                    amr = corpus[idx]
-                    f_gold.write(amr_to_string(amr).strip() + '\n\n')
+                # FIXME: I use write pretty when there is no reference
+                # # write reference amr
+                # for idx in batch_indices:
+                #     amr = corpus[idx]
+                #     f_gold.write(amr_to_string(amr).strip() + '\n\n')
 
         f_pretty.close()
         f_gold.close()
@@ -1276,9 +1277,11 @@ def main(args):
             # sanity check: --write-only expects alignments to compare with
             assert all(bool(amr.alignments) for amr in val_corpus), \
                 f"--write-only assumes {path} will be aligned"
-            # sanity check: we should allways have tokens
-            assert all(bool(amr) for amr in val_corpus), \
-                "{path} must be tokenized"
+
+    # sanity check: we should allways have tokens
+    for val_corpus, path in zip(val_corpus_list, args.val_amr):
+       assert all(bool(amr) for amr in val_corpus), \
+           "{path} must be tokenized"
 
     val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
 

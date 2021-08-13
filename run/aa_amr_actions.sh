@@ -30,24 +30,42 @@ else
 
     mkdir -p $ALIGNED_FOLDER
 
-    # remove wiki, tokenize sentences unless we use JAMR reference
-    python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
-    python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
-    # tokenize
-    # use --simple for barebones tokenization otherwise imitates JAMR
-    # TODO: Add if [ JAMR_EVAL ] here to ignore this
-    python scripts/tokenize_amr.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python scripts/tokenize_amr.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
-    python scripts/tokenize_amr.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
+    if [ ! -f "$ALIGN_MODEL" ];then
 
-    # Generate embeddings for the aligner
-    python align_cfg/pretrained_embeddings.py --cuda \
-        --cache-dir $ALIGNED_FOLDER \
-        --vocab-text $ALIGN_VOCAB_TEXT
-    python align_cfg/pretrained_embeddings.py --cuda \
-        --cache-dir $ALIGNED_FOLDER \
-        --vocab-text $ALIGN_VOCAB_AMR
+        # need to train a model (will include pre-procesing)
+        # TODO: Add if [ JAMR_EVAL ] here to ignore this
+        bash run/train_aligner.sh $config
+
+    else
+
+        # pre-procesing
+
+        # remove wiki
+        python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
+        python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
+        python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
+
+        # tokenize sentences unless we use JAMR reference
+        # use --simple for barebones tokenization otherwise imitates JAMR
+        python scripts/tokenize_amr.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki --simple
+        python scripts/tokenize_amr.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki --simple
+        python scripts/tokenize_amr.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki --simple
+    
+        # generate ELMO vocabulary
+        python align_cfg/vocab.py \
+            --in-amrs ${AMR_TRAIN_FILE_WIKI}.no_wiki \
+            --out-text $ALIGN_VOCAB_TEXT \
+            --out-amr $ALIGN_VOCAB_AMR
+    
+        # Generate embeddings for the aligner
+        python align_cfg/pretrained_embeddings.py --cuda \
+            --cache-dir $ALIGNED_FOLDER \
+            --vocab $ALIGN_VOCAB_TEXT
+        python align_cfg/pretrained_embeddings.py --cuda \
+            --cache-dir $ALIGNED_FOLDER \
+            --vocab $ALIGN_VOCAB_AMR
+
+    fi
 
     # Train
     echo "align train"

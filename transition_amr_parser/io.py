@@ -482,9 +482,9 @@ default_rel = ':rel'
 def validate_alignments(amr):
     assert amr.alignments is not None, "JAMR notation expects amr.alignments"
     assert amr.tokens, "JAMR notation expects amr.tokens"
-    indices = [y for x in filter(None, amr.alignments.values()) for y in x]
-    assert max(indices) < len(amr.tokens) and min(indices) >= 0, \
-        "Invalid token range"
+    # indices = [y for x in filter(None, amr.alignments.values()) for y in x]
+    # assert max(indices) < len(amr.tokens) and min(indices) >= 0, \
+    #    "Invalid token range"
 
 
 class AMR():
