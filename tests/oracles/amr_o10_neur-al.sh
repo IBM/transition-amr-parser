@@ -62,6 +62,7 @@ mkdir -p $ORACLE_FOLDER
 python transition_amr_parser/amr_machine.py \
     --in-aligned-amr $AMR_TRAIN_FILE \
     --in-alignment-probs $ALIGNED_FOLDER/alignment.trn.pretty \
+    --alignment-sampling-temp 1.0 \
     --out-machine-config $ORACLE_FOLDER/machine_config.json \
     --out-actions $ORACLE_FOLDER/train.actions \
     --out-tokens $ORACLE_FOLDER/train.tokens \

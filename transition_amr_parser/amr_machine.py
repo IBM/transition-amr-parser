@@ -1120,7 +1120,7 @@ def argument_parser():
         "--alignment-sampling-temp",
         help="Temperature for sampling alignments",
         default=1.0,
-        type=str,
+        type=float,
     )
     # ORACLE
     parser.add_argument(
