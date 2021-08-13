@@ -41,15 +41,24 @@ else
         # pre-procesing
 
         # remove wiki
-        python preprocess/remove_wiki.py $AMR_TRAIN_FILE_WIKI ${AMR_TRAIN_FILE_WIKI}.no_wiki
-        python preprocess/remove_wiki.py $AMR_DEV_FILE_WIKI ${AMR_DEV_FILE_WIKI}.no_wiki
-        python preprocess/remove_wiki.py $AMR_TEST_FILE_WIKI ${AMR_TEST_FILE_WIKI}.no_wiki
+        python preprocess/remove_wiki.py \
+            $AMR_TRAIN_FILE_WIKI \
+            ${AMR_TRAIN_FILE_WIKI}.no_wiki
+        python preprocess/remove_wiki.py \
+            $AMR_DEV_FILE_WIKI \
+            ${AMR_DEV_FILE_WIKI}.no_wiki
+        python preprocess/remove_wiki.py \
+            $AMR_TEST_FILE_WIKI \
+            ${AMR_TEST_FILE_WIKI}.no_wiki
 
         # tokenize sentences unless we use JAMR reference
         # use --simple for barebones tokenization otherwise imitates JAMR
-        python scripts/tokenize_amr.py --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki --simple
-        python scripts/tokenize_amr.py --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki --simple
-        python scripts/tokenize_amr.py --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki --simple
+        python scripts/tokenize_amr.py \
+            --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki --simple
+        python scripts/tokenize_amr.py \
+            --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki --simple
+        python scripts/tokenize_amr.py \
+            --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki --simple
     
         # generate ELMO vocabulary
         python align_cfg/vocab.py \
