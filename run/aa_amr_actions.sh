@@ -67,6 +67,7 @@ else
 
     fi
 
+    # Train
     echo "align train"
     python align_cfg/main.py --cuda \
         --no-jamr \
@@ -94,11 +95,6 @@ else
         --log-dir $ALIGNED_FOLDER \
         --write-pretty
 
-    # Dev
-    echo "align dev"
-    python preprocess/remove_wiki.py \
-		$AMR_DEV_FILE_WIKI \
-		${AMR_DEV_FILE_WIKI}.no_wiki
 
     python align_cfg/main.py --cuda \
         --no-jamr \
@@ -122,28 +118,6 @@ else
         --vocab-amr $ALIGN_VOCAB_AMR \
         --write-single \
         --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/test.txt
-
-    python align_cfg/main.py --cuda \
-        --no-jamr \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGN_MODEL \
-        --load-flags $ALIGN_MODEL_FLAGS \
-        --vocab-text $ALIGN_VOCAB_TEXT \
-        --vocab-amr $ALIGN_VOCAB_AMR \
-        --write-single \
-        --single-input ${AMR_TEST_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/test.txt
-
-    python align_cfg/main.py --cuda \
-        --no-jamr \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGN_MODEL \
-        --load-flags $ALIGN_MODEL_FLAGS \
-        --vocab-text $ALIGN_VOCAB_TEXT \
-        --vocab-amr $ALIGN_VOCAB_AMR \
-        --write-single \
-        --single-input ${AMR_TEST_FILE_WIKI}.no_wiki \
         --single-output $ALIGNED_FOLDER/test.txt
 
     # Mark as done
