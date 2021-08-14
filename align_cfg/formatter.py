@@ -85,7 +85,9 @@ def amr_to_string(amr, alignments=None):
     body += AMRStringHelper.tok(amr) + '\n'
     if len(amr.nodes) > 0:
         body += AMRStringHelper.alignments(amr, alignments) + '\n'
-        body += '\n'.join(AMRStringHelper.nodes(amr, alignments)) + '\n'
+        nodes_str = AMRStringHelper.nodes(amr, alignments)
+        if nodes_str:
+            body += '\n'.join(nodes_str) + '\n'
         body += AMRStringHelper.root(amr, alignments) + '\n'
     if len(amr.edges) > 0:
         body += '\n'.join(AMRStringHelper.edges(amr, alignments)) + '\n'
