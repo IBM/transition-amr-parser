@@ -114,8 +114,6 @@ else
         --write-single \
         --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
         --single-output $ALIGNED_FOLDER/dev.txt
-
-    # --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki ?
     
     # Test
     echo "align test"
