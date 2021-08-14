@@ -6,6 +6,7 @@ import json
 import os
 import sys
 
+# TODO: This can be set in the config
 os.environ['DGLBACKEND'] = 'pytorch'
 
 try:
@@ -1239,6 +1240,16 @@ def maybe_write(context):
         sys.exit()
 
 
+def break_if_oov(corpus, corpus_file, tokenizer, vocab_file, fun):
+    # sanity check: tokenizer suports all tokens in
+    for amr in corpus:
+        for token in fun(amr):
+            if token not in tokenizer.token_TO_idx:
+                raise Exception(
+                    f'{token} in {corpus_file} not in {vocab_file}'
+                )
+
+
 def main(args):
     batch_size = args.batch_size
     lr = args.lr
@@ -1257,11 +1268,14 @@ def main(args):
         sys.exit()
 
     # TOKENIZERS
-
     text_tokenizer, amr_tokenizer = init_tokenizers(text_vocab_file=args.vocab_text, amr_vocab_file=args.vocab_amr)
 
     # DATA
+    # Train
     trn_corpus = safe_read(args.trn_amr, max_length=args.max_length)
+    # Validation
+    val_corpus_list = [safe_read(path, max_length=args.val_max_length) for path in args.val_amr]
+
     # sanity check: we should allways have tokens
     assert all(bool(amr) for amr in trn_corpus), \
         "{args.trn_amr} must be tokenized"
@@ -1269,20 +1283,24 @@ def main(args):
     if args.write_only:
         assert all(bool(amr.alignments) for amr in trn_corpus), \
             f"--write-only assumes {args.trn_amr} will be aligned"
-    trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
-
-    val_corpus_list = [safe_read(path, max_length=args.val_max_length) for path in args.val_amr]
+    # sanity check: tokenizer suports all tokens in
+    break_if_oov(trn_corpus, args.trn_amr, text_tokenizer, args.vocab_text, lambda a: a.tokens)
+    break_if_oov(trn_corpus, args.trn_amr, amr_tokenizer, args.vocab_amr, lambda a: a.nodes.values())
     if args.write_only:
         for val_corpus, path in zip(val_corpus_list, args.val_amr):
             # sanity check: --write-only expects alignments to compare with
             assert all(bool(amr.alignments) for amr in val_corpus), \
                 f"--write-only assumes {path} will be aligned"
-
-    # sanity check: we should allways have tokens
+    # sanity check: we should allways have tokens and no OOV
     for val_corpus, path in zip(val_corpus_list, args.val_amr):
-       assert all(bool(amr) for amr in val_corpus), \
-           "{path} must be tokenized"
+        assert all(bool(amr) for amr in val_corpus), \
+            "{path} must be tokenized"
+        # sanity check: tokenizer suports all tokens in
+        break_if_oov(val_corpus, path, text_tokenizer, args.vocab_text, lambda a: a.tokens)
+        break_if_oov(val_corpus, path, amr_tokenizer, args.vocab_amr, lambda a: a.nodes.values())
 
+    # datasets
+    trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
     val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
 
     # MODEL
