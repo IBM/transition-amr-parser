@@ -11,14 +11,14 @@ os.environ['DGLBACKEND'] = 'pytorch'
 try:
     import dgl
     has_dgl = True
-except:
+except ImportError:
     print('Warning: To use DGL, install.')
     has_dgl = False
 
 try:
     from torch_geometric.data import Batch, Data
     has_geometric = True
-except:
+except ImportError:
     print('Warning: To use GCN install pytorch geometric.')
     has_geometric = False
 
@@ -1457,8 +1457,8 @@ def main(args):
                         node_ids = get_node_ids(amr)
                         alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
 
-                    val_predictions['amr'].append(amr)
-                    val_predictions['alignments'].append(alignments)
+                        val_predictions['amr'].append(amr)
+                        val_predictions['alignments'].append(alignments)
 
             # batch iterator
             indices = [i for i, _ in enumerate(sorted(val_corpus, key=lambda x: -len(x.tokens)))]
