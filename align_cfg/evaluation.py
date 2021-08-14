@@ -168,8 +168,10 @@ class CorpusRecall(Metric):
     def finish(self):
         total = np.sum(self.state['total']).item()
         correct = np.sum(self.state['correct']).item()
-        recall = correct / total
-
+        if total:
+            recall = correct / total
+        else:
+            recall = 0
         result = collections.OrderedDict()
         result['correct'] = correct
         result['total'] = total
@@ -430,7 +432,10 @@ class EvalAlignments(object):
         gold = read_amr2(path_gold, ibm_format=True)
         pred = read_amr2(path_pred, ibm_format=True)
 
-        assert len(gold) == len(pred)
+        if len(gold) != len(pred):
+            import ipdb; ipdb.set_trace(context=30)
+        assert len(gold) == len(pred), \
+            f'{path_gold} and {path_pred} differ in size'
 
         for i, (g, p) in tqdm(enumerate(zip(gold, pred)), desc='eval'):
 
