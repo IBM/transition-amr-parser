@@ -120,8 +120,13 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     token_posterior = node_token_joint / node_marginal
 
     # sharpen / flatten by temperature
-    phi = token_posterior**(1. / temperature)
-    token_posterior2 = phi / phi.sum(1, keepdims=True)
+    if temperature > 0:
+        phi = token_posterior**(1. / temperature)
+        token_posterior2 = phi / phi.sum(1, keepdims=True)
+    else:
+        num_tokens, num_nodes = token_posterior.shape
+        token_posterior2 = np.zeros((num_tokens, num_nodes))
+        token_posterior2[np.arange(num_tokens), token_posterior.argmax(1)] = 1
 
     if gold_amr.alignments is None:
         gold_amr.alignments = {}
