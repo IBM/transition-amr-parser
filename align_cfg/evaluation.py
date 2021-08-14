@@ -432,8 +432,6 @@ class EvalAlignments(object):
         gold = read_amr2(path_gold, ibm_format=True)
         pred = read_amr2(path_pred, ibm_format=True)
 
-        if len(gold) != len(pred):
-            import ipdb; ipdb.set_trace(context=30)
         assert len(gold) == len(pred), \
             f'{path_gold} and {path_pred} differ in size'
 
