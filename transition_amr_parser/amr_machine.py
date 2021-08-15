@@ -127,11 +127,18 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
         num_tokens, num_nodes = token_posterior.shape
         token_posterior2 = np.zeros((num_tokens, num_nodes))
         token_posterior2[np.arange(num_tokens), token_posterior.argmax(1)] = 1
+#         # FIXME: this sanity check shows node order is dict order and not that
+#         # on node_short_id
+#         if [y for x in gold_amr.alignments.values() for y in x] != list(token_posterior2.argmax(1)):
+#             import ipdb; ipdb.set_trace(context=30)
+#             print()
 
     if gold_amr.alignments is None:
         gold_amr.alignments = {}
 
-    for idx, node_id in enumerate(alignment_probs['node_short_id']):
+    # FIXME: See above
+    # for idx, node_id in enumerate(alignment_probs['node_short_id']):
+    for idx, node_id in enumerate(gold_amr.alignments.keys()):
         alignment = np.random.multinomial(1, token_posterior2[idx, :]).argmax()
         gold_amr.alignments[node_id] = [alignment]
 
@@ -883,7 +890,8 @@ class StatsForVocab:
     def display(self):
 
         # Uniform Pointer Perplexity
-        UPP_sents = list(map(np.mean, self.node_stack_corpus))
+        node_stack_corpus = [x for x in self.node_stack_corpus if x]
+        UPP_sents = list(map(np.mean, node_stack_corpus))
         print(f'Uniform Pointer Perplexity: {np.mean(UPP_sents):.2f}')
         print(f'max UPP: {np.max(UPP_sents):.2f}'
               f' (sent {np.argmax(UPP_sents)})')
@@ -946,7 +954,8 @@ def oracle(args):
         use_copy=args.use_copy
     )
     # Save machine config
-    machine.save(args.out_machine_config)
+    if args.out_machine_config:
+        machine.save(args.out_machine_config)
 
     # initialize oracle
     oracle = AMROracle(
@@ -1006,7 +1015,8 @@ def oracle(args):
         stats.update_sentence_stats(oracle, machine)
 
         # do not write 'CLOSE' in the action sequences
-        # this might change the machine.action_history in place, but it is the end of this machine already
+        # this might change the machine.action_history in place, but it is the
+        # end of this machine already
         close_action = stats.action_sequences[-1].pop()
         assert close_action == 'CLOSE'
 
@@ -1014,16 +1024,18 @@ def oracle(args):
     stats.display()
 
     # save action sequences and tokens
-    write_tokenized_sentences(
-        args.out_actions,
-        stats.action_sequences,
-        '\t'
-    )
-    write_tokenized_sentences(
-        args.out_tokens,
-        stats.tokens,
-        '\t'
-    )
+    if args.out_actions:
+        write_tokenized_sentences(
+            args.out_actions,
+            stats.action_sequences,
+            '\t'
+        )
+    if args.out_tokens:
+        write_tokenized_sentences(
+            args.out_tokens,
+            stats.tokens,
+            '\t'
+        )
 
     # save action vocabulary stats
     # debug
@@ -1084,9 +1096,10 @@ def main(args):
     elif args.in_aligned_amr or args.in_amr:
         # Run oracle and determine actions from AMR
         assert args.in_aligned_amr or (args.in_amr and args.in_alignment_probs)
-        assert args.out_actions
-        assert args.out_tokens
-        assert args.out_machine_config
+        if args.out_actions:
+            # if we write the actions we must aslo save the config
+            assert args.out_machine_config
+            assert args.out_tokens
         assert not args.in_tokens
         assert not args.in_actions
         oracle(args)
