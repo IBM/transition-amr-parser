@@ -892,11 +892,11 @@ class StatsForVocab:
         # Uniform Pointer Perplexity
         node_stack_corpus = [x for x in self.node_stack_corpus if x]
         UPP_sents = list(map(np.mean, node_stack_corpus))
-        print(f'Uniform Pointer Perplexity: {np.mean(UPP_sents):.2f}')
-        print(f'max UPP: {np.max(UPP_sents):.2f}'
-              f' (sent {np.argmax(UPP_sents)})')
-
-        print('Total number of different node names:')
+        print(
+            f'Average Node Memory Size: {np.mean(UPP_sents):.2f}'
+            f' (max {np.max(UPP_sents):.2f} at sent {np.argmax(UPP_sents)})'
+        )
+        print('Total number of different node names: ', end='')
         print(len(list(self.nodes.keys())))
         print('Most frequent node names:')
         print(self.nodes.most_common(20))
@@ -925,6 +925,11 @@ def oracle(args):
     amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
     amrs = read_amr2(amr_file, ibm_format=not args.no_jamr,
                      tokenize=args.no_jamr)
+    if args.in_aligned_amr:
+        # check actually aligned
+        assert all(bool(amr.alignments) for amr in amrs), \
+            f'Expected alignments in {amr_file}'
+
     # read AMR alignments if provided
     if args.in_alignment_probs:
         corpus_align_probs = read_neural_alignments(args.in_alignment_probs)
