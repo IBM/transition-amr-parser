@@ -362,7 +362,7 @@ def get_simple_graph(graph):
 
 def legacy_graph_printer(metadata, nodes, root, edges):
 
-    # These symbols can not be used directly for nodes
+    # These symbols can not be used directly for node names
     must_scape_symbols = [':', '/', '(', ')']
 
     # start from meta-data
@@ -372,7 +372,8 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     # find leaf nodes
     non_leaf_ids = set()
     for (src, label, trg) in edges:
-        non_leaf_ids.add(src)
+        if not label.endswith('-of'):
+            non_leaf_ids.add(src)
     leaf_ids = set(nodes.keys()) - non_leaf_ids
     # Find leaf nodes at end of :op or numeric ones
     quoted_nodes = []
