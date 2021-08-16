@@ -141,9 +141,7 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
          -f $reference_amr \
          ${results_prefix}.amr \
          -r 10 \
-         > ${results_prefix}.smatch
-
-    cat ${results_prefix}.smatch
+         | tee ${results_prefix}.smatch
 
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
@@ -156,8 +154,6 @@ elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
          -f $reference_amr_wiki \
          ${results_prefix}.wiki.amr \
          -r 10 \
-         > ${results_prefix}.wiki.smatch
-
-    cat ${results_prefix}.wiki.smatch
+         | tee ${results_prefix}.wiki.smatch
 
 fi
