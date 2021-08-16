@@ -113,8 +113,10 @@ else
         --vocab-amr $ALIGN_VOCAB_AMR \
         --write-single \
         --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/dev.txt
-    
+        --single-output $ALIGNED_FOLDER/dev.txt.dummy # FIXME: is train
+    # FIXME: Need to use cofill for now on dev 
+    cp DATA/$TASK_TAG/aligned/cofill/dev.txt $ALIGNED_FOLDER/dev.txt    
+
     # Test
     echo "align test"
     python align_cfg/main.py --cuda \
@@ -126,7 +128,9 @@ else
         --vocab-amr $ALIGN_VOCAB_AMR \
         --write-single \
         --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/test.txt
+        --single-output $ALIGNED_FOLDER/test.txt.dummy # FIXME: is train
+    # FIXME: Need to use cofill for now on test
+    cp DATA/$TASK_TAG/aligned/cofill/test.txt $ALIGNED_FOLDER/test.txt    
 
     # Mark as done
     touch $ALIGNED_FOLDER/.done
