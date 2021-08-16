@@ -512,19 +512,13 @@ class AMR():
         # root
         self.root = root
 
-        # do the cleaning when necessary (e.g. build the AMR graph from model output, which might not be valid)
-        if clean:
-            self.clean_amr()    # cleaning is needed for oracle for AMR 3.0 training data
+        # do the cleaning when necessary (e.g. build the AMR graph from model
+        # output, which might not be valid)
+        # cleaning is needed for oracle for AMR 3.0 training data
+        # if clean:
+        #    self.clean_amr()
         if connect:
             self.connect_graph()
-
-        # if self.root is None:
-        #     # breakpoint()
-        #     self.connect_graph()
-
-        # breakpoint()
-        # if self.tokens[0] == 'Haha':
-        #     breakpoint()
 
     def clean_amr(self):
         # empty graph
