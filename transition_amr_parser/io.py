@@ -11,6 +11,26 @@ import shutil
 import numpy as np
 
 
+def write_neural_alignments(out_alignment_probs, aligned_amrs, joints):
+    assert len(aligned_amrs) == len(joints)
+    with open(out_alignment_probs, 'w') as fid:
+        for index in range(len(joints)):
+            # index, nodes, node ids, tokens
+            fid.write(f'{index}\n')
+            nodes = ' '.join(aligned_amrs[index].nodes.values())
+            fid.write(f'{nodes}\n')
+            ids = ' '.join(aligned_amrs[index].nodes.keys())
+            fid.write(f'{ids}\n')
+            tokens = ' '.join(aligned_amrs[index].tokens)
+            fid.write(f'{tokens}\n')
+            # probabilities
+            num_tokens, num_nodes = joints[index].shape
+            for j in range(num_nodes):
+                for i in range(num_tokens):
+                    fid.write(f'{j} {i} {joints[index][i, j]:e}\n')
+            fid.write(f'\n')
+
+
 def read_neural_alignments(alignments_file):
 
     alignments = []
@@ -788,20 +808,18 @@ class AMR():
                       f'{nodes}\t{s}\t{t}\t\n'
         return output
 
-    def __str__(self, jamr=None):
+    def to_jamr(self):
+        validate_alignments(self)
+        return legacy_graph_printer(self.get_metadata(), self.nodes,
+                                    self.root, self.edges)
 
-        # if unspecified, print JAMR notation if we read JAMR notation
-        # (ibm_format =True) and ignore it otherwise
-        if jamr is None:
-            jamr = not bool(self.penman)
-        if jamr:
-            # if we want to print alignments, ensure the alignments and tokens
-            # make sense
-            validate_alignments(self)
-            return legacy_graph_printer(self.get_metadata(), self.nodes,
-                                        self.root, self.edges)
-        else:
-            return ' '.join(self.tokens) + '\n\n' + penman.encode(self.penman)
+    def to_penman(self):
+        assert self.penman
+        return ' '.join(self.tokens) + '\n\n' + penman.encode(self.penman)
+
+    def __str__(self):
+        # TODO: Deprecate in favour of to_penman
+        return self.to_jamr()
 
     def parents(self, node_id):
         return self.edges_by_child.get(node_id, [])

@@ -165,7 +165,7 @@ def main(args):
     def token_filter(tokens):
         # Attempts to remove less interesting tokens such as single characters and symbols, which often occur in URLs.
         return [tok for tok in tokens if tok.isalpha() and len(tok) > 1]
-        
+
     # get one sample
     found = 0
     for index in indices:
@@ -209,7 +209,7 @@ def main(args):
 
         # plot
         alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
-        
+
         latex_str = get_tikz_latex(amr, amr.tokens, amr.nodes, amr.edges, alignments)
 
         try:
@@ -252,18 +252,18 @@ def main(args):
         fdraw.write(output_str)
 
         found += 1
-        
+
         if found >= args.max:
             break
         else:
             continue
-        
+
         response = input('Quit [N/y]?')
         if response == 'y':
             break
 
     fdraw.write("\n\end{document}")
-        
+
 if __name__ == '__main__':
 
     # Argument handling

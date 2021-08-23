@@ -18,6 +18,7 @@ from transition_amr_parser.io import (
     write_tokenized_sentences,
     read_neural_alignments
 )
+from transition_amr_parser.amr_aligner import get_ner_ids
 from ipdb import set_trace
 
 
@@ -40,10 +41,11 @@ def red_background(string):
 
 def graph_alignments(unaligned_nodes, amr):
     """
-    Shallow alignment fixer: Inherit the alignment of the last child or first
+    Shallow alignment fixer: Inherit the alignment of the FIRST child or first
     parent. If none of these is aligned the node is left unaligned
     """
 
+    # scan first for all children-based alignments
     fix_alignments = {}
     for (src, _, tgt) in amr.edges:
         if (
@@ -52,13 +54,17 @@ def graph_alignments(unaligned_nodes, amr):
             and max(amr.alignments[tgt])
                 > fix_alignments.get(src, 0)
         ):
-            # # debug: to justify to change 0 to -1e6 for a test data corner case; see if there are other cases affected
+            # # debug: to justify to change 0 to -1e6 for a test data corner
+            # case; see if there are other cases affected
             # if max(amr.alignments[tgt]) <= fix_alignments.get(src, 0):
             #     breakpoint()
             fix_alignments[src] = max(amr.alignments[tgt])
+
+    # exit if any fix (to try again recursively to fix another one)
     if len(fix_alignments):
         return fix_alignments
 
+    # then parent-based ones
     for (src, _, tgt) in amr.edges:
         if (
             tgt in unaligned_nodes
@@ -71,14 +77,14 @@ def graph_alignments(unaligned_nodes, amr):
     return fix_alignments
 
 
-def fix_alignments(gold_amr):
+def graph_vicinity_align(gold_amr):
 
     # Fix unaligned nodes by graph vicinity
     unaligned_nodes = set(gold_amr.nodes) - set(gold_amr.alignments)
     unaligned_nodes |= \
         set(nid for nid, pos in gold_amr.alignments.items() if pos is None)
     unaligned_nodes = sorted(list(unaligned_nodes))
-    unaligned_nodes_original = sorted(list(unaligned_nodes))
+    unaligned_nodes_original = list(unaligned_nodes)
 
     if not unaligned_nodes:
         # no need to do anything
@@ -91,6 +97,7 @@ def fix_alignments(gold_amr):
         return gold_amr, []
 
     # Align unaligned nodes by using graph vicinnity greedily (1 hop at a time)
+    count = 0
     while unaligned_nodes:
         fix_alignments = graph_alignments(unaligned_nodes, gold_amr)
         for nid in unaligned_nodes:
@@ -99,9 +106,11 @@ def fix_alignments(gold_amr):
                 unaligned_nodes.remove(nid)
 
         # debug: avoid infinite loop for AMR2.0 test data with bad alignments
-        if not fix_alignments:
-            # breakpoint()
-            print(red_background('hard fix on 0th token for fix_alignments'))
+        count += 1
+        if count == 1000:
+            print(
+                red_background('\nhard fix on 0th token for fix_alignments\n')
+            )
             for k, v in list(gold_amr.alignments.items()):
                 if v is None:
                     gold_amr.alignments[k] = [0]
@@ -127,11 +136,12 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
         num_tokens, num_nodes = token_posterior.shape
         token_posterior2 = np.zeros((num_tokens, num_nodes))
         token_posterior2[np.arange(num_tokens), token_posterior.argmax(1)] = 1
-#         # FIXME: this sanity check shows node order is dict order and not that
-#         # on node_short_id
-#         if [y for x in gold_amr.alignments.values() for y in x] != list(token_posterior2.argmax(1)):
-#             import ipdb; ipdb.set_trace(context=30)
-#             print()
+        # FIXME: this sanity check shows node order is dict order and not that
+        # on node_short_id
+        # for counts aligner fails in two (27503)
+#         assert [y for x in gold_amr.alignments.values() for y in x] \
+#             == list(token_posterior2.argmax(1)), \
+#             "--in-aligned-amr and --in-aligned-probs have different argmax"
 
     if gold_amr.alignments is None:
         gold_amr.alignments = {}
@@ -166,33 +176,44 @@ def normalize(token):
 
 class AMROracle():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
-                 use_copy=True, alignment_sampling_temperature=1.0):
+    def __init__(
+        self,
+        reduce_nodes=None,                   # garbage collection mode
+        absolute_stack_pos=False,            # index nodes relative or absolute
+        use_copy=True,                       # copy mechanism toggle
+        alignment_sampling_temperature=1.0,  # temperature if sampling
+        force_align_ner=False                # align NER parents to first child
+    ):
 
         # Remove nodes that have all their edges created
         self.reduce_nodes = reduce_nodes
         # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
         # rather than relative to end of self.node_stack
         self.absolute_stack_pos = absolute_stack_pos
-
-        # sampling temperature
         self.alignment_sampling_temperature = alignment_sampling_temperature
-
-        # use copy action
         self.use_copy = use_copy
+        self.force_align_ner = force_align_ner
 
-    def reset(self, gold_amr, alignment_probs=None, alignment_sampling_temp=1.0):
+    def reset(self, gold_amr, alignment_probs=None,
+              alignment_sampling_temp=1.0):
 
         # if probabilties provided sample alignments from them
         if alignment_probs:
-            gold_amr = sample_alignments(gold_amr, alignment_probs,
-                                         alignment_sampling_temp)
+            gold_amr = sample_alignments(
+                gold_amr, alignment_probs, alignment_sampling_temp)
 
-        # Force align missing nodes and store names for stats
-        self.gold_amr, self.unaligned_nodes = fix_alignments(gold_amr)
+        # Force align unaligned nodes and store names for stats
+        self.gold_amr, self.unaligned_nodes = graph_vicinity_align(gold_amr)
+
+        if self.force_align_ner:
+            # align parents in NERs to first child
+            for ner in get_ner_ids(gold_amr):
+                child_id = ner['children_ids'][0][0]
+                gold_amr.alignments[ner['id']] = gold_amr.alignments[child_id]
+                gold_amr.alignments[ner['name_id']] \
+                    = gold_amr.alignments[child_id]
 
         # will store alignments by token
-        # TODO: This should store alignment probabilities
         align_by_token_pos = defaultdict(list)
         for node_id, token_pos in self.gold_amr.alignments.items():
             node = normalize(self.gold_amr.nodes[node_id])
@@ -205,6 +226,7 @@ class AMROracle():
                 align_by_token_pos[token_pos[0]].append(node_id)
         self.align_by_token_pos = align_by_token_pos
 
+        # TODO: Describe this
         node_id_2_node_number = {}
         for token_pos in sorted(self.align_by_token_pos.keys()):
             for node_id in self.align_by_token_pos[token_pos]:
@@ -494,7 +516,6 @@ class AMRStateMachine():
             #     setattr(result, k, deepcopy(v, memo))
             setattr(result, k, deepcopy(v, memo))
             # print(k, time.time() - start)
-        # import ipdb; ipdb.set_trace(context=30)
         return result
 
     def get_current_token(self):
@@ -827,10 +848,13 @@ def peel_pointer(action, pad=-1):
     if arc_regex.match(action):
         # LA(pos,label) or RA(pos,label)
         action, properties = action.split('(')
-        properties = properties[:-1]    # remove the ')' at last position
-        properties = properties.split(',')    # split to pointer value and label
+        # remove the ')' at last position
+        properties = properties[:-1]
+        # split to pointer value and label
+        properties = properties.split(',')
         pos = int(properties[0].strip())
-        label = properties[1].strip()    # remove any leading and trailing white spaces
+        # remove any leading and trailing white spaces
+        label = properties[1].strip()
         action_label = action + '(' + label + ')'
         return (action_label, pos)
     else:
@@ -838,14 +862,18 @@ def peel_pointer(action, pad=-1):
 
 
 class StatsForVocab:
-    """Collate stats for predicate node names with their frequency, and list of all the other action symbols.
-    For arc actions, pointers values are stripped.
-    The results stats (from training data) are going to decide which node names (the frequent ones) to be added to
-    the vocabulary used in the model.
+    """
+    Collate stats for predicate node names with their frequency, and list of
+    all the other action symbols. For arc actions, pointers values are
+    stripped. The results stats (from training data) are going to decide which
+    node names (the frequent ones) to be added to the vocabulary used in the
+    model.
     """
     def __init__(self, no_close=False):
-        # DO NOT include CLOSE action (as this is internally managed by the eos token in model)
-        # NOTE we still add CLOSE into vocabulary, just to be complete although it is not used
+        # DO NOT include CLOSE action (as this is internally managed by the eos
+        # token in model)
+        # NOTE we still add CLOSE into vocabulary, just to be complete although
+        # it is not used
         self.no_close = no_close
 
         self.nodes = Counter()
@@ -875,7 +903,8 @@ class StatsForVocab:
         if la_regex.match(action) or la_nopointer_regex.match(action):
             # LA(pos,label) or LA(label)
             action, pos = peel_pointer(action)
-            # NOTE should be an iterable instead of a string; otherwise it'll be character based
+            # NOTE should be an iterable instead of a string; otherwise it'll
+            # be character based
             self.left_arcs.update([action])
         elif ra_regex.match(action) or ra_nopointer_regex.match(action):
             # RA(pos,label) or RA(label)
@@ -908,14 +937,21 @@ class StatsForVocab:
         print(self.control)
 
     def write(self, path_prefix):
-        """Write the stats into file. Two files will be written: one for nodes, one for others."""
+        """
+        Write the stats into file. Two files will be written: one for nodes,
+        one for others.
+        """
         path_nodes = path_prefix + '.nodes'
         path_others = path_prefix + '.others'
         with open(path_nodes, 'w') as f:
             for k, v in self.nodes.most_common():
                 print(f'{k}\t{v}', file=f)
         with open(path_others, 'w') as f:
-            for k, v in chain(self.control.most_common(), self.left_arcs.most_common(), self.right_arcs.most_common()):
+            for k, v in chain(
+                self.control.most_common(),
+                self.left_arcs.most_common(),
+                self.right_arcs.most_common()
+            ):
                 print(f'{k}\t{v}', file=f)
 
 
@@ -966,7 +1002,8 @@ def oracle(args):
     oracle = AMROracle(
         reduce_nodes=args.reduce_nodes,
         absolute_stack_pos=args.absolute_stack_positions,
-        use_copy=args.use_copy
+        use_copy=args.use_copy,
+        force_align_ner=args.force_align_ner
     )
 
     # will store statistics and check AMR is recovered
@@ -1096,6 +1133,7 @@ def main(args):
         assert args.out_amr
         assert not args.out_actions
         assert not args.in_aligned_amr
+        assert not args.force_align_ner
         play(args)
 
     elif args.in_aligned_amr or args.in_amr:
@@ -1144,6 +1182,11 @@ def argument_parser():
         help="Temperature for sampling alignments",
         default=1.0,
         type=float,
+    )
+    parser.add_argument(
+        "--force-align-ner",
+        help="(<tag> :name name :opx <token>) allways aligned to token",
+        action='store_true'
     )
     # ORACLE
     parser.add_argument(
