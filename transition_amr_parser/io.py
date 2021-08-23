@@ -371,9 +371,11 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     # identify nodes that should be quoted
     # find leaf nodes
     non_leaf_ids = set()
-    for (src, label, trg) in edges:
-        if not label.endswith('-of'):
-            non_leaf_ids.add(src)
+    # FIXME: Removed for now to avoid not detecxtting constants with children
+    # (which should not happen anyway)
+    # for (src, label, trg) in edges:
+    #     if not label.endswith('-of'):
+    #        non_leaf_ids.add(src)
     leaf_ids = set(nodes.keys()) - non_leaf_ids
     # Find leaf nodes at end of :op or numeric ones
     quoted_nodes = []
