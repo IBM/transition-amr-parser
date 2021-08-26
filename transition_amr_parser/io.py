@@ -572,6 +572,7 @@ class AMR():
         nodes = {}
         alignments = {}
         edges = []
+        root = None
         for key, value in metadata.items():
             if key == 'edge':
                 for items in value:
