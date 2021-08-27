@@ -555,7 +555,6 @@ def get_sentence_features(tokens):
     lemmas = []
     for tok, x in zip(tokens, lemmatizer(tokens)):
         lemma = str(x.lemma_)
-        tokens.append(tok)
         # Special replacement for pronouns
         if re.match('-.*-', lemma):
             lemmas.append(normalize_pronouns.get(tok, tok))
@@ -574,7 +573,7 @@ def get_sentence_features(tokens):
         else:
             detokenized.append(token)
 
-    return tokens, lemmas, lemma_bigram, detokenized
+    return lemmas, lemma_bigram, detokenized
 
 
 @memoize
@@ -585,7 +584,8 @@ def surface_aligner(tokens, nodes, cutoff=0.7):
 
     # get different transformations of input sentence tokens for matching
     # TODO: 2, 3-grams hyphen joined
-    tokens, lemmas, lemma_bigram, detokenized = get_sentence_features(tokens)
+    # import ipdb; ipdb.set_trace(context=30)
+    lemmas, lemma_bigram, detokenized = get_sentence_features(tokens)
 
     # proceed over each node try simple alignments first
     unaligned_node_ids = []
