@@ -229,13 +229,15 @@ def get_corrupted_checkpoints(seed_folder):
             checkpoints_by_size[size].append(checkpoint)
 
     size_count = Counter(checkpoints_by_size.keys())
-    normal_size = max(list(size_count.keys()))
-    corrupted_checkpoints = []
-    for size, checkpoints in checkpoints_by_size.items():
-        if size < 0.5 * float(normal_size):
-            corrupted_checkpoints.extend(checkpoints)
-
-    return corrupted_checkpoints
+    if list(size_count.keys()):
+        normal_size = max(list(size_count.keys()))
+        corrupted_checkpoints = []
+        for size, checkpoints in checkpoints_by_size.items():
+            if size < 0.5 * float(normal_size):
+                corrupted_checkpoints.extend(checkpoints)
+        return corrupted_checkpoints
+    else:
+        return []
 
 
 def print_status(config_env_vars, seed, do_clear=False):
