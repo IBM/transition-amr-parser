@@ -584,7 +584,6 @@ def surface_aligner(tokens, nodes, cutoff=0.7):
 
     # get different transformations of input sentence tokens for matching
     # TODO: 2, 3-grams hyphen joined
-    # import ipdb; ipdb.set_trace(context=30)
     lemmas, lemma_bigram, detokenized = get_sentence_features(tokens)
 
     # proceed over each node try simple alignments first
