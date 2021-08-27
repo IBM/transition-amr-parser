@@ -8,7 +8,7 @@ import re
 import os
 from datetime import datetime
 import argparse
-from collections import defaultdict
+from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables, clbar
 from ipdb import set_trace
@@ -59,7 +59,7 @@ def argument_parser():
     )
     parser.add_argument(
         "--wait-finished",
-        help="Average numbers over seeds",
+        help="Print status until final model created",
         action='store_true'
     )
     parser.add_argument(
@@ -76,6 +76,11 @@ def argument_parser():
         "--remove",
         help="Remove checkpoints that have been evaluated and are not best "
              "checkpoints",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--final-remove",
+        help="Remove all but final checkpoint, also features",
         action='store_true'
     )
     parser.add_argument(
@@ -139,12 +144,22 @@ def read_results(seed_folder, eval_metric, target_epochs):
     val_result_re = re.compile(r'.*de[cv]-checkpoint([0-9]+)\.' + eval_metric)
     validation_folder = f'{seed_folder}/epoch_tests/'
     epochs = []
+    faulty_scores = []
     for result in glob(f'{validation_folder}/*.{eval_metric}'):
         fetch = val_result_re.match(result)
         if fetch:
             epochs.append(int(fetch.groups()[0]))
+            if os.stat(result).st_size == 0:
+                faulty_scores.append(result)
     missing_epochs = set(target_epochs) - set(epochs)
     missing_epochs = sorted(missing_epochs, reverse=True)
+
+    # Warn about faulty scores
+    if faulty_scores:
+        print(f'\033[93mWARNING: empty {eval_metric} file(s)\033[0m')
+        for faulty in faulty_scores:
+            print(faulty)
+        print()
 
     return target_epochs, missing_epochs
 
@@ -180,11 +195,53 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
     return checkpoints, target_epochs, missing_epochs
 
 
+def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
+
+    checkpoints, target_epochs, _ = \
+        get_checkpoints_to_eval(config_env_vars, seed)
+    if checkpoints:
+        delta = len(target_epochs) - len(checkpoints)
+        if delta > 0:
+            return (
+                f"\033[93m{delta}/{len(target_epochs)}\033[0m",
+                f"{seed_folder}"
+            )
+        else:
+            return (
+                f"{delta}/{len(target_epochs)}",
+                f"{seed_folder}"
+            )
+
+    else:
+        return (
+            f"\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m",
+            f"{seed_folder}"
+        )
+
+
+def get_corrupted_checkpoints(seed_folder):
+
+    # check for corrupted models
+    checkpoints_by_size = defaultdict(list)
+    for checkpoint in glob(f'{seed_folder}/*.pt'):
+        if not os.path.islink(checkpoint):
+            size = int(os.stat(checkpoint).st_size/1024)
+            checkpoints_by_size[size].append(checkpoint)
+
+    size_count = Counter(checkpoints_by_size.keys())
+    normal_size = max(list(size_count.keys()))
+    corrupted_checkpoints = []
+    for size, checkpoints in checkpoints_by_size.items():
+        if size < 0.5 * float(normal_size):
+            corrupted_checkpoints.extend(checkpoints)
+
+    return corrupted_checkpoints
+
+
 def print_status(config_env_vars, seed, do_clear=False):
 
     # Inform about completed stages
     # pre-training ones
-    finished = False
     status_lines = []
     for variable in ['ALIGNED_FOLDER', 'ORACLE_FOLDER', 'EMB_FOLDER',
                      'DATA_FOLDER']:
@@ -205,35 +262,25 @@ def print_status(config_env_vars, seed, do_clear=False):
             "{seed} is not a trained seed for the model"
         seeds = [seed]
     # loop over each model with a different random seed
-    finished = None
+    finished = {}
+    corrupted_checkpoints = []
     for seed in seeds:
 
-        # all checkpoints trained
+        # default unfinished
+        finished[seed] = False
         seed_folder = f'{model_folder}-seed{seed}'
         max_epoch = int(config_env_vars['MAX_EPOCH'])
+
+        # find checkpoints with suspiciously smaller sizes
+        corrupted_checkpoints.extend(get_corrupted_checkpoints(seed_folder))
+
+        # all checkpoints trained
         status_lines.extend(check_model_training(seed_folder, max_epoch))
 
         # all checkpoints evaluated
-        checkpoints, target_epochs, _ = \
-            get_checkpoints_to_eval(config_env_vars, seed)
-        if checkpoints:
-            delta = len(target_epochs) - len(checkpoints)
-            if delta > 0:
-                status_lines.append((
-                    f"\033[93m{delta}/{len(target_epochs)}\033[0m",
-                    f"{seed_folder}"
-                ))
-            else:
-                status_lines.append((
-                    f"{delta}/{len(target_epochs)}",
-                    f"{seed_folder}"
-                ))
-
-        else:
-            status_lines.append((
-                f"\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m",
-                f"{seed_folder}"
-            ))
+        status_lines.append(check_checkpoint_evaluation(
+            config_env_vars, seed, seed_folder
+        ))
 
         # Final model and results
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
@@ -246,7 +293,7 @@ def print_status(config_env_vars, seed, do_clear=False):
         )
         dec_checkpoint = f'{model_folder}-seed{seed}/{dec_checkpoint}'
         if os.path.isfile(dec_final_result):
-            finished = True
+            finished[seed] = True
             status_lines.append(
                 (f"\033[92mdone\033[0m", f"{dec_final_result}")
             )
@@ -279,10 +326,16 @@ def print_status(config_env_vars, seed, do_clear=False):
     # print
     if do_clear:
         os.system('clear')
+    if corrupted_checkpoints:
+        print()
+        print(f"\033[91mWARNING: Small checkpoints, corrupted?\033[0m")
+        for ch in corrupted_checkpoints:
+            print(ch)
+        print()
     print('\n'.join(new_statues_lines))
     print()
 
-    return finished
+    return all(finished.values())
 
 
 def get_score_from_log(file_path, score_name):
@@ -328,6 +381,11 @@ def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
         if not os.path.isfile(results_file):
             missing_epochs.append(epoch)
             continue
+        elif os.stat(results_file).st_size == 0:
+            # errors may have produced an empty score file
+            missing_epochs.append(epoch)
+            continue
+
         score = get_score_from_log(results_file, eval_metric)
         if score == [None]:
             continue
@@ -758,10 +816,33 @@ def wait_checkpoint_ready_to_eval(args):
 
         print_status(config_env_vars, None, do_clear=args.clear)
         print(
-            f'Waiting for checkpoint {eval_init_epoch} to evaluate'
+            f'Waiting for checkpoint to evaluate'
             ' (if you stop this script, I wont evaluate)'
         )
         sleep(10)
+
+
+def final_remove(seed, config_env_vars):
+
+    model_folder = config_env_vars['MODEL_FOLDER']
+    eval_metric = config_env_vars['EVAL_METRIC']
+    dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
+    seed_folder = f'{model_folder}-seed{seed}'
+    dec_checkpoint = f'{seed_folder}/{dec_checkpoint}'
+    target_best = f'{seed_folder}/checkpoint_{eval_metric}_best1.pt'
+    if (
+        not os.path.islink(target_best)
+        or not os.path.isfile(os.path.realpath(target_best))
+        or not os.path.isfile(dec_checkpoint)
+    ):
+        print('Can not --final-remove unfinished training')
+        exit(1)
+
+    epoch_best = os.path.isfile(os.path.realpath(target_best))
+    for checkpoint in glob(f'{seed_folder}/*.pt'):
+        if os.path.basename(checkpoint) not in [target_best, epoch_best]:
+            print('Removed {checkpoint}')
+            os.remove(checkpoint)
 
 
 def main(args):
@@ -770,7 +851,21 @@ def main(args):
     signal.signal(signal.SIGINT, ordered_exit)
     signal.signal(signal.SIGTERM, ordered_exit)
 
-    if args.results or args.long_results:
+    if args.final_remove:
+
+        # print status for this config
+        config_env_vars = read_config_variables(args.config)
+        if args.seed:
+            seeds = [args.seed]
+        else:
+            seeds = config_env_vars['SEEDS'].split()
+
+        # remove checkpoints
+        for seed in seeds:
+            link_remove(args, seed, config_env_vars)
+            final_remove(seed, config_env_vars)
+
+    elif args.results or args.long_results:
 
         # results display and exit
         display_results('DATA/*/models/', args.config, args.seed,
