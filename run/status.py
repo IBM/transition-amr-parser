@@ -11,7 +11,7 @@ import argparse
 from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables, clbar
-from ipdb import set_trace
+# from ipdb import set_trace
 
 
 # Sanity check python3
@@ -781,7 +781,7 @@ def wait_checkpoint_ready_to_eval(args):
         seeds = [args.seed]
     else:
         seeds = config_env_vars['SEEDS'].split()
-    eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
+    # eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
     # TODO: Clearer naming
     checkpoints = []
     need_eval = []
@@ -906,6 +906,9 @@ def main(args):
     else:
 
         # print status for this config
+        if args.config is None:
+            print('\nSpecify a config with -c or use --results\n')
+            exit(1)
         config_env_vars = read_config_variables(args.config)
 
         if args.seed:
