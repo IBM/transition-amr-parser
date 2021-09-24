@@ -230,6 +230,8 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                             help='Starting number of updates for the first run of on-the-fly oracle')
         parser.add_argument('--on-the-fly-oracle-run-freq', default=1, type=int,
                             help='Number of updates until next run of on-the-fly oracle')
+        parser.add_argument('--sample-alignments', default=1, type=int,
+                            help='Number of samples from alignments (default=1).')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None, machine_config_file=None):
         super().__init__(args)
@@ -832,12 +834,22 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         for index, amr in enumerate(aligned_amrs):
             # get alignment probabilities if available
             aprobs = align_probs[index] if align_probs else None
-            # get the action sequence
-            actions, actions_states, data_piece = self.run_oracle_get_data(
-                amr, aprobs, self.machine, self.oracle)
-            action_sequences.append(actions)
-            # append the numerical data for one sentence/amr
-            data_samples.append(data_piece)
+
+            if self.args.sample_alignments <= 1:
+                # get the action sequence
+                actions, actions_states, data_piece = self.run_oracle_get_data(
+                    amr, aprobs, self.machine, self.oracle)
+                action_sequences.append(actions)
+                # append the numerical data for one sentence/amr
+                data_samples.append(data_piece)
+            else:
+                for _ in range(self.args.sample_alignments):
+                    # get the action sequence
+                    actions, actions_states, data_piece = self.run_oracle_get_data(
+                        amr, aprobs, self.machine, self.oracle)
+                    action_sequences.append(actions)
+                    # append the numerical data for one sentence/amr
+                    data_samples.append(data_piece)
 
         return action_sequences, data_samples
 
