@@ -3,10 +3,10 @@ set -o pipefail
 if [ -z $1 ];then 
 
     # Standard mini-test with wiki25
-    config=configs/wiki25-structured-bart-base.sh 
+    config=configs/wiki25-structured-bart-base-neur-al-sampling.sh
 
     # Delete previous runs is exist
-    rm -Rf DATA/wiki25/*
+    # rm -Rf DATA/wiki25/*
 
     # replace code above with less restrictive deletion
     # rm -R -f DATA/wiki25/embeddings
@@ -15,7 +15,7 @@ if [ -z $1 ];then
     # rm -R -f DATA/wiki25/models
 
     # simulate completed corpora extraction and alignment
-    bash tests/create_wiki25_mockup.sh
+    # bash tests/create_wiki25_mockup.sh
 
 else
 

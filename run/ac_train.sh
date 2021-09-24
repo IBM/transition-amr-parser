@@ -116,7 +116,8 @@ else
                 --log-format json \
                 --seed $seed \
                 --save-dir ${MODEL_FOLDER}-seed${seed}/ \
-                --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16
+                --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16 \
+                --sample-alignments 5
     
         else
             # apt-bart with shared and mixed src and tgt vocabulary

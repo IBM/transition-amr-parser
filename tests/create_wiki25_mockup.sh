@@ -3,7 +3,6 @@ set -o pipefail
 set -o nounset 
 
 # This simulates conventional corpora using the 25 wiki sentences
-rm -Rf DATA/wiki25/
 # Create original data
 mkdir -p DATA/wiki25/corpora/
 cp DATA/wiki25.jkaln DATA/wiki25/corpora/train.txt 
