@@ -108,7 +108,7 @@ FAIRSEQ_PREPROCESS_FINETUNE_ARGS=""
 ##############################################################################
 
 # TODO: This is a model variable, right?
-TASK=amr_action_pointer_bart
+TASK=amr_action_pointer_bartsv
 
 ##### model configuration
 shift_pointer_value=1
@@ -162,6 +162,8 @@ warmup=4000
 dropout=0.2
 
 # NEW from train 
+# for apt-bart shared vocabulary
+node_freq_min=5
 src_roberta_emb=0
 tgt_factored_emb_out=0
 bart_emb_composition_pred=0
