@@ -9,4 +9,4 @@ rm -Rf DATA/wiki25/*
 bash tests/create_wiki25_mockup.sh
 
 # Run local test
-bash run/run_experiment.sh configs/wiki25.sh  
+bash run/run_experiment.sh configs/wiki25-structured-bart-base-sep-voc.sh

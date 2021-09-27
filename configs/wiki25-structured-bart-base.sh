@@ -150,11 +150,12 @@ tgt_input_src_combine="add"
 SEEDS="42"
 MAX_EPOCH=10
 EVAL_INIT_EPOCH=5
+time_max_between_epochs=20
 # MAX_EPOCH=100
 # EVAL_INIT_EPOCH=60
 
 # TODO: New
-time_max_between_epochs=20
+use_fp16=1
 lr=0.0001
 max_tokens=2048
 update_freq=4
@@ -171,10 +172,9 @@ src_roberta_enc=0
 src_fix_emb_use=0
 clip_norm=0.0
 weight_decay=0.0
-loss_coef=-1
-dyo_run_start=-0
-dyo_run_freq=-1
-use_fp16=1
+loss_coef=1
+dyo_run_start=0
+dyo_run_freq=1
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
@@ -300,11 +300,13 @@ else
     dec_emb_init_tag=""
 fi
 
-
-
 # combine different model configuration tags to the name
+fp16_tag=""
+if [[ $use_fp16 == 1 ]]; then
+    fp16_tag="fp16-"
+fi
 model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
-optim_tag=_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
+optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
 MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
@@ -323,5 +325,6 @@ LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
+# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
