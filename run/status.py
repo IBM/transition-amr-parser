@@ -825,6 +825,9 @@ def wait_checkpoint_ready_to_eval(args):
 
 
 def final_remove(seed, config_env_vars):
+    '''
+    Remove all but the final trained model file DEC_CHECKPOINT and best metric
+    '''
 
     model_folder = config_env_vars['MODEL_FOLDER']
     eval_metric = config_env_vars['EVAL_METRIC']
@@ -832,19 +835,41 @@ def final_remove(seed, config_env_vars):
     seed_folder = f'{model_folder}-seed{seed}'
     dec_checkpoint = f'{seed_folder}/{dec_checkpoint}'
     target_best = f'{seed_folder}/checkpoint_{eval_metric}_best1.pt'
+
+    # check the final models exist
     if (
         not os.path.islink(target_best)
         or not os.path.isfile(os.path.realpath(target_best))
-        or not os.path.isfile(dec_checkpoint)
     ):
-        print('Can not --final-remove unfinished training')
+        print('Can not --final-remove, missing {target_best}')
         exit(1)
+    else:
+        best_metric_checkpoint = os.path.realpath(target_best)
+        best_metric_checkpoint_link = target_best
+    if not os.path.isfile(os.path.realpath(dec_checkpoint)):
+        print('Can not --final-remove, missing {dec_checkpoint}')
+        exit(1)
+    else:
+        dec_checkpoint = os.path.realpath(dec_checkpoint)
 
-    epoch_best = os.path.isfile(os.path.realpath(target_best))
+    # remove all other checkpoints
     for checkpoint in glob(f'{seed_folder}/*.pt'):
-        if os.path.basename(checkpoint) not in [target_best, epoch_best]:
-            print('Removed {checkpoint}')
+        if (
+            os.path.realpath(checkpoint) not in [
+                dec_checkpoint, best_metric_checkpoint,
+                best_metric_checkpoint_link
+            ]
+        ):
+            print(f'rm {checkpoint}')
             os.remove(checkpoint)
+
+    # also remove features
+    feature_folder = config_env_vars['DATA_FOLDER']
+    for dfile in glob(f'{feature_folder}/*'):
+        print(f'rm {dfile}')
+        os.remove(dfile)
+    print(f'rm {feature_folder}')
+    os.rmdir(feature_folder)
 
 
 def main(args):
@@ -854,6 +879,8 @@ def main(args):
     signal.signal(signal.SIGTERM, ordered_exit)
 
     if args.final_remove:
+
+        assert args.config, "Needs config"
 
         # print status for this config
         config_env_vars = read_config_variables(args.config)
