@@ -54,7 +54,7 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 ##############################################################################
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states
+ORACLE_TAG=bartsv-nodesplit_o10_act-states
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
