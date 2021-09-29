@@ -868,8 +868,12 @@ def final_remove(seed, config_env_vars):
     for dfile in glob(f'{feature_folder}/*'):
         print(f'rm {dfile}')
         os.remove(dfile)
-    print(f'rm {feature_folder}')
-    os.rmdir(feature_folder)
+    if os.path.isfile(f'{feature_folder}/.done'):
+        print(f'rm {feature_folder}/.done')
+        os.remove(f'{feature_folder}/.done')
+    if os.path.isdir(feature_folder):
+        print(f'rm {feature_folder}/')
+        os.rmdir(feature_folder)
 
 
 def main(args):
