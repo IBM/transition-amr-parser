@@ -819,7 +819,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         return actions, actions_states, data_piece
 
-    def run_oracle_get_data_batch(self, aligned_amrs, align_probs) -> Tuple[List[List[str]], List[Dict]]:
+    def run_oracle_get_data_batch(self, aligned_amrs, align_probs, sample) -> Tuple[List[List[str]], List[Dict], Dict]:
         """Run oracle on the fly and get needed parser states and numerical Tensor data for each batch.
 
         Args:
@@ -830,19 +830,62 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         """
         action_sequences = []
         data_samples = []
-        # for amr in tqdm(aligned_amrs, desc='dynamic_oracle'):
-        for index, amr in enumerate(aligned_amrs):
-            # get alignment probabilities if available
-            aprobs = align_probs[index] if align_probs else None
 
-            if self.args.sample_alignments <= 1:
+        if self.args.sample_alignments <= 1:
+            sample_new = sample
+
+            for index, amr in enumerate(aligned_amrs):
+                # get alignment probabilities if available
+                aprobs = align_probs[index] if align_probs else None
                 # get the action sequence
                 actions, actions_states, data_piece = self.run_oracle_get_data(
                     amr, aprobs, self.machine, self.oracle)
                 action_sequences.append(actions)
                 # append the numerical data for one sentence/amr
                 data_samples.append(data_piece)
-            else:
+
+        else:
+            device = sample['id'].device
+
+            def make_new(obj):
+                obj_new = {}
+
+                for k, v in obj.items():
+                    if k == 'net_input':
+                        continue
+                    assert not isinstance(v, dict)
+                    if isinstance(v, torch.Tensor):
+                        shape = list(v.shape)
+                        shape[0] = shape[0] * self.args.sample_alignments
+                        obj_new[k] = torch.empty(shape, dtype=v.dtype, device=device)
+                    elif isinstance(v, (list, tuple)):
+                        obj_new[k] = []
+                    else:
+                        obj_new[k] = v
+
+                return obj_new
+
+            sofar = 0
+
+            def update_new_obj(obj, obj_new, i):
+                for k, v in obj.items():
+                    if k == 'net_input':
+                        continue
+                    assert not isinstance(v, dict)
+                    if isinstance(v, torch.Tensor):
+                        obj_new[k][sofar] = obj[k][i]
+                    elif isinstance(v, (list, tuple)):
+                        obj_new[k].append(obj[k][i])
+                    else:
+                        continue
+
+            sample_new = make_new(sample)
+            sample_new['net_input'] = make_new(sample['net_input'])
+
+            for index, amr in enumerate(aligned_amrs):
+                # get alignment probabilities if available
+                aprobs = align_probs[index] if align_probs else None
+
                 for _ in range(self.args.sample_alignments):
                     # get the action sequence
                     actions, actions_states, data_piece = self.run_oracle_get_data(
@@ -850,8 +893,12 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                     action_sequences.append(actions)
                     # append the numerical data for one sentence/amr
                     data_samples.append(data_piece)
+                    # update sample
+                    update_new_obj(sample, sample_new, index)
+                    update_new_obj(sample['net_input'], sample_new['net_input'], index)
+                    sofar += 1
 
-        return action_sequences, data_samples
+        return action_sequences, data_samples, sample_new
 
     def collate_sample_data(self, data_samples):
         """Collate a batch of data instances, only for the target related data.
@@ -1002,10 +1049,13 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         # run oracle, extract parser states, convert everything to tensors
         # start = time.time()
-        action_sequences, data_samples = self.run_oracle_get_data_batch(
+        action_sequences, data_samples, sample_new = self.run_oracle_get_data_batch(
             sample['gold_amrs'],
             sample.get('align_probs', None),
+            sample,
         )
+        # Need to update sample if duplicating batch items (e.g. for importance sampling).
+        sample = sample_new
         # print('time for running oracle and getting data', time.time() - start)
 
         # collate tensors into batch, with paddings

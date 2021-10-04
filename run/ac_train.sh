@@ -21,7 +21,7 @@ set -o nounset
 # Load config
 echo "[Configuration file:]"
 echo $config
-. $config 
+. $config
 
 
 ##### TRAINING
@@ -45,7 +45,7 @@ else
 
         if [[ $arch != *"bartsv"* ]]; then
             # apt-bart, with separate src and tgt vocabulary
-        
+
             # kernprof -l fairseq_ext/train.py \
             # python -m ipdb fairseq_ext/train.py \
             python fairseq_ext/train.py \
@@ -118,10 +118,10 @@ else
                 --save-dir ${MODEL_FOLDER}-seed${seed}/ \
                 --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16 \
                 --sample-alignments 5
-    
+
         else
             # apt-bart with shared and mixed src and tgt vocabulary
-        
+
             # python -m ipdb fairseq_ext/train.py \
             python fairseq_ext/train.py \
                 $DATA_FOLDER \
@@ -190,7 +190,7 @@ else
                 --seed $seed \
                 --save-dir ${MODEL_FOLDER}-seed${seed}/ \
                 --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16
-    
+
         fi
 
     else
@@ -252,7 +252,7 @@ else
             --seed $seed \
             --save-dir ${MODEL_FOLDER}-seed${seed} \
             --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}
-    
+
     fi
 
     # Mark as finished
