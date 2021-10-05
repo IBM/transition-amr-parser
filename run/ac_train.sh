@@ -117,7 +117,7 @@ else
                 --seed $seed \
                 --save-dir ${MODEL_FOLDER}-seed${seed}/ \
                 --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16 \
-                --sample-alignments 5
+                --sample-alignments $NUM_ALIGNMENT_SAMPLES
 
         else
             # apt-bart with shared and mixed src and tgt vocabulary
