@@ -67,3 +67,4 @@ jbsub_logs/
 # vim
 .vim/
 *.swp
+ctags
