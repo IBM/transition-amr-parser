@@ -10,3 +10,6 @@ bash tests/create_wiki25_mockup.sh
 
 # Run local test
 bash run/run_experiment.sh configs/wiki25-structured-bart-base-sep-voc.sh
+
+# If we get here we passed
+printf "[\033[92mOK\033[0m] $0\n"

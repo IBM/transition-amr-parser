@@ -10,7 +10,8 @@ from datetime import datetime
 import argparse
 from collections import defaultdict, Counter
 from statistics import mean
-from transition_amr_parser.io import read_config_variables, clbar
+from transition_amr_parser.io import read_config_variables
+from transition_amr_parser.clbar import clbar
 # from ipdb import set_trace
 
 

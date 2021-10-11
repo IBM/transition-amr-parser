@@ -17,7 +17,7 @@ from transition_amr_parser.stack_transformer.amr_state_machine import (
 from transition_amr_parser.stack_transformer.pretrained_embeddings import (
     PretrainedEmbeddings
 )
-from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.clbar import yellow_font
 from fairseq.tokenizer import tokenize_line
 from fairseq.data.language_pair_dataset import collate
 from fairseq.models.roberta import RobertaModel

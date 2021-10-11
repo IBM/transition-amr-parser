@@ -1,7 +1,7 @@
 import sys
 import re
 from collections import Counter
-from transition_amr_parser.utils import print_log
+from transition_amr_parser.clbar import print_log
 
 
 # TODO change method names; change alignment token indexes to be from 0 instead of from 1 (be careful as these require

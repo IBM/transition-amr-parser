@@ -10,9 +10,8 @@ from itertools import chain
 
 from tqdm import tqdm
 import numpy as np
+from clbar import yellow_font, clbar
 from transition_amr_parser.io import (
-    yellow_font,
-    clbar,
     AMR,
     read_amr2,
     read_tokenized_sentences,
