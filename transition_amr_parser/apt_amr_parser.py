@@ -17,7 +17,7 @@ from fairseq_ext.data.amr_action_pointer_dataset import collate
 from fairseq_ext.utils import post_process_action_pointer_prediction, clean_pointer_arcs
 from transition_amr_parser.o8_state_machine import AMRStateMachine, get_spacy_lemmatizer
 from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
-from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.clbar import yellow_font
 from fairseq_ext.utils_import import import_user_module
 
 

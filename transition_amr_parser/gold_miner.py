@@ -1,5 +1,5 @@
 from transition_amr_parser.state_machine import AMRStateMachine
-from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.clbar import yellow_font
 
 # from smatch
 from amr import AMR

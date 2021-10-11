@@ -10,15 +10,13 @@ from itertools import chain
 from tqdm import tqdm
 import numpy as np
 from transition_amr_parser.io import (
-    yellow_font,
-    clbar,
     AMR,
     read_amr2,
     read_tokenized_sentences,
     write_tokenized_sentences
 )
+from transition_amr_parser.clbar import yellow_font, clbar
 from ipdb import set_trace
-
 
 # la_regex = re.compile(r'LA\((.*);(.*)\)')
 # ra_regex = re.compile(r'RA\((.*);(.*)\)')
