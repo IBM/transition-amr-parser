@@ -791,6 +791,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 head_attention_masks = None
                 head_positions = None
             else:
+                raise NotImplementedError('Deprecated: use stack-transformer branch')
                 head_attention_masks, head_positions = state_machine_encoder(
                     self.encode_state_machine,
                     memory,
@@ -800,8 +801,6 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                     layer_index,
                     encoder_out['encoder_padding_mask'] if encoder_out is not None else None
                 )
-
-            # import pdb; pdb.set_trace()
 
             x, attn = layer(
                 x,
