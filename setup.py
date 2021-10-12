@@ -27,15 +27,12 @@ install_requires = [
 setup(
     name='transition_amr_parser',
     version=VERSION,
-    description="Trasition-based AMR parser tools",
+    description="Trasition-based AMR parser",
     py_modules=['transition_amr_parser'],
     entry_points={
         'console_scripts': [
-            'amr-learn = transition_amr_parser.learn:main',
             'amr-parse = transition_amr_parser.parse:main',
-            'amr-oracle = transition_amr_parser.data_oracle:main',
-            'amr-fake-parse = transition_amr_parser.fake_parse:main',
-            'amr-edit = transition_amr_parser.edit:main'
+            'amr-machine = transition_amr_parser.amr_machine:main',
         ]
     },
     packages=find_packages(),

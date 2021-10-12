@@ -492,6 +492,10 @@ def breakpoint_inspector(machine):
 
 def main():
 
+    raise NotImplementedError(
+        'Sorry, no standalone version yet, use action-pointer branch'
+    )
+
     # argument handling
     args = argument_parsing()
 
