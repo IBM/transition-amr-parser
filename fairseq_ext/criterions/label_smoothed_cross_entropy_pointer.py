@@ -151,18 +151,21 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
 
             # Importance weights.
             # TODO: These should be the alignment probs.
-            batch_size, seq_length = loss_seq.shape
+            batch_size = loss_seq.shape[0]
+            assert loss_seq.dim() == 1
             assert loss_seq.shape == nll_loss_seq.shape
-            importance_weights = torch.ones(batch_size, seq_length, dtype=torch.float, device=loss_seq.device)
+            importance_weights = torch.ones(batch_size, dtype=torch.float, device=loss_seq.device)
 
             def compute_importance_loss(loss, iw):
-                batch_size, seq_length = loss_seq.shape
-                loss = loss.view(batch_size // sample_alignments, sample_alignments, seq_length)
-                iw = iw.view(batch_size // sample_alignments, sample_alignments, seq_length)
-                new_loss = torch.log(torch.sum(torch.exp(loss - torch.log(iw)), dim=1))
+                batch_size = loss.shape[0]
+                loss = loss.view(batch_size // sample_alignments, sample_alignments)
+                iw = iw.view(batch_size // sample_alignments, sample_alignments)
+                new_loss = -torch.logsumexp(-loss - torch.log(iw), 1)
+                return new_loss
 
             loss_seq = compute_importance_loss(loss_seq, importance_weights).sum()
             nll_loss_seq = compute_importance_loss(nll_loss_seq, importance_weights).sum()
+
         else:
             loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)
 
