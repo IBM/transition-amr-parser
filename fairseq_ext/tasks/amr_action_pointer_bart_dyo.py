@@ -1119,6 +1119,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # breakpoint()
         # substitute with new sample for training
         sample = sample_new
+        sample['sample_alignments'] = self.args.sample_alignments
         # ==================================================================
 
         # NOTE detect_anomaly() would raise an error for fp16 training due to overflow, which is automatically handled
