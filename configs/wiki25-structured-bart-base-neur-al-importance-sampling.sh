@@ -63,7 +63,7 @@ NUM_ALIGNMENT_SAMPLES=5
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-weighted-align"
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states-${NUM_ALIGNMENT_SAMPLES}sample_a
+ORACLE_TAG=o10_act-states-importance-${NUM_ALIGNMENT_SAMPLES}sample_a
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
