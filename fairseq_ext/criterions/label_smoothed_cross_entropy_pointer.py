@@ -40,6 +40,47 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
     return loss, nll_loss
 
 
+def safe_mask(tensor, mask, default_val=0):
+    """
+    Returns a new tensor of shape `tensor.shape` such that values where
+    mask is True are values from tensor, and `default_val` otherwise.
+    """
+    new_tensor = torch.full(tensor.shape, default_val, dtype=tensor.dtype, device=tensor.device)
+    new_tensor[mask] = tensor[mask]
+    return new_tensor
+
+
+def label_smoothed_nll_loss_enhanced(lprobs, target, epsilon, ignore_index=None, reduce=True):
+    """
+    Same as `label_smoothed_nll_loss` except supports reduce=True. Might be slower due to different
+    approach to masking.
+    """
+    assert lprobs.dim() == 3
+
+    batch_size, seq_length, vocab_size = lprobs.shape
+    if target.dim() == lprobs.dim() - 1:
+        target = target.unsqueeze(-1)
+
+    nll_loss = -lprobs.gather(dim=-1, index=target)
+    smooth_loss = -safe_mask(lprobs, lprobs != float("-Inf"), default_val=0).sum(dim=-1, keepdim=True)
+
+    if ignore_index is not None:
+        mask = target != ignore_index
+        nll_loss = safe_mask(nll_loss, mask, default_val=0)
+        smooth_loss = safe_mask(smooth_loss, mask, default_val=0)
+
+    if reduce:
+        nll_loss = nll_loss.sum()
+        smooth_loss = smooth_loss.sum()
+    else:
+        nll_loss = nll_loss.view(batch_size, seq_length).sum(1)
+        smooth_loss = smooth_loss.view(batch_size, seq_length).sum(1)
+
+    eps_i = epsilon / lprobs.size(-1)
+    loss = (1. - epsilon) * nll_loss + eps_i * smooth_loss
+    return loss, nll_loss
+
+
 def label_smoothed_nll_loss_pointer(lprobs, target, epsilon, ignore_index=None, reduce=True):
     if target.dim() == lprobs.dim() - 1:
         target = target.unsqueeze(-1)
@@ -103,7 +144,33 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
         3) logging outputs to display while training
         """
         net_output = model(**sample['net_input'])
-        loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)
+
+        sample_alignments = sample.get('sample_alignments', 1)
+        if sample_alignments > 1 and 'lp_align' in sample:
+            loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=False)
+
+            # Importance weights.
+            # TODO: These should be the alignment probs.
+            batch_size = loss_seq.shape[0]
+            assert loss_seq.dim() == 1
+            assert loss_seq.shape == nll_loss_seq.shape
+            # importance weights
+            log_iw = torch.tensor(sample['lp_align'], dtype=torch.float, device=loss_seq.device)
+
+            def compute_reweighted_p(log_p, log_iw):
+                assert log_p.dim() == 1
+                batch_size = log_p.shape[0]
+                log_p = log_p.view(batch_size // sample_alignments, sample_alignments)
+                log_iw = log_iw.view(batch_size // sample_alignments, sample_alignments)
+                new_p = torch.logsumexp(log_p - log_iw, 1)
+                return new_p
+
+            loss_seq = -compute_reweighted_p(-loss_seq, log_iw).sum()
+            nll_loss_seq = -compute_reweighted_p(-nll_loss_seq, log_iw).sum()
+
+        else:
+            loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)
+
         loss_pos, nll_loss_pos = self.compute_pointer_loss(net_output, sample, reduce=reduce)
         # import pdb; pdb.set_trace()
         loss = loss_seq + self.loss_coef * loss_pos
@@ -126,11 +193,19 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
 
     def compute_loss(self, model, net_output, sample, reduce=True):
         lprobs = model.get_normalized_probs(net_output, log_probs=True)
-        lprobs = lprobs.view(-1, lprobs.size(-1))
-        target = model.get_targets(sample, net_output).view(-1, 1)
-        loss, nll_loss = label_smoothed_nll_loss(
-            lprobs, target, self.eps, ignore_index=self.padding_idx, reduce=reduce,
-        )
+        target = model.get_targets(sample, net_output)
+
+        if reduce:
+            lprobs = lprobs.view(-1, lprobs.size(-1))
+            target = target.view(-1, 1)
+            loss, nll_loss = label_smoothed_nll_loss(
+                lprobs, target, self.eps, ignore_index=self.padding_idx, reduce=reduce,
+            )
+        else:
+            loss, nll_loss = label_smoothed_nll_loss_enhanced(
+                lprobs, target, self.eps, ignore_index=self.padding_idx, reduce=reduce,
+            )
+
         return loss, nll_loss
 
     def compute_pointer_loss(self, net_output, sample, reduce=True):
