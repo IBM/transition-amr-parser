@@ -146,7 +146,7 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
         net_output = model(**sample['net_input'])
 
         sample_alignments = sample.get('sample_alignments', 1)
-        if sample_alignments > 1:
+        if sample_alignments > 1 and 'lp_align' in sample:
             loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=False)
 
             # Importance weights.
