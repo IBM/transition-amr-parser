@@ -60,7 +60,7 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 # Number of alignment samples used
 NUM_ALIGNMENT_SAMPLES=5
 # Use importance weighted
-IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-sampling"
+IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-weighted-align"
 
 # oracle action sequences
 ORACLE_TAG=o10_act-states-importance-${NUM_ALIGNMENT_SAMPLES}sample_a
