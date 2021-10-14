@@ -154,17 +154,19 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
             batch_size = loss_seq.shape[0]
             assert loss_seq.dim() == 1
             assert loss_seq.shape == nll_loss_seq.shape
-            importance_weights = torch.ones(batch_size, dtype=torch.float, device=loss_seq.device)
+            # importance weights
+            log_iw = torch.tensor(sample['lp_align'], dtype=torch.float, device=loss_seq.device)
 
-            def compute_importance_loss(loss, iw):
-                batch_size = loss.shape[0]
-                loss = loss.view(batch_size // sample_alignments, sample_alignments)
-                iw = iw.view(batch_size // sample_alignments, sample_alignments)
-                new_loss = -torch.logsumexp(-loss - torch.log(iw), 1)
-                return new_loss
+            def compute_reweighted_p(log_p, log_iw):
+                assert log_p.dim() == 1
+                batch_size = log_p.shape[0]
+                log_p = log_p.view(batch_size // sample_alignments, sample_alignments)
+                log_iw = log_iw.view(batch_size // sample_alignments, sample_alignments)
+                new_p = torch.logsumexp(log_p - log_iw, 1)
+                return new_p
 
-            loss_seq = compute_importance_loss(loss_seq, importance_weights).sum()
-            nll_loss_seq = compute_importance_loss(nll_loss_seq, importance_weights).sum()
+            loss_seq = -compute_reweighted_p(-loss_seq, log_iw).sum()
+            nll_loss_seq = -compute_reweighted_p(-nll_loss_seq, log_iw).sum()
 
         else:
             loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)

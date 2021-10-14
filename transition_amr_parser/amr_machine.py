@@ -148,9 +148,14 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
 
     # FIXME: See above
     # for idx, node_id in enumerate(alignment_probs['node_short_id']):
+    align_info = dict(node_idx=[], token_idx=[], p=[])
     for idx, node_id in enumerate(gold_amr.alignments.keys()):
         alignment = np.random.multinomial(1, token_posterior2[idx, :]).argmax()
         gold_amr.alignments[node_id] = [alignment]
+
+        align_info['node_idx'].append(idx)
+        align_info['token_idx'].append(alignment)
+        align_info['p'].append(token_posterior2[idx, alignment])
 
     assert set(gold_amr.alignments.keys()) <= set(gold_amr.nodes.keys()), \
         'node ids from graph and alignment probabilities do not match' \
@@ -161,7 +166,7 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
         <= set(range(len(gold_amr.tokens)))
     ), 'Alignment token positions out of bounds with respect to given tokens'
 
-    return gold_amr
+    return gold_amr, align_info
 
 
 def normalize(token):
@@ -198,9 +203,11 @@ class AMROracle():
               alignment_sampling_temp=1.0):
 
         # if probabilties provided sample alignments from them
+        self.align_info = None
         if alignment_probs:
-            gold_amr = sample_alignments(
+            gold_amr, align_info = sample_alignments(
                 gold_amr, alignment_probs, alignment_sampling_temp)
+            self.align_info = align_info
 
         # Force align unaligned nodes and store names for stats
         self.gold_amr, self.unaligned_nodes = graph_vicinity_align(gold_amr)

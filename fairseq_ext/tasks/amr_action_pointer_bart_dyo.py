@@ -681,6 +681,9 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # initialize new oracle for this AMR
         oracle.reset(aligned_amr, alignment_probs=align_probs)
 
+        # token indices for nodes, and probabilities
+        align_info = oracle.align_info
+
         # store needed parser states
         allowed_cano_actions = []
         token_cursors = []
@@ -817,6 +820,11 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                 else:
                     data_piece[k] = v[:-1]
 
+        # add align_info
+        if align_info is not None:
+            for k, v in align_info.items():
+                data_piece['align_info_{}'.format(k)] = v
+
         return actions, actions_states, data_piece
 
     def run_oracle_get_data_batch(self, aligned_amrs, align_probs, sample) -> Tuple[List[List[str]], List[Dict], Dict]:
@@ -896,6 +904,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                     # update sample
                     update_new_obj(sample, sample_new, index)
                     update_new_obj(sample['net_input'], sample_new['net_input'], index)
+                    # add alignment lprob
+                    if 'lp_align' not in sample_new:
+                        sample_new['lp_align'] = []
+                    sample_new['lp_align'].append(np.log(data_piece['align_info_p']).sum().item())
                     sofar += 1
 
         return action_sequences, data_samples, sample_new
