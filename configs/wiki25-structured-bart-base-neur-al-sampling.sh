@@ -20,10 +20,10 @@ set -o nounset
 # Example AMR2.0 AMR1.0 dep-parsing CFG
 TASK_TAG=wiki25
 
-# TODO: Omit these global vars and use 
+# TODO: Omit these global vars and use
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
-AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt 
-AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt 
+AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt
+AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt
 AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
 ##############################################################################
@@ -44,7 +44,7 @@ ALIGN_VOCAB_AMR=$ALIGNED_FOLDER/vocab.amr.txt
 
 # TODO: Omit these and use ALIGNED_FOLDER
 AMR_TRAIN_FILE=$ALIGNED_FOLDER/train.txt
-AMR_DEV_FILE=$ALIGNED_FOLDER/dev.txt 
+AMR_DEV_FILE=$ALIGNED_FOLDER/dev.txt
 AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 
 # wiki prediction files to recompose final AMR
@@ -60,12 +60,12 @@ WIKI_TEST=""
 # Number of alignment samples used
 NUM_ALIGNMENT_SAMPLES=5
 # Use importance weighted
-IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
+IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-weighted-align"
 
 # oracle action sequences
 ORACLE_TAG=o10_act-states-${NUM_ALIGNMENT_SAMPLES}sample_a
 
-# All data in this step under 
+# All data in this step under
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
 
 # Labeled SHIFT multi-task
@@ -86,11 +86,11 @@ USE_COPY=1
 
 embedding_tag=bart.base
 
-# All data in this step under 
+# All data in this step under
 # FIXME: alig/oracle may alter text, we have to watch out for this
 EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
-# Pretrained embeddings 
+# Pretrained embeddings
 PRETRAINED_EMBED=bart.base
 PRETRAINED_EMBED_DIM=768
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
@@ -164,7 +164,7 @@ time_max_between_epochs=20
 # TODO: New
 use_fp16=1
 lr=0.0001
-# NOTE: These two modified to compensate for NUM_ALIGNMENT_SAMPLES 
+# NOTE: These two modified to compensate for NUM_ALIGNMENT_SAMPLES
 max_tokens=$((2048 / $NUM_ALIGNMENT_SAMPLES))
 update_freq=$((4 * $NUM_ALIGNMENT_SAMPLES))
 # max_tokens=2048
@@ -172,7 +172,7 @@ update_freq=$((4 * $NUM_ALIGNMENT_SAMPLES))
 warmup=4000
 dropout=0.2
 
-# NEW from train 
+# NEW from train
 src_roberta_emb=0
 tgt_factored_emb_out=0
 bart_emb_composition_pred=0
@@ -331,7 +331,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
 LINKER_CACHE_PATH=""
 
 ###############################################################
-# TESTS 
+# TESTS
 ###############################################################
 
 ##### decoding configuration for the final model
