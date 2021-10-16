@@ -232,8 +232,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                             help='Number of updates until next run of on-the-fly oracle')
         parser.add_argument('--sample-alignments', default=1, type=int,
                             help='Number of samples from alignments (default=1).')
+        parser.add_argument('--rescale-align', action='store_true',
+                            help='If true, then rescale loss by number of samples.')
         parser.add_argument('--importance-weighted-align', action='store_true',
-                            help='If true, then weight loss by alignment prob.')
+                            help='If true, then use importance weighted loss.')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None, machine_config_file=None):
         super().__init__(args)
@@ -1143,6 +1145,9 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # if torch.isnan(loss):
         #     import ipdb; ipdb.set_trace(context=30)
         #     loss, sdample_size, logging_output = criterion(model, sample)
+
+        if self.args.rescale_align:
+            loss = loss / self.args.sample_alignments
 
         if ignore_grad:
             loss *= 0
