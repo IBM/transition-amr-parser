@@ -436,12 +436,13 @@ def average_results(results, fields, average_fields, ignore_fields,
     # collect
     result_by_seed = defaultdict(list)
     for result in results:
-        key = result['model_folder']
+        key = (result['model_folder'], result['max_epoch'])
         result_by_seed[key].append(result)
 
     # leave only averages
     averaged_results = []
     for seed, sresults in result_by_seed.items():
+
         average_result = {}
         for field in fields:
             # ignore everything after space
@@ -550,8 +551,9 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
                 data=config_env_vars['TASK_TAG'],
                 oracle=os.path.basename(config_env_vars['ORACLE_FOLDER'][:-1]),
                 features=os.path.basename(config_env_vars['EMB_FOLDER']),
-                model=config_env_vars['TASK'] + f':{seed}',
+                model=config_env_vars['TASK'] + f'({max_epoch}):{seed}',
                 best=f'{best_epoch}/{max_epoch}',
+                max_epoch=max_epoch,
                 dev=best_score,
                 top5_beam10=best_top5_beam10_score,
                 train=epoch_time,
