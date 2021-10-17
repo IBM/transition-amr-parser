@@ -60,6 +60,15 @@ for seed in $SEEDS;do
     # copy config and store in model folder
     cp $config $checkpoints_dir/config.sh
 
+    # Add a tag with the commit(s) used to train this model. 
+    if [ "$(git status --porcelain | grep -v '^??')" == "" ];then
+        # no uncommited changes
+        touch "$checkpoints_dir/$(git log --format=format:"%h" -1)"
+    else
+        # uncommited changes
+        touch "$checkpoints_dir/$(git log --format=format:"%h" -1)+"
+    fi
+
 done
 
 # preprocessing

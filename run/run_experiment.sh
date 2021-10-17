@@ -39,6 +39,15 @@ fi
 mkdir -p ${MODEL_FOLDER}-seed${seed}
 cp $config ${MODEL_FOLDER}-seed${seed}/config.sh
 
+# Add a tag with the commit(s) used to train this model. 
+if [ "$(git status --porcelain | grep -v '^??')" == "" ];then
+    # no uncommited changes
+    touch "${MODEL_FOLDER}-seed${seed}/$(git log --format=format:"%h" -1)"
+else
+    # uncommited changes
+    touch "${MODEL_FOLDER}-seed${seed}/$(git log --format=format:"%h" -1)+"
+fi
+
 echo "[Building oracle actions:]"
 mkdir -p $ORACLE_FOLDER
 # TODO: replace by task agnostic oracle creation
