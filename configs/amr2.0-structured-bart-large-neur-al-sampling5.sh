@@ -61,9 +61,10 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 NUM_ALIGNMENT_SAMPLES=5
 # Use importance weighted
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
+RESCALE_ALIGN="--rescale-align"
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states-${NUM_ALIGNMENT_SAMPLES}sample_a
+ORACLE_TAG=o10_act-states-${NUM_ALIGNMENT_SAMPLES}-rescaled-sample_a
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
