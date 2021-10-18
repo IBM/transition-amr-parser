@@ -21,7 +21,6 @@ if int(sys.version[0]) < 3:
 
 
 # results file content regex
-smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
 checkpoint_re = re.compile(r'.*checkpoint([0-9]+)\.pt$')
 
 
@@ -289,6 +288,8 @@ def print_status(config_env_vars, seed, do_clear=False):
 
 
 def get_score_from_log(file_path, score_name):
+
+    smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
 
     results = [None]
 

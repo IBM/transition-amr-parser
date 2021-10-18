@@ -57,8 +57,10 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 # ORACLE
 ##############################################################################
 
-# Number of alignment samples used
+# Number of alignment samples used and scale or not by sample number
 NUM_ALIGNMENT_SAMPLES=5
+# RESCALE_ALIGN="--rescale-align"
+RESCALE_ALIGN=""
 # Use importance weighted
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-weighted-align"
 
