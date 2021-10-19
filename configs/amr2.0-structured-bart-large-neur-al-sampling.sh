@@ -61,7 +61,7 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 NUM_ALIGNMENT_SAMPLES=1
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states-${NUM_ALIGNMENT_SAMPLES}sample_a
+ORACLE_TAG=o10_act-states-sample_a
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -162,9 +162,6 @@ time_max_between_epochs=30
 # TODO: New
 use_fp16=1
 lr=0.0001
-# NOTE: These two modified to compensate for NUM_ALIGNMENT_SAMPLES 
-# max_tokens=$((2048 / $NUM_ALIGNMENT_SAMPLES))
-# update_freq=$((4 * $NUM_ALIGNMENT_SAMPLES))
 max_tokens=2048
 update_freq=4
 warmup=4000
