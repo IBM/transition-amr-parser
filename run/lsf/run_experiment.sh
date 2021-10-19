@@ -57,8 +57,10 @@ for seed in $SEEDS;do
     # create repo
     mkdir -p $checkpoints_dir   
 
-    # copy config and store in model folder
-    cp $config $checkpoints_dir/config.sh
+    # Copy the config and soft-link it with an easy to find name
+    cp $config ${MODEL_FOLDER}-seed${seed}/
+    rm -f ${MODEL_FOLDER}-seed${seed}/config.sh
+    ln -s $(basename $config) ${MODEL_FOLDER}-seed${seed}/config.sh
 
     # Add a tag with the commit(s) used to train this model. 
     if [ "$(git status --porcelain | grep -v '^??')" == "" ];then
