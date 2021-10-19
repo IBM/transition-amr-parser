@@ -1,3 +1,4 @@
+import argparse
 from glob import glob
 import os
 from collections import defaultdict
@@ -11,13 +12,18 @@ from transition_amr_parser.io import read_config_variables
 from ipdb import set_trace
 
 
-def get_vectors(items, label):
+def get_vectors(items, label, admit_none=False):
 
     def x_key(item):
         return int(item['epoch'])
 
     def y_reduce(items):
-        return np.mean([float(x[label]) for x in items])
+        if admit_none:
+            return np.mean([
+                float(x[label]) for x in items if x[label] is not None
+            ])
+        else:
+            return np.mean([float(x[label]) for x in items])
 
     # Cluster x-axis
     x_clusters = defaultdict(list)
@@ -51,65 +57,116 @@ def get_score_from_log(file_path, score_name):
     return results
 
 
-def read_experiment(seed_folder):
+def read_experiment(config):
 
-    config_env_vars = read_config_variables(f'{seed_folder}/config.sh')
+    train_info_regex = re.compile(
+        r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) '
+        r'\| INFO \| train \| (.*)'
+    )
+    valid_info_regex = re.compile(
+        r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) '
+        r'\| INFO \| valid \| (.*)'
+    )
 
-    experiment_key = config_env_vars['MODEL_FOLDER']
+    config_name = os.path.basename(config)
+    config_env_vars = read_config_variables(config)
+    model_folder = config_env_vars['MODEL_FOLDER']
+    seeds = config_env_vars['SEEDS'].split()
 
-    # read info from logs
-    exp_data =  []
-    for log_file in glob(f'{seed_folder}/tr-*.stdout'):
-        with open(log_file) as fid:
-            for line in fid:
-                if train_info_regex.match(line):
-                    date_str, json_info = train_info_regex.match(line).groups()
-                    item = json.loads(json_info)
-                    item['timestamp'] = parse(date_str)
-                    item['experiment_key'] = experiment_key
-                    item['set'] = 'train'
-                    exp_data.append(item)
+    exp_data = []
+    for seed in seeds:
+        seed_folder = f'{model_folder}-seed{seed}'
 
-                elif valid_info_regex.match(line):
-                    date_str, json_info = valid_info_regex.match(line).groups()
-                    item = json.loads(json_info)
-                    item['timestamp'] = parse(date_str)
-                    item['experiment_key'] = experiment_key
-                    item['set'] = 'valid'
-                    exp_data.append(item)
+        # read info from logs
+        for log_file in glob(f'{seed_folder}/tr-*.stdout'):
+            with open(log_file) as fid:
+                for line in fid:
+                    if train_info_regex.match(line):
+                        date_str, json_info = \
+                            train_info_regex.match(line).groups()
+                        item = json.loads(json_info)
+                        item['timestamp'] = parse(date_str)
+                        item['experiment_key'] = config_name
+                        item['set'] = 'train'
+                        item['name'] = config_name
+                        exp_data.append(item)
 
-    # read validation decoding scores
-    eval_metric = config_env_vars['EVAL_METRIC']
-    validation_folder = f'{seed_folder}/epoch_tests/'
-    for epoch in range(int(config_env_vars['MAX_EPOCH'])):
-        results_file = f'{validation_folder}/dec-checkpoint{epoch}.{eval_metric}'
-        if os.path.isfile(results_file):
-            score = get_score_from_log(results_file, eval_metric)[0]
-            exp_data.append({
-                'epoch': epoch,
-                'set': 'valid-dec',
-                'score': score,
-                'experiment_key': experiment_key
-            })
+                    elif valid_info_regex.match(line):
+                        date_str, json_info = \
+                            valid_info_regex.match(line).groups()
+                        item = json.loads(json_info)
+                        item['timestamp'] = parse(date_str)
+                        item['experiment_key'] = config_name
+                        item['set'] = 'valid'
+                        item['name'] = config_name
+                        exp_data.append(item)
+
+        # read validation decoding scores
+        eval_metric = config_env_vars['EVAL_METRIC']
+        validation_folder = f'{seed_folder}/epoch_tests/'
+        for epoch in range(int(config_env_vars['MAX_EPOCH'])):
+            results_file = \
+                f'{validation_folder}/dec-checkpoint{epoch}.{eval_metric}'
+            if os.path.isfile(results_file):
+                score = get_score_from_log(results_file, eval_metric)[0]
+                exp_data.append({
+                    'epoch': epoch,
+                    'set': 'valid-dec',
+                    'score': score,
+                    'experiment_key': config_name,
+                    'name': config_name
+                })
 
     return exp_data
 
 
-if __name__ == '__main__':
+def matplotlib_render(plotting_data, out_png, title):
 
-    log_files = [
-        'DATA/AMR2.0/models/exp_align_cfg_o10_act-states-importance-5sample_a_bart.large/_act-pos_vmask0_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.0001-mt409x20-wm4000-dp0.2/ep100-seed42/tr-amr2.0-structured-bart-large-neur-al-importance-sampling5-s42-1817085-1940038.stdout',
-        #'DATA/AMR2.0/models/exp_cofill_o10_act-states_cofill_o10_act-states_bart.large/_act-pos_vmask0_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.0001-mt2048x4-wm4000-dp0.2-no-voc-mask/ep100-seed42/tr-amr2.0-structured-bart-large-no-voc-mask-s42-1329124-475365.stdout',
-        #'DATA/AMR2.0/models/exp_cofill_o10_act-states_cofill_o10_act-states_bart.large/_act-pos_vmask0_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.0001-mt2048x4-wm4000-dp0.2-no-voc-mask/ep100-seed43/tr-amr2.0-structured-bart-large-no-voc-mask-s43-1329124-475366.stdout',
-        #'DATA/AMR2.0/models/exp_cofill_o10_act-states_cofill_o10_act-states_bart.large/_act-pos_vmask0_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.0001-mt2048x4-wm4000-dp0.2-no-voc-mask/ep100-seed44/tr-amr2.0-structured-bart-large-no-voc-mask-s44-1329124-475367.stdout'
-    ]
+    # plot in matplotlib
+    plt.figure(figsize=(10, 10))
+    # axis with extra space for legend
+    ax = plt.axes([0.1, 0.1, 0.8, 0.7])
+    # second axis for Smatch
+    ax_smatch = ax.twinx()
+    colors = ['b', 'r', 'g']
+    tags = sorted(plotting_data.keys())
+    handles = []
+    for i in range(len(tags)):
 
-    train_info_regex = re.compile(r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) \| INFO \| train \| (.*)')
-    valid_info_regex = re.compile(r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) \| INFO \| valid \| (.*)')
+        color = colors[i % len(colors)]
+
+        # train loss
+        x, y = plotting_data[tags[i]]['train']
+        h = ax.plot(x, y, color)[0]
+        handles.append(h)
+
+        # dev loss
+        x, y = plotting_data[tags[i]]['valid']
+        ax.plot(x, y, '--' + color)[0]
+
+        # dev decoding score
+        x, y = plotting_data[tags[i]]['valid-dec']
+        ax_smatch.plot(x, y, color)[0]
+        ax_smatch.set(ylim=(80, 85))
+
+        ax.set_xlabel('epoch')
+        ax.set_ylabel('loss')
+        ax_smatch.set_ylabel('Smatch')
+
+    plt.legend(handles, tags, bbox_to_anchor=(0, 1, 1, 0))
+    if title:
+        plt.title(title)
+    if out_png:
+        plt.savefig(out_png)
+    else:
+        plt.show()
+
+
+def main(args):
 
     data = []
-    for seed_folder in log_files:
-        data.extend(read_experiment(seed_folder))
+    for config in args.in_configs:
+        data.extend(read_experiment(config))
 
     # Cluster by experiment
     experiments = defaultdict(list)
@@ -121,40 +178,42 @@ if __name__ == '__main__':
     # plotting
     plotting_data = defaultdict(dict)
     for exp_tag, exp_data in experiments.items():
+        print(f'Collecting data for {exp_tag}')
         for sset in ['train', 'valid']:
             valid_data = [x for x in exp_data if x['set'] == sset]
             plotting_data[exp_tag][sset] = \
                 get_vectors(valid_data, f'{sset}_loss')
-
         sset = 'valid-dec'
         score_data = [x for x in exp_data if x['set'] == sset]
-        plotting_data[exp_tag][sset] = get_vectors(score_data, 'score')
+        plotting_data[exp_tag][sset] = \
+            get_vectors(score_data, 'score', admit_none=True)
 
-    fig = plt.figure(0)
-    ax = plt.gca()
-    ax_smatch = ax.twinx()
-    colors = ['b', 'r', 'g']
-    tags = sorted(plotting_data.keys())
-    for i in range(len(tags)):
+    # Render picture in matplotlib
+    matplotlib_render(plotting_data, args.out_png, args.title)
 
-        color = colors[i % len(colors)]
 
-        # train loss
-        x, y = plotting_data[tags[i]]['train']
-        h = ax.plot(x, y, color)[0]
+def argument_parser():
 
-        # dev loss
-        x, y = plotting_data[tags[i]]['valid']
-        ax.plot(x, y, '--' + color)[0]
+    parser = argparse.ArgumentParser(description='AMR results plotter')
+    # Single input parameters
+    parser.add_argument(
+        'in_configs',
+        nargs='+',
+        help="One or more config fils",
+        type=str,
+    )
+    parser.add_argument(
+        '--title',
+        help="Title of plot"
+    )
 
-        # dev decoding score
-        x, y = plotting_data[tags[i]]['valid-dec']
-        ax_smatch.plot(x, y, color)[0]
-        ax_smatch.set(ylim=(80, 85))
+    parser.add_argument(
+        '-o', '--out-png',
+        help="Save into a file instead of plotting"
+    )
+    args = parser.parse_args()
+    return args
 
-        # plt.xlabel(args.x_label)
-        # plt.ylabel(args.y_label)
-        # plt.legend(handles, labels)
 
-    plt.savefig('cosa.png')
-    # plt.show()
+if __name__ == '__main__':
+    main(argument_parser())
