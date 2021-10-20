@@ -19,21 +19,28 @@ def get_vectors(items, label, admit_none=False):
 
     def y_reduce(items):
         if admit_none:
-            return np.mean([
-                float(x[label]) for x in items if x[label] is not None
-            ])
+            vy = [float(x[label]) for x in items if x[label] is not None]
         else:
-            return np.mean([float(x[label]) for x in items])
+            vy = [float(x[label]) for x in items]
+        return np.mean(vy)
+
+    def get_y_std(items):
+        if admit_none:
+            vy = [float(x[label]) for x in items if x[label] is not None]
+        else:
+            vy = [float(x[label]) for x in items]
+        return np.std(vy)
 
     # Cluster x-axis
     x_clusters = defaultdict(list)
     for item in items:
         x_clusters[x_key(item)].append(item)
     # get xy vectors
-    x = sorted(x_clusters.keys())
-    y = [y_reduce(x_clusters[x_i]) for x_i in x]
+    x = np.array(sorted(x_clusters.keys()))
+    y = np.array([y_reduce(x_clusters[x_i]) for x_i in x])
+    y_std = np.array([get_y_std(x_clusters[x_i]) for x_i in x])
 
-    return x, y
+    return x, y, y_std
 
 
 def get_score_from_log(file_path, score_name):
@@ -122,13 +129,15 @@ def read_experiment(config):
 
 def matplotlib_render(plotting_data, out_png, title):
 
+    from matplotlib.colors import to_hex
+
     # plot in matplotlib
     plt.figure(figsize=(10, 10))
     # axis with extra space for legend
     ax = plt.axes([0.1, 0.1, 0.8, 0.7])
     # second axis for Smatch
     ax_smatch = ax.twinx()
-    colors = ['b', 'r', 'g']
+    colors = ['b', 'r', 'g', 'm']
     tags = sorted(plotting_data.keys())
     handles = []
     for i in range(len(tags)):
@@ -136,17 +145,20 @@ def matplotlib_render(plotting_data, out_png, title):
         color = colors[i % len(colors)]
 
         # train loss
-        x, y = plotting_data[tags[i]]['train']
+        x, y, y_std = plotting_data[tags[i]]['train']
         h = ax.plot(x, y, color)[0]
+        #h = ax.fill_between(x, y - y_std, y + y_std, alpha=0.8)
+        #h = ax.fill_between(x, y - y_std, y + y_std, color=color2, alpha=1.3)
         handles.append(h)
 
-        # dev loss
-        x, y = plotting_data[tags[i]]['valid']
-        ax.plot(x, y, '--' + color)[0]
+        # valid loss
+        #x, y, _ = plotting_data[tags[i]]['valid']
+        #ax.plot(x, y, '--' + color)
 
         # dev decoding score
-        x, y = plotting_data[tags[i]]['valid-dec']
-        ax_smatch.plot(x, y, color)[0]
+        x, y, y_std = plotting_data[tags[i]]['valid-dec']
+        ax_smatch.plot(x, y, color)
+        ax_smatch.fill_between(x, y - y_std, y + y_std, alpha=0.3)
         ax_smatch.set(ylim=(80, 85))
 
         ax.set_xlabel('epoch')
