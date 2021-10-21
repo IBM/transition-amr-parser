@@ -29,6 +29,7 @@ def check_cuda_torch_binary_vs_bare_metal():
 if __name__ == '__main__':
 
     # Pytorch and CUDA
+    sucess = True
     print()
     print(f'pytorch {torch.__version__}')
     if torch.cuda.is_available():
@@ -52,33 +53,36 @@ if __name__ == '__main__':
         print("\033[93mNo CUDA available\033[0m")
 
     try:
+        import smatch
+        print("smatch installed")
+    except ImportError as e:    
+        print("\033[93msmatch not installed\033[0m")
+        sucess = False
+
+    try:
         import torch_scatter
         print("pytorch-scatter installed")
-    except ImportError:    
-        print("pytorch-scatter not installed")
+    except ImportError as e:    
+        print("\033[93mpytorch-scatter not installed\033[0m")
+        sucess = False
 
     try:
         import torch_scatter.scatter_cuda
         print("torch_scatter.scatter_cuda works")
-    except ImportError:    
-        print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
-        pass
+    except ImportError as e:    
+        print("\033[93mmaybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies\033[0m")
+        sucess = False
 
     # fairseq
     try:
-        from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
-        print("transition_amr_parser.roberta_utils works")
-    except ImportError:    
-        print("fairseq installation failed")
-        pass
-
-    try:
-        # scipy
-        import spacy
-        print('spacy installed')
-    except ImportError:    
-        print("spacy installation failed")
-        pass
+        import fairseq
+        print("fairseq installed")
+    except ImportError as e:    
+        print("\033[93mfairseq installation failed\033[0m")
+        sucess = False
 
     # If we get here we passed
-    print(f'[\033[92mOK\033[0m] correctly installed\n')
+    if sucess:
+        print(f'[\033[92mOK\033[0m] correctly installed\n')
+    else:
+        print(f'[\033[91mFAILED\033[0m] some modules missing\n')
