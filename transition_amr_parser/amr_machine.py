@@ -441,7 +441,7 @@ class AMRStateMachine():
         """
         Manual deep copy of the machine
 
-        avoid deep copying spacy lemmatizer
+        avoid deep copying heavy files
         """
         cls = self.__class__
         result = cls.__new__(cls)
@@ -450,7 +450,7 @@ class AMRStateMachine():
         memo[id(self)] = result
         for k, v in self.__dict__.items():
             # start = time.time()
-            # if k in ['spacy_lemmatizer', 'actions_by_stack_rules']:
+            # if k in ['actions_by_stack_rules']:
             #     setattr(result, k, v)
             # else:
             #     setattr(result, k, deepcopy(v, memo))

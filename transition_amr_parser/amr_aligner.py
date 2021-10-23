@@ -9,8 +9,13 @@ from difflib import get_close_matches
 from functools import wraps
 # pip install penman spacy ipdb numpy
 import numpy as np
-import spacy
-from spacy.tokens.doc import Doc
+try:
+    import spacy
+    from spacy.tokens.doc import Doc
+except ImportError as e:
+    print('\nThe simple AMR aligner needs Spacy\n')
+    raise e
+
 # pip install matplotlib
 from transition_amr_parser.plots import plot_graph
 from transition_amr_parser.io import read_amr2
