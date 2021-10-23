@@ -1,9 +1,17 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) version `0.5.1`. Current code implements the `Structured-BART` model. Structured-BART yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on the AMR2.0 test without graph recategorization or external dependencies, excluding wikification. It also produces accurate word to node alignments.See PAPER. As of this writing this is the best AMR parser published as per AMR2.0 test set scores, the standard benchmark.
+Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR alignments and reliable token to node alignments. See below for the different versions and corresponding papers
+
+### Structured-BART 
+
+Current version (`0.5.1`). Structured-BART yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on the AMR2.0 test without graph recategorization or external dependencies, excluding wikification. It also produces accurate word to node alignments.See PAPER. As of this writing this is the best AMR parser published as per AMR2.0 test set scores, the standard benchmark.
+
+### Action Pointer
 
 Checkout the `action-pointer` branch (derived from version `0.4.2`) for the `Action Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. APT yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test using RoBERTa embeddings and has an efficient shallow decoder. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test, better that what is reported in the paper.
+
+### Stack-Transformer
 
 Checkout the `stack-transformer` branch (derived from version `0.3.4`) for the `stack-Transformer` model [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89) from EMNLP findings 2020. The stack-Transformer yields `80.2` Smatch (`81.3` with self-learning) on AMR2.0 test (this code reaches `80.5` due to the aligner implementation). Stack-Transformer can be used to reproduce our works on self-learning and cycle consistency in AMR parsing [(Lee et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.288/) from EMNLP findings 2020, alignment-based multi-lingual AMR parsing [(Sheth et al 2021)](https://www.aclweb.org/anthology/2021.eacl-main.30/) from EACL 2021 and Knowledge Base Question Answering [(Kapanipathi et al 2021)](https://arxiv.org/abs/2012.01707) from ACL findings 2021.
 
@@ -17,7 +25,7 @@ IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wik
 
 ## Installation
 
-The code needs Pytorch `1.4` and `fairseq==0.10.2`. We tested it with Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
+The code needs Pytorch `1.4` and fairseq `0.10.2`. We tested it with Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
 
 ```bash
 # inside set_environment.sh
