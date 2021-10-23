@@ -31,7 +31,8 @@ setup(
     py_modules=['transition_amr_parser'],
     entry_points={
         'console_scripts': [
-            'amr-parse = transition_amr_parser.parse:main',
+            # standalone parsing only supported in v0.4.2 and below (for now)
+            # 'amr-parse = transition_amr_parser.parse:main',
             'amr-machine = transition_amr_parser.amr_machine:main',
         ]
     },

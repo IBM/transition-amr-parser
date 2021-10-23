@@ -66,8 +66,8 @@ if __name__ == '__main__':
 
     # fairseq
     try:
-        from transition_amr_parser.roberta_utils import extract_features_aligned_to_words_batched
-        print("transition_amr_parser.roberta_utils works")
+        import fairseq
+        print("fairseq works")
     except ImportError:
         print("fairseq installation failed")
         pass
