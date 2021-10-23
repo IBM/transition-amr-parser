@@ -898,11 +898,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                 # get alignment probabilities if available
                 aprobs = align_probs[index] if align_probs else None
 
-                # get the action sequence
-                actions, actions_states, data_piece = self.run_oracle_get_data(
-                    amr, aprobs, self.machine, self.oracle)
-
                 for _ in range(self.args.sample_alignments):
+                    # get the action sequence
+                    actions, actions_states, data_piece = self.run_oracle_get_data(
+                        amr, aprobs, self.machine, self.oracle)
                     action_sequences.append(actions)
                     # append the numerical data for one sentence/amr
                     data_samples.append(data_piece)
@@ -1149,9 +1148,6 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         if self.args.rescale_align:
             loss = loss / self.args.sample_alignments
-
-        # FIXME: Debug hack
-        # loss = 5 * loss
 
         if ignore_grad:
             loss *= 0
