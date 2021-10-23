@@ -4,9 +4,6 @@ import re
 from collections import Counter
 from copy import deepcopy
 
-import spacy
-from spacy.tokens.doc import Doc
-
 from transition_amr_parser.amr import AMR
 
 """
@@ -86,20 +83,6 @@ class NoTokenizer(object):
     def __call__(self, tokens):
         spaces = [True] * len(tokens)
         return Doc(self.vocab, words=tokens, spaces=spaces)
-
-
-def get_spacy_lemmatizer():
-    # TODO: Unclear why this configuration
-    # from spacy.cli.download import download
-    try:
-        lemmatizer = spacy.load('en', disable=['parser', 'ner'])
-    except OSError:
-        # Assume the problem was the spacy models were not downloaded
-        from spacy.cli.download import download
-        download('en')
-        lemmatizer = spacy.load('en', disable=['parser', 'ner'])
-    lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
-    return lemmatizer
 
 
 class AMRStateMachine:

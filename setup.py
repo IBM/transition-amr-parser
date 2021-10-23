@@ -4,17 +4,12 @@ VERSION = '0.5.1'
 
 # this is what usually goes on requirements.txt
 install_requires = [
-    # 'torch',
     'torch==1.4',
-    'h5py',
-    'spacy==2.2.3',
+    'torch-scatter==1.3.2',
     'tqdm',
-    # 'fairseq',
     'fairseq==0.10.2',
-    'tensorboardX',
     'packaging',
-    # 'torch-scatter',
-    # 'torch-scatter=1.3.2',
+    'requests',
     # for scoring
     'penman',
     'smatch==1.0.4',
@@ -22,6 +17,7 @@ install_requires = [
     'ipdb',
     'line_profiler',
     'pyinstrument'
+    # 'tensorboardX',
 ]
 
 setup(

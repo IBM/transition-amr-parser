@@ -1,7 +1,7 @@
 Transition-based AMR Parser
 ============================
 
-Transition-based parser for Abstract Meaning Representation (AMR) version `0.5.1`. Current code implements the `Structured-BART` model. Structured-BART yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on the AMR2.0 test without graph recategorization or external dependencies, excluding wikification. It also produces accurate word to node alignments.See PAPER. As of this writing this is the best AMR parser publised as per AMR2.0 test set scores, the standard benchmark.
+Transition-based parser for Abstract Meaning Representation (AMR) version `0.5.1`. Current code implements the `Structured-BART` model. Structured-BART yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on the AMR2.0 test without graph recategorization or external dependencies, excluding wikification. It also produces accurate word to node alignments.See PAPER. As of this writing this is the best AMR parser published as per AMR2.0 test set scores, the standard benchmark.
 
 Checkout the `action-pointer` branch (derived from version `0.4.2`) for the `Action Pointer Transformer` model [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443) from NAACL2021. APT yields `81.8` Smatch (`83.4` with silver data and partial ensemble) on AMR2.0 test using RoBERTa embeddings and has an efficient shallow decoder. Due to aligner implementation improvements this code reaches `82.1` on AMR2.0 test, better that what is reported in the paper.
 
@@ -17,17 +17,7 @@ IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wik
 
 ## Installation
 
-Clone and pip install (see `set_environment.sh` below if you use a virtualenv)
-
-```bash
-git clone git@github.ibm.com:mnlp/transition-amr-parser.git
-cd transition-amr-parser
-git checkout <branch>    # for e.g. action-pointer, ignore for current version
-. set_environment.sh     # see below to create one
-pip install .            # use --editable if to modify code
-```
-
-The code needs Pytorch `1.4` and we tested it with Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
+The code needs Pytorch `1.4` and `fairseq==0.10.2`. We tested it with Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
 
 ```bash
 # inside set_environment.sh
@@ -40,28 +30,23 @@ OR you can leave this empty and handle environment activation yourself i.e.
 touch set_environment.sh
 ```
 
-train and test scripts always source this script at the beggining i.e.
+Note that all bash scripts always source `set_environment.sh`, so you do not need to source it yourself.
+
+To install clone and pip install 
 
 ```bash
-. set_environment.sh
-```
-
-that will spare you activating the environments or setting up system variables and other each time, which helps when working with computer clusters. 
-
-You will also need Pytorch Scatter version `1.3.2`
-
-```
-git clone https://github.com/rusty1s/pytorch_scatter.git
-cd pytorch_scatter
-git checkout 1.3.2
-pip install .
+git clone git@github.ibm.com:mnlp/transition-amr-parser.git
+cd transition-amr-parser
+git checkout <branch>    # for e.g. action-pointer, ignore for current version
+. set_environment.sh     # see above
+pip install .            # use --editable if to modify code
 ```
 
 To test if install worked
 ```bash
 bash tests/correctly_installed.sh
 ```
-To do a mini-test with 25 annotated sentences that we provide. This should take 1-3 minutes. It wont learn anything but at least will run all stages.
+To do a mini-test with 25 annotated sentences that we provide. This should take 10 minutes. It wont learn anything but at least will run all stages.
 ```bash
 bash tests/minimal_test.sh
 ```
@@ -83,7 +68,7 @@ You first need to pre-process and align the data. For AMR2.0 do
 python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
 
-You will also need to unzip the precomputed BLINK cache
+You will also need to unzip the precomputed BLINK cache. See issues in this repository to get the cache file.
 
 ```
 unzip /path/to/linkcache.zip
