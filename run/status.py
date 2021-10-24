@@ -116,11 +116,11 @@ def argument_parser():
     return args
 
 
-def check_model_training(seed_folder, max_epoch):
+def check_model_training(seed_folder, max_epoch, is_done):
 
     diplay_lines = []
     final_checkpoint = f'{seed_folder}/checkpoint{max_epoch}.pt'
-    if os.path.isfile(final_checkpoint):
+    if os.path.isfile(final_checkpoint) or is_done:
         # Last epoch completed
         diplay_lines.append(
             (f"\033[92m{max_epoch}/{max_epoch}\033[0m", f"{seed_folder}")
@@ -212,18 +212,18 @@ def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
             return (
                 f"\033[93m{delta}/{len(target_epochs)}\033[0m",
                 f"{seed_folder}"
-            )
+            ), False
         else:
             return (
                 f"{delta}/{len(target_epochs)}",
                 f"{seed_folder}"
-            )
+            ), False
 
     else:
         return (
             f"\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m",
             f"{seed_folder}"
-        )
+        ), True
 
 
 def get_corrupted_checkpoints(seed_folder):
@@ -283,13 +283,16 @@ def print_status(config_env_vars, seed, do_clear=False):
         # find checkpoints with suspiciously smaller sizes
         corrupted_checkpoints.extend(get_corrupted_checkpoints(seed_folder))
 
-        # all checkpoints trained
-        status_lines.extend(check_model_training(seed_folder, max_epoch))
-
         # all checkpoints evaluated
-        status_lines.append(check_checkpoint_evaluation(
+        line, is_done = check_checkpoint_evaluation(
             config_env_vars, seed, seed_folder
-        ))
+        )
+        status_lines.append(line)
+
+        # all checkpoints trained (or evaluated)
+        status_lines.extend(
+            check_model_training(seed_folder, max_epoch, is_done)
+        )
 
         # Final model and results
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
@@ -763,9 +766,13 @@ def print_table(header, data, formatter, do_clear=False, col0_right=False):
         for n, field in enumerate(header):
             cell = get_cell_str(row, field, formatter.get(field, None))
             if col0_right and n == 0:
-                row_str.append('{:<{width}}'.format(cell, width=max_col_size[n]))
+                row_str.append(
+                    '{:<{width}}'.format(cell, width=max_col_size[n])
+                )
             else:
-                row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
+                row_str.append(
+                    '{:^{width}}'.format(cell, width=max_col_size[n])
+                )
         print(col_sep.join(row_str))
     print('')
 
