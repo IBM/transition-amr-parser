@@ -161,7 +161,7 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
             return new_p
 
         sample_alignments = sample.get('sample_alignments', 1)
-        if sample_alignments > 1 and 'lp_align' in sample:
+        if sample_alignments > 1 and self.args.importance_weighted_align:
             loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=False)
             loss_pos, nll_loss_pos = self.compute_pointer_loss(net_output, sample, reduce=False)
 
