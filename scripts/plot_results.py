@@ -137,7 +137,7 @@ def matplotlib_render(plotting_data, out_png, title):
     ax = plt.axes([0.1, 0.1, 0.8, 0.7])
     # second axis for Smatch
     ax_smatch = ax.twinx()
-    colors = ['b', 'r', 'g', 'm']
+    colors = ['b', 'r', 'g', 'm', 'y']
     tags = sorted(plotting_data.keys())
     handles = []
     for i in range(len(tags)):

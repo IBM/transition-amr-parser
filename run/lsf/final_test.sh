@@ -35,6 +35,9 @@ if [[ "$HOSTNAME" =~ dccpc.* ]] || [[ "$HOSTNAME" =~ dccx[cn].* ]] || [[ "$HOSTN
     exit 1
 fi
 
+# BEAM_SIZE=1
+# DECODING_CHECKPOINT=checkpoint_wiki.smatch_best1.pt
+
 for seed in $SEEDS;do
 
     # define seed and working dir

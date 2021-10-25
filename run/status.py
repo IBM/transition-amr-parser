@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
 from transition_amr_parser.io import clbar
-# from ipdb import set_trace
+from ipdb import set_trace
 
 
 # Sanity check python3
@@ -46,6 +46,12 @@ def argument_parser():
     parser.add_argument(
         "-c", "--config",
         help="select one experiment by a config",
+        type=str,
+    )
+    parser.add_argument(
+        "--configs",
+        nargs='+',
+        help="select multiple experiments by config",
         type=str,
     )
     parser.add_argument(
@@ -110,11 +116,11 @@ def argument_parser():
     return args
 
 
-def check_model_training(seed_folder, max_epoch):
+def check_model_training(seed_folder, max_epoch, is_done):
 
     diplay_lines = []
     final_checkpoint = f'{seed_folder}/checkpoint{max_epoch}.pt'
-    if os.path.isfile(final_checkpoint):
+    if os.path.isfile(final_checkpoint) or is_done:
         # Last epoch completed
         diplay_lines.append(
             (f"\033[92m{max_epoch}/{max_epoch}\033[0m", f"{seed_folder}")
@@ -206,18 +212,18 @@ def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
             return (
                 f"\033[93m{delta}/{len(target_epochs)}\033[0m",
                 f"{seed_folder}"
-            )
+            ), False
         else:
             return (
                 f"{delta}/{len(target_epochs)}",
                 f"{seed_folder}"
-            )
+            ), False
 
     else:
         return (
             f"\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m",
             f"{seed_folder}"
-        )
+        ), True
 
 
 def get_corrupted_checkpoints(seed_folder):
@@ -277,13 +283,16 @@ def print_status(config_env_vars, seed, do_clear=False):
         # find checkpoints with suspiciously smaller sizes
         corrupted_checkpoints.extend(get_corrupted_checkpoints(seed_folder))
 
-        # all checkpoints trained
-        status_lines.extend(check_model_training(seed_folder, max_epoch))
-
         # all checkpoints evaluated
-        status_lines.append(check_checkpoint_evaluation(
+        line, is_done = check_checkpoint_evaluation(
             config_env_vars, seed, seed_folder
-        ))
+        )
+        status_lines.append(line)
+
+        # all checkpoints trained (or evaluated)
+        status_lines.extend(
+            check_model_training(seed_folder, max_epoch, is_done)
+        )
 
         # Final model and results
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
@@ -524,121 +533,145 @@ def average_results(results, fields, average_fields, ignore_fields,
     return averaged_results
 
 
-def display_results(models_folder, config, set_seed, seed_average, do_test,
-                    longr=False, do_clear=False):
+def extract_experiment_data(config_env_vars, seed, do_test):
 
-    # Table header
-    results = []
+    model_folder = config_env_vars['MODEL_FOLDER']
+    seed_folder = f'{model_folder}-seed{seed}'
 
-    if config:
-        target_config_env_vars = read_config_variables(config)
+    # Get speed stats
+    minutes_per_epoch, minutes_per_test = \
+        get_speed_statistics(seed_folder)
+    max_epoch = int(config_env_vars['MAX_EPOCH'])
+    if minutes_per_epoch and minutes_per_epoch > 1:
+        epoch_time = minutes_per_epoch/60.*max_epoch
+    else:
+        epoch_time = None
+    if minutes_per_test and minutes_per_test > 1:
+        test_time = minutes_per_test
+    else:
+        test_time = None
 
-    for model_folder in glob(f'{models_folder}/*/*'):
-        for seed_folder in glob(f'{model_folder}/*'):
+    # get experiments info
+    _, target_epochs, _ = get_checkpoints_to_eval(
+        config_env_vars,
+        seed,
+        ready=True
+    )
+    checkpoints, scores, _, missing_epochs, sorted_scores = \
+        get_best_checkpoints(
+            config_env_vars, seed, target_epochs, n_best=5
+        )
+    if scores == []:
+        return {}
 
-            # if config given, identify it by seed
-            if set_seed and f'seed{set_seed}' not in seed_folder:
-                continue
-            else:
-                seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
+    best_checkpoint, best_score = sorted(
+        zip(checkpoints, scores), key=lambda x: x[1]
+    )[-1]
+    max_epoch = config_env_vars['MAX_EPOCH']
+    best_epoch = re.match(
+        'checkpoint([0-9]+).pt', best_checkpoint
+    ).groups()[0]
 
-            # Read config contents and seed
-            config_env_vars = read_config_variables(f'{seed_folder}/config.sh')
+    # get top-5 beam result
+    # TODO: More granularity here. We may want to add many different
+    # metrics and sets
+    eval_metric = config_env_vars['EVAL_METRIC']
+    sset = 'valid'
+    cname = 'checkpoint_wiki.smatch_top5-avg'
+    results_file = \
+        f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
+    if os.path.isfile(results_file):
+        best_top5_beam10_score = get_score_from_log(results_file,
+                                                    eval_metric)[0]
+    else:
+        best_top5_beam10_score = None
 
-            # if config given, identify by folder
-            if (
-                config
-                and config_env_vars['MODEL_FOLDER']
-                != target_config_env_vars['MODEL_FOLDER']
-            ):
-                continue
+    # Append result
+    result = dict(
+        model_folder=model_folder,
+        seed=seed,
+        data=config_env_vars['TASK_TAG'],
+        oracle=os.path.basename(config_env_vars['ORACLE_FOLDER'][:-1]),
+        features=os.path.basename(config_env_vars['EMB_FOLDER']),
+        model=config_env_vars['TASK'] + f':{seed}',
+        best=f'{best_epoch}/{max_epoch}',
+        dev=best_score,
+        top5_beam10=best_top5_beam10_score,
+        train=epoch_time,
+        dec=test_time,
+        sorted_scores=sorted_scores
+    )
 
-            # Get speed stats
-            minutes_per_epoch, minutes_per_test = \
-                get_speed_statistics(seed_folder)
-            max_epoch = int(config_env_vars['MAX_EPOCH'])
-            if minutes_per_epoch and minutes_per_epoch > 1:
-                epoch_time = minutes_per_epoch/60.*max_epoch
-            else:
-                epoch_time = None
-            if minutes_per_test and minutes_per_test > 1:
-                test_time = minutes_per_test
-            else:
-                test_time = None
-
-            # get experiments info
-            _, target_epochs, _ = get_checkpoints_to_eval(
-                config_env_vars,
-                seed,
-                ready=True
-            )
-            checkpoints, scores, _, missing_epochs, sorted_scores = \
-                get_best_checkpoints(
-                    config_env_vars, seed, target_epochs, n_best=5
-                )
-            if scores == []:
-                continue
-
-            best_checkpoint, best_score = sorted(
-                zip(checkpoints, scores), key=lambda x: x[1]
-            )[-1]
-            max_epoch = config_env_vars['MAX_EPOCH']
-            best_epoch = re.match(
-                'checkpoint([0-9]+).pt', best_checkpoint
-            ).groups()[0]
-
-            # get top-5 beam result
-            # TODO: More granularity here. We may want to add many different
-            # metrics and sets
-            eval_metric = config_env_vars['EVAL_METRIC']
-            sset = 'valid'
-            cname = 'checkpoint_wiki.smatch_top5-avg'
-            results_file = \
-                f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
-            if os.path.isfile(results_file):
-                best_top5_beam10_score = get_score_from_log(results_file,
-                                                            eval_metric)[0]
-            else:
-                best_top5_beam10_score = None
-
-            # Append result
-            results.append(dict(
-                model_folder=model_folder,
-                seed=seed,
-                data=config_env_vars['TASK_TAG'],
-                oracle=os.path.basename(config_env_vars['ORACLE_FOLDER'][:-1]),
-                features=os.path.basename(config_env_vars['EMB_FOLDER']),
-                model=config_env_vars['TASK'] + f':{seed}',
-                best=f'{best_epoch}/{max_epoch}',
-                dev=best_score,
-                top5_beam10=best_top5_beam10_score,
-                train=epoch_time,
-                dec=test_time,
-            ))
-
-            if do_test:
-                sset = 'test'
-                cname = 'checkpoint_wiki.smatch_top5-avg'
-                results_file = \
-                    f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
-                if os.path.isfile(results_file):
-                    best_top5_beam10_test = get_score_from_log(results_file,
-                                                               eval_metric)[0]
-                else:
-                    best_top5_beam10_test = None
-                results[-1]['(test)'] = best_top5_beam10_test
+    if '_CONFIG_PATH' in config_env_vars:
+        result['config_path'] = config_env_vars['_CONFIG_PATH']
 
     if do_test:
-        fields = [
-            'data', 'oracle', 'features', 'model', 'best', 'dev',
-            'top5_beam10', '(test)', 'train (h)', 'dec (m)'
-        ]
+        sset = 'test'
+        cname = 'checkpoint_wiki.smatch_top5-avg'
+        results_file = \
+            f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
+        if os.path.isfile(results_file):
+            best_top5_beam10_test = get_score_from_log(results_file,
+                                                       eval_metric)[0]
+        else:
+            best_top5_beam10_test = None
+        result['(test)'] = best_top5_beam10_test
+
+    return result
+
+
+def get_experiment_configs(models_folder, configs, set_seed):
+
+    # Collect paths of all experiment folders for different seeds, either by
+    # config or just looking into the models folder
+    config_exps = []
+    if configs:
+
+        # from configs
+        for config in configs:
+            config_env_vars = read_config_variables(config)
+            model_folder = config_env_vars['MODEL_FOLDER']
+            for seed in config_env_vars['SEEDS'].split():
+                if set_seed and set_seed != seed:
+                    continue
+                config_env_vars['_CONFIG_PATH'] = config
+                config_exps.append((config_env_vars, seed))
 
     else:
-        fields = [
-            'data', 'oracle', 'features', 'model', 'best', 'dev',
-            'top5_beam10', 'train (h)', 'dec (m)'
-        ]
+
+        # from DATA folder
+        for model_folder in glob(f'{models_folder}/*/*'):
+            for seed_folder in glob(f'{model_folder}/*'):
+                # if config given, identify it by seed
+                if set_seed and f'seed{set_seed}' not in seed_folder:
+                    continue
+                else:
+                    seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
+                config = f'{seed_folder}/config.sh'
+                config_env_vars = read_config_variables(config)
+                config_exps.append((config_env_vars, seed))
+
+    return config_exps
+
+
+def display_results(models_folder, configs, set_seed, seed_average, do_test,
+                    longr=False, do_clear=False):
+
+    # collect data for each experiment as a dictionary
+    results = []
+    # set_trace(context=30)
+    for conf, seed in get_experiment_configs(models_folder, configs, set_seed):
+        result = extract_experiment_data(conf, seed, do_test)
+        if result:
+            results.append(result)
+
+    if configs:
+        fields = ['config_path']
+    else:
+        fields = ['data', 'oracle', 'features', 'model']
+    fields.extend(['best', 'dev', 'top5_beam10', 'train (h)', 'dec (m)'])
+    if do_test:
+        fields.insert(2, '(test)')
 
     # TODO: average over seeds
     if seed_average:
@@ -664,16 +697,18 @@ def display_results(models_folder, config, set_seed, seed_average, do_test,
     if results:
         assert all(field.split()[0] in results[0].keys() for field in fields)
         formatter = {
-            5: '{:.1f}'.format,
-            6: '{:.1f}'.format,
-            7: '{:.1f}'.format,
-            8: '{:.1f}'.format,
-            9: '{:.1f}'.format
+            'dev': '{:.1f}'.format,
+            '(test)': '{:.1f}'.format,
+            'top5_beam10': '{:.1f}'.format,
+            'train (h)': '{:.1f}'.format,
+            'dec (m)': '{:.1f}'.format
         }
-        print_table(fields, results, formatter=formatter, do_clear=do_clear)
+        print_table(fields, results, formatter=formatter, do_clear=do_clear,
+                    col0_right=bool(configs))
 
-        if config and longr:
+        if configs and len(configs) == 1 and longr:
             # single model result display
+            sorted_scores = results[0]['sorted_scores']
             minc = .95 * min([x[0] for x in sorted_scores])
             sorted_scores = sorted(sorted_scores, key=lambda x: x[1])
             pairs = [(str(x), y) for (y, x) in sorted_scores]
@@ -702,10 +737,10 @@ def get_cell_str(row, field, formatter):
             std = formatter(std)
         cell = f'{cell} ({std})'
 
-    return cell
+    return str(cell)
 
 
-def print_table(header, data, formatter, do_clear=False):
+def print_table(header, data, formatter, do_clear=False, col0_right=False):
 
     # data structure checks
 
@@ -714,7 +749,7 @@ def print_table(header, data, formatter, do_clear=False):
     for n, field in enumerate(header):
         row_lens = [len(field)]
         for row in data:
-            cell = get_cell_str(row, field, formatter.get(n, None))
+            cell = get_cell_str(row, field, formatter.get(field, None))
             row_lens.append(len_print(cell))
         max_col_size.append(max(row_lens))
 
@@ -729,8 +764,15 @@ def print_table(header, data, formatter, do_clear=False):
     for row in data:
         row_str = []
         for n, field in enumerate(header):
-            cell = get_cell_str(row, field, formatter.get(n, None))
-            row_str.append('{:^{width}}'.format(cell, width=max_col_size[n]))
+            cell = get_cell_str(row, field, formatter.get(field, None))
+            if col0_right and n == 0:
+                row_str.append(
+                    '{:<{width}}'.format(cell, width=max_col_size[n])
+                )
+            else:
+                row_str.append(
+                    '{:^{width}}'.format(cell, width=max_col_size[n])
+                )
         print(col_sep.join(row_str))
     print('')
 
@@ -902,7 +944,7 @@ def main(args):
     elif args.results or args.long_results:
 
         # results display and exit
-        display_results('DATA/*/models/', args.config, args.seed,
+        display_results('DATA/*/models/', args.configs, args.seed,
                         args.seed_average, args.test,
                         longr=bool(args.long_results),
                         do_clear=args.clear)
