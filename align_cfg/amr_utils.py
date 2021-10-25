@@ -5,7 +5,7 @@ import torch
 from transition_amr_parser.io import read_amr2
 
 
-def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edges=False, remove_empty_align=True):
+def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edges=False, remove_empty_align=True, remove_none_edges=True):
 
     skipped = collections.Counter()
 
@@ -28,6 +28,17 @@ def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edg
                 continue
             new_corpus.append(amr)
         corpus = new_corpus
+
+    if remove_none_edges:
+        for amr in corpus:
+            new_edges = []
+            for e in amr.edges:
+                s, y, t = e
+                if t not in amr.nodes:
+                    print('Warning: Node does not exist. node = {}, amr = {}'.format(t, amr))
+                    continue
+                new_edges.append(e)
+            amr.edges = new_edges
 
     if remove_empty_align and corpus[0].alignments is not None:
         stats = collections.Counter()

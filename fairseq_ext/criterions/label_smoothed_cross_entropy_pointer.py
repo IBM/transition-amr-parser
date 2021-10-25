@@ -151,9 +151,10 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
         """
         net_output = model(**sample['net_input'])
 
-        def compute_importance_weighted_p(log_p, log_q):
+        def compute_importance_weighted_p(log_p_token, log_p_pointer, log_q):
+            log_p = log_p_token + self.loss_coef * log_p_pointer
             with torch.no_grad():
-                log_w = log_p - log_q
+                log_w = log_p.detach() - log_q.detach() # extra cautious with detach.
                 w_tilde = log_w.softmax(-1)
             # NOTE: Since we don't backprop through q, it's okay to use log_p instead of log_w.
             new_p = w_tilde * log_p
@@ -170,22 +171,24 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
             k = sample_alignments
             assert loss_seq.dim() == 1
             assert loss_seq.shape == nll_loss_seq.shape
-            # importance weights
             log_q = torch.tensor(sample['lp_align'], dtype=torch.float, device=loss_seq.device)
 
-            loss_seq = -compute_importance_weighted_p(-loss_seq, log_q).sum()
-            nll_loss_seq = -compute_importance_weighted_p(-nll_loss_seq, log_q).sum()
+            loss = -compute_importance_weighted_p(-loss_seq, -loss_pos, log_q).sum()
+            nll_loss = -compute_importance_weighted_p(-nll_loss_seq, -nll_loss_pos, log_q).sum()
 
-            loss_pos = -compute_importance_weighted_p(-loss_pos, log_q).sum()
-            nll_loss_pos = -compute_importance_weighted_p(-nll_loss_pos, log_q).sum()
+            # Used for logging.
+            loss_seq = loss_seq.sum()
+            nll_loss_seq = nll_loss_seq.sum()
+            loss_pos = loss_pos.sum()
+            nll_loss_pos = nll_loss_pos.sum()
 
         else:
             loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)
             loss_pos, nll_loss_pos = self.compute_pointer_loss(net_output, sample, reduce=reduce)
 
-        loss = loss_seq + self.loss_coef * loss_pos
-        # loss = loss_seq
-        nll_loss = nll_loss_seq + self.loss_coef * nll_loss_pos
+            loss = loss_seq + self.loss_coef * loss_pos
+            nll_loss = nll_loss_seq + self.loss_coef * nll_loss_pos
+
         # TODO use different normalization factor for two types of losses
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {
