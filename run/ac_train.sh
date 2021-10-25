@@ -31,9 +31,14 @@ if [[ $use_fp16 == 1 ]]; then
     fp16="--fp16"
 fi
 
-if [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint_last.pt ] && [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt ]; then
+if [ -f ${MODEL_FOLDER}-seed${seed}/epoch_tests/.done ];then
 
-    echo "Model checkpoint ${MODEL_FOLDER}-seed${seed}/checkpoint_last.pt && ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt already exist --- do nothing."
+    # Note that after run/status.py --final-remove this will flag but not the if below
+    echo "Model ${MODEL_FOLDER}-seed${seed}/epoch_tests/.done exists --- do nothing."
+
+elif [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt ]; then
+
+    echo "Model ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt already exists --- do nothing."
 
 else
 
