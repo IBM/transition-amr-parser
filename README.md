@@ -1,7 +1,7 @@
 Transition-based AMR Parser
 ============================
 
-Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR alignments and reliable token to node alignments. See below for the different versions and corresponding papers
+Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers
 
 ### Structured-BART 
 
