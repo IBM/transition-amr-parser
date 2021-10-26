@@ -31,7 +31,7 @@ from fairseq_ext.amr_spec.action_info_binarize import (
     load_actstates_fromfile
 )
 from fairseq_ext.binarize import binarize_file
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.io import read_amr
 from transition_amr_parser.amr_machine import AMRStateMachine, AMROracle, peel_pointer
 from fairseq_ext.amr_spec.action_info import get_actions_states
 from fairseq_ext.data.data_utils import collate_tokens
