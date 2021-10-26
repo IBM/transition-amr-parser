@@ -18,10 +18,6 @@ from transition_amr_parser.io import (
 from transition_amr_parser.clbar import yellow_font, clbar
 from ipdb import set_trace
 
-# la_regex = re.compile(r'LA\((.*);(.*)\)')
-# ra_regex = re.compile(r'RA\((.*);(.*)\)')
-# arc_regex = re.compile(r'[RL]A\((.*);(.*)\)')
-
 # change the format of pointer string from LA(label;pos) -> LA(pos,label)
 la_regex = re.compile(r'>LA\((.*),(.*)\)')
 ra_regex = re.compile(r'>RA\((.*),(.*)\)')
@@ -49,7 +45,8 @@ def graph_alignments(unaligned_nodes, amr):
             and max(amr.alignments[tgt])
                 > fix_alignments.get(src, 0)
         ):
-            # # debug: to justify to change 0 to -1e6 for a test data corner case; see if there are other cases affected
+            # # debug: to justify to change 0 to -1e6 for a test data corner
+            # case; see if there are other cases affected
             # if max(amr.alignments[tgt]) <= fix_alignments.get(src, 0):
             #     breakpoint()
             fix_alignments[src] = max(amr.alignments[tgt])
@@ -115,7 +112,8 @@ def normalize(token):
 
 class AMROracle():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False, use_copy=True):
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
+                 use_copy=True):
 
         # Remove nodes that have all their edges created
         self.reduce_nodes = reduce_nodes
@@ -157,13 +155,6 @@ class AMROracle():
             self.pend_edges_by_node[src].append((src, label, tgt))
             self.pend_edges_by_node[tgt].append((src, label, tgt))
 
-        # # debug for AMR 3.0 training data
-        # # the following sentence has gold AMR with an edge with a node not in node list
-        # if ' '.join(gold_amr.tokens) == ('He should have been locked away , as they say '
-        #                                  'in Urdu " Qaid ba - mushaqqat " prison with hard labor .'):
-        #     print(gold_amr)
-        #     breakpoint()
-
         # sort edges in descending order of node2pos position
         for node_id in self.pend_edges_by_node:
             edges = []
@@ -175,7 +166,8 @@ class AMROracle():
             edges.sort(reverse=True)
             new_edges_for_node = []
             for (_, idx) in edges:
-                new_edges_for_node.append(self.pend_edges_by_node[node_id][idx])
+                new_edges_for_node.append(
+                    self.pend_edges_by_node[node_id][idx])
             self.pend_edges_by_node[node_id] = new_edges_for_node
 
         # Will store gold_amr.nodes.keys() and edges as we predict them
@@ -208,7 +200,8 @@ class AMROracle():
                 self.pend_edges_by_node[tgt].remove((src, label, tgt))
                 self.pend_edges_by_node[current_id].remove((src, label, tgt))
                 # return [f'LA({label[1:]};{index})'], [1.0]
-                assert label[0] == ':'    # NOTE include the relation marker ':' in action names
+                # NOTE include the relation marker ':' in action names
+                assert label[0] == ':'
                 return [f'>LA({index},{label})'], [1.0]
 
             elif (
@@ -228,7 +221,8 @@ class AMROracle():
                 self.pend_edges_by_node[src].remove((src, label, tgt))
                 self.pend_edges_by_node[current_id].remove((src, label, tgt))
                 # return [f'RA({label[1:]};{index})'], [1.0]
-                assert label[0] == ':'    # NOTE include the relation marker ':' in action names
+                # NOTE include the relation marker ':' in action names
+                assert label[0] == ':'
                 return [f'>RA({index},{label})'], [1.0]
 
     def get_reduce_action(self, machine, top=True):
@@ -296,7 +290,10 @@ class AMROracle():
             # tracking and scoring of graph
             target_node = normalize(self.gold_amr.nodes[nid])
 
-            if self.use_copy and normalize(machine.tokens[machine.tok_cursor]) == target_node:
+            if (
+                self.use_copy and
+                normalize(machine.tokens[machine.tok_cursor]) == target_node
+            ):
                 # COPY
                 return [('COPY', nid)], [1.0]
             else:
@@ -312,7 +309,8 @@ class AMROracle():
 
 class AMRStateMachine():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False, use_copy=True):
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
+                 use_copy=True):
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
@@ -330,7 +328,9 @@ class AMRStateMachine():
             'SHIFT',   # Move cursor
             'COPY',    # Copy word under cursor to node (add node to stack)
             'ROOT',    # Label node as root
-            '>LA',      # Arc from node under cursor (<label>, <to position>) (to be different from LA the city)
+            # Arc from node under cursor (<label>, <to position>) (to be
+            # different from LA the city)
+            '>LA',
             '>RA',      # Arc to node under cursor (<label>, <from position>)
             'CLOSE',   # Close machine
             # ...      # create node with ... as name (add node to stack)
@@ -347,7 +347,9 @@ class AMRStateMachine():
             self.base_action_vocabulary.remove('COPY')
 
     def canonical_action_to_dict(self, vocab):
-        """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
+        """
+        Map the canonical actions to ids in a vocabulary, each canonical action
+        corresponds to a set of ids.
 
         CLOSE is mapped to eos </s> token.
         """
@@ -355,50 +357,23 @@ class AMRStateMachine():
         vocab_act_count = 0
         assert vocab.eos_word == '</s>'
         for i in range(len(vocab)):
-            # NOTE can not directly use "for act in vocab" -> this will never stop since no stopping iter implemented
+            # NOTE can not directly use "for act in vocab" -> this will never
+            # stop since no stopping iter implemented
             act = vocab[i]
-            if act in ['<s>', '<pad>', '<unk>', '<mask>'] or act.startswith('madeupword'):
+            if (
+                act in ['<s>', '<pad>', '<unk>', '<mask>']
+                or act.startswith('madeupword')
+            ):
                 continue
-            cano_act = self.get_base_action(act) if i != vocab.eos() else 'CLOSE'
+            cano_act = self.get_base_action(
+                act) if i != vocab.eos() else 'CLOSE'
             if cano_act in self.base_action_vocabulary:
                 vocab_act_count += 1
                 canonical_act_ids.setdefault(cano_act, []).append(i)
         # print for debugging
-        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
+        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary
+        # mapped to canonical actions.')
         return canonical_act_ids
-
-    # def canonical_action_to_dict_bpe(self, vocab):
-    #     """Map the canonical actions to ids in a vocabulary, each canonical action corresponds to a set of ids.
-    #     Here the mapping is specially dealing with shared bpe vocabulary, with possible node splits.
-
-    #     CLOSE is mapped to eos </s> token.
-    #     """
-    #     canonical_act_ids = dict()
-    #     vocab_act_count = 0
-    #     assert vocab.eos_word == '</s>'
-    #     for i in range(len(vocab)):
-    #         # NOTE can not directly use "for act in vocab" -> this will never stop since no stopping iter implemented
-    #         act = vocab[i]
-    #         if act in ['<s>', '<pad>', '<unk>', '<mask>'] or act.startswith('madeupword'):
-    #             continue
-    #         # NOTE remove the start of token space in bpe symbols
-    #         if act[0].startswith(vocab.bpe.INIT):
-    #             act = act[1:]
-    #         # NOTE the subtokens are currently included in the class of "NODE" base action, which
-    #         # is allowed at every step except after the last SHIFT
-
-    #         # NOTE in the bart bpe vocabulary both "CLOSE" and "ĠCLOSE" exist -> they should be mapped to eos
-    #         if act == 'CLOSE':
-    #             # skip these conflicting CLOSE tokens
-    #             continue
-
-    #         cano_act = self.get_base_action(act) if i != vocab.eos() else 'CLOSE'
-    #         if cano_act in self.base_action_vocabulary:
-    #             vocab_act_count += 1
-    #             canonical_act_ids.setdefault(cano_act, []).append(i)
-    #     # print for debugging
-    #     # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
-    #     return canonical_act_ids
 
     def reset(self, tokens):
         '''
@@ -467,7 +442,8 @@ class AMRStateMachine():
         if action in self.base_action_vocabulary:
             return action
         # remaining ones are ['>LA', '>RA', 'NODE']
-        # NOTE need to deal with both '>LA(pos,label)' and '>LA(label)', as in the vocabulary the pointers are peeled off
+        # NOTE need to deal with both '>LA(pos,label)' and '>LA(label)', as in
+        # the vocabulary the pointers are peeled off
         if arc_regex.match(action) or arc_nopointer_regex.match(action):
             return action[:3]
         return 'NODE'
@@ -481,21 +457,30 @@ class AMRStateMachine():
             valid_base_actions.append('SHIFT')
             valid_base_actions.extend(gen_node_actions)
 
-        if self.action_history and \
-                self.get_base_action(self.action_history[-1]) in (gen_node_actions + ['ROOT', '>LA', '>RA']):
+        if (
+            self.action_history
+            and self.get_base_action(self.action_history[-1]) in (
+                gen_node_actions + ['ROOT', '>LA', '>RA']
+            )
+        ):
             valid_base_actions.extend(['>LA', '>RA'])
 
-        if self.action_history and \
-                self.get_base_action(self.action_history[-1]) in gen_node_actions:
+        if (
+            self.action_history
+            and self.get_base_action(self.action_history[-1])
+                in gen_node_actions
+        ):
             if max_1root:
-                # force to have at most 1 root (but it can always be with no root)
+                # force to have at most 1 root (but it can always be with no
+                # root)
                 if not self.root:
                     valid_base_actions.append('ROOT')
             else:
                 valid_base_actions.append('ROOT')
 
         if self.tok_cursor == len(self.tokens):
-            assert not valid_base_actions and self.action_history[-1] == 'SHIFT'
+            assert not valid_base_actions \
+                and self.action_history[-1] == 'SHIFT'
             valid_base_actions.append('CLOSE')
 
         if self.reduce_nodes:
@@ -787,9 +772,11 @@ def peel_pointer(action, pad=-1):
         # LA(pos,label) or RA(pos,label)
         action, properties = action.split('(')
         properties = properties[:-1]    # remove the ')' at last position
-        properties = properties.split(',')    # split to pointer value and label
+        # split to pointer value and label
+        properties = properties.split(',')
         pos = int(properties[0].strip())
-        label = properties[1].strip()    # remove any leading and trailing white spaces
+        # remove any leading and trailing white spaces
+        label = properties[1].strip()
         action_label = action + '(' + label + ')'
         return (action_label, pos)
     else:
@@ -797,14 +784,19 @@ def peel_pointer(action, pad=-1):
 
 
 class StatsForVocab:
-    """Collate stats for predicate node names with their frequency, and list of all the other action symbols.
-    For arc actions, pointers values are stripped.
-    The results stats (from training data) are going to decide which node names (the frequent ones) to be added to
-    the vocabulary used in the model.
     """
+    Collate stats for predicate node names with their frequency, and list of
+    all the other action symbols.  For arc actions, pointers values are
+    stripped.  The results stats (from training data) are going to decide which
+    node names (the frequent ones) to be added to the vocabulary used in the
+    model.
+    """
+
     def __init__(self, no_close=False):
-        # DO NOT include CLOSE action (as this is internally managed by the eos token in model)
-        # NOTE we still add CLOSE into vocabulary, just to be complete although it is not used
+        # DO NOT include CLOSE action (as this is internally managed by the eos
+        # token in model)
+        # NOTE we still add CLOSE into vocabulary, just to be complete although
+        # it is not used
         self.no_close = no_close
 
         self.nodes = Counter()
@@ -820,7 +812,8 @@ class StatsForVocab:
         if la_regex.match(action) or la_nopointer_regex.match(action):
             # LA(pos,label) or LA(label)
             action, pos = peel_pointer(action)
-            # NOTE should be an iterable instead of a string; otherwise it'll be character based
+            # NOTE should be an iterable instead of a string; otherwise it'll
+            # be character based
             self.left_arcs.update([action])
         elif ra_regex.match(action) or ra_nopointer_regex.match(action):
             # RA(pos,label) or RA(label)
@@ -845,14 +838,21 @@ class StatsForVocab:
         print(self.control)
 
     def write(self, path_prefix):
-        """Write the stats into file. Two files will be written: one for nodes, one for others."""
+        """
+        Write the stats into file. Two files will be written: one for nodes,
+        one for others.
+        """
         path_nodes = path_prefix + '.nodes'
         path_others = path_prefix + '.others'
         with open(path_nodes, 'w') as f:
             for k, v in self.nodes.most_common():
                 print(f'{k}\t{v}', file=f)
         with open(path_others, 'w') as f:
-            for k, v in chain(self.control.most_common(), self.left_arcs.most_common(), self.right_arcs.most_common()):
+            for k, v in chain(
+                self.control.most_common(),
+                self.left_arcs.most_common(),
+                self.right_arcs.most_common()
+            ):
                 print(f'{k}\t{v}', file=f)
 
 
@@ -868,10 +868,15 @@ def oracle(args):
         17055,  # (3, ':mod', 7), (3, ':mod', 7)
         27076,  # '0.0.2.1.0.0' is on ::edges but not ::nodes
         # for AMR 3.0 data: DATA/AMR3.0/aligned/cofill/train.txt
-        9296,   # self-loop: "# ::edge vote-01 condition vote-01 0.0.2 0.0.2", "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
+        # self-loop:
+        # "# ::edge vote-01 condition vote-01 0.0.2 0.0.2",
+        # "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
+        9296,
     ]
-    # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list and used for both oracles, since:
-    #      this would NOT change the oracle actions, but only ignore sanity checks and displayed stats after oracle run
+    # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list
+    # and used for both oracles, since: this would NOT change the oracle
+    # actions, but only ignore sanity checks and displayed stats after oracle
+    # run
 
     # Initialize machine
     machine = AMRStateMachine(
@@ -937,7 +942,8 @@ def oracle(args):
         stats.update_sentence_stats(oracle, machine)
 
         # do not write 'CLOSE' in the action sequences
-        # this might change the machine.action_history in place, but it is the end of this machine already
+        # this might change the machine.action_history in place, but it is the
+        # end of this machine already
         close_action = stats.action_sequences[-1].pop()
         assert close_action == 'CLOSE'
 
