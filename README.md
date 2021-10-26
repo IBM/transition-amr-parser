@@ -5,7 +5,7 @@ Neural transition-based parser for Abstract Meaning Representation (AMR) produci
 
 ### Structured-BART 
 
-Current version (`0.5.1`). Structured-BART [Zhou et al 2020b](https://openreview.net/forum?id=qjDQCHLXCNj) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. Its yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on the AMR2.0 test-set without graph recategorization or external dependencies, excluding wikification. It also produces accurate word to node alignments. As of this writing, this is the best AMR parser published as per AMR2.0 test set scores, the standard benchmark.
+Current version (`0.5.1`). Structured-BART [(Zhou et al 2020b)](https://openreview.net/forum?id=qjDQCHLXCNj) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. Its yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on the AMR2.0 test-set without graph recategorization or external dependencies, excluding wikification. It also produces accurate word to node alignments. As of this writing, this is the best AMR parser published as per AMR2.0 test set scores, the standard benchmark.
 
 ### Action Pointer
 
