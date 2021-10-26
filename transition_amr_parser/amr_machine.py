@@ -11,7 +11,7 @@ from tqdm import tqdm
 import numpy as np
 from transition_amr_parser.io import (
     AMR,
-    read_amr2,
+    read_amr,
     read_tokenized_sentences,
     write_tokenized_sentences
 )
@@ -859,7 +859,7 @@ class StatsForVocab:
 def oracle(args):
 
     # Read AMR
-    amrs = read_amr2(args.in_aligned_amr, ibm_format=True)
+    amrs = read_amr(args.in_aligned_amr, ibm_format=True)
 
     # broken annotations that we ignore in stats
     # 'DATA/AMR2.0/aligned/cofill/train.txt'
