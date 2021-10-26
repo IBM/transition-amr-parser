@@ -27,9 +27,6 @@ from fairseq.modules import (
     # TransformerEncoderLayer,
 )
 
-from transition_amr_parser.stack_transformer.stack_state_machine import (
-    state_machine_encoder
-)
 from torch_scatter import scatter_mean
 
 from ..modules.transformer_layer import TransformerEncoderLayer, TransformerDecoderLayer
@@ -791,17 +788,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                 head_attention_masks = None
                 head_positions = None
             else:
-                head_attention_masks, head_positions = state_machine_encoder(
-                    self.encode_state_machine,
-                    memory,
-                    memory_pos,
-                    layer.encoder_attn.num_heads,
-                    self.embed_stack_positions,
-                    layer_index,
-                    encoder_out['encoder_padding_mask'] if encoder_out is not None else None
-                )
-
-            # import pdb; pdb.set_trace()
+                raise NotImplementedError('Deprecated: use stack-transformer branch')
 
             x, attn = layer(
                 x,

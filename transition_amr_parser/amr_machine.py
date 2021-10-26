@@ -10,15 +10,13 @@ from itertools import chain
 from tqdm import tqdm
 import numpy as np
 from transition_amr_parser.io import (
-    yellow_font,
-    clbar,
     AMR,
     read_amr2,
     read_tokenized_sentences,
     write_tokenized_sentences
 )
+from transition_amr_parser.clbar import yellow_font, clbar
 from ipdb import set_trace
-
 
 # la_regex = re.compile(r'LA\((.*);(.*)\)')
 # ra_regex = re.compile(r'RA\((.*);(.*)\)')
@@ -443,7 +441,7 @@ class AMRStateMachine():
         """
         Manual deep copy of the machine
 
-        avoid deep copying spacy lemmatizer
+        avoid deep copying heavy files
         """
         cls = self.__class__
         result = cls.__new__(cls)
@@ -452,7 +450,7 @@ class AMRStateMachine():
         memo[id(self)] = result
         for k, v in self.__dict__.items():
             # start = time.time()
-            # if k in ['spacy_lemmatizer', 'actions_by_stack_rules']:
+            # if k in ['actions_by_stack_rules']:
             #     setattr(result, k, v)
             # else:
             #     setattr(result, k, deepcopy(v, memo))

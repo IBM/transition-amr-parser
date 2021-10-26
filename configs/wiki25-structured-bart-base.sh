@@ -18,7 +18,7 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=AMR2.0
+TASK_TAG=wiki25
 
 # TODO: Omit these global vars and use 
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
@@ -46,8 +46,8 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
-WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
+WIKI_DEV=""
+WIKI_TEST=""
 
 ##############################################################################
 # ORACLE
@@ -147,10 +147,12 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-SEEDS="42 43 44"
-MAX_EPOCH=120
-EVAL_INIT_EPOCH=81
+SEEDS="42"
+MAX_EPOCH=10
+EVAL_INIT_EPOCH=5
 time_max_between_epochs=20
+# MAX_EPOCH=100
+# EVAL_INIT_EPOCH=60
 
 # TODO: New
 use_fp16=1
@@ -313,11 +315,8 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
 # ENTITY LINKING
 ###############################################################
 
-# Old scorer
-LINKER_CACHE_PATH=""
-
-# BLINK
-# LINKER_CACHE_PATH=DATA/EL/BLINK/linkcache
+# Smatch evaluation with wiki
+LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 
 ###############################################################
 # TESTS 

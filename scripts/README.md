@@ -1,18 +1,6 @@
 ## Install Details
 
-An example of `set_environment.sh` for conda
-
-```
-# Activate conda and local virtualenv for this machine
-eval "$(/path/to/miniconda3/bin/conda shell.bash hook)"
-[ ! -d cenv_x86 ] && conda create -y -p ./cenv_x86
-conda activate ./cenv_x86
-```
-
-The code has been tested on Python `3.6` and `3.7` (x86 only). Alternatively,
-you may pre-install some of the packages with conda, if this works better on
-your architecture, and the do the pip install above. You will need this for PPC
-instals.
+If you use conda, this may make your installation easier
 
 ```
 conda install -y pytorch==1.4.0 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch
