@@ -18,7 +18,7 @@ except ImportError as e:
 
 # pip install matplotlib
 from transition_amr_parser.plots import plot_graph
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.io import read_amr
 from transition_amr_parser.clbar import clbar
 # for debugging
 from ipdb import set_trace
@@ -1113,9 +1113,9 @@ def main(args):
 
     # files
     if args.in_amr:
-        amrs = read_amr2(args.in_amr, tokenize=args.tokenize)
+        amrs = read_amr(args.in_amr, tokenize=args.tokenize)
     else:
-        amrs = read_amr2(args.in_aligned_amr, ibm_format=True,
+        amrs = read_amr(args.in_aligned_amr, ibm_format=True,
                          tokenize=args.tokenize)
     # normalize tokens for matching purposes, but keep the original for writing
     original_tokens = []

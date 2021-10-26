@@ -7,7 +7,7 @@ from collections import Counter
 from transition_amr_parser.amr import AMR
 
 
-def read_amr2(file_path, ibm_format=False, tokenize=False, bar=True):
+def read_amr(file_path, ibm_format=False, tokenize=False, bar=True):
     with open(file_path) as fid:
         raw_amr = []
         raw_amrs = []
