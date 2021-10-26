@@ -4,8 +4,8 @@ Test data iterator with e.g.
 . set_environment.sh
 
 arguments="
-    DATA/amr/features/o3+Word100_RoBERTa-base/ 
-    --gen-subset train 
+    DATA/amr/features/o3+Word100_RoBERTa-base/
+    --gen-subset train
     --batch-size 128
 "
 
@@ -17,16 +17,11 @@ kernprof -l tests/fairseq_data_iterator.py $arguments
 python -m line_profiler fairseq_data_iterator.py.lprof
 """
 
-import torch
-
-import os
-from tqdm import tqdm
-from fairseq import bleu, checkpoint_utils, options, progress_bar, tasks, utils
-from fairseq.meters import StopwatchMeter, TimeMeter
-from fairseq.tokenizer import tokenize_line, tab_tokenize
+from fairseq import tasks, utils
+from fairseq_ext import options
+from fairseq_ext.utils_import import import_user_module
 from fairseq.data import data_utils, FairseqDataset
-
-from transition_amr_parser.data_oracle import writer
+from tqdm import tqdm
 
 
 def get_batch_iterator(
@@ -78,13 +73,13 @@ def get_batch_iterator(
     # filter examples that are too large
     if max_positions is not None:
         indices = data_utils.filter_by_size(
-            indices, dataset.size, max_positions, 
+            indices, dataset.size, max_positions,
             raise_exception=(not ignore_invalid_inputs),
         )
 
     # create mini-batches with given size constraints
     batch_sampler = data_utils.batch_by_size(
-        indices, dataset.num_tokens, max_tokens=max_tokens, 
+        indices, dataset.num_tokens, max_tokens=max_tokens,
         max_sentences=max_sentences,
         required_batch_size_multiple=required_batch_size_multiple,
     )
@@ -94,8 +89,8 @@ def get_batch_iterator(
 
 def main(args):
 
-    # Load dataset 
-    utils.import_user_module(args)
+    # Load dataset
+    import_user_module(args)
     task = tasks.setup_task(args)
     task.load_dataset(args.gen_subset)
     dataset = task.dataset(args.gen_subset)

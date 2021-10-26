@@ -75,16 +75,16 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.base
+embedding_tag=RoBERTa-large-top24
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
 EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
 # Pretrained embeddings 
-PRETRAINED_EMBED=bart.base
-PRETRAINED_EMBED_DIM=768
-BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
+PRETRAINED_EMBED=roberta.large
+PRETRAINED_EMBED_DIM=1024
+BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24"
 # pre-stored pretrained en embeddings (not changing with oracle)
 
 ##############################################################################
@@ -108,7 +108,7 @@ FAIRSEQ_PREPROCESS_FINETUNE_ARGS=""
 ##############################################################################
 
 # TODO: This is a model variable, right?
-TASK=amr_action_pointer_bart
+TASK=amr_action_pointer_graphmp
 
 ##### model configuration
 shift_pointer_value=1
@@ -116,16 +116,10 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=1
 share_decoder_embed=0
 
-arch=transformer_tgt_pointer_bart_base
-
-initialize_with_bart=1
-initialize_with_bart_enc=1
-initialize_with_bart_dec=1
-bart_encoder_backprop=1
-bart_emb_backprop=1
-bart_emb_decoder=0
-bart_emb_decoder_input=0
-bart_emb_init_composition=1
+arch=transformer_tgt_pointer_graphmp
+tgt_graph_layers="0 1 2"
+tgt_graph_heads=2
+tgt_graph_mask="allprev_1in1out"
 
 pointer_dist_decoder_selfattn_layers="5"
 pointer_dist_decoder_selfattn_heads=1
@@ -150,29 +144,15 @@ tgt_input_src_combine="add"
 SEEDS="42 43 44"
 MAX_EPOCH=120
 EVAL_INIT_EPOCH=81
-time_max_between_epochs=20
 
 # TODO: New
 use_fp16=1
-lr=0.0001
-max_tokens=2048
-update_freq=4
+lr=0.0005
+max_tokens=3584
+update_freq=1
 warmup=4000
-dropout=0.2
+dropout=0.3
 
-# NEW from train 
-src_roberta_emb=0
-tgt_factored_emb_out=0
-bart_emb_composition_pred=0
-src_pool_wp2w=top
-src_avg_layers=""
-src_roberta_enc=0
-src_fix_emb_use=0
-clip_norm=0.0
-weight_decay=0.0
-loss_coef=1
-dyo_run_start=0
-dyo_run_freq=1
 
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
@@ -192,6 +172,15 @@ else
     done
 fi
 
+if [[ $tgt_graph_layers == "0 1 2 3 4 5" ]]; then
+    grh_lay="all"
+else
+    grh_lay=""
+    for n in $tgt_graph_layers; do
+        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'tgt_graph_layers' input: $tgt_graph_layers" && exit 1
+        grh_lay=$grh_lay$(( $n + 1 ))
+    done
+fi
 
 if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
     cam_lay="all"
@@ -203,6 +192,7 @@ else
     done
 fi
 
+grh_mask=-$tgt_graph_mask
 
 if [[ $tgt_src_align_focus == "p0c1n0" ]]; then
     cam_focus=""    # default
@@ -211,7 +201,7 @@ elif [[ $tgt_src_align_focus == "p0c1n0 p0c0n*" ]]; then
 fi
 
 # set the experiment directory name
-expdir=exp_${features_tag}_act-pos_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
+expdir=exp_${features_tag}_act-pos-grh_vmask${tgt_vocab_masks}_shiftpos${shift_pointer_value}
 
 # pointer distribution
 ptr_tag=_ptr-lay${lay}-h${pointer_dist_decoder_selfattn_heads}    # action-pointer
@@ -225,6 +215,9 @@ fi
 if [[ $apply_tgt_actnode_masks == 1 ]]; then
     ptr_tag=${ptr_tag}-pmask1
 fi
+
+# graph structure mask on the decoder self-attention
+grh_tag=_grh-lay${grh_lay}-h${tgt_graph_heads}${grh_mask}
 
 # cross-attention alignment
 if [[ $apply_tgt_src_align == 1 ]]; then
@@ -240,70 +233,12 @@ else
     tis_tag=""
 fi
 
-# initialize with bart
-if [[ $initialize_with_bart == 0 ]]; then
-    init_tag=_bart-init${initialize_with_bart}
-else
-    if [[ $initialize_with_bart_enc == 0 ]]; then
-        [[ $initialize_with_bart_dec == 0 ]] && echo "initialize_with_bart_dec should be 1 here" && exit 1
-        init_tag=_bart-init-enc0
-    fi
-    if [[ $initialize_with_bart_dec == 0 ]]; then
-        [[ $initialize_with_bart_enc == 0 ]] && echo "initialize_with_bart_enc should be 1 here" && exit 1
-        init_tag=_bart-init-dec0
-    fi
-    if [[ $initialize_with_bart_enc == 1 ]] && [[ $initialize_with_bart_dec == 1 ]]; then
-        init_tag=""
-    fi
-fi
-
-# fix bart encoder
-if [[ $bart_encoder_backprop == 0 ]]; then
-    [[ $initialize_with_bart == 0 ]] && echo "must initialize with bart to fix encoder" && exit 1
-    enc_fix_tag=_bart-enc-fix
-else
-    enc_fix_tag=""
-fi
-
-# fix bart embedding
-if [[ $bart_emb_backprop == 0 ]]; then
-    [[ $initialize_with_bart == 0 ]] && echo "must initialize with bart to fix encoder" && exit 1
-    emb_fix_tag=_bart-emb-fix
-else
-    emb_fix_tag=""
-fi
-
-# separate decoder embedding
-if [[ $bart_emb_decoder == 0 ]]; then
-    dec_emb_tag=_dec-sep-emb-sha${share_decoder_embed}
-else
-    dec_emb_tag=""
-fi
-# bart decoder input embedding
-if [[ $bart_emb_decoder_input == 0 ]]; then
-    [[ $bart_emb_decoder == 1 ]] && echo "bart_emb_decoder should be 0" && exit 1
-    dec_emb_in_tag=""
-else
-    if [[ $bart_emb_decoder == 1 ]]; then
-        dec_emb_in_tag=""
-    else
-        # decoder input BART embeddings, output customized embeddings
-        dec_emb_in_tag="_bart-dec-emb-in"
-    fi
-fi
-# initialize target embedding with compositional sub-token embeddings
-if [[ $bart_emb_init_composition == 1 ]]; then
-    dec_emb_init_tag="_bart-init-dec-emb"
-else
-    dec_emb_init_tag=""
-fi
-
 # combine different model configuration tags to the name
 fp16_tag=""
 if [[ $use_fp16 == 1 ]]; then
     fp16_tag="fp16-"
 fi
-model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}${dec_emb_init_tag}${init_tag}${enc_fix_tag}${emb_fix_tag}
+model_tag=${expdir}${ptr_tag}${grh_tag}${cam_tag}${tis_tag}
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
@@ -313,8 +248,10 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
 # ENTITY LINKING
 ###############################################################
 
+# Smatch evaluation with wiki
+
 # Old scorer
-LINKER_CACHE_PATH=""
+LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr2.0/
 
 # BLINK
 # LINKER_CACHE_PATH=DATA/EL/BLINK/linkcache
@@ -326,6 +263,5 @@ LINKER_CACHE_PATH=""
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
-# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt

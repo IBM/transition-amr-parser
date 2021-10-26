@@ -8,18 +8,17 @@ from collections import Counter
 import numpy as np
 from tqdm import tqdm
 
-from transition_amr_parser.state_machine import (
+from transition_amr_parser.action_pointer.o8_state_machine import (
     AMRStateMachine,
-    DepParsingStateMachine,
+#     DepParsingStateMachine,
     get_spacy_lemmatizer
 )
-from transition_amr_parser.utils import yellow_font
+from transition_amr_parser.clbar import yellow_font
 from transition_amr_parser.io import (
     writer,
     read_tokenized_sentences,
     read_rule_stats,
 )
-
 
 def argument_parser():
 
@@ -34,6 +33,12 @@ def argument_parser():
         "--in-actions",
         help="file space with carriage return separated sentences",
         type=str
+    )
+    parser.add_argument(
+        "--in-pred-entities",
+        type=str,
+        default="person,thing",
+        help="comma separated list of entity types that can have pred"
     )
     parser.add_argument(
         "--out-amr",
@@ -171,10 +176,10 @@ def restrict_action(state_machine, raw_action, pred_counts, rule_violation):
 def get_bio_from_machine(state_machine, raw_action):
     annotations = {}
     if (
-        raw_action.startswith('PRED') or 
+        raw_action.startswith('PRED') or
         raw_action.startswith('ADDNODE') or
         raw_action in ['COPY_SENSE01', 'COPY_LEMMA']
-    ):   
+    ):
         if raw_action == 'COPY_SENSE01':
             lemma, _ = state_machine.get_top_of_stack(lemma=True)
             raw_action = f'PRED({lemma}-01)'
@@ -185,7 +190,7 @@ def get_bio_from_machine(state_machine, raw_action):
         tokens = tuple(tokens) if tokens else [token]
         for token in tokens:
             if token in annotations:
-                raise Exception('Overlapping annotations')                
+                raise Exception('Overlapping annotations')
             annotations[token] = raw_action
     return annotations
 
@@ -205,7 +210,7 @@ def get_bio_tags(state_machine, bio_alignments):
             tag = 'O'
         bio_tags.append((token, tag))
 
-    return bio_tags 
+    return bio_tags
 
 
 class FakeAMRParser():
@@ -214,9 +219,9 @@ class FakeAMRParser():
     actions
     """
 
-    def __init__(self, logger=None, machine_type='AMR', 
+    def __init__(self, logger=None, machine_type='AMR',
                  from_sent_act_pairs=None, actions_by_stack_rules=None,
-                 no_whitespace_in_actions=False):
+                 no_whitespace_in_actions=False, entities_with_preds=None):
 
         assert not no_whitespace_in_actions, \
             '--no-whitespace-in-actions deprected'
@@ -231,7 +236,7 @@ class FakeAMRParser():
         self.actions_by_stack_rules = actions_by_stack_rules
         self.no_whitespace_in_actions = no_whitespace_in_actions
         self.machine_type = machine_type
-
+        self.entities_with_preds = entities_with_preds
         # initialize here for speed
         self.spacy_lemmatizer = get_spacy_lemmatizer()
 
@@ -250,13 +255,13 @@ class FakeAMRParser():
             "Fake parser has no actions for sentence: %s" % sentence_str
         actions = self.actions_by_sentence[sentence_str]
         tokens = sentence_str.split()
-
         # Initialize state machine
         if self.machine_type == 'AMR':
             state_machine = AMRStateMachine(
                 tokens,
                 actions_by_stack_rules=self.actions_by_stack_rules,
-                spacy_lemmatizer=self.spacy_lemmatizer
+                spacy_lemmatizer=self.spacy_lemmatizer,
+                entities_with_preds=self.entities_with_preds
             )
         elif self.machine_type == 'dep-parsing':
             state_machine = DepParsingStateMachine(tokens)
@@ -265,41 +270,45 @@ class FakeAMRParser():
         bio_alignments = {}
 
         # execute parsing model
-        while not state_machine.is_closed:
+#         while not state_machine.is_closed:
 
-            # Print state (pause if solicited)
-            self.logger.update(self.sent_idx, state_machine)
+#             # Print state (pause if solicited)
+#             self.logger.update(self.sent_idx, state_machine)
 
-            if len(actions) <= state_machine.time_step:
-                # if machine is not propperly closed hard exit
-                print(yellow_font(
-                    f'machine not closed at step {state_machine.time_step}'
-                ))
-                raw_action = 'CLOSE'
-            else:
-                # get action from model
-                raw_action = actions[state_machine.time_step]
+#             if len(actions) <= state_machine.time_step:
+#                 # if machine is not propperly closed hard exit
+#                 print(yellow_font(
+#                     f'machine not closed at step {state_machine.time_step}'
+#                 ))
+#                 raw_action = 'CLOSE'
+#             else:
+#                 # get action from model
+#                 raw_action = actions[state_machine.time_step]
 
-            # restrict action space according to machine restrictions and
-            # statistics
-            if self.machine_type == 'AMR':
-                raw_action = restrict_action(
-                    state_machine,
-                    raw_action,
-                    self.pred_counts,
-                    self.rule_violation
-                )
+#             # restrict action space according to machine restrictions and
+#             # statistics
+#             if self.machine_type == 'AMR':
+#                 raw_action = restrict_action(
+#                     state_machine,
+#                     raw_action,
+#                     self.pred_counts,
+#                     self.rule_violation
+#                 )
 
-                # update bio tags from AMR
-                bio_alignments.update(
-                    get_bio_from_machine(state_machine, raw_action)
-                )
+#                 # update bio tags from AMR
+#                 bio_alignments.update(
+#                     get_bio_from_machine(state_machine, raw_action)
+#                 )
 
-            # Update state machine
-            state_machine.applyAction(raw_action)
+#             # Update state machine
+#             state_machine.applyAction(raw_action)
+
+        # CLOSE action is internally managed
+        state_machine.apply_actions(actions if actions[-1] == 'CLOSE' else actions + ['CLOSE'])
 
         # build bio tags
-        bio_tags = get_bio_tags(state_machine, bio_alignments)
+#         bio_tags = get_bio_tags(state_machine, bio_alignments)
+        bio_tags = []
 
         # count one sentence more
         self.sent_idx += 1
@@ -352,7 +361,8 @@ def main():
 
     # Get data
     sentences = read_tokenized_sentences(args.in_sentences, separator=args.separator)
-
+    entities_with_preds = args.in_pred_entities.split(",")
+    
     # Initialize logger/printer
     logger = Logger(
         step_by_step=args.step_by_step,
@@ -382,7 +392,8 @@ def main():
         machine_type=args.machine_type,
         logger=logger,
         actions_by_stack_rules=actions_by_stack_rules,
-        no_whitespace_in_actions=args.no_whitespace_in_actions
+        no_whitespace_in_actions=args.no_whitespace_in_actions,
+        entities_with_preds=entities_with_preds
     )
 
     # Get output AMR writer
@@ -402,6 +413,9 @@ def main():
         # NOTE: To simulate the real endpoint, input provided as a string of
         # whitespace separated tokens
         machine, bio_tags = parsing_model.parse_sentence(" ".join(tokens))
+
+#         if sent_idx == 5:
+#             import pdb; pdb.set_trace()
 
         # store output AMR
         if args.out_bio_tags:
@@ -427,3 +441,7 @@ def main():
         amr_write()
     if args.out_bio_tags:
         bio_write()
+
+
+if __name__ == '__main__':
+    main()

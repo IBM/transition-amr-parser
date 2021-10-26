@@ -5,12 +5,13 @@ scripts/local_variables.sh
 set_environment.sh
 
 # data
-PROGRESS
+PROGRESS*
 DATA*
 *oracles/
 EXP*
 checkpoints*
 amr_corpus*
+*.orig
 *.zip
 #!EXPR
 */gigaword_ref.txt
@@ -66,3 +67,4 @@ jbsub_logs/
 # vim
 .vim/
 *.swp
+ctags

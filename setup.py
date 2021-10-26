@@ -1,20 +1,15 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 
 # this is what usually goes on requirements.txt
 install_requires = [
-    # 'torch',
     'torch==1.4',
-    'h5py',
-    'spacy==2.2.3',
+    'torch-scatter==1.3.2',
     'tqdm',
-    # 'fairseq',
     'fairseq==0.10.2',
-    'tensorboardX',
     'packaging',
-    # 'torch-scatter',
-    # 'torch-scatter=1.3.2',
+    'requests',
     # for scoring
     'penman',
     'smatch==1.0.4',
@@ -22,20 +17,19 @@ install_requires = [
     'ipdb',
     'line_profiler',
     'pyinstrument'
+    # 'tensorboardX',
 ]
 
 setup(
     name='transition_amr_parser',
     version=VERSION,
-    description="Trasition-based AMR parser tools",
+    description="Trasition-based AMR parser",
     py_modules=['transition_amr_parser'],
     entry_points={
         'console_scripts': [
-            'amr-learn = transition_amr_parser.learn:main',
-            'amr-parse = transition_amr_parser.parse:main',
-            'amr-oracle = transition_amr_parser.data_oracle:main',
-            'amr-fake-parse = transition_amr_parser.fake_parse:main',
-            'amr-edit = transition_amr_parser.edit:main'
+            # standalone parsing only supported in v0.4.2 and below (for now)
+            # 'amr-parse = transition_amr_parser.parse:main',
+            'amr-machine = transition_amr_parser.amr_machine:main',
         ]
     },
     packages=find_packages(),

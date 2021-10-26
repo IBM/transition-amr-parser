@@ -9,13 +9,18 @@ from difflib import get_close_matches
 from functools import wraps
 # pip install penman spacy ipdb numpy
 import numpy as np
-import spacy
-from spacy.tokens.doc import Doc
+try:
+    import spacy
+    from spacy.tokens.doc import Doc
+except ImportError as e:
+    print('\nThe simple AMR aligner needs Spacy\n')
+    raise e
+
 # pip install matplotlib
 from transition_amr_parser.plots import plot_graph
-from transition_amr_parser.io import read_amr2, clbar
-# from transition_amr_parser.utils import Propbank
-#
+from transition_amr_parser.io import read_amr2
+from transition_amr_parser.clbar import clbar
+# for debugging
 from ipdb import set_trace
 # import warnings
 # warnings.filterwarnings('error')
@@ -307,7 +312,7 @@ class AMRAligner():
         alignment_posterior = joint / node_likelihood
 
         if np.isnan(alignment_posterior).any():
-            set_trace(context=30)
+            raise Exception()
 
         return alignment_posterior, node_likelihood
 
@@ -382,8 +387,7 @@ class AMRAligner():
                 else:
                     node_preds.append((token_pos, token_name, None, None))
             if no_nodes_left:
-                # missing alignments
-                set_trace(context=30)
+                raise Exception('missing alignments')
                 break
 
             inverse_rank += 1
@@ -401,7 +405,7 @@ class AMRAligner():
                     del missing_nodes[node]
 
         if any(n not in final_node2token for n in amr.nodes.keys()):
-            set_trace(context=30)
+            raise Exception()
 
         return final_node2token
 
@@ -532,7 +536,6 @@ class AMRAligner():
             ], norm=norm)
 
     def print_posterior(self, amr, cache_key=None, node_name=None):
-        set_trace(context=30)
         al_post, _ = self.get_alignment_posterior(amr, cache_key=cache_key)
         # This assumes IBM-model-1 posterior (same name same probabilities)
         index = None
@@ -555,7 +558,6 @@ def get_sentence_features(tokens):
     lemmas = []
     for tok, x in zip(tokens, lemmatizer(tokens)):
         lemma = str(x.lemma_)
-        tokens.append(tok)
         # Special replacement for pronouns
         if re.match('-.*-', lemma):
             lemmas.append(normalize_pronouns.get(tok, tok))
@@ -574,7 +576,7 @@ def get_sentence_features(tokens):
         else:
             detokenized.append(token)
 
-    return tokens, lemmas, lemma_bigram, detokenized
+    return lemmas, lemma_bigram, detokenized
 
 
 @memoize
@@ -585,7 +587,7 @@ def surface_aligner(tokens, nodes, cutoff=0.7):
 
     # get different transformations of input sentence tokens for matching
     # TODO: 2, 3-grams hyphen joined
-    tokens, lemmas, lemma_bigram, detokenized = get_sentence_features(tokens)
+    lemmas, lemma_bigram, detokenized = get_sentence_features(tokens)
 
     # proceed over each node try simple alignments first
     unaligned_node_ids = []
@@ -764,8 +766,7 @@ def graph_vicinity_aligner(amr, nodeid2token, unaligned_node_ids):
                 continue
             else:
                 # If no alignments, we have a problem
-                set_trace(context=30)
-                print()
+                raise Exception()
 
         if not is_parent:
             pos = sorted(aligned_relatives, key=itemgetter(1))[-1][1]
@@ -781,7 +782,6 @@ def graph_vicinity_aligner(amr, nodeid2token, unaligned_node_ids):
 
         # Some of these cases my be solvable if we use the alignments obtained
         # here
-        # import ipdb; ipdb.set_trace(context=30)
         still_unaligned_node_ids.append(node_id)
 
     return new_nodeid2token, still_unaligned_node_ids
@@ -1060,10 +1060,7 @@ def save_aligned(amrs, original_tokens, indices, amr_aligner, out_aligned_amr,
     if out_aligned_amr:
         with open(out_aligned_amr, 'w') as fid:
             for amr in final_amrs:
-                set_trace(context=30)
-                fid.write(
-                    '\n'.join(amr.toJAMRString().split('\n')[3:]) + '\n\n'
-                )
+                fid.write(f'{amr.__str__()}\n\n')
 
 
 def stats(amr_aligner):
@@ -1086,7 +1083,6 @@ def stats(amr_aligner):
             if nodes[node] > 0
         ]
 
-    set_trace(context=30)
     clbar(sorted(token_prior.items(), key=lambda x: x[1])[-30:])
     print()
 
