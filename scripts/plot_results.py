@@ -9,7 +9,7 @@ from dateutil.parser import parse
 import numpy as np
 import matplotlib.pyplot as plt
 from transition_amr_parser.io import read_config_variables
-from ipdb import set_trace
+# from ipdb import set_trace
 
 
 def get_vectors(items, label, admit_none=False):
@@ -85,6 +85,7 @@ def read_experiment(config):
         seed_folder = f'{model_folder}-seed{seed}'
 
         # read info from logs
+        seed_data = []
         for log_file in glob(f'{seed_folder}/tr-*.stdout'):
             with open(log_file) as fid:
                 for line in fid:
@@ -96,7 +97,7 @@ def read_experiment(config):
                         item['experiment_key'] = config_name
                         item['set'] = 'train'
                         item['name'] = config_name
-                        exp_data.append(item)
+                        seed_data.append(item)
 
                     elif valid_info_regex.match(line):
                         date_str, json_info = \
@@ -106,7 +107,21 @@ def read_experiment(config):
                         item['experiment_key'] = config_name
                         item['set'] = 'valid'
                         item['name'] = config_name
-                        exp_data.append(item)
+                        seed_data.append(item)
+
+        # TODO: compute time between epochs
+        train_seed_data = [x for x in seed_data if 'train_nll_loss' in x]
+        train_data_sort = sorted(train_seed_data, key=lambda x: x['epoch'])
+        train_data_sort[0]['epoch_time'] = None
+        prev = [train_data_sort[0]['epoch'], train_data_sort[0]['timestamp']]
+        new_data = [train_data_sort[0]]
+        for item in train_data_sort[1:]:
+            time_delta = item['timestamp'] - prev[1]
+            epoch_delta = item['epoch'] - prev[0]
+            item['epoch_time'] = time_delta.total_seconds() / epoch_delta
+            prev = [item['epoch'], item['timestamp']]
+            new_data.append(item)
+        exp_data.extend(new_data)
 
         # read validation decoding scores
         eval_metric = config_env_vars['EVAL_METRIC']
@@ -118,6 +133,7 @@ def read_experiment(config):
                 score = get_score_from_log(results_file, eval_metric)[0]
                 exp_data.append({
                     'epoch': epoch,
+                    'epoch_time': None,
                     'set': 'valid-dec',
                     'score': score,
                     'experiment_key': config_name,
@@ -128,8 +144,6 @@ def read_experiment(config):
 
 
 def matplotlib_render(plotting_data, out_png, title):
-
-    from matplotlib.colors import to_hex
 
     # plot in matplotlib
     plt.figure(figsize=(10, 10))
@@ -147,13 +161,13 @@ def matplotlib_render(plotting_data, out_png, title):
         # train loss
         x, y, y_std = plotting_data[tags[i]]['train']
         h = ax.plot(x, y, color)[0]
-        #h = ax.fill_between(x, y - y_std, y + y_std, alpha=0.8)
-        #h = ax.fill_between(x, y - y_std, y + y_std, color=color2, alpha=1.3)
+        # ax.fill_between(x, y - y_std, y + y_std, alpha=0.3)
+        # h = ax.fill_between(x, y - y_std, y + y_std, color=color2, alpha=0.3)
         handles.append(h)
 
         # valid loss
-        #x, y, _ = plotting_data[tags[i]]['valid']
-        #ax.plot(x, y, '--' + color)
+        # x, y, _ = plotting_data[tags[i]]['valid']
+        # ax.plot(x, y, '--' + color)
 
         # dev decoding score
         x, y, y_std = plotting_data[tags[i]]['valid-dec']
@@ -190,7 +204,9 @@ def main(args):
     # plotting
     plotting_data = defaultdict(dict)
     for exp_tag, exp_data in experiments.items():
-        print(f'Collecting data for {exp_tag}')
+        etime = np.median([
+            x['epoch_time'] for x in exp_data if x['epoch_time']]) / (60**2)
+        print(f'Collecting data for {exp_tag} ({etime:.2f} h/epoch)')
         for sset in ['train', 'valid']:
             valid_data = [x for x in exp_data if x['set'] == sset]
             plotting_data[exp_tag][sset] = \

@@ -697,11 +697,11 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
     if results:
         assert all(field.split()[0] in results[0].keys() for field in fields)
         formatter = {
-            'dev': '{:.1f}'.format,
-            '(test)': '{:.1f}'.format,
-            'top5_beam10': '{:.1f}'.format,
-            'train (h)': '{:.1f}'.format,
-            'dec (m)': '{:.1f}'.format
+            'dev': '{:.2f}'.format,
+            '(test)': '{:.2f}'.format,
+            'top5_beam10': '{:.2f}'.format,
+            'train (h)': '{:.2f}'.format,
+            'dec (m)': '{:.2f}'.format
         }
         print_table(fields, results, formatter=formatter, do_clear=do_clear,
                     col0_right=bool(configs))
