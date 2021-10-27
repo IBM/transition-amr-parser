@@ -124,7 +124,6 @@ else
                 --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16 \
                 --sample-alignments $NUM_ALIGNMENT_SAMPLES \
                 $IMPORTANCE_WEIGTHED_SAMPLING_FLAG \
-                $IMPORTANCE_WEIGTHED_TEMP_FLAG \
                 $RESCALE_ALIGN
 
         else
