@@ -61,6 +61,7 @@ WIKI_TEST=""
 NUM_ALIGNMENT_SAMPLES=5
 # Use importance weighted
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-weighted-align"
+IMPORTANCE_WEIGTHED_TEMP_FLAG="--importance-weighted-temp 2"
 RESCALE_ALIGN="--rescale-align"
 
 # oracle action sequences

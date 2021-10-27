@@ -155,7 +155,7 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
             log_p = log_p_token + self.loss_coef * log_p_pointer
             with torch.no_grad():
                 log_w = log_p.detach() - log_q.detach() # extra cautious with detach.
-                w_tilde = log_w.softmax(-1)
+                w_tilde = (log_w / self.args.importance_weighted_temp).softmax(-1)
             # NOTE: Since we don't backprop through q, it's okay to use log_p instead of log_w.
             new_p = w_tilde * log_p
             return new_p
