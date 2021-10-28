@@ -232,11 +232,13 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                             help='Number of updates until next run of on-the-fly oracle')
         parser.add_argument('--sample-alignments', default=1, type=int,
                             help='Number of samples from alignments (default=1).')
+        parser.add_argument('--alignment-sampling-temp', default=1, type=float,
+                            help="Temperature for alignment sampling.")
         parser.add_argument('--rescale-align', action='store_true',
                             help='If true, then rescale loss by number of samples.')
         parser.add_argument('--importance-weighted-align', action='store_true',
                             help='If true, then use importance weighted loss.')
-        parser.add_argument('--importance-weighted-temp', default=1, type=int,
+        parser.add_argument('--importance-weighted-temp', default=1, type=float,
                             help='Temperature for importance weights. Higher values give more uniform weighting.')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None, machine_config_file=None):
@@ -685,7 +687,8 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         machine.reset(aligned_amr.tokens)
 
         # initialize new oracle for this AMR
-        oracle.reset(aligned_amr, alignment_probs=align_probs)
+        oracle.reset(aligned_amr, alignment_probs=align_probs,
+            alignment_sampling_temp=self.args.alignment_sampling_temp)
 
         # token indices for nodes, and probabilities
         align_info = oracle.align_info
