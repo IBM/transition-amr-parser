@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
 from transition_amr_parser.io import clbar
-from ipdb import set_trace
+# from ipdb import set_trace
 
 
 # Sanity check python3
@@ -37,6 +37,12 @@ def argument_parser():
         "--results",
         help="print results for all complete models",
         action='store_true',
+    )
+    parser.add_argument(
+        "--decimals",
+        help="number of decimals shown with --results",
+        default=1,
+        type=int
     )
     parser.add_argument(
         "--long-results",
@@ -655,7 +661,7 @@ def get_experiment_configs(models_folder, configs, set_seed):
 
 
 def display_results(models_folder, configs, set_seed, seed_average, do_test,
-                    longr=False, do_clear=False):
+                    longr=False, do_clear=False, decimals=1):
 
     # collect data for each experiment as a dictionary
     results = []
@@ -697,11 +703,11 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
     if results:
         assert all(field.split()[0] in results[0].keys() for field in fields)
         formatter = {
-            'dev': '{:.2f}'.format,
-            '(test)': '{:.2f}'.format,
-            'top5_beam10': '{:.2f}'.format,
-            'train (h)': '{:.2f}'.format,
-            'dec (m)': '{:.2f}'.format
+            'dev': ('{:.' + str(decimals) + 'f}').format,
+            '(test)': ('{:.' + str(decimals) + 'f}').format,
+            'top5_beam10': ('{:.' + str(decimals) + 'f}').format,
+            'train (h)': ('{:.' + str(decimals) + 'f}').format,
+            'dec (m)': ('{:.' + str(decimals) + 'f}').format
         }
         print_table(fields, results, formatter=formatter, do_clear=do_clear,
                     col0_right=bool(configs))
@@ -947,7 +953,7 @@ def main(args):
         display_results('DATA/*/models/', args.configs, args.seed,
                         args.seed_average, args.test,
                         longr=bool(args.long_results),
-                        do_clear=args.clear)
+                        do_clear=args.clear, decimals=args.decimals)
 
     elif args.wait_checkpoint_ready_to_eval:
 
