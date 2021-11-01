@@ -1441,6 +1441,8 @@ def main(args):
         print('trn epoch = {}, loss = {:.3f}, loss-nr = {:.3f}, ppl = {:.3f}, pr = {:.3f}'.format(
             epoch, trn_loss, trn_loss_notreduced, trn_ppl, trn_pr))
 
+        save_checkpoint(os.path.join(args.log_dir, 'model.latest.pt'), trn_dataset, net, metrics=dict(epoch=epoch, trn_loss=trn_loss, trn_loss_notreduced=trn_loss_notreduced))
+
         # VALIDATION
 
         if args.skip_validation:
@@ -1536,6 +1538,9 @@ def main(args):
                     cmd = 'jbsub -cores 1+1 -mem 30g -q x86_6h -out {} -err {} bash {}'.format(stdout_path, stderr_path, script_path)
                     print(cmd)
                     os.system(cmd)
+
+            if check_and_update_best(best_metrics, 'val_{}_loss_notreduced'.format(i_valid), val_loss, compare='lt'):
+                save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_loss_notreduced.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
 
         save_metrics(os.path.join(args.log_dir, 'model.epoch_{}.metrics'.format(epoch)), epoch_metrics)
 
