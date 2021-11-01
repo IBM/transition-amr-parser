@@ -56,6 +56,11 @@ def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edg
                     stats['exists'] += 1
         print('remove_empty_align: {}'.format(stats))
 
+    # Check
+    for amr in corpus:
+        assert len(amr.tokens) > 0
+        assert amr.root is not None
+
     print('read {}, total = {}, skipped = {}'.format(path, len(corpus), skipped))
 
     return corpus

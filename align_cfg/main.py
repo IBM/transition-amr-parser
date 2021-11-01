@@ -392,6 +392,8 @@ class AMRTokenizer(object):
 
         # render tree
         def render(s):
+            assert s is not None
+
             if s not in g:
                 node_name = amr.nodes[s]
                 node_id = node_TO_idx[s]
