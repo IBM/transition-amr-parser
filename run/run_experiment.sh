@@ -51,6 +51,10 @@ else
     touch "${MODEL_FOLDER}-seed${seed}/$(git log --format=format:"%h" -1)+"
 fi
 
+echo "[Aligning AMR:]"
+mkdir -p $ALIGNED_FOLDER
+bash run/train_aligner.sh $config
+
 echo "[Building oracle actions:]"
 mkdir -p $ORACLE_FOLDER
 # TODO: replace by task agnostic oracle creation

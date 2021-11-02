@@ -1,4 +1,3 @@
-#!/bin/bash
 set -o errexit
 set -o pipefail
 
@@ -16,132 +15,15 @@ set -o nounset
 # Load config
 echo "[Configuration file:]"
 echo $config
-. $config 
+. $config
 
 # We will need this to save the alignment log
 mkdir -p $ORACLE_FOLDER
 
-###### AMR Alignment
-if [ -f $ALIGNED_FOLDER/.done ]; then
-
-    echo "Directory to aligner: $ALIGNED_FOLDER already exists --- do nothing."
-
-else
-
-    mkdir -p $ALIGNED_FOLDER
-
-    if [ ! -f "$ALIGN_MODEL" ];then
-
-        # need to train a model (will include pre-procesing)
-        # TODO: Add if [ JAMR_EVAL ] here to ignore this
-        bash run/train_aligner.sh $config
-
-    else
-
-        # pre-procesing
-
-        # remove wiki
-        python preprocess/remove_wiki.py \
-            $AMR_TRAIN_FILE_WIKI \
-            ${AMR_TRAIN_FILE_WIKI}.no_wiki
-        python preprocess/remove_wiki.py \
-            $AMR_DEV_FILE_WIKI \
-            ${AMR_DEV_FILE_WIKI}.no_wiki
-        python preprocess/remove_wiki.py \
-            $AMR_TEST_FILE_WIKI \
-            ${AMR_TEST_FILE_WIKI}.no_wiki
-
-        # tokenize sentences unless we use JAMR reference
-        # use --simple for barebones tokenization otherwise imitates JAMR
-        python scripts/tokenize_amr.py \
-            --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki
-        python scripts/tokenize_amr.py \
-            --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki
-        python scripts/tokenize_amr.py \
-            --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki
-    
-        # generate ELMO vocabulary
-        python align_cfg/vocab.py \
-            --in-amrs ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-            --out-text $ALIGN_VOCAB_TEXT \
-            --out-amr $ALIGN_VOCAB_AMR
-    
-        # Generate embeddings for the aligner
-        python align_cfg/pretrained_embeddings.py --cuda \
-            --cache-dir $ALIGNED_FOLDER \
-            --vocab $ALIGN_VOCAB_TEXT
-        python align_cfg/pretrained_embeddings.py --cuda \
-            --cache-dir $ALIGNED_FOLDER \
-            --vocab $ALIGN_VOCAB_AMR
-
-    fi
-
-    # Train
-    echo "align train"
-    python align_cfg/main.py --cuda \
-        --no-jamr \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGN_MODEL \
-        --load-flags $ALIGN_MODEL_FLAGS \
-        --vocab-text $ALIGN_VOCAB_TEXT \
-        --vocab-amr $ALIGN_VOCAB_AMR \
-        --write-single \
-        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/train.txt
-
-    # Dev
-    echo "align dev"
-    # Get alignment probabilities
-    python align_cfg/main.py --cuda \
-        --no-jamr \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGN_MODEL \
-        --load-flags $ALIGN_MODEL_FLAGS \
-        --vocab-text $ALIGN_VOCAB_TEXT \
-        --vocab-amr $ALIGN_VOCAB_AMR \
-        --trn-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --val-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --log-dir $ALIGNED_FOLDER \
-        --write-pretty
-
-    python align_cfg/main.py --cuda \
-        --no-jamr \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGN_MODEL \
-        --load-flags $ALIGN_MODEL_FLAGS \
-        --vocab-text $ALIGN_VOCAB_TEXT \
-        --vocab-amr $ALIGN_VOCAB_AMR \
-        --write-single \
-        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/dev.txt.dummy # FIXME: is train
-    # FIXME: Need to use cofill for now on dev 
-    cp DATA/$TASK_TAG/aligned/cofill/dev.txt $ALIGNED_FOLDER/dev.txt    
-
-    # Test
-    echo "align test"
-    python align_cfg/main.py --cuda \
-        --no-jamr \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGN_MODEL \
-        --load-flags $ALIGN_MODEL_FLAGS \
-        --vocab-text $ALIGN_VOCAB_TEXT \
-        --vocab-amr $ALIGN_VOCAB_AMR \
-        --write-single \
-        --single-input ${AMR_TRAIN_FILE_WIKI}.no_wiki \
-        --single-output $ALIGNED_FOLDER/test.txt.dummy # FIXME: is train
-    # FIXME: Need to use cofill for now on test
-    cp DATA/$TASK_TAG/aligned/cofill/test.txt $ALIGNED_FOLDER/test.txt    
-
-    # Mark as done
-    touch $ALIGNED_FOLDER/.done
-
-fi
-
-
 ##### ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
 if [ -f $ORACLE_FOLDER/.done ]; then
-    
+
     echo "Directory to oracle: $ORACLE_FOLDER already exists --- do nothing."
 
 else
@@ -157,7 +39,7 @@ else
         && cp $ALIGNED_FOLDER/alignment.trn.pretty $ORACLE_FOLDER/
 
     echo -e "\nTrain data"
-   
+
     python transition_amr_parser/amr_machine.py \
         --in-aligned-amr $AMR_TRAIN_FILE \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \

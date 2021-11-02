@@ -73,6 +73,31 @@ for seed in $SEEDS;do
 
 done
 
+echo "[Aligning AMR:]"
+if [ ! -f "$ALIGNED_FOLDER/.done" ];then
+
+    mkdir -p "$ALIGNED_FOLDER"
+
+    # Run preprocessing
+    jbsub_tag="al-${jbsub_basename}-$$"
+    jbsub -cores "1+1" -mem 50g -q x86_24h -require v100 \
+          -name "$jbsub_tag" \
+          -out $ALIGNED_FOLDER/${jbsub_tag}-%J.stdout \
+          -err $ALIGNED_FOLDER/${jbsub_tag}-%J.stderr \
+          /bin/bash run/train_aligner.sh $config
+
+    # train will wait for this to start
+    align_depends="-depend $jbsub_tag"
+
+else
+
+    echo "skiping $ORACLE_FOLDER/.done"
+
+    # resume from extracted
+    align_depends=""
+
+fi
+
 # preprocessing
 echo "[Building oracle actions:]"
 if [ ! -f "$ORACLE_FOLDER/.done" ];then
@@ -81,6 +106,7 @@ if [ ! -f "$ORACLE_FOLDER/.done" ];then
     jbsub_tag="or-${jbsub_basename}-$$"
     jbsub -cores "1+1" -mem 50g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
+          $align_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
           -err $ORACLE_FOLDER/${jbsub_tag}-%J.stderr \
           /bin/bash run/aa_amr_actions.sh $config
