@@ -321,6 +321,8 @@ def argument_parser():
                         help="Useful for book-keeping.")
     args = parser.parse_args()
 
+    args.hostname = os.popen("hostname").read().strip()
+
     if args.allow_cpu and args.cuda:
         if not torch.cuda.is_available():
             print('WARNING: CUDA not available. Falling back to CPU.')
