@@ -1,3 +1,5 @@
+import collections
+import copy
 import datetime
 
 import numpy as np
@@ -9,7 +11,7 @@ from penman._format import _format_node
 
 from tqdm import tqdm
 
-from amr_utils import get_node_ids
+from amr_utils import get_node_ids, get_tree_edges
 
 from alignment_decoder import AlignmentDecoder
 
@@ -80,6 +82,48 @@ class AMRStringHelper(object):
 def amr_to_string(amr, alignments=None):
     if alignments is None:
         alignments = amr.alignments
+
+    amr = copy.deepcopy(amr)
+    amr.alignments = alignments
+
+    new_amr_nodes = {}
+    new_edges = []
+    mapping = {}
+    new_amr_alignments = {}
+
+    # book-keeping
+    tree_edges = get_tree_edges(amr)
+    node_to_children = collections.defaultdict(list)
+    node_to_depth = {}
+    for a, b, c, _, node_id in tree_edges:
+        depth = node_id.count('.')
+        node_to_depth[a] = depth
+        node_to_children[a].append(c)
+
+    # get unique ids
+    node_set = set()
+    for i, (node_id, node_name) in enumerate(amr.nodes.items()):
+        depth = node_to_depth.get(node_id, '#')
+        children = sorted([amr.nodes[x] for x in node_to_children[node_id]])
+        children_abbrev = '-'.join([name[0] for name in children] + ['#'])
+        new_node_id = '{}-{}-{}'.format(node_name[0], depth, children_abbrev)
+        new_amr_nodes[new_node_id] = node_name
+        mapping[node_id] = new_node_id
+
+    for node_id, v in amr.alignments.items():
+        new_node_id = mapping[node_id]
+        new_amr_alignments[new_node_id] = v
+
+    for a, b, c in amr.edges:
+        a = mapping[a]
+        c = mapping[c]
+        new_edges.append((a, b, c))
+
+    amr.nodes = new_amr_nodes
+    amr.alignments = new_amr_alignments
+    amr.edges = new_edges
+    amr.root = mapping[amr.root]
+    alignments = amr.alignments
 
     body = ''
     body += AMRStringHelper.tok(amr) + '\n'
