@@ -310,6 +310,12 @@ def argument_parser():
         type=int,
     )
     parser.add_argument(
+        "--save-every-epoch",
+        default=50,
+        help="Save every N epochs.",
+        type=int,
+    )
+    parser.add_argument(
         "--skip-validation",
         action='store_true'
     )
@@ -1444,6 +1450,9 @@ def main(args):
             epoch, trn_loss, trn_loss_notreduced, trn_ppl, trn_pr))
 
         save_checkpoint(os.path.join(args.log_dir, 'model.latest.pt'), trn_dataset, net, metrics=dict(epoch=epoch, trn_loss=trn_loss, trn_loss_notreduced=trn_loss_notreduced))
+
+        if epoch % args.save_every_epoch == 0 and epoch > 0:
+            save_checkpoint(os.path.join(args.log_dir, 'model.epoch_{}.pt'.format(epoch)), trn_dataset, net, metrics=dict(epoch=epoch, trn_loss=trn_loss, trn_loss_notreduced=trn_loss_notreduced))
 
         # VALIDATION
 
