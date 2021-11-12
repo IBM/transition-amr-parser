@@ -1143,6 +1143,11 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
+def shared_validation_step(net, batch_indices, batch_map):
+    model_output = net(batch_map)
+    return model_output
+
+
 def maybe_write(context):
 
     args = context['args']
@@ -1169,7 +1174,7 @@ def maybe_write(context):
                 batch_map = batchify(items, cuda=args.cuda)
 
                 # forward pass
-                model_output = net(batch_map)
+                model_output = shared_validation_step(net, batch_indices, batch_map)
 
                 # write pretty alignment info
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
@@ -1200,7 +1205,7 @@ def maybe_write(context):
                 batch_map = batchify(items, cuda=args.cuda)
 
                 # forward pass
-                model_output = net(batch_map)
+                model_output = shared_validation_step(net, batch_indices, batch_map)
 
                 # save alignments for eval.
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
@@ -1364,7 +1369,7 @@ def main(args):
         def trn_step(batch_indices, batch_map, info):
             net.train()
 
-            model_output = net(batch_map)
+            model_output = shared_validation_step(net, batch_indices, batch_map)
 
             # neg log likelihood
             loss = 0
