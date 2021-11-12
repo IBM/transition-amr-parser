@@ -10,10 +10,8 @@ input_file=$2
 output_amr=$3
 set -o nounset
 
-
 amr-parse \
     --in-checkpoint $checkpoint \
-    --in-machine-config DATA/AMR3.0/oracles/cofill_o10_act-states/machine_config.json \
     --in-tokenized-sentences $input_file \
     --out-amr $output_amr \
     --roberta-cache-path DATA/bart.large \
