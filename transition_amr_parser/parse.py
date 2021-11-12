@@ -267,9 +267,9 @@ class AMRParser:
         # ===== load other args =====
         machine_config = os.path.join(config_data_dict['ORACLE_FOLDER'], 'machine_config.json')
         assert os.path.isfile(machine_config), f"Missing {machine_config}"
-            
+
         return cls(models,task, task.src_dict, task.tgt_dict, machine_config,
-                   use_cuda, args, model_args, to_amr=True, 
+                   use_cuda, args, model_args, to_amr=True,
                    embeddings=embeddings, inspector=inspector)
 
     def get_bert_features_batched(self, sentences, batch_size):
@@ -311,7 +311,7 @@ class AMRParser:
         print(len(bart_data))
         assert len(bart_data) == len(sentences)
         return bart_data
-            
+
     def convert_sentences_to_data(self, sentences, batch_size,
                                   roberta_batch_size):
 
