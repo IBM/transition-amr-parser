@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+import copy
 import json
 import os
 import sys
@@ -210,7 +211,12 @@ def argument_parser():
         help="Chance to mask input token.",
         default=0,
         type=float,
-        )
+    )
+    parser.add_argument(
+        "--mask-at-inference",
+        help="If true, then mask tokens one at a time at inference.",
+        action='store_true',
+    )
     # Output options
     parser.add_argument(
         "--write-validation",
@@ -1143,9 +1149,65 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
+def mask_one(batch_map, i=0):
+    has_mask = []
+    batch_mask = []
+    for x in batch_map['items']:
+        size = len(x['amr_nodes'])
+        mask = np.ones(size)
+        mask[:] = MaskInfo.unchanged
+        if i < size and size > 1:
+            mask[i] = MaskInfo.masked
+            has_mask.append(True)
+        else:
+            has_mask.append(False)
+
+        mask = torch.from_numpy(mask).long()
+        batch_mask.append(mask)
+    return batch_mask, has_mask
+
+
 def shared_validation_step(net, batch_indices, batch_map):
-    model_output = net(batch_map)
-    return model_output
+    batch_size = len(batch_map['items'])
+    max_amr_node_size = max([len(x['amr_nodes']) for x in batch_map['items']])
+    new_model_output = None
+    for i in range(max_amr_node_size):
+        batch_mask, batch_has_mask = mask_one(batch_map, i=i)
+        bm = copy.deepcopy(batch_map)
+        bm['mask'] = batch_mask
+        model_output = net(batch_map)
+
+        if new_model_output is None:
+            new_model_output = model_output
+
+        for i_b in range(batch_size):
+            has_mask = batch_has_mask[i_b]
+            if not has_mask:
+                continue
+
+            mask = batch_mask[i_b]
+
+            # NOTE: There is some redundancy here...
+            for k, v in model_output.items():
+                if not isinstance(v[i_b], torch.Tensor):
+                    continue
+
+                if v[i_b].shape[0] != mask.shape[0]:
+                    continue
+
+                new_model_output[k][i_b][i] = v[i_b][i]
+
+    return new_model_output
+
+
+def standard_validation_step(net, batch_indices, batch_map):
+    return net(batch_map)
+
+
+def shared_validation_step(*args, **kwargs):
+    if cli_args.mask_at_inference:
+        return masked_validation_step(*args, **kwargs)
+    return standard_validation_step(*args, **kwargs)
 
 
 def maybe_write(context):
@@ -1562,7 +1624,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = argument_parser()
+    args = cli_args = argument_parser()
 
     if args.seed is None:
         args.seed = np.random.randint(0, 999999)
