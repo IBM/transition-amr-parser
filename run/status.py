@@ -848,7 +848,7 @@ def final_remove(seed, config_env_vars):
         best_metric_checkpoint = os.path.realpath(target_best)
         best_metric_checkpoint_link = target_best
     if not os.path.isfile(os.path.realpath(dec_checkpoint)):
-        print('Can not --final-remove, missing {dec_checkpoint}')
+        print(f'Can not --final-remove, missing {dec_checkpoint}')
         exit(1)
     else:
         dec_checkpoint = os.path.realpath(dec_checkpoint)

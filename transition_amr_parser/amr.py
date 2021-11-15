@@ -553,7 +553,7 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     elif len(nodes) == 1 and '/' not in amr_string:
         # FIXME: bad method to detect a constant as single node
         amr_string = '(a / amr-empty)'
-
+    output += f'# ::short\t{str(new_ids)}\t\n'
     output += amr_string + '\n\n'
 
     return output
