@@ -1152,7 +1152,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
 def mask_one(batch_map, i=0):
     has_mask = []
     batch_mask = []
-    for x in batch_map['items']:
+    for i_b, x in enumerate(batch_map['items']):
         size = len(x['amr_nodes'])
         mask = np.ones(size)
         mask[:] = MaskInfo.unchanged
@@ -1167,7 +1167,21 @@ def mask_one(batch_map, i=0):
     return batch_mask, has_mask
 
 
-def shared_validation_step(net, batch_indices, batch_map):
+def filter_batch(batch_map, keep_mask):
+    new_batch_map = {}
+
+    for k, v in batch_map.items():
+        if isinstance(v, torch.Tensor):
+            new_batch_map[k] = v[keep_mask]
+        elif isinstance(v, list):
+            new_batch_map[k] = [v[i_b] for i_b, m in enumerate(keep_mask) if m]
+        else:
+            new_batch_map[k] = v
+
+    return new_batch_map
+
+
+def masked_validation_step(net, batch_indices, batch_map):
     batch_size = len(batch_map['items'])
     max_amr_node_size = max([len(x['amr_nodes']) for x in batch_map['items']])
     new_model_output = None
@@ -1175,27 +1189,34 @@ def shared_validation_step(net, batch_indices, batch_map):
         batch_mask, batch_has_mask = mask_one(batch_map, i=i)
         bm = copy.deepcopy(batch_map)
         bm['mask'] = batch_mask
-        model_output = net(batch_map)
+        if i > 0:
+            bm = filter_batch(bm, keep_mask=batch_has_mask)
+            batch_i_b = [i_b for i_b, m in enumerate(batch_has_mask) if m]
+        else:
+            batch_i_b = list(range(batch_size))
 
-        if new_model_output is None:
+        assert len(batch_i_b) > 0
+        model_output = net(bm)
+        if i == 0:
             new_model_output = model_output
+            continue
 
-        for i_b in range(batch_size):
+        for i_bm, i_b in enumerate(batch_i_b):
             has_mask = batch_has_mask[i_b]
-            if not has_mask:
-                continue
+            assert has_mask is True
 
             mask = batch_mask[i_b]
+            assert mask.shape[0] == len(batch_map['items'][i_b]['amr_nodes'])
 
             # NOTE: There is some redundancy here...
             for k, v in model_output.items():
-                if not isinstance(v[i_b], torch.Tensor):
+                if not isinstance(v[i_bm], torch.Tensor):
                     continue
 
-                if v[i_b].shape[0] != mask.shape[0]:
+                if v[i_bm].shape[0] != mask.shape[0]:
                     continue
 
-                new_model_output[k][i_b][i] = v[i_b][i]
+                new_model_output[k][i_b][i] = v[i_bm][i]
 
     return new_model_output
 
