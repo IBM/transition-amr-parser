@@ -48,7 +48,7 @@ cd transition-amr-parser
 git checkout <branch>    # for e.g. action-pointer, ignore for current version
 . set_environment.sh     # see above
 pip install .            # use --editable if to modify code
-pip install torch-scater==1.3.2
+pip install torch-scatter==1.3.2
 ```
 
 To test if install worked
