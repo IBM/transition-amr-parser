@@ -23,7 +23,7 @@ from fairseq_ext.data.amr_action_pointer_dataset import collate
 from transition_amr_parser.amr_machine import AMRStateMachine
 #from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.io import read_config_variables, read_tokenized_sentences
-from fairseq_ext.utils import post_process_action_pointer_prediction, clean_pointer_arcs
+from fairseq_ext.utils import post_process_action_pointer_prediction, import post_process_action_pointer_prediction_bartsv, clean_pointer_arcs
 from fairseq_ext.utils_import import import_user_module
 
 def argument_parsing():
@@ -362,7 +362,10 @@ class AMRParser:
 
             for j, hypo in enumerate(hypos[i][:self.args.nbest]):
                 # args.nbest is default 1, i.e. saving only the top predictions
-                actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, self.tgt_dict)
+		if 'bartsv' in self.model_args.arch:
+                    actions_nopos, actions_pos, actions = post_process_action_pointer_prediction_bartsv(hypo, self.tgt_dict)
+		else:
+                    actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, self.tgt_dict)
 
                 if self.args.clean_arcs:    # this is 0 by default
                     actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
