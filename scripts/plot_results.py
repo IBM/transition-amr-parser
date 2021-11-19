@@ -118,8 +118,11 @@ def read_experiment(config):
         for item in train_data_sort[1:]:
             time_delta = item['timestamp'] - prev[1]
             epoch_delta = item['epoch'] - prev[0]
-            item['epoch_time'] = time_delta.total_seconds() / epoch_delta
-            prev = [item['epoch'], item['timestamp']]
+            if epoch_delta:
+                item['epoch_time'] = time_delta.total_seconds() / epoch_delta
+                prev = [item['epoch'], item['timestamp']]
+            else:
+                item['epoch_time'] = 0
             new_data.append(item)
         exp_data.extend(new_data)
 

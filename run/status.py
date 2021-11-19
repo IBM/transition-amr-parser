@@ -891,13 +891,13 @@ def final_remove(seed, config_env_vars):
         or not os.path.isfile(os.path.realpath(target_best))
     ):
         print(f'Can not --final-remove, missing {target_best}')
-        exit(1)
+        return
     else:
         best_metric_checkpoint = os.path.realpath(target_best)
         best_metric_checkpoint_link = target_best
     if not os.path.isfile(os.path.realpath(dec_checkpoint)):
         print('Can not --final-remove, missing {dec_checkpoint}')
-        exit(1)
+        return
     else:
         dec_checkpoint = os.path.realpath(dec_checkpoint)
 
