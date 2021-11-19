@@ -1231,7 +1231,7 @@ def standard_validation_step(net, batch_indices, batch_map):
 
 
 def shared_validation_step(*args, **kwargs):
-    if cli_args.mask_at_inference and 'gcn' in cli_args.model_config:
+    if 'gcn' in cli_args.model_config:
         return masked_validation_step(*args, **kwargs)
     return standard_validation_step(*args, **kwargs)
 
