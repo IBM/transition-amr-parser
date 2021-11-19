@@ -63,7 +63,7 @@ def get_tikz_latex(amr, tokens, nodes, edges, alignments):
         nodes[node]  = replace_symbols(nodes[node])
 
     latex_str = ""
-    
+
     latex_str += "\\begin{center}\n\\begin{tikzpicture}[scale=1.5]\n"
     for i in range(0,len(tokens)):
         word = tokens[i]
@@ -85,7 +85,7 @@ def get_tikz_latex(amr, tokens, nodes, edges, alignments):
             levels[lvl] = []
         levels[lvl].append(node)
     max_lvl = max(levels.keys())
-        
+
     node_names = {}
     for lvl in levels:
         y = 0.5 + (max_lvl - lvl) * 1.5
@@ -93,7 +93,7 @@ def get_tikz_latex(amr, tokens, nodes, edges, alignments):
             x=-0.8
             if node in alignments:
                 x = float(alignments[node])*0.8
-            node_names[node] = node.replace(".","_")
+            node_names[node] = node.replace(".","_").replace("#", "X")
             latex_str += "\\node [draw,rounded corners] (" + str(node_names[node]) + ") at (" + str(x) + "," + str(y) + ") {" + nodes[node] + "};\n"
     '''
     plotted = []
@@ -113,10 +113,10 @@ def get_tikz_latex(amr, tokens, nodes, edges, alignments):
         level += 1
         previous_plotted = plotted
     '''
-    
+
     for edge in edges:
         latex_str += "\\draw [-latex,thick] (" + node_names[edge[0]] + ") -- node {\\footnotesize " + replace_symbols(edge[1]) + "} (" + node_names[edge[2]] + ");\n"
-        
+
     latex_str += "\\end{tikzpicture}\n\\end{center}\n"
 
     return latex_str

@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+import copy
 import json
 import os
 import sys
@@ -210,7 +211,12 @@ def argument_parser():
         help="Chance to mask input token.",
         default=0,
         type=float,
-        )
+    )
+    parser.add_argument(
+        "--mask-at-inference",
+        help="If true, then mask tokens one at a time at inference.",
+        action='store_true',
+    )
     # Output options
     parser.add_argument(
         "--write-validation",
@@ -219,6 +225,11 @@ def argument_parser():
     )
     parser.add_argument(
         "--write-pretty",
+        help="If true, then write alignments to file.",
+        action='store_true',
+    )
+    parser.add_argument(
+        "--write-align-dist",
         help="If true, then write alignments to file.",
         action='store_true',
     )
@@ -310,6 +321,12 @@ def argument_parser():
         type=int,
     )
     parser.add_argument(
+        "--save-every-epoch",
+        default=50,
+        help="Save every N epochs.",
+        type=int,
+    )
+    parser.add_argument(
         "--skip-validation",
         action='store_true'
     )
@@ -320,6 +337,8 @@ def argument_parser():
     parser.add_argument("--name", default=None, type=str,
                         help="Useful for book-keeping.")
     args = parser.parse_args()
+
+    args.hostname = os.popen("hostname").read().strip()
 
     if args.allow_cpu and args.cuda:
         if not torch.cuda.is_available():
@@ -1135,6 +1154,88 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
     return text_tokenizer, amr_tokenizer
 
 
+def mask_one(batch_map, i=0):
+    has_mask = []
+    batch_mask = []
+    for i_b, x in enumerate(batch_map['items']):
+        size = len(x['amr_nodes'])
+        mask = np.ones(size)
+        mask[:] = MaskInfo.unchanged
+        if i < size and size > 1:
+            mask[i] = MaskInfo.masked
+            has_mask.append(True)
+        else:
+            has_mask.append(False)
+
+        mask = torch.from_numpy(mask).long()
+        batch_mask.append(mask)
+    return batch_mask, has_mask
+
+
+def filter_batch(batch_map, keep_mask):
+    new_batch_map = {}
+
+    for k, v in batch_map.items():
+        if isinstance(v, torch.Tensor):
+            new_batch_map[k] = v[keep_mask]
+        elif isinstance(v, list):
+            new_batch_map[k] = [v[i_b] for i_b, m in enumerate(keep_mask) if m]
+        else:
+            new_batch_map[k] = v
+
+    return new_batch_map
+
+
+def masked_validation_step(net, batch_indices, batch_map):
+    batch_size = len(batch_map['items'])
+    max_amr_node_size = max([len(x['amr_nodes']) for x in batch_map['items']])
+    new_model_output = None
+    for i in range(max_amr_node_size):
+        batch_mask, batch_has_mask = mask_one(batch_map, i=i)
+        bm = copy.deepcopy(batch_map)
+        bm['mask'] = batch_mask
+        if i > 0:
+            bm = filter_batch(bm, keep_mask=batch_has_mask)
+            batch_i_b = [i_b for i_b, m in enumerate(batch_has_mask) if m]
+        else:
+            batch_i_b = list(range(batch_size))
+
+        assert len(batch_i_b) > 0
+        model_output = net(bm)
+        if i == 0:
+            new_model_output = model_output
+            continue
+
+        for i_bm, i_b in enumerate(batch_i_b):
+            has_mask = batch_has_mask[i_b]
+            assert has_mask is True
+
+            mask = batch_mask[i_b]
+            assert mask.shape[0] == len(batch_map['items'][i_b]['amr_nodes'])
+
+            # NOTE: There is some redundancy here...
+            for k, v in model_output.items():
+                if not isinstance(v[i_bm], torch.Tensor):
+                    continue
+
+                if v[i_bm].shape[0] != mask.shape[0]:
+                    continue
+
+                new_model_output[k][i_b][i] = v[i_bm][i]
+
+    return new_model_output
+
+
+def standard_validation_step(net, batch_indices, batch_map):
+    return net(batch_map)
+
+
+def shared_validation_step(*args, **kwargs):
+    if 'gcn' in cli_args.model_config:
+        return masked_validation_step(*args, **kwargs)
+    return standard_validation_step(*args, **kwargs)
+
+
 def maybe_write(context):
 
     args = context['args']
@@ -1143,6 +1244,32 @@ def maybe_write(context):
     corpus = dataset.corpus
 
     batch_size = args.batch_size
+
+    def write_align_dist(corpus, dataset, path):
+        # TODO: Write to numpy array (memmap).
+        net.eval()
+
+        indices = np.arange(len(corpus))
+
+        print('writing to {}'.format(os.path.abspath(path)))
+        f = open(path, 'w')
+
+        with torch.no_grad():
+            for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
+                end = min(start + batch_size, len(corpus))
+                batch_indices = indices[start:end]
+                items = [dataset[idx] for idx in batch_indices]
+                batch_map = batchify(items, cuda=args.cuda)
+
+                # forward pass
+                model_output = shared_validation_step(net, batch_indices, batch_map)
+
+                # write pretty alignment info
+                for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
+                    amr = corpus[idx]
+                    f.write(amr_to_pretty_format(amr, ainfo, idx).strip() + '\n\n')
+
+        f.close()
 
     def write_align_pretty(corpus, dataset, path):
         net.eval()
@@ -1161,7 +1288,7 @@ def maybe_write(context):
                 batch_map = batchify(items, cuda=args.cuda)
 
                 # forward pass
-                model_output = net(batch_map)
+                model_output = shared_validation_step(net, batch_indices, batch_map)
 
                 # write pretty alignment info
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
@@ -1192,7 +1319,7 @@ def maybe_write(context):
                 batch_map = batchify(items, cuda=args.cuda)
 
                 # forward pass
-                model_output = net(batch_map)
+                model_output = shared_validation_step(net, batch_indices, batch_map)
 
                 # save alignments for eval.
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
@@ -1218,6 +1345,12 @@ def maybe_write(context):
 
         path = os.path.join(args.log_dir, 'alignment.trn')
         write_align_pretty(corpus, dataset, path)
+        sys.exit()
+
+    if args.write_align_dist:
+
+        path = args.single_output
+        write_align_dist(corpus, dataset, path)
         sys.exit()
 
     if args.write_only:
@@ -1356,7 +1489,7 @@ def main(args):
         def trn_step(batch_indices, batch_map, info):
             net.train()
 
-            model_output = net(batch_map)
+            model_output = shared_validation_step(net, batch_indices, batch_map)
 
             # neg log likelihood
             loss = 0
@@ -1442,6 +1575,9 @@ def main(args):
             epoch, trn_loss, trn_loss_notreduced, trn_ppl, trn_pr))
 
         save_checkpoint(os.path.join(args.log_dir, 'model.latest.pt'), trn_dataset, net, metrics=dict(epoch=epoch, trn_loss=trn_loss, trn_loss_notreduced=trn_loss_notreduced))
+
+        if epoch % args.save_every_epoch == 0 and epoch > 0:
+            save_checkpoint(os.path.join(args.log_dir, 'model.epoch_{}.pt'.format(epoch)), trn_dataset, net, metrics=dict(epoch=epoch, trn_loss=trn_loss, trn_loss_notreduced=trn_loss_notreduced))
 
         # VALIDATION
 
@@ -1546,17 +1682,16 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = argument_parser()
+    args = cli_args = argument_parser()
 
     if args.seed is None:
         args.seed = np.random.randint(0, 999999)
 
-    print(args.__dict__)
+    print(json.dumps(args.__dict__))
 
-    if not args.write_single:
-        os.system('mkdir -p {}'.format(args.log_dir))
+    os.system('mkdir -p {}'.format(args.log_dir))
 
-        with open(os.path.join(args.log_dir, 'flags.json'), 'w') as f:
-            f.write(json.dumps(args.__dict__))
+    with open(os.path.join(args.log_dir, 'flags.json'), 'w') as f:
+        f.write(json.dumps(args.__dict__))
 
     main(args)
