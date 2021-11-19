@@ -22,7 +22,7 @@ template = """#!/bin/bash
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=45GB
-#SBATCH --exclude=node030,node181
+#SBATCH --exclude=node030,node181,node108,node171
 
 CACHE='cache-{task}'
 LOG2='./log/{name}'
@@ -41,15 +41,20 @@ eval_template = """#!/bin/bash
 #
 #SBATCH --job-name={name}
 #SBATCH -o /mnt/nfs/work1/mccallum/adrozdov/code/transition-amr-parser/log/{name}/slurm.out
-#SBATCH --time=0-01:00:00
+#SBATCH --time=0-02:00:00
 #SBATCH --partition={partition}
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=45GB
-#SBATCH --exclude=node030,node181
+#SBATCH --exclude=node030,node181,node108,node171
 
 CACHE='cache-{task}'
 LOG2='./log/{name}'
+
+if [ -f $LOG2/train.txt.no_wiki.eval.json ]; then
+    echo "Found eval output!"
+    exit 0
+fi
 
 source activate ibm-amr-aligner-torch-1.8-v2
 cd /mnt/nfs/work1/mccallum/adrozdov/code/transition-amr-parser
@@ -163,6 +168,7 @@ def main():
                             ex['name'] = name
                             ex['script'] = script
                             ex['script_path'] = path
+                            ex['log_path'] = 'log/{}'.format(name)
                             exp_list.append(ex)
 
                             print(script)
@@ -174,26 +180,25 @@ def main():
                             else:
                                 partition = '2080ti-short'
 
-                            ex['eval_script'] = []
-                            ex['eval_script_path'] = []
+                            ex['eval_info'] = []
 
-                            d_base = d
+                            base_d = d
+                            base_name = name
 
                             for i_exp in range(2):
                                 for model_epoch in ['epoch_100', 'epoch_200', 'epoch_300', 'latest']:
 
-                                    if not model.startswith('gcn'):
-                                        continue
-
-                                    d = copy.deepcopy(d_base)
+                                    d = copy.deepcopy(base_d)
                                     d['i_exp'] = i_exp
 
                                     if i_exp == 1:
+                                        if not 'gcn' in ex['name']:
+                                            continue
                                         d['flags'] = d['flags'] + ' --mask-at-inference'
 
                                     d['partition'] = partition
                                     d['model_epoch'] = model_epoch
-                                    d['load'] = './log/{}/model.{}.pt'.format(name, model_epoch)
+                                    d['load'] = './log/{}/model.{}.pt'.format(base_name, model_epoch)
                                     name = 'gypsum.{prefix}.{exp_key}.{exp_id}.{i_exp}.eval.{model_epoch}'.format(**d)
                                     d['name'] = name
 
@@ -206,8 +211,11 @@ def main():
                                     with open(path, 'w') as f:
                                         f.write(script)
 
-                                    ex['eval_script'].append(script)
-                                    ex['eval_script_path'].append(path)
+                                    info = {}
+                                    info['script'] = script
+                                    info['script_path'] = path
+                                    info['log_path'] = './log/{}'.format(name)
+                                    ex['eval_info'].append(info)
 
                                     print('eval', path)
 
@@ -219,11 +227,23 @@ def main():
 
     if args.launch_eval:
         for exp in exp_list:
-            for path in exp['eval_script_path']:
+            for info in exp['eval_info']:
+                eval_json = os.path.join(info['log_path'], 'train.txt.no_wiki.eval.json')
+                if os.path.exists(eval_json):
+                    print('skip', eval_json)
+                    continue
+                path = info['script_path']
                 os.system('sbatch {}'.format(path))
 
+    print(len(exp_list))
 
-    print(len(exp_list), sum([len(exp['eval_script_path']) for exp in exp_list]))
+    file_list_path = 'eval_json.{}.txt'.format(prefix)
+    with open(file_list_path, 'w') as f:
+        for exp in exp_list:
+            for info in exp['eval_info']:
+                f.write('{} {}\n'.format(info['log_path'], exp['log_path']))
+    print(file_list_path, sum([len(exp['eval_info']) for exp in exp_list]))
+
 
 main()
 

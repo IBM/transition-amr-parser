@@ -1246,6 +1246,7 @@ def maybe_write(context):
     batch_size = args.batch_size
 
     def write_align_dist(corpus, dataset, path):
+        # TODO: Write to numpy array (memmap).
         net.eval()
 
         indices = np.arange(len(corpus))
@@ -1686,12 +1687,11 @@ if __name__ == '__main__':
     if args.seed is None:
         args.seed = np.random.randint(0, 999999)
 
-    print(args.__dict__)
+    print(json.dumps(args.__dict__))
 
-    if not args.write_single:
-        os.system('mkdir -p {}'.format(args.log_dir))
+    os.system('mkdir -p {}'.format(args.log_dir))
 
-        with open(os.path.join(args.log_dir, 'flags.json'), 'w') as f:
-            f.write(json.dumps(args.__dict__))
+    with open(os.path.join(args.log_dir, 'flags.json'), 'w') as f:
+        f.write(json.dumps(args.__dict__))
 
     main(args)
