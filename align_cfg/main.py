@@ -229,6 +229,11 @@ def argument_parser():
         action='store_true',
     )
     parser.add_argument(
+        "--write-align-dist",
+        help="If true, then write alignments to file.",
+        action='store_true',
+    )
+    parser.add_argument(
         "--write-only",
         help="If true, then write alignments to file.",
         action='store_true',
@@ -1240,6 +1245,31 @@ def maybe_write(context):
 
     batch_size = args.batch_size
 
+    def write_align_dist(corpus, dataset, path):
+        net.eval()
+
+        indices = np.arange(len(corpus))
+
+        print('writing to {}'.format(os.path.abspath(path)))
+        f = open(path, 'w')
+
+        with torch.no_grad():
+            for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
+                end = min(start + batch_size, len(corpus))
+                batch_indices = indices[start:end]
+                items = [dataset[idx] for idx in batch_indices]
+                batch_map = batchify(items, cuda=args.cuda)
+
+                # forward pass
+                model_output = shared_validation_step(net, batch_indices, batch_map)
+
+                # write pretty alignment info
+                for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
+                    amr = corpus[idx]
+                    f.write(amr_to_pretty_format(amr, ainfo, idx).strip() + '\n\n')
+
+        f.close()
+
     def write_align_pretty(corpus, dataset, path):
         net.eval()
 
@@ -1314,6 +1344,12 @@ def maybe_write(context):
 
         path = os.path.join(args.log_dir, 'alignment.trn')
         write_align_pretty(corpus, dataset, path)
+        sys.exit()
+
+    if args.write_align_dist:
+
+        path = args.single_output
+        write_align_dist(corpus, dataset, path)
         sys.exit()
 
     if args.write_only:
