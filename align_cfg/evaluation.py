@@ -409,7 +409,7 @@ class CorpusRecall_WithDupsAndSpans(CorpusRecall):
 
 
 class EvalAlignments(object):
-    def run(self, path_gold, path_pred, verbose=True, only_MAP=False):
+    def run(self, path_gold, path_pred, verbose=True, only_MAP=False, flexible=False):
 
         assert os.path.exists(path_gold)
         assert os.path.exists(path_pred)
@@ -432,13 +432,52 @@ class EvalAlignments(object):
         gold = read_amr2(path_gold, ibm_format=True)
         pred = read_amr2(path_pred, ibm_format=True)
 
-        assert len(gold) == len(pred), \
-            f'{path_gold} and {path_pred} differ in size'
+        if not flexible:
+            assert len(gold) == len(pred), \
+                f'{path_gold} and {path_pred} differ in size'
 
-        for i, (g, p) in tqdm(enumerate(zip(gold, pred)), desc='eval'):
+            for i, (g, p) in tqdm(enumerate(zip(gold, pred)), desc='eval'):
 
-            for m in metrics:
-                m.update(g, p)
+                for m in metrics:
+                    m.update(g, p)
+
+        else:
+            d_gold = {}
+            stats = collections.Counter()
+
+            for g in gold:
+                key = ' '.join(g.tokens)
+                d_gold[key] = g
+                stats['has-gold'] += 1
+
+            for p in pred:
+                key = ' '.join(p.tokens)
+                stats['has-pred'] += 1
+
+                if key not in d_gold:
+                    stats['skipped'] += 1
+                    continue
+                stats['found'] += 1
+
+                g = d_gold[key]
+
+                keys_g = tuple(sorted(g.nodes.keys()))
+                keys_p = tuple(sorted(p.nodes.keys()))
+
+                if keys_g != keys_p:
+                    #print('g', keys_g)
+                    #print('p', keys_p)
+                    stats['skip-node-mismatch'] += 1
+                    continue
+
+                for i_m, m in enumerate(metrics):
+                    m.update(g, p)
+
+                stats['ok'] += 1
+
+            print(stats)
+
+
 
         if verbose:
             # clear line
