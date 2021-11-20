@@ -296,6 +296,10 @@ def main(args):
                         os.path.join(os.path.dirname(pref), 'alignment.trn.pretty'),
                         os.path.join(args.destdir, 'alignment.trn.pretty')
                     )
+                    shutil.copyfile(
+                        os.path.join(os.path.dirname(pref), 'alignment.trn.align_dist.npy'),
+                        os.path.join(args.destdir, 'alignment.trn.align_dist.npy')
+                    )
 
     # save action states information to assist training with auxiliary info
     # assume one training file, one validation file, and one test file
