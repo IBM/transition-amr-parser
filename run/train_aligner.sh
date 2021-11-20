@@ -16,7 +16,7 @@ set -o nounset
 # Load config
 echo "[Configuration file:]"
 echo $config
-. $config 
+. $config
 
 # We will need this to save the alignment log
 
@@ -99,7 +99,7 @@ else
         --lr 2e-3 \
         --max-length 100 \
         --log-dir $ALIGNED_FOLDER/log \
-        --max-epoch 200 \
+        --max-epoch 20 \
         --model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \
         --batch-size 32 \
         --accum-steps 4 \
@@ -139,6 +139,19 @@ else
         --val-amr $ALIGNED_FOLDER/train.unaligned.txt \
         --log-dir $ALIGNED_FOLDER \
         --write-pretty
+
+    python align_cfg/main.py --cuda \
+        --no-jamr \
+        --cache-dir $ALIGNED_FOLDER \
+        --load $ALIGNED_FOLDER/log/model.latest.pt \
+        --load-flags $ALIGNED_FOLDER/log/flags.json \
+        --vocab-text $ALIGNED_FOLDER/vocab.text.txt \
+        --vocab-amr $ALIGNED_FOLDER/vocab.amr.txt \
+        --trn-amr $ALIGNED_FOLDER/train.unaligned.txt \
+        --val-amr $ALIGNED_FOLDER/train.unaligned.txt \
+        --log-dir $ALIGNED_FOLDER \
+        --write-align-dist \
+        --single-output $ALIGNED_FOLDER/alignment.trn.align_dist.npy
 
     touch $ALIGNED_FOLDER/.done
 

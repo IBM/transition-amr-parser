@@ -37,6 +37,8 @@ else
     # copy alignment probabilities (if provided)
     [ -f "$ALIGNED_FOLDER/alignment.trn.pretty" ] \
         && cp $ALIGNED_FOLDER/alignment.trn.pretty $ORACLE_FOLDER/
+    [ -f "$ALIGNED_FOLDER/alignment.trn.align_dist.npy" ] \
+        && cp $ALIGNED_FOLDER/alignment.trn.align_dist.npy $ORACLE_FOLDER/
 
     echo -e "\nTrain data"
 

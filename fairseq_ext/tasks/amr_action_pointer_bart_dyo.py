@@ -31,7 +31,7 @@ from fairseq_ext.amr_spec.action_info_binarize import (
     load_actstates_fromfile
 )
 from fairseq_ext.binarize import binarize_file
-from transition_amr_parser.io import read_amr2, read_neural_alignments
+from transition_amr_parser.io import read_amr2, read_neural_alignments, read_neural_alignments_from_memmap
 from transition_amr_parser.amr_machine import AMRStateMachine, AMROracle, peel_pointer
 from fairseq_ext.amr_spec.action_info import get_actions_states
 from fairseq_ext.data.data_utils import collate_tokens
@@ -116,10 +116,15 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     gold_amrs = read_amr2(aligned_amr_path, ibm_format=True)
     # read alignment probabilities
     if split == 'train':
-        amr_alig_probs_path = os.path.join(data_path, 'alignment.trn.pretty')
-        corpus_align_probs = read_neural_alignments(amr_alig_probs_path)
-        assert len(gold_amrs) == len(corpus_align_probs), \
-            "Different number of AMR and probabilities"
+        amr_align_probs_path = os.path.join(data_path, 'alignment.trn.pretty')
+        amr_align_probs_npy_path = os.path.join(data_path, 'alignment.trn.align_dist.npy')
+        if os.path.exists(amr_align_probs_npy_path):
+            corpus_align_probs = read_neural_alignments_from_memmap(amr_align_probs_npy_path, gold_amrs)
+
+        else:
+            corpus_align_probs = read_neural_alignments(amr_align_probs_path)
+            assert len(gold_amrs) == len(corpus_align_probs), \
+                "Different number of AMR and probabilities"
     else:
         corpus_align_probs = None
 

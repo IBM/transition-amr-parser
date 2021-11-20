@@ -31,6 +31,39 @@ def write_neural_alignments(out_alignment_probs, aligned_amrs, joints):
             fid.write(f'\n')
 
 
+def read_neural_alignments_from_memmap(path, corpus):
+    # TODO: Verify hash, which ensures dataset and node order is the same.
+    sizes = list(map(lambda x: len(x.tokens) * len(x.nodes), corpus))
+    assert all([size > 0 for size in sizes])
+    total_size = sum(sizes)
+    offsets = np.zeros(len(corpus), dtype=np.int)
+    offsets[1:] = np.cumsum(sizes[:-1])
+
+    np_align_dist = np.memmap(path, dtype=np.float32, shape=(total_size, 1), mode='r')
+    align_dist = np.zeros((total_size, 1), dtype=np.float32)
+    align_dist[:] = np_align_dist[:]
+
+    alignments = []
+    for idx, amr in enumerate(corpus):
+        offset = offsets[idx]
+        size = sizes[idx]
+        assert size == len(amr.tokens) * len(amr.nodes)
+
+        p_node_and_token = align_dist[offset:offset+size].reshape(len(amr.nodes), len(amr.tokens))
+        example_id = idx
+        node_short_id = None
+        text_tokens = None
+
+        alignments.append(dict(
+            example_id=example_id,
+            node_short_id=node_short_id,
+            text_tokens=text_tokens,
+            p_node_and_token=p_node_and_token
+        ))
+
+    return alignments
+
+
 def read_neural_alignments(alignments_file):
 
     alignments = []

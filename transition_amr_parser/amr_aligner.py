@@ -79,12 +79,12 @@ class NoTokenizer(object):
 
 
 try:
-    lemmatizer = spacy.load('en', disable=['parser', 'ner'])
+    lemmatizer = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
 except OSError:
     # Assume the problem was the spacy models were not downloaded
     from spacy.cli.download import download
-    download('en')
-    lemmatizer = spacy.load('en', disable=['parser', 'ner'])
+    download('en_core_web_sm')
+    lemmatizer = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
 lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
 
 

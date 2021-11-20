@@ -149,6 +149,9 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     # FIXME: See above
     # for idx, node_id in enumerate(alignment_probs['node_short_id']):
     align_info = dict(node_idx=[], token_idx=[], p=[])
+
+    # This is because numpy casts as float64 anyway. See: https://github.com/numpy/numpy/issues/8317
+    token_posterior2 = token_posterior2.astype(np.float64) / token_posterior2.astype(np.float64).sum(-1, keepdims=True)
     for idx, node_id in enumerate(gold_amr.alignments.keys()):
         alignment = np.random.multinomial(1, token_posterior2[idx, :]).argmax()
         gold_amr.alignments[node_id] = [alignment]
