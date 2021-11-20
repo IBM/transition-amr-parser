@@ -3,6 +3,7 @@
 import argparse
 import collections
 import copy
+import hashlib
 import json
 import os
 import sys
@@ -214,6 +215,11 @@ def argument_parser():
     )
     parser.add_argument(
         "--mask-at-inference",
+        help="If true, then mask tokens one at a time at inference.",
+        action='store_true',
+    )
+    parser.add_argument(
+        "--no-mask-at-inference",
         help="If true, then mask tokens one at a time at inference.",
         action='store_true',
     )
@@ -1231,9 +1237,17 @@ def standard_validation_step(net, batch_indices, batch_map):
 
 
 def shared_validation_step(*args, **kwargs):
-    if 'gcn' in cli_args.model_config:
+    if 'gcn' in cli_args.model_config and not cli_args.no_mask_at_inference:
         return masked_validation_step(*args, **kwargs)
     return standard_validation_step(*args, **kwargs)
+
+
+def hash_corpus(corpus):
+    m = hashlib.md5()
+    for amr in corpus:
+        m.update(' '.join(amr.tokens).encode())
+        m.update(' '.join(sorted(amr.nodes.keys())).encode())
+    return m.hexdigest()
 
 
 def maybe_write(context):
@@ -1251,8 +1265,19 @@ def maybe_write(context):
 
         indices = np.arange(len(corpus))
 
-        print('writing to {}'.format(os.path.abspath(path)))
-        f = open(path, 'w')
+        corpus_id = hash_corpus(corpus)
+        print('writing to {} with corpus_id {}'.format(os.path.abspath(path), corpus_id))
+
+        with open(path + '.corpus_hash', 'w') as f:
+            f.write(corpus_id)
+
+        sizes = list(map(lambda x: len(x.tokens) * len(x.nodes), corpus))
+        assert all([size > 0 for size in sizes])
+        total_size = sum(sizes)
+        offsets = np.zeros(len(corpus), dtype=np.int)
+        offsets[1:] = np.cumsum(sizes[:-1])
+
+        align_dist = np.zeros((total_size, 1), dtype=np.float32)
 
         with torch.no_grad():
             for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
@@ -1267,9 +1292,11 @@ def maybe_write(context):
                 # write pretty alignment info
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
                     amr = corpus[idx]
-                    f.write(amr_to_pretty_format(amr, ainfo, idx).strip() + '\n\n')
-
-        f.close()
+                    offset = offsets[idx]
+                    size = sizes[idx]
+                    align_dist[offset:offset + size] = ainfo['posterior'].cpu().numpy().reshape(size, 1)
+        np_align_dist = np.memmap(path, dtype=np.float32, shape=(total_size, 1), mode='w+')
+        np_align_dist[:] = align_dist
 
     def write_align_pretty(corpus, dataset, path):
         net.eval()
