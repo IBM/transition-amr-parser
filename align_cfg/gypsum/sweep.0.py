@@ -66,6 +66,29 @@ python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/voca
 python align_cfg/run_eval.py --pred ./$LOG2/train.txt.no_wiki --gold ./$CACHE/train.aligned.txt
 """
 
+eval_dist_template = """#!/bin/bash
+#
+#SBATCH --job-name={name}
+#SBATCH -o /mnt/nfs/work1/mccallum/adrozdov/code/transition-amr-parser/log/{name}/slurm.out
+#SBATCH --time=0-02:00:00
+#SBATCH --partition={partition}
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=45GB
+#SBATCH --exclude=node030,node181,node108,node171
+
+CACHE='cache-{task}'
+LOG2='./log/{name}'
+
+source activate ibm-amr-aligner-torch-1.8-v2
+cd /mnt/nfs/work1/mccallum/adrozdov/code/transition-amr-parser
+
+date
+
+python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/vocab.text.txt --vocab-amr ./$CACHE/vocab.amr.txt  --trn-amr ./$CACHE/train.txt.no_wiki --val-amr ./$CACHE/dev.txt.no_wiki --tst-amr ./$CACHE/test.txt.no_wiki --max-length -1 --log-dir $LOG2 --max-epoch 400 --batch-size 32 --accum-steps 4 --verbose --skip-validation --load {load} --write-align-dist --single-input ./$CACHE/train.txt.no_wiki --single-output ./$LOG2/train.txt.align_dist.npy {flags} {model_cfg}
+
+"""
+
 # eval
 #python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/vocab.text.txt --vocab-amr ./$CACHE/vocab.amr.txt  --trn-amr ./$CACHE/train.txt.no_wiki --val-amr ./$CACHE/dev.txt.no_wiki --tst-amr ./$CACHE/test.txt.no_wiki --lr 2e-3 --max-length -1 --log-dir $LOG2 --max-epoch 200 --model-config '{{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior":"attn", "output_mode": "tied"}}' --batch-size 32 --accum-steps 4 --verbose --skip-validation --load {load} --write-single --single-input ./$CACHE/train.txt.no_wiki --single-output ./$LOG2/train.txt.no_wiki
 
@@ -203,11 +226,8 @@ def main():
                                     d['name'] = name
 
                                     os.system('mkdir -p log/{}'.format(name))
-
                                     script = eval_template.format(**d)
-
                                     path = 'log/{}/script.sh'.format(name)
-
                                     with open(path, 'w') as f:
                                         f.write(script)
 
@@ -218,6 +238,19 @@ def main():
                                     ex['eval_info'].append(info)
 
                                     print('eval', path)
+
+                                    # write align dist
+                                    d = copy.deepcopy(d)
+                                    name = 'gypsum.{prefix}.{exp_key}.{exp_id}.{i_exp}.eval_align_dist.{model_epoch}'.format(**d)
+                                    d['name'] = name
+
+                                    os.system('mkdir -p log/{}'.format(name))
+                                    script = eval_dist_template.format(**d)
+                                    path = 'log/{}/script.sh'.format(name)
+                                    with open(path, 'w') as f:
+                                        f.write(script)
+
+                                    info['align_dist_script_path'] = path
 
 
     if args.launch:
