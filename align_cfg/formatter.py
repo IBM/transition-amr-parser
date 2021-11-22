@@ -95,18 +95,25 @@ def amr_to_string(amr, alignments=None):
     tree_edges = get_tree_edges(amr)
     node_to_children = collections.defaultdict(list)
     node_to_depth = {}
+    node_to_depth[amr.root] = 0
     for a, b, c, _, node_id in tree_edges:
         depth = node_id.count('.')
-        node_to_depth[a] = depth
+        node_to_depth[c] = depth
         node_to_children[a].append(c)
 
     # get unique ids
     node_set = set()
-    for i, (node_id, node_name) in enumerate(amr.nodes.items()):
-        depth = node_to_depth.get(node_id, '#')
-        children = sorted([amr.nodes[x] for x in node_to_children[node_id]])
-        children_abbrev = '-'.join([name[0] for name in children] + ['#'])
-        new_node_id = '{}-{}-{}'.format(node_name[0], depth, children_abbrev)
+    node_items = list(amr.nodes.items())
+    node_to_int = {node_id: j for j, (node_id, node_name) in enumerate(node_items)}
+    for i, (node_id, node_name) in enumerate(node_items):
+        depth = node_to_depth.get(node_id, 'x')
+        children_ints = sorted([node_to_int[c_node_id] for c_node_id in node_to_children[node_id]])
+        if len(children_ints) > 0:
+            children_abbrev = '-'.join([str(j) for j in children_ints])
+            new_node_id = '{}.d{}-{}'.format(str(i), depth, children_abbrev)
+        else:
+            new_node_id = '{}.d{}'.format(str(i), depth)
+        assert new_node_id not in new_amr_nodes
         new_amr_nodes[new_node_id] = node_name
         mapping[node_id] = new_node_id
 
@@ -118,6 +125,8 @@ def amr_to_string(amr, alignments=None):
         a = mapping[a]
         c = mapping[c]
         new_edges.append((a, b, c))
+
+    assert len(amr.nodes) == len(new_amr_nodes)
 
     amr.nodes = new_amr_nodes
     amr.alignments = new_amr_alignments
