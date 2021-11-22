@@ -32,6 +32,7 @@ import numpy as np
 
 from tqdm import tqdm
 
+from align_utils import save_align_dist
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
 from amr_utils import safe_read as safe_read_
 from alignment_decoder import AlignmentDecoder
@@ -1245,14 +1246,6 @@ def shared_validation_step(*args, **kwargs):
     return standard_validation_step(*args, **kwargs)
 
 
-def hash_corpus(corpus):
-    m = hashlib.md5()
-    for amr in corpus:
-        m.update(' '.join(amr.tokens).encode())
-        m.update(' '.join(sorted(amr.nodes.keys())).encode())
-    return m.hexdigest()
-
-
 def maybe_write(context):
 
     args = context['args']
@@ -1268,20 +1261,7 @@ def maybe_write(context):
 
         indices = np.arange(len(corpus))
 
-        corpus_id = hash_corpus(corpus)
-        print('writing to {} with corpus_id {}'.format(os.path.abspath(path), corpus_id))
-
-        with open(path + '.corpus_hash', 'w') as f:
-            f.write(corpus_id)
-
-        sizes = list(map(lambda x: len(x.tokens) * len(x.nodes), corpus))
-        assert all([size > 0 for size in sizes])
-        total_size = sum(sizes)
-        offsets = np.zeros(len(corpus), dtype=np.int)
-        offsets[1:] = np.cumsum(sizes[:-1])
-
-        align_dist = np.zeros((total_size, 1), dtype=np.float32)
-
+        dist_list = []
         with torch.no_grad():
             for start in tqdm(range(0, len(corpus), batch_size), desc='write', disable=False):
                 end = min(start + batch_size, len(corpus))
@@ -1294,12 +1274,14 @@ def maybe_write(context):
 
                 # write pretty alignment info
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
-                    amr = corpus[idx]
-                    offset = offsets[idx]
-                    size = sizes[idx]
-                    align_dist[offset:offset + size] = ainfo['posterior'].cpu().numpy().reshape(size, 1)
-        np_align_dist = np.memmap(path, dtype=np.float32, shape=(total_size, 1), mode='w+')
-        np_align_dist[:] = align_dist
+                    dist_list.append(ainfo['posterior'].cpu().numpy())
+
+        # WRITE alignments to file.
+        _, corpus_id = save_align_dist(path, corpus, dist_list)
+
+        # WRITE corpus hash to verify data later.
+        with open(path + '.corpus_hash', 'w') as f:
+            f.write(corpus_id)
 
     def write_align_pretty(corpus, dataset, path):
         net.eval()
