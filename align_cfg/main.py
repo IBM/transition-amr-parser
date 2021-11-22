@@ -1101,7 +1101,10 @@ def save_checkpoint(path, dataset, net, metrics=None):
     tosave['amr_vocab'] = dataset.amr_tokenizer.token_TO_idx
     tosave['metrics'] = metrics
 
-    torch.save(tosave, path)
+    try:
+        torch.save(tosave, path, _use_new_zipfile_serialization=False)
+    except:
+        torch.save(tosave, path)
 
 
 def check_and_update_best(best_metrics, key, val, compare='gt'):
