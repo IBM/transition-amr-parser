@@ -157,6 +157,8 @@ else
 
 fi
 
+python align_cfg/align_utils.py verify_corpus_id --in-amr $ALIGNED_FOLDER/train.txt --corpus-id $ALIGNED_FOLDER/alignment.trn.align_dist.npy.corpus_hash
+
 # FIXME: Unelegant
 cp DATA/$TASK_TAG/aligned/cofill/dev.txt $ALIGNED_FOLDER/dev.txt
 cp DATA/$TASK_TAG/aligned/cofill/test.txt $ALIGNED_FOLDER/test.txt
