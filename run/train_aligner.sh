@@ -116,7 +116,7 @@ if [ -f $ALIGNED_FOLDER/.done ]; then
 
 else
 
-    # ARGMAX alignments.
+    # ARGMAX alignments. TODO: Get these from probabilities.
     python align_cfg/main.py --cuda \
         --cache-dir $ALIGNED_FOLDER \
         --load $ALIGNED_FOLDER/log/model.latest.pt \
@@ -127,19 +127,7 @@ else
         --single-input $ALIGNED_FOLDER/train.unaligned.txt \
         --single-output $ALIGNED_FOLDER/train.txt
 
-    # Get alignment probabilities
-    python align_cfg/main.py --cuda \
-        --no-jamr \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGNED_FOLDER/log/model.latest.pt \
-        --load-flags $ALIGNED_FOLDER/log/flags.json \
-        --vocab-text $ALIGNED_FOLDER/vocab.text.txt \
-        --vocab-amr $ALIGNED_FOLDER/vocab.amr.txt \
-        --trn-amr $ALIGNED_FOLDER/train.unaligned.txt \
-        --val-amr $ALIGNED_FOLDER/train.unaligned.txt \
-        --log-dir $ALIGNED_FOLDER \
-        --write-pretty
-
+    # Get alignment probabilities.
     python align_cfg/main.py --cuda \
         --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
