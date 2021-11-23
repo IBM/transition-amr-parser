@@ -87,6 +87,10 @@ date
 
 python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/vocab.text.txt --vocab-amr ./$CACHE/vocab.amr.txt  --trn-amr ./$CACHE/train.txt.no_wiki --val-amr ./$CACHE/dev.txt.no_wiki --tst-amr ./$CACHE/test.txt.no_wiki --max-length -1 --log-dir $LOG2 --max-epoch 400 --batch-size 32 --accum-steps 4 --verbose --skip-validation --load {load} --write-align-dist --single-input ./$CACHE/train.txt.no_wiki --single-output ./$LOG2/train.txt.align_dist.npy {flags} {model_cfg}
 
+python -u align_cfg/align_utils.py write_argmax --in-amr $CACHE/train.txt.no_wiki --in-amr-align-dist ./$LOG2/train.txt.align_dist.npy --out-amr-aligned ./$LOG2/train.txt.no_wiki.aligned
+
+python -u align_cfg/align_utils.py verify_corpus_id --in-amr ./$LOG2/train.txt.no_wiki.aligned --corpus-id ./$LOG2/train.txt.align_dist.npy.corpus_hash
+
 """
 
 # eval
