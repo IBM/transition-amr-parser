@@ -59,7 +59,7 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
 # Number of alignment samples used
 NUM_ALIGNMENT_SAMPLES=5
-RESCALE_ALIGN="--rescale-align"
+ALIGNMENT_FLAGS="--sample-alignments NUM_ALIGNMENT_SAMPLES --rescale-align"
 # Use importance weighted
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 

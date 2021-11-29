@@ -112,6 +112,8 @@ def read_experiment(config):
         # TODO: compute time between epochs
         train_seed_data = [x for x in seed_data if 'train_nll_loss' in x]
         train_data_sort = sorted(train_seed_data, key=lambda x: x['epoch'])
+        if train_data_sort == []:
+            return []
         train_data_sort[0]['epoch_time'] = None
         prev = [train_data_sort[0]['epoch'], train_data_sort[0]['timestamp']]
         new_data = [train_data_sort[0]]
@@ -186,6 +188,7 @@ def matplotlib_render(plotting_data, out_png, title):
     if title:
         plt.title(title)
     if out_png:
+        print(f'wrote {out_png}')
         plt.savefig(out_png)
     else:
         plt.show()

@@ -122,9 +122,8 @@ else
                 --seed $seed \
                 --save-dir ${MODEL_FOLDER}-seed${seed}/ \
                 --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16 \
-                --sample-alignments $NUM_ALIGNMENT_SAMPLES \
+                $ALIGNMENT_FLAGS \
                 $IMPORTANCE_WEIGTHED_SAMPLING_FLAG \
-                $RESCALE_ALIGN
 
         else
             # apt-bart with shared and mixed src and tgt vocabulary
