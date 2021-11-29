@@ -23,6 +23,10 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
+# MANUAL OVERRIDE !!
+# BEAM_SIZE=1
+# DECODING_CHECKPOINT=checkpoint_wiki.smatch_best1.pt
+
 # Running test announcement
 printf "\n\033[93mWARNING\033[0m: Everytime you look at the test set, your corpus dies a little (by corpus overfitting)\n\n" 
 echo -e " \nbash run/ad_test.sh ${MODEL_FOLDER}-seed{$SEEDS}/$DECODING_CHECKPOINT -b $BEAM_SIZE -s test\n"
@@ -34,9 +38,6 @@ if [[ "$HOSTNAME" =~ dccpc.* ]] || [[ "$HOSTNAME" =~ dccx[cn].* ]] || [[ "$HOSTN
     echo -e "\n$0 must be launched from a login node (submits its own jbsub calls)\n" 
     exit 1
 fi
-
-# BEAM_SIZE=1
-# DECODING_CHECKPOINT=checkpoint_wiki.smatch_best1.pt
 
 for seed in $SEEDS;do
 

@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
 from transition_amr_parser.io import clbar
-# from ipdb import set_trace
+from ipdb import set_trace
 
 
 # Sanity check python3
@@ -522,7 +522,11 @@ def average_results(results, fields, average_fields, ignore_fields,
             if field in average_fields:
                 samples = [r[field] for r in sresults if r[field] is not None]
                 if samples:
-                    average_result[field] = np.mean(samples)
+                    try:
+                        average_result[field] = np.mean(samples)
+                    except:
+                        set_trace(context=30)
+                        print()
                     # Add standard deviation
                     average_result[f'{field}-std'] = np.std(samples)
                 else:
@@ -557,7 +561,7 @@ def extract_experiment_data(config_env_vars, seed, do_test):
     else:
         test_time = None
 
-    # get experiments info
+    # get dev results for each tested epoch
     _, target_epochs, _ = get_checkpoints_to_eval(
         config_env_vars,
         seed,
@@ -569,14 +573,12 @@ def extract_experiment_data(config_env_vars, seed, do_test):
         )
     if scores == []:
         return {}
-
+    # select best result and epoch
     best_checkpoint, best_score = sorted(
         zip(checkpoints, scores), key=lambda x: x[1]
     )[-1]
     max_epoch = config_env_vars['MAX_EPOCH']
-    best_epoch = re.match(
-        'checkpoint([0-9]+).pt', best_checkpoint
-    ).groups()[0]
+    best_epoch = checkpoint_re.match(best_checkpoint).groups()[0]
 
     # get top-5 beam result
     # TODO: More granularity here. We may want to add many different
@@ -584,6 +586,15 @@ def extract_experiment_data(config_env_vars, seed, do_test):
     eval_metric = config_env_vars['EVAL_METRIC']
     sset = 'valid'
     cname = 'checkpoint_wiki.smatch_top5-avg'
+    # beam 1
+    results_file = \
+        f'{seed_folder}/beam1/{sset}_{cname}.pt.{eval_metric}'
+    if os.path.isfile(results_file):
+        best_top5_score = get_score_from_log(results_file,
+                                             eval_metric)[0]
+    else:
+        best_top5_score = None
+    # beam 10
     results_file = \
         f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
     if os.path.isfile(results_file):
@@ -603,6 +614,7 @@ def extract_experiment_data(config_env_vars, seed, do_test):
         best=f'{best_epoch}/{max_epoch}',
         dev=best_score,
         top5_beam10=best_top5_beam10_score,
+        top5_beam1=best_top5_score,
         train=epoch_time,
         dec=test_time,
         sorted_scores=sorted_scores
@@ -614,6 +626,16 @@ def extract_experiment_data(config_env_vars, seed, do_test):
     if do_test:
         sset = 'test'
         cname = 'checkpoint_wiki.smatch_top5-avg'
+        # beam 1
+        results_file = \
+            f'{seed_folder}/beam1/{sset}_{cname}.pt.{eval_metric}'
+        if os.path.isfile(results_file):
+            best_top5_score_test = get_score_from_log(results_file,
+                                                      eval_metric)[0]
+        else:
+            best_top5_score_test = None
+        result['test_top5_beam1'] = best_top5_score_test
+        # beam 10
         results_file = \
             f'{seed_folder}/beam10/{sset}_{cname}.pt.{eval_metric}'
         if os.path.isfile(results_file):
@@ -621,7 +643,7 @@ def extract_experiment_data(config_env_vars, seed, do_test):
                                                        eval_metric)[0]
         else:
             best_top5_beam10_test = None
-        result['(test)'] = best_top5_beam10_test
+        result['test_top5_beam10'] = best_top5_beam10_test
 
     return result
 
@@ -655,13 +677,23 @@ def get_experiment_configs(models_folder, configs, set_seed):
                     seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
                 config = f'{seed_folder}/config.sh'
                 config_env_vars = read_config_variables(config)
+                # if os.path.islink(config):
+                #    config_env_vars['config_path'] = \
+                #        f'configs/{os.path.basename(os.readlink(config))}'
                 config_exps.append((config_env_vars, seed))
 
     return config_exps
 
 
 def display_results(models_folder, configs, set_seed, seed_average, do_test,
-                    longr=False, do_clear=False, decimals=1):
+                    longr=False, do_clear=False, decimals=1, show_config=True):
+
+    # determine numeric_fields
+    numeric_fields = [
+        'dev', 'top5_beam10', 'top5_beam1', 'train (h)', 'dec (m)'
+    ]
+    if do_test:
+        numeric_fields.extend(['test_top5_beam1', 'test_top5_beam10'])
 
     # collect data for each experiment as a dictionary
     results = []
@@ -671,22 +703,17 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
         if result:
             results.append(result)
 
-    if configs:
-        fields = ['config_path']
+    if configs or (show_config and all('config_path' in r for r in results)):
+        fields = ['config_path', 'best']
     else:
-        fields = ['data', 'oracle', 'features', 'model']
-    fields.extend(['best', 'dev', 'top5_beam10', 'train (h)', 'dec (m)'])
-    if do_test:
-        fields.insert(2, '(test)')
+        fields = ['data', 'oracle', 'features', 'model', 'best']
+    fields.extend(numeric_fields)
 
     # TODO: average over seeds
     if seed_average:
-        average_fields = [
-            'dev', 'top5_beam10', '(test)', 'train (h)', 'dec (m)'
-        ]
         ignore_fields = ['best']
         concatenate_fields = ['seed']
-        results = average_results(results, fields, average_fields,
+        results = average_results(results, fields, numeric_fields,
                                   ignore_fields, concatenate_fields)
 
     # sort by last row
@@ -703,11 +730,8 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
     if results:
         assert all(field.split()[0] in results[0].keys() for field in fields)
         formatter = {
-            'dev': ('{:.' + str(decimals) + 'f}').format,
-            '(test)': ('{:.' + str(decimals) + 'f}').format,
-            'top5_beam10': ('{:.' + str(decimals) + 'f}').format,
-            'train (h)': ('{:.' + str(decimals) + 'f}').format,
-            'dec (m)': ('{:.' + str(decimals) + 'f}').format
+            x: ('{:.' + str(decimals) + 'f}').format
+            for x in numeric_fields
         }
         print_table(fields, results, formatter=formatter, do_clear=do_clear,
                     col0_right=bool(configs))
