@@ -73,9 +73,12 @@ class AMRStringHelper(object):
     @staticmethod
     def amr(amr):
         if amr.penman is None:
-            pretty_amr = amr.__str__().split('\t')[-1].strip()
+            #pretty_amr = amr.__str__().split('\t')[-1].strip()
+            pretty_amr = '\n'.join([x for x in amr.__str__().split('\n') if not x.startswith('#')])
+            pretty_amr = pretty_amr.strip()
         else:
             pretty_amr = _format_node(layout.configure(amr.penman).node, -1, 0, [])
+        assert pretty_amr.startswith('('), pretty_amr
         return pretty_amr
 
 
