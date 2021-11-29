@@ -49,6 +49,20 @@ else
         --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki \
         --out-amr $ALIGNED_FOLDER/test.unaligned.txt
 
+    # dummy align
+    python align_cfg/dummy_align.py \
+        --in-amr $ALIGNED_FOLDER/train.unaligned.txt \
+        --out-amr $ALIGNED_FOLDER/train.dummy_align.txt
+    python align_cfg/dummy_align.py \
+        --in-amr $ALIGNED_FOLDER/dev.unaligned.txt \
+        --out-amr $ALIGNED_FOLDER/dev.dummy_align.txt
+    python align_cfg/dummy_align.py \
+        --in-amr $ALIGNED_FOLDER/test.unaligned.txt \
+        --out-amr $ALIGNED_FOLDER/test.dummy_align.txt
+
+    cp $ALIGNED_FOLDER/dev.dummy_align.txt $ALIGNED_FOLDER/dev.txt
+    cp $ALIGNED_FOLDER/test.dummy_align.txt $ALIGNED_FOLDER/test.txt
+
     touch $ALIGNED_FOLDER/.done.preprocess
 
 fi
@@ -93,9 +107,10 @@ else
         --cache-dir $ALIGNED_FOLDER \
         --vocab-text $ALIGNED_FOLDER/vocab.text.txt \
         --vocab-amr $ALIGNED_FOLDER/vocab.amr.txt \
-        --trn-amr $ALIGNED_FOLDER/train.unaligned.txt \
-        --val-amr $ALIGNED_FOLDER/dev.unaligned.txt \
-        --tst-amr $ALIGNED_FOLDER/test.unaligned.txt \
+        --aligner-training-and-eval \
+        --trn-amr $ALIGNED_FOLDER/train.dummy_align.txt \
+        --val-amr $ALIGNED_FOLDER/dev.dummy_align.txt \
+        --tst-amr $ALIGNED_FOLDER/test.dummy_align.txt \
         --lr 2e-3 \
         --max-length 100 \
         --log-dir $ALIGNED_FOLDER/log \
@@ -116,30 +131,26 @@ if [ -f $ALIGNED_FOLDER/.done ]; then
 
 else
 
-    # ARGMAX alignments. TODO: Get these from probabilities.
-    python align_cfg/main.py --cuda \
-        --cache-dir $ALIGNED_FOLDER \
-        --load $ALIGNED_FOLDER/log/model.latest.pt \
-        --load-flags $ALIGNED_FOLDER/log/flags.json \
-        --vocab-text $ALIGNED_FOLDER/vocab.text.txt \
-        --vocab-amr $ALIGNED_FOLDER/vocab.amr.txt \
-        --write-single \
-        --single-input $ALIGNED_FOLDER/train.unaligned.txt \
-        --single-output $ALIGNED_FOLDER/train.txt
-
     # Get alignment probabilities.
     python align_cfg/main.py --cuda \
-        --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
         --load $ALIGNED_FOLDER/log/model.latest.pt \
         --load-flags $ALIGNED_FOLDER/log/flags.json \
         --vocab-text $ALIGNED_FOLDER/vocab.text.txt \
         --vocab-amr $ALIGNED_FOLDER/vocab.amr.txt \
-        --trn-amr $ALIGNED_FOLDER/train.unaligned.txt \
-        --val-amr $ALIGNED_FOLDER/train.unaligned.txt \
+        --trn-amr $ALIGNED_FOLDER/train.dummy_align.txt \
+        --val-amr $ALIGNED_FOLDER/train.dummy_align.txt \
         --log-dir $ALIGNED_FOLDER \
         --write-align-dist \
+        --aligner-training-and-eval \
+        --single-input $ALIGNED_FOLDER/train.dummy_align.txt \
         --single-output $ALIGNED_FOLDER/alignment.trn.align_dist.npy
+
+    python align_cfg/align_utils.py write_argmax \
+        --ibm-format \
+        --in-amr $ALIGNED_FOLDER/train.dummy_align.txt \
+        --in-amr-align-dist $ALIGNED_FOLDER/alignment.trn.align_dist.npy \
+        --out-amr-aligned $ALIGNED_FOLDER/train.txt
 
     touch $ALIGNED_FOLDER/.done
 
