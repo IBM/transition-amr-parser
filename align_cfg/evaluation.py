@@ -432,6 +432,11 @@ class EvalAlignments(object):
         gold = read_amr2(path_gold, ibm_format=True)
         pred = read_amr2(path_pred, ibm_format=True)
 
+        # check node names
+        for g, p in zip(gold, pred):
+            for k, v in g.nodes.items():
+                assert v == p.nodes[k], (k, v, p.nodes[k])
+
         if not flexible:
             assert len(gold) == len(pred), \
                 f'{path_gold} and {path_pred} differ in size'
