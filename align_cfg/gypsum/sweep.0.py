@@ -51,8 +51,8 @@ eval_template = """#!/bin/bash
 CACHE='cache-{task}'
 LOG2='./log/{name}'
 
-if [ -f $LOG2/train.txt.no_wiki.eval.json ]; then
-    echo "Found eval output!"
+if [ -f $LOG2/train.aligned.txt.eval.json ]; then
+    echo "Found eval output! $LOG2/train.aligned.txt.eval.json"
     exit 0
 fi
 
@@ -61,9 +61,9 @@ cd /mnt/nfs/work1/mccallum/adrozdov/code/transition-amr-parser
 
 date
 
-python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/vocab.text.txt --vocab-amr ./$CACHE/vocab.amr.txt  --trn-amr ./$CACHE/train.txt.no_wiki --val-amr ./$CACHE/dev.txt.no_wiki --tst-amr ./$CACHE/test.txt.no_wiki --max-length -1 --log-dir $LOG2 --max-epoch 400 --batch-size 32 --accum-steps 4 --verbose --skip-validation --load {load} --write-single --single-input ./$CACHE/train.txt.no_wiki --single-output ./$LOG2/train.txt.no_wiki {flags} {model_cfg}
+python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/vocab.text.txt --vocab-amr ./$CACHE/vocab.amr.txt  --trn-amr ./$CACHE/train.txt.no_wiki --val-amr ./$CACHE/dev.txt.no_wiki --tst-amr ./$CACHE/test.txt.no_wiki --max-length -1 --log-dir $LOG2 --max-epoch 400 --batch-size 32 --accum-steps 4 --verbose --skip-validation --load {load} --write-single --single-input ./$CACHE/train.aligned.txt --single-output ./$LOG2/train.aligned.txt --aligner-training-and-eval {flags} {model_cfg}
 
-python align_cfg/run_eval.py --pred ./$LOG2/train.txt.no_wiki --gold ./$CACHE/train.aligned.txt
+python align_cfg/run_eval.py --pred ./$LOG2/train.aligned.txt --gold ./$CACHE/train.aligned.txt
 """
 
 eval_dist_template = """#!/bin/bash
@@ -85,11 +85,11 @@ cd /mnt/nfs/work1/mccallum/adrozdov/code/transition-amr-parser
 
 date
 
-python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/vocab.text.txt --vocab-amr ./$CACHE/vocab.amr.txt  --trn-amr ./$CACHE/train.txt.no_wiki --val-amr ./$CACHE/dev.txt.no_wiki --tst-amr ./$CACHE/test.txt.no_wiki --max-length -1 --log-dir $LOG2 --max-epoch 400 --batch-size 32 --accum-steps 4 --verbose --skip-validation --load {load} --write-align-dist --single-input ./$CACHE/train.txt.no_wiki --single-output ./$LOG2/train.txt.align_dist.npy {flags} {model_cfg}
+python -u align_cfg/main.py --cuda --cache-dir $CACHE --vocab-text ./$CACHE/vocab.text.txt --vocab-amr ./$CACHE/vocab.amr.txt  --trn-amr ./$CACHE/train.txt.no_wiki --val-amr ./$CACHE/dev.txt.no_wiki --tst-amr ./$CACHE/test.txt.no_wiki --max-length -1 --log-dir $LOG2 --max-epoch 400 --batch-size 32 --accum-steps 4 --verbose --skip-validation --load {load} --write-align-dist --single-input ./$CACHE/train.dummy_align.txt --single-output ./$LOG2/train.txt.align_dist.npy {flags} {model_cfg}
 
-python -u align_cfg/align_utils.py write_argmax --in-amr $CACHE/train.txt.no_wiki --in-amr-align-dist ./$LOG2/train.txt.align_dist.npy --out-amr-aligned ./$LOG2/train.txt.no_wiki.aligned
+python -u align_cfg/align_utils.py write_argmax --in-amr $CACHE/train.dummy_align.txt --in-amr-align-dist ./$LOG2/train.txt.align_dist.npy --out-amr-aligned ./$LOG2/train.txt
 
-python -u align_cfg/align_utils.py verify_corpus_id --in-amr ./$LOG2/train.txt.no_wiki.aligned --corpus-id ./$LOG2/train.txt.align_dist.npy.corpus_hash
+python -u align_cfg/align_utils.py verify_corpus_id --in-amr ./$LOG2/train.txt --corpus-id ./$LOG2/train.txt.align_dist.npy.corpus_hash
 
 """
 
