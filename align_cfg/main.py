@@ -936,6 +936,9 @@ class Net(nn.Module):
             local_x_t_mask = local_x_t != PADDING_IDX
             n_t = local_x_t_mask.long().sum().item()
 
+            assert n_a > 0, (n_a, n_t)
+            assert n_t > 0, (n_a, n_t)
+
             # get local amr vec
             local_h_a = h_a[i_b][local_y_a_mask].view(n_a, 1, size_a)
 
@@ -947,9 +950,6 @@ class Net(nn.Module):
 
             # get labels
             local_y_a = y_a[i_b][local_y_a_mask].view(n_a, 1, 1)
-
-            assert n_a > 0, (n_a, n_t)
-            assert n_t > 0, (n_a, n_t)
 
             # info
             info = {}
@@ -1501,7 +1501,7 @@ def main(args):
         def trn_step(batch_indices, batch_map, info):
             net.train()
 
-            model_output = shared_validation_step(net, batch_indices, batch_map)
+            model_output = net(batch_map)
 
             # neg log likelihood
             loss = 0
