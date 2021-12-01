@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from vocab import PADDING_IDX
 
@@ -56,6 +57,15 @@ class AlignmentDecoder(object):
                 node_id = y_a_node_ids[i_b, b_indexa[j]].item()
                 idx_txt = argmax[j].item()
                 node_alignments.append((node_id, [idx_txt]))
+
+            # fix order
+
+            node_id_list = [x[0] for x in node_alignments]
+            order = np.argsort(node_id_list)
+
+            node_alignments = [node_alignments[idx] for idx in order]
+            b_align = b_align[order]
+            argmax = argmax[order]
 
             # result
 
