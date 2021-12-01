@@ -168,7 +168,7 @@ def main(args):
             dist_list = load_align_dist(args.in_amr_align_dist_pretty, corpus)
         save_amr_align_argmax(args.out_amr_aligned, corpus, dist_list)
 
-    elif args.mode == 'compare':
+    elif args.mode == 'compare_dist':
         """
         Verify two alignment distributions are the same.
         """
@@ -192,6 +192,33 @@ def main(args):
 
         for idx, (d1, d2) in enumerate(zip(dist_list, dist_list_pretty)):
             assert compare_vals(d1, d2)
+
+        print('OKAY')
+
+    elif args.mode == 'compare_argmax':
+        """
+        Verify two alignment distributions are the same.
+        """
+        corpus = read_amr2(args.in_amr, ibm_format=True, tokenize=False)
+        if args.in_amr_align_dist_pretty is not None:
+            dist_list = load_align_dist_pretty(args.in_amr_align_dist_pretty, corpus)
+        else:
+            align_dist, dist_list, corpus_id = load_align_dist(args.in_amr_align_dist, corpus)
+
+        assert len(corpus) == len(dist_list)
+
+        def compare_(amr, dist):
+            argmax = dist.argmax(-1).reshape(-1).tolist()
+
+            for i, k in enumerate(sorted(amr.nodes.keys())):
+                a = amr.alignments[k][0]
+                if a != argmax[i]:
+                    return False
+
+            return True
+
+        for idx, (dist, amr) in enumerate(zip(dist_list, corpus)):
+            assert compare_(amr, dist)
 
         print('OKAY')
 
@@ -225,7 +252,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('mode', choices=('write_argmax', 'compare', 'verify_corpus_id', 'read'), help="See main() for mode descriptions.")
+    parser.add_argument('mode', choices=('write_argmax', 'compare_dist', 'compare_argmax', 'verify_corpus_id', 'read'), help="See main() for mode descriptions.")
     parser.add_argument('--in-amr', default=None, type=str, help="Path to input amr file.")
     parser.add_argument('--in-amr-align-dist', default=None, type=str, help="Path to input alignment distribution with np.memmap.")
     parser.add_argument('--in-amr-align-dist-pretty', default=None, type=str, help="Path to input alignment distribution with pretty format.")
