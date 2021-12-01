@@ -158,9 +158,9 @@ fi
 
 python align_cfg/align_utils.py verify_corpus_id --in-amr $ALIGNED_FOLDER/train.txt --corpus-id $ALIGNED_FOLDER/alignment.trn.align_dist.npy.corpus_hash
 
-# FIXME: Unelegant
-# cp DATA/$TASK_TAG/aligned/cofill/dev.txt $ALIGNED_FOLDER/dev.txt
-# cp DATA/$TASK_TAG/aligned/cofill/test.txt $ALIGNED_FOLDER/test.txt
+# Note that we use these dummy files
+ln -s $ALIGNED_FOLDER/dev.dummy_align.txt $ALIGNED_FOLDER/dev.txt
+ln -s $ALIGNED_FOLDER/test.dummy_align.txt $ALIGNED_FOLDER/test.txt
 
 # Copy learned model and config
 # cp $ALIGNED_FOLDER/test_train_aligner/model.best.val_0_recall.pt $ALIGNED_FOLDER/model.pt
