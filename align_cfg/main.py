@@ -1259,6 +1259,8 @@ def maybe_write(context):
         # TODO: Write to numpy array (memmap).
         net.eval()
 
+        metrics = collections.defaultdict(list)
+
         indices = np.arange(len(corpus))
 
         dist_list = []
@@ -1272,9 +1274,15 @@ def maybe_write(context):
                 # forward pass
                 model_output = shared_validation_step(net, batch_indices, batch_map)
 
+                # metrics
+                metrics['loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
+
                 # write pretty alignment info
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
                     dist_list.append(ainfo['posterior'].cpu().numpy())
+
+        for k, v in metrics.items():
+            print('{} {:.3f}'.format(k, np.mean(v)))
 
         # WRITE alignments to file.
         _, corpus_id = save_align_dist(path, corpus, dist_list)
@@ -1320,6 +1328,7 @@ def maybe_write(context):
         net.eval()
 
         indices = np.arange(len(corpus))
+        metrics = collections.defaultdict(list)
 
         predictions = collections.defaultdict(list)
 
@@ -1333,6 +1342,9 @@ def maybe_write(context):
                 # forward pass
                 model_output = shared_validation_step(net, batch_indices, batch_map)
 
+                # metrics
+                metrics['loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
+
                 # save alignments for eval.
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
                     amr = corpus[idx]
@@ -1341,6 +1353,9 @@ def maybe_write(context):
 
                     predictions['amr'].append(amr)
                     predictions['alignments'].append(alignments)# write alignments
+
+        for k, v in metrics.items():
+            print('{} {:.3f}'.format(k, np.mean(v)))
 
         # write pred
         with open(path_pred, 'w') as f_pred:
@@ -1621,15 +1636,6 @@ def main(args):
 
                     del loss
 
-                    # save alignments for eval.
-                    for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
-                        amr = val_corpus[idx]
-                        node_ids = get_node_ids(amr)
-                        alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
-
-                        val_predictions['amr'].append(amr)
-                        val_predictions['alignments'].append(alignments)
-
             # batch iterator
             indices = [i for i, _ in enumerate(sorted(val_corpus, key=lambda x: -len(x.tokens)))]
 
@@ -1650,45 +1656,6 @@ def main(args):
 
             print('val_{} epoch = {}, loss = {:.3f}, loss-nr = {:.3f}, ppl = {:.3f}'.format(
                 i_valid, epoch, val_loss, val_loss_notreduced, val_ppl))
-
-            # write alignments
-            path = os.path.join(args.log_dir, 'alignment.epoch_{}.val_{}.out'.format(epoch, i_valid))
-            path_gold = path + '.gold'
-            path_pred = path + '.pred'
-
-            with open(path_gold, 'w') as f_gold, open(path_pred, 'w') as f_pred:
-                for amr, alignments in zip(val_predictions['amr'], val_predictions['alignments']):
-                    f_gold.write(amr_to_string(amr).strip() + '\n\n')
-                    f_pred.write(amr_to_string(amr, alignments).strip() + '\n\n')
-
-            # eval alignments
-            eval_output = EvalAlignments().run(path + '.gold', path + '.pred')
-
-            if not args.write_validation:
-                os.system('rm {} {}'.format(path + '.gold', path + '.pred'))
-
-            val_token_recall = eval_output['Corpus Recall']['recall']
-            epoch_metrics['val_{}_token_recall'.format(i_valid)] = val_token_recall
-
-            val_recall = eval_output['Corpus Recall using spans for gold']['recall']
-            epoch_metrics['val_{}_recall'.format(i_valid)] = val_recall
-
-            # save checkpoint
-
-            if check_and_update_best(best_metrics, 'val_{}_recall'.format(i_valid), val_recall, compare='gt'):
-                save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_recall.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
-
-                if i_valid == 0 and args.jbsub_eval:
-
-                    stdout_path = os.path.join(args.log_dir, 'eval.stdout.txt')
-                    stderr_path = os.path.join(args.log_dir, 'eval.stderr.txt')
-                    script_path = os.path.join(args.log_dir, 'eval_script.txt')
-                    cmd = 'jbsub -cores 1+1 -mem 30g -q x86_6h -out {} -err {} bash {}'.format(stdout_path, stderr_path, script_path)
-                    print(cmd)
-                    os.system(cmd)
-
-            if check_and_update_best(best_metrics, 'val_{}_loss_notreduced'.format(i_valid), val_loss, compare='lt'):
-                save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_loss_notreduced.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
 
         save_metrics(os.path.join(args.log_dir, 'model.epoch_{}.metrics'.format(epoch)), epoch_metrics)
 

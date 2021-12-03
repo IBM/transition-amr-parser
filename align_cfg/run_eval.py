@@ -15,7 +15,7 @@ args = parser.parse_args()
 
 print('start eval')
 
-eval_output = EvalAlignments().run(args.pred, args.pred, flexible=True)
+eval_output = EvalAlignments().run(args.gold, args.pred, flexible=True)
 
 print(eval_output)
 
