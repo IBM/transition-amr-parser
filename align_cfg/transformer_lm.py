@@ -73,7 +73,7 @@ class TransformerModel(nn.Module):
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
 
-    def forward(self, src, has_mask=True):
+    def forward(self, src, src2=None, has_mask=True):
         if has_mask:
             device = src.device
             if self.src_mask is None or self.src_mask.size(0) != len(src):
@@ -82,7 +82,8 @@ class TransformerModel(nn.Module):
         else:
             self.src_mask = None
 
-        src = self.pos_encoder(src * math.sqrt(self.ninp))
+        if src2 is None:
+            src2 = self.pos_encoder(src * math.sqrt(self.ninp))
         output = self.transformer_encoder(src, self.src_mask)
         return output
 
@@ -97,12 +98,14 @@ class BiTransformer(nn.Module):
     def forward(self, src):
         assert len(src.shape) == 3
 
+        src = self.fwd_enc.pos_encoder(src * math.sqrt(self.fwd_enc.ninp))
+
         # FORWARD
-        fwd_out = self.fwd_enc(src)
+        fwd_out = self.fwd_enc(src, src)
 
         # BACKWARD
         bwd_src = torch.flip(src, [1])
-        bwd_out = self.bwd_enc(bwd_src)
+        bwd_out = self.bwd_enc(bwd_src, bwd_src)
         bwd_out = torch.flip(bwd_out, [1])
 
         output = torch.cat([fwd_out, bwd_out], -1)

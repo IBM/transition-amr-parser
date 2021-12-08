@@ -777,7 +777,7 @@ class Net(nn.Module):
                                      )
 
         if config['text_enc'] in ('bilstm', 'bitransformer'):
-            encode_text = Encoder(text_embed, hidden_size, mode='text', rnn=config['text_enc'], dropout_p=dropout)
+            encode_text = Encoder(text_embed, hidden_size, mode='text', rnn=config['text_enc'], dropout_p=dropout, cfg=config['text_enc_cfg'])
 
         # AMR
 
@@ -791,7 +791,7 @@ class Net(nn.Module):
                                     )
 
         if config['amr_enc'] in ('lstm', 'bilstm', 'transformer', 'bitransformer'):
-            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', rnn=config['amr_enc'], dropout_p=dropout)
+            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', rnn=config['amr_enc'], dropout_p=dropout, cfg=config['amr_enc_cfg'])
         elif config['amr_enc'] == 'tree_rnn':
             encode_amr = TreeRNNEncoder(amr_embed, hidden_size, mode='tree_rnn', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm':
@@ -813,8 +813,8 @@ class Net(nn.Module):
         kwargs['encode_amr'] = encode_amr
         kwargs['output_size'] = output_size
 
-        del kwargs['text_emb'], kwargs['text_enc'], kwargs['text_project']
-        del kwargs['amr_emb'], kwargs['amr_enc'], kwargs['amr_project']
+        del kwargs['text_emb'], kwargs['text_enc'], kwargs['text_enc_cfg'], kwargs['text_project']
+        del kwargs['amr_emb'], kwargs['amr_enc'], kwargs['amr_enc_cfg'], kwargs['amr_project']
         del kwargs['embedding_dim'], kwargs['hidden_size'], kwargs['dropout']
         del kwargs['num_amr_layers']
 
@@ -829,10 +829,10 @@ class Net(nn.Module):
                 param_count_rqeuires_grad += p.shape.numel()
 
         def count_params(m):
-            return sum([p.shape.numel() for p in m.parameters()])
+            return sum([p.shape.numel() for p in m.parameters()  if p.requires_grad])
 
         print('# of parameters (text_enc) = {}'.format(count_params(encode_text)))
-        print('# of parameters (amr_enc) = {}'.format(count_params(encode_text)))
+        print('# of parameters (amr_enc) = {}'.format(count_params(encode_amr)))
 
         print('# of parameters = {} , # of trainable-parameters = {}'.format(param_count, param_count_rqeuires_grad))
 
@@ -998,7 +998,7 @@ class Net(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, embed, hidden_size, mode='text', dropout_p=0, input_size=None, rnn='lstm'):
+    def __init__(self, embed, hidden_size, mode='text', dropout_p=0, input_size=None, rnn='lstm', cfg={}):
         super().__init__()
 
         self.hidden_size = hidden_size
@@ -1010,24 +1010,24 @@ class Encoder(nn.Module):
             input_size = embed.output_size
 
         if rnn == 'lstm':
-            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1,
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
                                bidirectional=False, batch_first=True)
             self.bidirectional = False
             self.model_type = 'rnn'
 
         elif rnn == 'bilstm':
-            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1,
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
                                bidirectional=True, batch_first=True)
             self.bidirectional = True
             self.model_type = 'rnn'
 
         elif rnn == 'transformer':
-            self.rnn = TransformerModel(ninp=input_size, nhead=2, nhid=hidden_size, nlayers=2, dropout=dropout_p)
+            self.rnn = TransformerModel(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
             self.bidirectional = False
             self.model_type = 'transformer'
 
         elif rnn == 'bitransformer':
-            self.rnn = BiTransformer(ninp=input_size, nhead=2, nhid=hidden_size, nlayers=2, dropout=dropout_p)
+            self.rnn = BiTransformer(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
             self.bidirectional = True
             self.model_type = 'transformer'
 
@@ -1152,16 +1152,18 @@ def check_and_update_best(best_metrics, key, val, compare='gt'):
 
 def save_metrics(path, metrics):
     with open(path, 'w') as f:
-        f.write(json.dumps(metrics))
+        f.write(json.dumps(metrics) + '\n')
 
 
 def default_model_config():
     config = {}
     config['text_emb'] = 'word'
     config['text_enc'] = 'bilstm'
+    config['text_enc_cfg'] = {}
     config['text_project'] = 0
     config['amr_emb'] = 'word'
     config['amr_enc'] = 'bilstm'
+    config['amr_enc_cfg'] = {}
     config['amr_project'] = 0
     config['num_amr_layers'] = 2
     config['embedding_dim'] = 100
