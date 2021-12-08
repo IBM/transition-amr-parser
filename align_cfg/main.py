@@ -41,6 +41,7 @@ from formatter import amr_to_pretty_format, amr_to_string
 from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from transition_amr_parser.io import read_amr2
+from transformer_lm import BiTransformer, TransformerModel
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
 from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
 from tree_rnn import TreeEncoder as TreeRNNEncoder
@@ -775,8 +776,8 @@ class Net(nn.Module):
                                      cache_dir=cache_dir
                                      )
 
-        if config['text_enc'] == 'bilstm':
-            encode_text = Encoder(text_embed, hidden_size, mode='text', bidirectional=True, dropout_p=dropout)
+        if config['text_enc'] in ('bilstm', 'bitransformer'):
+            encode_text = Encoder(text_embed, hidden_size, mode='text', rnn=config['text_enc'], dropout_p=dropout)
 
         # AMR
 
@@ -789,10 +790,8 @@ class Net(nn.Module):
                                     cache_dir=cache_dir
                                     )
 
-        if config['amr_enc'] == 'lstm':
-            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', bidirectional=False, dropout_p=dropout)
-        elif config['amr_enc'] == 'bilstm':
-            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', bidirectional=True, dropout_p=dropout)
+        if config['amr_enc'] in ('lstm', 'bilstm', 'transformer', 'bitransformer'):
+            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', rnn=config['amr_enc'], dropout_p=dropout)
         elif config['amr_enc'] == 'tree_rnn':
             encode_amr = TreeRNNEncoder(amr_embed, hidden_size, mode='tree_rnn', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm':
@@ -828,6 +827,13 @@ class Net(nn.Module):
             param_count += p.shape.numel()
             if p.requires_grad:
                 param_count_rqeuires_grad += p.shape.numel()
+
+        def count_params(m):
+            return sum([p.shape.numel() for p in m.parameters()])
+
+        print('# of parameters (text_enc) = {}'.format(count_params(encode_text)))
+        print('# of parameters (amr_enc) = {}'.format(count_params(encode_text)))
+
         print('# of parameters = {} , # of trainable-parameters = {}'.format(param_count, param_count_rqeuires_grad))
 
         return net
@@ -992,12 +998,10 @@ class Net(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, embed, hidden_size, bidirectional=True, mode='text', dropout_p=0, input_size=None):
+    def __init__(self, embed, hidden_size, mode='text', dropout_p=0, input_size=None, rnn='lstm'):
         super().__init__()
 
-        self.bidirectional = bidirectional
         self.hidden_size = hidden_size
-        self.output_size = 2 * hidden_size if bidirectional else hidden_size
         self.mode = mode
 
         self.embed = embed
@@ -1005,9 +1009,29 @@ class Encoder(nn.Module):
         if input_size is None:
             input_size = embed.output_size
 
-        self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1,
-                           bidirectional=bidirectional, batch_first=True)
+        if rnn == 'lstm':
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1,
+                               bidirectional=False, batch_first=True)
+            self.bidirectional = False
+            self.model_type = 'rnn'
 
+        elif rnn == 'bilstm':
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1,
+                               bidirectional=True, batch_first=True)
+            self.bidirectional = True
+            self.model_type = 'rnn'
+
+        elif rnn == 'transformer':
+            self.rnn = TransformerModel(ninp=input_size, nhead=2, nhid=hidden_size, nlayers=2, dropout=dropout_p)
+            self.bidirectional = False
+            self.model_type = 'transformer'
+
+        elif rnn == 'bitransformer':
+            self.rnn = BiTransformer(ninp=input_size, nhead=2, nhid=hidden_size, nlayers=2, dropout=dropout_p)
+            self.bidirectional = True
+            self.model_type = 'transformer'
+
+        self.output_size = 2 * hidden_size if self.bidirectional else hidden_size
         self.dropout_p = dropout_p
         self.dropout = nn.Dropout(p=dropout_p)
 
@@ -1041,7 +1065,10 @@ class Encoder(nn.Module):
             e = self.embed(tokens)
         else:
             e = input_vector
-        output, _ = self.rnn(e, (h0, c0))
+        if self.model_type == 'rnn':
+            output, _ = self.rnn(e, (h0, c0))
+        elif self.model_type == 'transformer':
+            output = self.rnn(e)
         output = self.dropout(output)
 
         if self.mode == 'amr' and self.bidirectional:
