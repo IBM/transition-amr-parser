@@ -157,35 +157,6 @@ def argument_parser():
         type=float,
     )
     parser.add_argument(
-        "--skip-align-loss",
-        help="Hyperparam for loss.",
-        action='store_true',
-    )
-    parser.add_argument(
-        "--pr",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=float,
-    )
-    parser.add_argument(
-        "--pr-after",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=int,
-    )
-    parser.add_argument(
-        "--pr-epsilon",
-        help="Hyperparam for posterior regularization.",
-        default=None,
-        type=float,
-    )
-    parser.add_argument(
-        "--pr-mode",
-        help="Hyperparam for posterior regularization.",
-        default="prior",
-        type=str,
-    )
-    parser.add_argument(
         "--batch-size",
         help="Batch size.",
         default=4,
@@ -1523,10 +1494,7 @@ def main(args):
 
             # neg log likelihood
             loss = 0
-            if not args.skip_align_loss:
-                loss += torch.cat(model_output['batch_loss'], 0).mean()
-            if args.pr > 0 and epoch >= args.pr_after:
-                loss += args.pr * torch.cat(model_output['batch_pr'], 0).mean()
+            loss += torch.cat(model_output['batch_loss'], 0).mean()
 
             if info['should_clear']:
                 opt.zero_grad()
@@ -1536,9 +1504,6 @@ def main(args):
 
             metrics['trn_loss'] += [x.item() for x in model_output['batch_loss']]
             metrics['trn_loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
-
-            if args.pr > 0:
-                metrics['trn_pr'] += [x.item() for x in model_output['batch_pr']]
 
             del loss
 
