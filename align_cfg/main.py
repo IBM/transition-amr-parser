@@ -264,6 +264,10 @@ def argument_parser():
     )
     # Debug options
     parser.add_argument(
+        "--debug",
+        action='store_true',
+    )
+    parser.add_argument(
         "--demo",
         help="If true, then print progress bars.",
         action='store_true',
@@ -964,6 +968,7 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.hidden_size = hidden_size
+        self.nlayers = nlayers = cfg.get('nlayers', 1)
         self.mode = mode
 
         self.embed = embed
@@ -972,24 +977,24 @@ class Encoder(nn.Module):
             input_size = embed.output_size
 
         if rnn == 'lstm':
-            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=nlayers,
                                bidirectional=False, batch_first=True)
             self.bidirectional = False
             self.model_type = 'rnn'
 
         elif rnn == 'bilstm':
-            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=nlayers,
                                bidirectional=True, batch_first=True)
             self.bidirectional = True
             self.model_type = 'rnn'
 
         elif rnn == 'transformer':
-            self.rnn = TransformerModel(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
+            self.rnn = TransformerModel(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=nlayers, dropout=dropout_p)
             self.bidirectional = False
             self.model_type = 'transformer'
 
         elif rnn == 'bitransformer':
-            self.rnn = BiTransformer(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
+            self.rnn = BiTransformer(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=nlayers, dropout=dropout_p)
             self.bidirectional = True
             self.model_type = 'transformer'
 
@@ -1016,7 +1021,7 @@ class Encoder(nn.Module):
         batch_size, length = tokens.shape
         hidden_size = self.hidden_size
         n = 2 if self.bidirectional else 1
-        shape = (n, batch_size, hidden_size)
+        shape = (n * self.nlayers, batch_size, hidden_size)
         device = tokens.device
 
         # compute hidden states

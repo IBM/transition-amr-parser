@@ -447,32 +447,38 @@ class EvalAlignments(object):
                     m.update(g, p)
 
         else:
-            d_gold = {}
+            assert len(gold) == len(pred)
+
             stats = collections.Counter()
 
-            for g in gold:
-                key = ' '.join(g.tokens)
-                d_gold[key] = g
-                stats['has-gold'] += 1
+            d_gold = {}
+            d_dup = {}
 
-            for p in pred:
-                key = ' '.join(p.tokens)
-                stats['has-pred'] += 1
+            for g, p in zip(gold, pred):
+                k = ' '.join(g.tokens)
+                if k in d_gold:
+                    stats['debug-duplicate'] += 1
+                if k in d_gold and k not in d_dup:
+                    d_dup[k] = g
+                    stats['debug-distinct-duplicate'] += 1
+                d_gold[k] = g
 
-                if key not in d_gold:
-                    stats['skipped'] += 1
-                    continue
-                stats['found'] += 1
-
-                g = d_gold[key]
+            for g, p in zip(gold, pred):
 
                 keys_g = tuple(sorted(g.nodes.keys()))
                 keys_p = tuple(sorted(p.nodes.keys()))
 
+                name_g = tuple([g.nodes[k] for k in sorted(p.nodes.keys())])
+                name_p = tuple([p.nodes[k] for k in sorted(p.nodes.keys())])
+
+                if name_g != name_p:
+                    stats['skip-node_name-mismatch'] += 1
+                    continue
+
                 if keys_g != keys_p:
                     #print('g', keys_g)
                     #print('p', keys_p)
-                    stats['skip-node-mismatch'] += 1
+                    stats['skip-node_id-mismatch'] += 1
                     continue
 
                 for i_m, m in enumerate(metrics):
