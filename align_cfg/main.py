@@ -693,16 +693,25 @@ class TiedSoftmax(nn.Module):
 class Net(nn.Module):
     def __init__(self, encode_text, encode_amr, output_size,
                  output_mode='linear', prior='attn', context='xy',
+                 order=1,
                  ):
         super().__init__()
 
         self.output_size = output_size
         self.output_mode = output_mode
         self.prior = prior
+        self.order = order
 
         self.encode_text = encode_text
         self.encode_amr = encode_amr
         self.project = nn.Linear(self.encode_text.output_size, self.encode_amr.output_size, bias=False)
+
+        if self.order == 2:
+            self.f_z = nn.LSTM(input_size=self.encode_amr.output_size,
+                               hidden_size=self.encode_amr.output_size,
+                               num_layers=1,
+                               bidirectional=False,
+                               batch_first=True)
 
         def get_hidden_size():
             size = self.encode_text.output_size + self.encode_amr.output_size
@@ -814,7 +823,6 @@ class Net(nn.Module):
         batch_size, len_t = x_t.shape
         device = x_t.device
 
-        # TODO: Should we project embeddings?
         h_t, _, _, _ = self.encode_text(batch_map)
         z_t = self.project(h_t)
         h_a, y_a, y_a_mask, label_node_ids = self.encode_amr(batch_map)
@@ -855,9 +863,9 @@ class Net(nn.Module):
             def get_posterior(prior, likelihood):
                 return prior * likelihood
 
-            def get_prior():
+            def get_prior(h_a, z_t):
                 if self.prior == 'unif':
-                    prior = torch.full((n_a, n_t, 1), 1/n_t, dtype=torch.float, device=device)
+                    prior = torch.full((n_a, n_t, 1), 1 / n_t, dtype=torch.float, device=device)
                 elif self.prior == 'attn':
                     prior = torch.softmax(torch.sum(h_a * z_t, -1, keepdims=True), 1)
                 assert prior.shape == (n_a, n_t, 1)
@@ -867,7 +875,16 @@ class Net(nn.Module):
             p = get_likelihood()
 
             # prior
-            alpha = get_prior()
+            alpha = get_prior(h_a, z_t)
+
+            if self.order == 2:
+                z0 = (h_a * alpha).sum(0).unsqueeze(0)
+                shape = (1, z0.shape[0], z0.shape[-1])
+                c0 = torch.full(shape, 0, dtype=torch.float, device=device)
+                h0 = torch.full(shape, 0, dtype=torch.float, device=device)
+                z1, _ = self.f_z(z0, (h0, c0))
+
+                alpha = get_prior(h_a, z1)
 
             # posterior
             align = get_posterior(alpha, p)
@@ -1116,6 +1133,7 @@ def default_model_config():
     config['dropout'] = 0
     config['output_mode'] = 'linear'
     config['prior'] = 'attn'
+    config['order'] = 1
     return config
 
 
