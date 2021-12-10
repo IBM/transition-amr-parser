@@ -41,6 +41,7 @@ from formatter import amr_to_pretty_format, amr_to_string
 from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from transition_amr_parser.io import read_amr2
+from transformer_lm import BiTransformer, TransformerModel
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
 from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
 from tree_rnn import TreeEncoder as TreeRNNEncoder
@@ -154,35 +155,6 @@ def argument_parser():
         help="Learning rate.",
         default=2e-3,
         type=float,
-    )
-    parser.add_argument(
-        "--skip-align-loss",
-        help="Hyperparam for loss.",
-        action='store_true',
-    )
-    parser.add_argument(
-        "--pr",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=float,
-    )
-    parser.add_argument(
-        "--pr-after",
-        help="Hyperparam for posterior regularization.",
-        default=0,
-        type=int,
-    )
-    parser.add_argument(
-        "--pr-epsilon",
-        help="Hyperparam for posterior regularization.",
-        default=None,
-        type=float,
-    )
-    parser.add_argument(
-        "--pr-mode",
-        help="Hyperparam for posterior regularization.",
-        default="prior",
-        type=str,
     )
     parser.add_argument(
         "--batch-size",
@@ -503,7 +475,8 @@ class Dataset(object):
         g.edges[:].data['edge_tokens'] = edge_tokens.view(E)
 
         # add pairwise node distance
-        pairwise_dist = compute_pairwise_distance(tree)
+        # pairwise_dist = compute_pairwise_distance(tree)
+        pairwise_dist = None
 
         return g, pairwise_dist
 
@@ -552,7 +525,6 @@ class Dataset(object):
         if has_dgl:
             g, pairwise_dist = self.get_dgl_graph(amr)
             item['g'] = g
-            item['amr_pairwise_dist'] = pairwise_dist
 
         if has_geometric:
             item['geometric_data'] = self.get_geometric_data(amr)
@@ -570,7 +542,6 @@ def batchify(items, cuda=False, train=False):
         'amr_tokens': torch.long,
         'amr_node_ids': torch.long,
         'amr_node_mask': torch.bool,
-        'amr_pairwise_dist': list,
     }
 
     batch_map = {}
@@ -722,16 +693,25 @@ class TiedSoftmax(nn.Module):
 class Net(nn.Module):
     def __init__(self, encode_text, encode_amr, output_size,
                  output_mode='linear', prior='attn', context='xy',
+                 order=1,
                  ):
         super().__init__()
 
         self.output_size = output_size
         self.output_mode = output_mode
         self.prior = prior
+        self.order = order
 
         self.encode_text = encode_text
         self.encode_amr = encode_amr
         self.project = nn.Linear(self.encode_text.output_size, self.encode_amr.output_size, bias=False)
+
+        if self.order == 2:
+            self.f_z = nn.LSTM(input_size=self.encode_amr.output_size,
+                               hidden_size=self.encode_amr.output_size,
+                               num_layers=1,
+                               bidirectional=False,
+                               batch_first=True)
 
         def get_hidden_size():
             size = self.encode_text.output_size + self.encode_amr.output_size
@@ -775,8 +755,8 @@ class Net(nn.Module):
                                      cache_dir=cache_dir
                                      )
 
-        if config['text_enc'] == 'bilstm':
-            encode_text = Encoder(text_embed, hidden_size, mode='text', bidirectional=True, dropout_p=dropout)
+        if config['text_enc'] in ('bilstm', 'bitransformer'):
+            encode_text = Encoder(text_embed, hidden_size, mode='text', rnn=config['text_enc'], dropout_p=dropout, cfg=config['text_enc_cfg'])
 
         # AMR
 
@@ -789,10 +769,8 @@ class Net(nn.Module):
                                     cache_dir=cache_dir
                                     )
 
-        if config['amr_enc'] == 'lstm':
-            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', bidirectional=False, dropout_p=dropout)
-        elif config['amr_enc'] == 'bilstm':
-            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', bidirectional=True, dropout_p=dropout)
+        if config['amr_enc'] in ('lstm', 'bilstm', 'transformer', 'bitransformer'):
+            encode_amr = Encoder(amr_embed, hidden_size, mode='amr', rnn=config['amr_enc'], dropout_p=dropout, cfg=config['amr_enc_cfg'])
         elif config['amr_enc'] == 'tree_rnn':
             encode_amr = TreeRNNEncoder(amr_embed, hidden_size, mode='tree_rnn', dropout_p=dropout)
         elif config['amr_enc'] == 'tree_lstm':
@@ -814,8 +792,8 @@ class Net(nn.Module):
         kwargs['encode_amr'] = encode_amr
         kwargs['output_size'] = output_size
 
-        del kwargs['text_emb'], kwargs['text_enc'], kwargs['text_project']
-        del kwargs['amr_emb'], kwargs['amr_enc'], kwargs['amr_project']
+        del kwargs['text_emb'], kwargs['text_enc'], kwargs['text_enc_cfg'], kwargs['text_project']
+        del kwargs['amr_emb'], kwargs['amr_enc'], kwargs['amr_enc_cfg'], kwargs['amr_project']
         del kwargs['embedding_dim'], kwargs['hidden_size'], kwargs['dropout']
         del kwargs['num_amr_layers']
 
@@ -828,6 +806,13 @@ class Net(nn.Module):
             param_count += p.shape.numel()
             if p.requires_grad:
                 param_count_rqeuires_grad += p.shape.numel()
+
+        def count_params(m):
+            return sum([p.shape.numel() for p in m.parameters()  if p.requires_grad])
+
+        print('# of parameters (text_enc) = {}'.format(count_params(encode_text)))
+        print('# of parameters (amr_enc) = {}'.format(count_params(encode_amr)))
+
         print('# of parameters = {} , # of trainable-parameters = {}'.format(param_count, param_count_rqeuires_grad))
 
         return net
@@ -838,7 +823,6 @@ class Net(nn.Module):
         batch_size, len_t = x_t.shape
         device = x_t.device
 
-        # TODO: Should we project embeddings?
         h_t, _, _, _ = self.encode_text(batch_map)
         z_t = self.project(h_t)
         h_a, y_a, y_a_mask, label_node_ids = self.encode_amr(batch_map)
@@ -879,9 +863,9 @@ class Net(nn.Module):
             def get_posterior(prior, likelihood):
                 return prior * likelihood
 
-            def get_prior():
+            def get_prior(h_a, z_t):
                 if self.prior == 'unif':
-                    prior = torch.full((n_a, n_t, 1), 1/n_t, dtype=torch.float, device=device)
+                    prior = torch.full((n_a, n_t, 1), 1 / n_t, dtype=torch.float, device=device)
                 elif self.prior == 'attn':
                     prior = torch.softmax(torch.sum(h_a * z_t, -1, keepdims=True), 1)
                 assert prior.shape == (n_a, n_t, 1)
@@ -891,7 +875,16 @@ class Net(nn.Module):
             p = get_likelihood()
 
             # prior
-            alpha = get_prior()
+            alpha = get_prior(h_a, z_t)
+
+            if self.order == 2:
+                z0 = (h_a * alpha).sum(0).unsqueeze(0)
+                shape = (1, z0.shape[0], z0.shape[-1])
+                c0 = torch.full(shape, 0, dtype=torch.float, device=device)
+                h0 = torch.full(shape, 0, dtype=torch.float, device=device)
+                z1, _ = self.f_z(z0, (h0, c0))
+
+                alpha = get_prior(h_a, z1)
 
             # posterior
             align = get_posterior(alpha, p)
@@ -900,29 +893,7 @@ class Net(nn.Module):
             loss_notreduced = -(torch.sum(alpha * p, 1) + 1e-8).log()
             loss = loss_notreduced.sum(0)
 
-            if args.pr > 0:
-                # posterior regularization
-                amr_pairwise_dist = info['amr_pairwise_dist'].float()
-                node_id = torch.arange(n_t, device=device)
-                text_pairwise_dist = torch.abs(node_id.view(-1, 1) - node_id.view(1, -1)).float()
-
-                align_ = (align + 1e-8).log().softmax(dim=1)
-                align_pairwise = align_.view(n_a, 1, n_t, 1) * align_.view(1, n_a, 1, n_t)
-                assert align_pairwise.shape == (n_a, n_a, n_t, n_t)
-
-                expected_text_dist = (amr_pairwise_dist.view(n_a, n_a, 1, 1) * align_pairwise).view(-1, n_t, n_t).sum(0)
-                assert expected_text_dist.shape == (n_t, n_t)
-
-                if args.pr_epsilon is not None:
-                    pr_penalty_tmp = (text_pairwise_dist - expected_text_dist - args.pr_epsilon).clamp(min=0)
-                else:
-                    pr_penalty_tmp = (text_pairwise_dist - expected_text_dist)
-
-                #assert torch.isclose(pr_penalty_tmp, pr_penalty_tmp.transpose(0, 1)).all().item()
-                pr_penalty_triu = pr_penalty_tmp.triu()
-                pr = pr_penalty_triu.pow(2).sum().view(1)
-            else:
-                pr = 0
+            pr = 0
 
             return alpha, p, loss, loss_notreduced, align, pr
 
@@ -955,9 +926,6 @@ class Net(nn.Module):
             info = {}
             info['n_a'] = n_a
             info['n_t'] = n_t
-
-            if has_dgl:
-                info['amr_pairwise_dist'] = batch_map['amr_pairwise_dist'][i_b]
 
             if args.mask > 0 and self.training:
                 info['mask'] = batch_map['mask'][i_b]
@@ -992,12 +960,10 @@ class Net(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, embed, hidden_size, bidirectional=True, mode='text', dropout_p=0, input_size=None):
+    def __init__(self, embed, hidden_size, mode='text', dropout_p=0, input_size=None, rnn='lstm', cfg={}):
         super().__init__()
 
-        self.bidirectional = bidirectional
         self.hidden_size = hidden_size
-        self.output_size = 2 * hidden_size if bidirectional else hidden_size
         self.mode = mode
 
         self.embed = embed
@@ -1005,9 +971,29 @@ class Encoder(nn.Module):
         if input_size is None:
             input_size = embed.output_size
 
-        self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=1,
-                           bidirectional=bidirectional, batch_first=True)
+        if rnn == 'lstm':
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
+                               bidirectional=False, batch_first=True)
+            self.bidirectional = False
+            self.model_type = 'rnn'
 
+        elif rnn == 'bilstm':
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
+                               bidirectional=True, batch_first=True)
+            self.bidirectional = True
+            self.model_type = 'rnn'
+
+        elif rnn == 'transformer':
+            self.rnn = TransformerModel(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
+            self.bidirectional = False
+            self.model_type = 'transformer'
+
+        elif rnn == 'bitransformer':
+            self.rnn = BiTransformer(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
+            self.bidirectional = True
+            self.model_type = 'transformer'
+
+        self.output_size = 2 * hidden_size if self.bidirectional else hidden_size
         self.dropout_p = dropout_p
         self.dropout = nn.Dropout(p=dropout_p)
 
@@ -1041,7 +1027,10 @@ class Encoder(nn.Module):
             e = self.embed(tokens)
         else:
             e = input_vector
-        output, _ = self.rnn(e, (h0, c0))
+        if self.model_type == 'rnn':
+            output, _ = self.rnn(e, (h0, c0))
+        elif self.model_type == 'transformer':
+            output = self.rnn(e)
         output = self.dropout(output)
 
         if self.mode == 'amr' and self.bidirectional:
@@ -1125,16 +1114,18 @@ def check_and_update_best(best_metrics, key, val, compare='gt'):
 
 def save_metrics(path, metrics):
     with open(path, 'w') as f:
-        f.write(json.dumps(metrics))
+        f.write(json.dumps(metrics) + '\n')
 
 
 def default_model_config():
     config = {}
     config['text_emb'] = 'word'
     config['text_enc'] = 'bilstm'
+    config['text_enc_cfg'] = {}
     config['text_project'] = 0
     config['amr_emb'] = 'word'
     config['amr_enc'] = 'bilstm'
+    config['amr_enc_cfg'] = {}
     config['amr_project'] = 0
     config['num_amr_layers'] = 2
     config['embedding_dim'] = 100
@@ -1142,6 +1133,7 @@ def default_model_config():
     config['dropout'] = 0
     config['output_mode'] = 'linear'
     config['prior'] = 'attn'
+    config['order'] = 1
     return config
 
 
@@ -1259,6 +1251,8 @@ def maybe_write(context):
         # TODO: Write to numpy array (memmap).
         net.eval()
 
+        metrics = collections.defaultdict(list)
+
         indices = np.arange(len(corpus))
 
         dist_list = []
@@ -1272,9 +1266,15 @@ def maybe_write(context):
                 # forward pass
                 model_output = shared_validation_step(net, batch_indices, batch_map)
 
+                # metrics
+                metrics['loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
+
                 # write pretty alignment info
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
                     dist_list.append(ainfo['posterior'].cpu().numpy())
+
+        for k, v in metrics.items():
+            print('{} {:.3f}'.format(k, np.mean(v)))
 
         # WRITE alignments to file.
         _, corpus_id = save_align_dist(path, corpus, dist_list)
@@ -1320,6 +1320,7 @@ def maybe_write(context):
         net.eval()
 
         indices = np.arange(len(corpus))
+        metrics = collections.defaultdict(list)
 
         predictions = collections.defaultdict(list)
 
@@ -1333,6 +1334,9 @@ def maybe_write(context):
                 # forward pass
                 model_output = shared_validation_step(net, batch_indices, batch_map)
 
+                # metrics
+                metrics['loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
+
                 # save alignments for eval.
                 for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
                     amr = corpus[idx]
@@ -1341,6 +1345,9 @@ def maybe_write(context):
 
                     predictions['amr'].append(amr)
                     predictions['alignments'].append(alignments)# write alignments
+
+        for k, v in metrics.items():
+            print('{} {:.3f}'.format(k, np.mean(v)))
 
         # write pred
         with open(path_pred, 'w') as f_pred:
@@ -1505,10 +1512,7 @@ def main(args):
 
             # neg log likelihood
             loss = 0
-            if not args.skip_align_loss:
-                loss += torch.cat(model_output['batch_loss'], 0).mean()
-            if args.pr > 0 and epoch >= args.pr_after:
-                loss += args.pr * torch.cat(model_output['batch_pr'], 0).mean()
+            loss += torch.cat(model_output['batch_loss'], 0).mean()
 
             if info['should_clear']:
                 opt.zero_grad()
@@ -1518,9 +1522,6 @@ def main(args):
 
             metrics['trn_loss'] += [x.item() for x in model_output['batch_loss']]
             metrics['trn_loss_notreduced'] += torch.cat(model_output['batch_loss_notreduced']).view(-1).tolist()
-
-            if args.pr > 0:
-                metrics['trn_pr'] += [x.item() for x in model_output['batch_pr']]
 
             del loss
 
@@ -1621,15 +1622,6 @@ def main(args):
 
                     del loss
 
-                    # save alignments for eval.
-                    for idx, ainfo in zip(batch_indices, AlignmentDecoder().batch_decode(batch_map, model_output)):
-                        amr = val_corpus[idx]
-                        node_ids = get_node_ids(amr)
-                        alignments = {node_ids[node_id]: a for node_id, a in ainfo['node_alignments']}
-
-                        val_predictions['amr'].append(amr)
-                        val_predictions['alignments'].append(alignments)
-
             # batch iterator
             indices = [i for i, _ in enumerate(sorted(val_corpus, key=lambda x: -len(x.tokens)))]
 
@@ -1650,45 +1642,6 @@ def main(args):
 
             print('val_{} epoch = {}, loss = {:.3f}, loss-nr = {:.3f}, ppl = {:.3f}'.format(
                 i_valid, epoch, val_loss, val_loss_notreduced, val_ppl))
-
-            # write alignments
-            path = os.path.join(args.log_dir, 'alignment.epoch_{}.val_{}.out'.format(epoch, i_valid))
-            path_gold = path + '.gold'
-            path_pred = path + '.pred'
-
-            with open(path_gold, 'w') as f_gold, open(path_pred, 'w') as f_pred:
-                for amr, alignments in zip(val_predictions['amr'], val_predictions['alignments']):
-                    f_gold.write(amr_to_string(amr).strip() + '\n\n')
-                    f_pred.write(amr_to_string(amr, alignments).strip() + '\n\n')
-
-            # eval alignments
-            eval_output = EvalAlignments().run(path + '.gold', path + '.pred')
-
-            if not args.write_validation:
-                os.system('rm {} {}'.format(path + '.gold', path + '.pred'))
-
-            val_token_recall = eval_output['Corpus Recall']['recall']
-            epoch_metrics['val_{}_token_recall'.format(i_valid)] = val_token_recall
-
-            val_recall = eval_output['Corpus Recall using spans for gold']['recall']
-            epoch_metrics['val_{}_recall'.format(i_valid)] = val_recall
-
-            # save checkpoint
-
-            if check_and_update_best(best_metrics, 'val_{}_recall'.format(i_valid), val_recall, compare='gt'):
-                save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_recall.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
-
-                if i_valid == 0 and args.jbsub_eval:
-
-                    stdout_path = os.path.join(args.log_dir, 'eval.stdout.txt')
-                    stderr_path = os.path.join(args.log_dir, 'eval.stderr.txt')
-                    script_path = os.path.join(args.log_dir, 'eval_script.txt')
-                    cmd = 'jbsub -cores 1+1 -mem 30g -q x86_6h -out {} -err {} bash {}'.format(stdout_path, stderr_path, script_path)
-                    print(cmd)
-                    os.system(cmd)
-
-            if check_and_update_best(best_metrics, 'val_{}_loss_notreduced'.format(i_valid), val_loss, compare='lt'):
-                save_checkpoint(os.path.join(args.log_dir, 'model.best.val_{}_loss_notreduced.pt'.format(i_valid)), trn_dataset, net, metrics=best_metrics)
 
         save_metrics(os.path.join(args.log_dir, 'model.epoch_{}.metrics'.format(epoch)), epoch_metrics)
 

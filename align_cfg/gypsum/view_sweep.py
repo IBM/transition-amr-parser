@@ -6,6 +6,15 @@ import os
 
 errors = collections.Counter()
 
+class DidNotEval(ValueError):
+    pass
+
+class DidNotTrain(ValueError):
+    pass
+
+class NoModel(ValueError):
+    pass
+
 
 def main(args):
     with open(args.file_list) as f:
@@ -15,15 +24,19 @@ def main(args):
     def readfile(path):
         eval_path, train_path = path.split()
 
-
         path = eval_path
         slurm_out = os.path.join(path, 'slurm.out')
-        eval_json = os.path.join(path, 'train.txt.no_wiki.eval.json')
+        eval_json = os.path.join(path, 'train.aligned.txt.eval.json')
+        flags_json = os.path.join(train_path, 'flags.json')
 
         if not os.path.exists(slurm_out):
-            raise ValueError
+            print('did not eval {} {}'.format(train_path, eval_path))
+            raise DidNotEval('')
 
-        flags_json = os.path.join(train_path, 'flags.json')
+        if not os.path.exists(flags_json):
+            print('did not train {} {}'.format(train_path, eval_path))
+            raise DidNotTrain('')
+
         with open(flags_json) as f:
             train_flags = json.loads(f.read())
 
@@ -48,6 +61,12 @@ def main(args):
         if eval_flags is None:
             print('nothing found', slurm_out, train_slurm)
             raise ValueError
+
+        model_path = eval_flags['load']
+
+        if not os.path.exists(model_path):
+            print('no model {} {}'.format(train_path, eval_path))
+            raise NoModel
 
         if os.path.exists(slurm_out) and not os.path.exists(eval_json):
             print('possible error {} {} {} {}'.format(slurm_out, eval_flags['hostname'], train_slurm, train_flags['hostname']))
@@ -101,6 +120,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--file-list', default='eval_json.2021-11-05a.txt', type=str)
     args = parser.parse_args()
+
+    print(args.__dict__)
 
     main(args)
 

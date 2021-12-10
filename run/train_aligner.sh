@@ -156,7 +156,7 @@ else
 
 fi
 
-python align_cfg/align_utils.py verify_corpus_id --in-amr $ALIGNED_FOLDER/train.txt --corpus-id $ALIGNED_FOLDER/alignment.trn.align_dist.npy.corpus_hash
+python align_cfg/align_utils.py verify_corpus_id --ibm-format --in-amr $ALIGNED_FOLDER/train.txt --corpus-id $ALIGNED_FOLDER/alignment.trn.align_dist.npy.corpus_hash
 
 # Note that we use these dummy files
 ln -s $ALIGNED_FOLDER/dev.dummy_align.txt $ALIGNED_FOLDER/dev.txt
