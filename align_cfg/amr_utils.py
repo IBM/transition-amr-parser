@@ -67,39 +67,51 @@ def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edg
 
 
 def get_node_ids(amr):
+    """
+    Return list of node IDs in deterministic order.
+    """
     return list(sorted(amr.nodes.keys()))
 
 
 def get_tree_edges(amr):
+    """
+    Return subset of AMR edges that correspond to tree with root as amr.root.
 
-    node_TO_edges = collections.defaultdict(list)
-    for e in amr.edges:
-        s, y, t = e
-        node_TO_edges[s].append(e)
+    Original edges are in format: [(source, label, target)]
 
-    new_edges = []
+    New edges are in format: [(source, label, target, source_id, target_id)]
+
+    Where source_id / target_id look like `0.0.0.1`. Can count `.` to
+    determine depth of node in tree.
+    """
+
+    outgoing_edges = collections.defaultdict(list)
+    for edge in amr.edges:
+        src, label, tgt = edge
+        outgoing_edges[src].append(edge)
+
+    tree_edges = []
 
     seen = set()
     seen.add(amr.root)
 
     def helper(root, prefix='0'):
-        if root not in node_TO_edges:
+        if root not in outgoing_edges:
             return
 
-        for i, e in enumerate(node_TO_edges[root]):
-            s, y, t = e
-            assert s == root
-            if t in seen:
+        for i, e in enumerate(outgoing_edges[root]):
+            src, label, tgt = e
+            if tgt in seen:
                 continue
-            seen.add(t)
+            seen.add(tgt)
             new_prefix = '{}.{}'.format(prefix, i)
-            new_e = (s, y, t, prefix, new_prefix)
-            new_edges.append(new_e)
-            helper(t, prefix=new_prefix)
+            new_edge = (src, label, tgt, prefix, new_prefix)
+            tree_edges.append(new_edge)
+            helper(tgt, prefix=new_prefix)
 
     helper(amr.root)
 
-    return new_edges
+    return tree_edges
 
 
 def convert_amr_to_tree(amr):
