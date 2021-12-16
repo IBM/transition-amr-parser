@@ -111,15 +111,15 @@ else
         --trn-amr $ALIGNED_FOLDER/train.dummy_align.txt \
         --val-amr $ALIGNED_FOLDER/dev.dummy_align.txt \
         --tst-amr $ALIGNED_FOLDER/test.dummy_align.txt \
-        --lr 2e-3 \
+        --lr 1e-4 \
         --max-length 100 \
         --log-dir $ALIGNED_FOLDER/log \
-        --max-epoch 20 \
-        --model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.3, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \
+        --max-epoch 200 \
+        --model-config '{"text_emb": "char", "text_enc": "bilstm", "text_project": 200, "amr_emb": "char", "amr_enc": "lstm", "amr_project": 200, "dropout": 0.1, "context": "xy", "hidden_size": 200, "prior": "attn", "output_mode": "tied"}' \
         --batch-size 32 \
         --accum-steps 4 \
         --verbose \
-        --skip-validation
+        #--skip-validation
 
     touch $ALIGNED_FOLDER/.done.train
 fi
