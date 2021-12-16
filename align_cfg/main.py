@@ -569,6 +569,7 @@ class Dataset(object):
         item['amr_node_ids'] = tokenizer_output['token_type_ids']
         item['amr_node_mask'] = tokenizer_output['node_mask']
         item['amr_nodes'] = tokenizer_output['node_ids']
+        item['amr'] = amr
 
         if has_dgl:
             g, pairwise_dist = self.get_dgl_graph(amr)
@@ -620,25 +621,34 @@ def batchify(items, cuda=False, train=False):
 
     if args.mask > 0 and train:
         batch_mask = []
+        batch_mask_gcn = []
         for x in items:
             tokens = [MaskInfo.unchanged, MaskInfo.masked]
             probs = [1 - args.mask, args.mask]
             size = len(x['amr_nodes'])
-            mask = np.random.choice(tokens, p=probs, size=size)
+            mask = np.random.choice(tokens, p=probs, size=size).tolist()
 
             # If only 1 item, then never mask.
             if size == 1:
                 mask[0] = MaskInfo.unchanged_and_predict
 
             # If nothing is masked, then always predict at least one item.
-            if mask.sum() == 0:
+            if sum(mask) == 0:
                 mask[np.random.randint(0, size)] = MaskInfo.unchanged_and_predict
 
-            assert mask.sum() > 0
+            assert sum(mask) > 0
 
-            mask = torch.from_numpy(mask).long()
-            batch_mask.append(mask)
+            m = torch.tensor(mask, dtype=torch.long)
+            batch_mask.append(m)
+
+            if args.add_edges:
+                edge_size = len(x['amr'].edges)
+                mask = mask + [MaskInfo.unchanged] * edge_size
+
+            m = torch.tensor(mask, dtype=torch.long)
+            batch_mask_gcn.append(m)
         batch_map['mask'] = batch_mask
+        batch_map['mask_for_gcn'] = batch_mask_gcn
 
     return batch_map
 
@@ -1013,7 +1023,7 @@ class Net(nn.Module):
             info['n_a'] = n_a
             info['n_t'] = n_t
 
-            if args.mask > 0 and elf.training:
+            if args.mask > 0 and self.training:
                 info['mask'] = batch_map['mask'][i_b]
 
             result = func(local_h_t, local_z_t, local_h_a, local_y_a, info)
