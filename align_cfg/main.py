@@ -258,6 +258,11 @@ def argument_parser():
         type=int,
     )
     parser.add_argument(
+        "--fast",
+        help="If true, then use faster batching during training.",
+        action='store_true',
+    )
+    parser.add_argument(
         "--cuda",
         help="If true, then use GPU.",
         action='store_true',
@@ -980,7 +985,7 @@ class Net(nn.Module):
 
             return result
 
-        if self.training:
+        if self.training and args.fast:
             batched_output = batched_align_and_predict(h_t, z_t, h_a, y_a, y_a_mask)
 
             model_output = {}
