@@ -848,7 +848,7 @@ class Net(nn.Module):
 
             def get_loss(batch_n_a, batch_n_t, posterior):
                 batch_size = batch_n_a.shape[0]
-                assert torch.dot(batch_n_a, batch_n_t).item() == posterior.shape[0]
+                assert torch.sum(batch_n_a * batch_n_t).item() == posterior.shape[0]
                 loss, loss_notreduced = [], []
 
                 offset = 0
@@ -871,15 +871,14 @@ class Net(nn.Module):
             neg_inf = torch.zeros(prior_tmp.shape, device=device)
             neg_inf[text_mask == False] = -10000
 
-            # TODO: Could save on softmax by skipping non-nodes.
-            prior = torch.softmax(prior_tmp + neg_inf, 2)
-
+            prior = torch.softmax((prior_tmp + neg_inf)[y_a_mask], 1)
+            prior = prior.view(-1)[text_mask[node_mask]]
             h_for_predict = get_h_for_predict().reshape(-1, size)[mask.reshape(-1)]
             dist = torch.softmax(self.predict(h_for_predict), 1)
 
             index = y_a.unsqueeze(2).expand(batch_size, n_a, n_t)[mask]
             likelihood = dist.gather(index=index.unsqueeze(1), dim=-1)
-            posterior = prior[mask].view(-1) * likelihood.view(-1)
+            posterior = prior * likelihood.view(-1)
 
             loss, loss_notreduced = get_loss(batch_n_a, batch_n_t, posterior)
 
@@ -974,7 +973,7 @@ class Net(nn.Module):
             info['n_a'] = n_a
             info['n_t'] = n_t
 
-            if args.mask > 0 and self.training:
+            if args.mask > 0 and elf.training:
                 info['mask'] = batch_map['mask'][i_b]
 
             result = func(local_h_t, local_z_t, local_h_a, local_y_a, info)
