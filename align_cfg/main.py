@@ -17,6 +17,10 @@ try:
 except ImportError:
     print('Warning: To use DGL, install.')
     has_dgl = False
+except OSError:
+    print('Warning: To use DGL, install.')
+    has_dgl = False
+
 
 try:
     from torch_geometric.data import Batch, Data
