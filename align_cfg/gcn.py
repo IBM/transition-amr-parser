@@ -43,25 +43,28 @@ class GCNEncoder(nn.Module):
 
         data = Batch.from_data_list([x['geometric_data'].clone().to(device) for x in batch_map['items']])
 
-        lengths = [x['geometric_data'].y.shape[0] for x in batch_map['items']]
-        length = max_length = max(lengths)
+        node_lengths = batch_map['amr_node_mask'].sum(-1).tolist()
+        edge_lengths = [x['geometric_data'].y.shape[0] - n for x, n in zip(batch_map['items'], node_lengths)]
+        max_node_length = max(node_lengths)
         size = self.enc.output_size
 
         gcn_output = self.enc(batch_map, data)
 
-        shape = (sum(lengths), size)
+        shape = (sum(node_lengths) + sum(edge_lengths), size)
         assert gcn_output.shape == shape, (shape, gcn_output.shape)
 
-        # to prevent in-place check
-        if False:
-            new_h = torch.zeros(batch_size, length, size, dtype=torch.float, device=device)
-            labels = torch.zeros(batch_size, length, dtype=torch.long, device=device)
-            labels_mask = torch.zeros(batch_size, length, dtype=torch.bool, device=device)
-            label_node_ids = torch.full((batch_size, length), -1, dtype=torch.long, device=device)
+        if True:
+            new_h = torch.zeros(batch_size, max_node_length, size, dtype=torch.float, device=device)
+            labels = torch.zeros(batch_size, max_node_length, dtype=torch.long, device=device)
+            labels_mask = torch.zeros(batch_size, max_node_length, dtype=torch.bool, device=device)
+            label_node_ids = torch.full((batch_size, max_node_length), -1, dtype=torch.long, device=device)
 
             offset = 0
             for i_b in range(batch_size):
-                n = lengths[i_b]
+                n = node_lengths[i_b]
+                n_e = edge_lengths[i_b]
+                if batch_map['add_edges'] == False:
+                    assert n_e == 0
 
                 #
                 new_h[i_b, :n] = gcn_output[offset:offset + n]
@@ -70,41 +73,7 @@ class GCNEncoder(nn.Module):
                 label_node_ids[i_b, :n] = torch.arange(n, dtype=torch.long, device=device)
 
                 #
-                offset += n
-        else:
-            max_length  = max(lengths)
-            new_h, labels, labels_mask, label_node_ids = [], [], [], []
-            offset = 0
-            for i_b in range(batch_size):
-                n = lengths[i_b]
-
-                diff = max_length - n
-
-                #
-                if batch_map['add_edges']:
-                    import ipdb; ipdb.set_trace()
-                if diff > 0:
-                    padding = torch.zeros(diff, size, dtype=torch.float, device=device)
-                    new_h.append(torch.cat([gcn_output[offset:offset + n], padding], 0))
-                    padding = torch.zeros(diff, dtype=torch.long, device=device)
-                    labels.append(torch.cat([data.y[offset:offset + n], padding], 0))
-                    padding = torch.zeros(diff, dtype=torch.bool, device=device)
-                    labels_mask.append(torch.cat([torch.full((n, ), True, dtype=torch.bool, device=device), padding], 0))
-                    padding = torch.full((diff, ), -1, dtype=torch.long, device=device)
-                    label_node_ids.append(torch.cat([torch.arange(n, dtype=torch.long, device=device), padding], 0))
-                else:
-                    new_h.append(gcn_output[offset:offset + n])
-                    labels.append(data.y[offset:offset + n])
-                    labels_mask.append(torch.full((n, ), True, dtype=torch.bool, device=device))
-                    label_node_ids.append(torch.arange(n, dtype=torch.long, device=device))
-
-                #
-                offset += n
-
-            new_h = torch.stack(new_h)
-            labels = torch.stack(labels)
-            labels_mask = torch.stack(labels_mask)
-            label_node_ids = torch.stack(label_node_ids)
+                offset += n + n_e
 
         output = new_h
         output = self.dropout(output)
@@ -170,3 +139,4 @@ class GCN(torch.nn.Module):
                     x = torch.relu(x)
 
         return x
+
