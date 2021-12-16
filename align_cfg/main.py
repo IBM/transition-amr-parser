@@ -1260,6 +1260,7 @@ def init_tokenizers(text_vocab_file, amr_vocab_file):
 def mask_one(batch_map, i=0):
     has_mask = []
     batch_mask = []
+    batch_mask_gcn = []
     for i_b, x in enumerate(batch_map['items']):
         size = len(x['amr_nodes'])
         mask = np.ones(size)
@@ -1270,9 +1271,15 @@ def mask_one(batch_map, i=0):
         else:
             has_mask.append(False)
 
-        mask = torch.from_numpy(mask).long()
-        batch_mask.append(mask)
-    return batch_mask, has_mask
+        m = torch.from_numpy(mask).long()
+        batch_mask.append(m)
+
+        if args.add_edges:
+            edge_size = len(x['amr'].edges)
+            mask = mask + [MaskInfo.unchanged] * edge_size
+        m = torch.from_numpy(mask).long()
+        batch_mask_gcn.append(m)
+    return batch_mask, batch_mask_gcn, has_mask
 
 
 def filter_batch(batch_map, keep_mask):
@@ -1294,9 +1301,10 @@ def masked_validation_step(net, batch_indices, batch_map):
     max_amr_node_size = max([len(x['amr_nodes']) for x in batch_map['items']])
     new_model_output = None
     for i in range(max_amr_node_size):
-        batch_mask, batch_has_mask = mask_one(batch_map, i=i)
+        batch_mask, batch_mask_gcn, batch_has_mask = mask_one(batch_map, i=i)
         bm = copy.deepcopy(batch_map)
         bm['mask'] = batch_mask
+        bm['mask_for_gcn'] = batch_mask_gcn
         if i > 0:
             bm = filter_batch(bm, keep_mask=batch_has_mask)
             batch_i_b = [i_b for i_b, m in enumerate(batch_has_mask) if m]

@@ -121,7 +121,7 @@ class GCN(torch.nn.Module):
     def forward(self, batch_map, data):
         batch_size = len(batch_map['items'])
 
-        data.x = self.compute_node_features(data.y, mask=batch_map.get('mask_for_gcn', None))
+        data.x = self.compute_node_features(data.y, mask=batch_map['mask_for_gcn'])
 
         # Hacky way to support any graphs with no edges.
         if any([data[i_b].edge_index.shape[0] == 0 for i_b in range(batch_size)]):
