@@ -258,11 +258,25 @@ def argument_parser():
         type=int,
     )
     parser.add_argument(
+        "--fast",
+        help="If true, then use faster batching during training.",
+        action='store_true',
+    )
+    parser.add_argument(
         "--cuda",
         help="If true, then use GPU.",
         action='store_true',
     )
+    parser.add_argument(
+        "--add-edges",
+        help="If true, then convert edges into new nodes.",
+        action='store_true',
+    )
     # Debug options
+    parser.add_argument(
+        "--debug",
+        action='store_true',
+    )
     parser.add_argument(
         "--demo",
         help="If true, then print progress bars.",
@@ -276,11 +290,6 @@ def argument_parser():
     parser.add_argument(
         "--verbose",
         help="If true, then print progress bars.",
-        action='store_true',
-    )
-    parser.add_argument(
-        "--read-only",
-        help="If true, then read AMR and quit.",
         action='store_true',
     )
     parser.add_argument(
@@ -340,96 +349,105 @@ def argument_parser():
 
 
 class TextTokenizer(object):
-    def __init__(self):
-        self.vocab = None
-        self.frozen = False
+    r"""
+    Constructs a tokenizer for text sentences.
 
-    def set_tokens(self, tokens):
-        self.vocab = tokens
+    Args:
+        ids_to_tokens (:obj:`List[str]`):
+            List of tokens.
+    """
+    def __init__(self, ids_to_tokens):
+        assert isinstance(ids_to_tokens, list)
+        assert len(set(ids_to_tokens)) == len(ids_to_tokens)
+        self.ids_to_tokens = ids_to_tokens
+        self.vocab = {tok: idx for idx, tok in enumerate(ids_to_tokens)}
+        print(f'text tokenizer w/ size = {len(self.vocab)}')
 
-    def finalize(self):
-        assert self.frozen is False
-        print('text tokenizer : vocab = {}'.format(len(self.vocab)))
-        self.token_TO_idx = {k: i for i, k in enumerate(self.vocab)}
-        assert len(self.vocab) == len(self.token_TO_idx)
-        self.frozen = True
-
-    def indexify(self, tokens):
-        return [self.token_TO_idx[x] for x in tokens]
+    def tokenize(self, tokens):
+        input_ids = [self.vocab[tok] for tok in tokens]
+        return {'original_input': tokens, 'input_ids': input_ids}
 
 
 class AMRTokenizer(object):
-    def __init__(self):
-        self.vocab = None
-        self.frozen = False
+    r"""
+    Constructs a tokenizer for AMR objects.
 
-    def dfs(self, amr):
+    Args:
+        ids_to_tokens (:obj:`List[str]`):
+            List of tokens.
+    """
 
-        node_TO_edges = collections.defaultdict(list)
-        for x0, label, x1 in amr.edges:
-            node_TO_edges[x0].append((label, x1))
+    def __init__(self, ids_to_tokens):
+        assert isinstance(ids_to_tokens, list)
+        assert len(set(ids_to_tokens)) == len(ids_to_tokens)
+        self.ids_to_tokens = ids_to_tokens
+        self.vocab = {tok: idx for idx, tok in enumerate(ids_to_tokens)}
+        print(f'amr tokenizer w/ size = {len(self.vocab)}')
 
+    @staticmethod
+    def get_linearized_parse(amr):
         node_ids = get_node_ids(amr)
-        node_TO_idx = {k: i for i, k in enumerate(node_ids)}
+        d_node_idx = {k: i for i, k in enumerate(node_ids)}
 
-        # build tree
-        g = collections.defaultdict(list)
-        g_labels = {}
+        # Get edges as tree.
+        tree_edges = get_tree_edges(amr)
 
-        safe_edges = get_tree_edges(amr)
+        # Build adjacency graph and cache edge labels.
+        outoging_adjacency_graph = collections.defaultdict(list)
+        d_edge_labels = {}
 
-        def sortkey(x):
-            s, y, t, a, b = x
+        def sortkey(edge):
+            s, y, t, a, b = edge
             return (a, b)
 
-        for e in sorted(safe_edges, key=sortkey):
+        for e in sorted(tree_edges, key=sortkey):
             s, y, t, a, b = e
-            assert a <= b
-            g[s].append(t)
-            g_labels[(s, t)] = y
+            outoging_adjacency_graph[s].append(t)
+            assert (s, t) not in d_edge_labels
+            d_edge_labels[(s, t)] = y
 
-        # render tree
-        def render(s):
-            assert s is not None
+        # Render linearized parse as sequence of tokens and their token types.
+        # The token types are non-negative if corresponding to nodes, with value
+        # set to position in list of `node_ids`.
+        def render_tree(src):
+            assert src is not None
 
-            if s not in g:
-                node_name = amr.nodes[s]
-                node_id = node_TO_idx[s]
+            if src not in outoging_adjacency_graph:
+                node_name = amr.nodes[src]
+                node_idx = d_node_idx[src]
                 tokens = ['(', node_name, ')']
-                token_ids = [-1, node_id, -1]
-                return tokens, token_ids
+                token_types = [-1, node_idx, -1]
+                return tokens, token_types
 
-            tokens, token_ids = [], []
+            tokens, token_types = [], []
 
-            for t in g[s]:
-                xtokens, xtoken_ids = render(t)
-                y = g_labels[(s, t)]
-                tokens += [y] + xtokens
-                token_ids += [-1] + xtoken_ids
+            for tgt in outoging_adjacency_graph[src]:
+                xtokens, xtoken_types = render_tree(tgt)
+                label = d_edge_labels[(src, tgt)]
+                tokens += [label] + xtokens
+                token_types += [-1] + xtoken_types
 
-            node_name = amr.nodes[s]
-            node_id = node_TO_idx[s]
+            node_name = amr.nodes[src]
+            node_idx = d_node_idx[src]
             tokens = ['(', node_name] + tokens + [')']
-            token_ids = [-1, node_id] + token_ids + [-1]
+            token_types = [-1, node_idx] + token_types + [-1]
 
-            return tokens, token_ids
+            return tokens, token_types
 
-        tokens, token_ids = render(amr.root)
+        tokens, token_types = render_tree(amr.root)
 
-        return tokens, token_ids
+        return tokens, token_types, node_ids
 
-    def set_tokens(self, tokens):
-        self.vocab = tokens
-
-    def finalize(self):
-        assert self.frozen is False
-        print('amr tokenizer : vocab = {}'.format(len(self.vocab)))
-        self.token_TO_idx = {k: i for i, k in enumerate(self.vocab)}
-        assert len(self.vocab) == len(self.token_TO_idx)
-        self.frozen = True
-
-    def indexify(self, tokens):
-        return [self.token_TO_idx[x] for x in tokens]
+    def tokenize(self, amr):
+        tokens, token_types, node_ids = AMRTokenizer.get_linearized_parse(amr)
+        input_ids = [self.vocab[tok] for tok in tokens]
+        tokenizer_output = {}
+        tokenizer_output['original_input'] = tokens
+        tokenizer_output['input_ids'] = input_ids
+        tokenizer_output['token_type_ids'] = token_types
+        tokenizer_output['node_mask'] = [False if x < 0 else True for x in token_types]
+        tokenizer_output['node_ids'] = node_ids
+        return tokenizer_output
 
 
 class Dataset(object):
@@ -440,7 +458,7 @@ class Dataset(object):
         self.cached = {}
 
     def get_dgl_graph(self, amr):
-        vocab = self.amr_tokenizer.token_TO_idx
+        vocab = self.amr_tokenizer.vocab
 
         # init graph
         g = dgl.DGLGraph()
@@ -481,7 +499,36 @@ class Dataset(object):
         return g, pairwise_dist
 
     def get_geometric_data(self, amr):
-        vocab = self.amr_tokenizer.token_TO_idx
+        if args.add_edges:
+            return self.get_geometric_data_add_edges(amr)
+        return self.get_geometric_data_standard(amr)
+
+    def get_geometric_data_add_edges(self, amr):
+        vocab = self.amr_tokenizer.vocab
+        node_ids = get_node_ids(amr)
+        d_node_idx = {k: i for i, k in enumerate(node_ids)}
+
+        edge_index = []
+        for label_idx, (src, label, tgt) in enumerate(amr.edges):
+            label_idx = len(node_ids) + label_idx
+            src_idx = d_node_idx[src]
+            tgt_idx = d_node_idx[tgt]
+
+            edge_index.append([src_idx, label_idx])
+            edge_index.append([label_idx, tgt_idx])
+
+            edge_index.append([tgt_idx, label_idx])
+            edge_index.append([label_idx, src_idx])
+
+        node_labels = [amr.nodes[k] for k in node_ids]
+        edge_labels = [label for src, label, tgt in amr.edges]
+        tokens = torch.tensor([vocab[tok] for tok in node_labels + edge_labels], dtype=torch.long)
+        edge_index = torch.tensor(edge_index, dtype=torch.long)
+        data = Data(edge_index=edge_index.t().contiguous(), y=tokens, num_nodes=len(tokens))
+        return data
+
+    def get_geometric_data_standard(self, amr):
+        vocab = self.amr_tokenizer.vocab
 
         node_ids = get_node_ids(amr)
         node_TO_idx = {k: i for i, k in enumerate(node_ids)}
@@ -499,6 +546,10 @@ class Dataset(object):
         data = Data(edge_index=edge_index.t().contiguous(), y=node_tokens, num_nodes=len(node_ids))
         return data
 
+    def cache_all_items(self):
+        for idx in tqdm(range(len(self.corpus))):
+            _ = self.__getitem__(idx)
+
     def __getitem__(self, idx):
         if idx in self.cached:
             return self.cached[idx]
@@ -507,20 +558,17 @@ class Dataset(object):
         item = {}
 
         # text
-        tokens = amr.tokens
-        item['text_original_tokens'] = tokens
-        item['text_tokens'] = self.text_tokenizer.indexify(tokens)
+        tokenizer_output = self.text_tokenizer.tokenize(amr.tokens)
+        item['text_original_tokens'] = tokenizer_output['original_input']
+        item['text_tokens'] = tokenizer_output['input_ids']
 
         # amr
-
-        ## specific for linearized parse.
-        tokens, token_ids = self.amr_tokenizer.dfs(amr)
-        item['amr_tokens'] = self.amr_tokenizer.indexify(tokens)
-        item['amr_node_ids'] = token_ids
-        item['amr_node_mask'] = [False if x < 0 else True for x in token_ids]
-
-        ##
-        item['amr_nodes'] = get_node_ids(amr)
+        tokenizer_output = self.amr_tokenizer.tokenize(amr)
+        item['linearized_parse'] = tokenizer_output['original_input']
+        item['amr_tokens'] = tokenizer_output['input_ids']
+        item['amr_node_ids'] = tokenizer_output['token_type_ids']
+        item['amr_node_mask'] = tokenizer_output['node_mask']
+        item['amr_nodes'] = tokenizer_output['node_ids']
 
         if has_dgl:
             g, pairwise_dist = self.get_dgl_graph(amr)
@@ -568,6 +616,7 @@ def batchify(items, cuda=False, train=False):
     batch_map['text_original_tokens'] = [x['text_original_tokens'] for x in items]
     batch_map['items'] = items
     batch_map['device'] = device
+    batch_map['add_edges'] = args.add_edges
 
     if args.mask > 0 and train:
         batch_mask = []
@@ -693,25 +742,16 @@ class TiedSoftmax(nn.Module):
 class Net(nn.Module):
     def __init__(self, encode_text, encode_amr, output_size,
                  output_mode='linear', prior='attn', context='xy',
-                 order=1,
                  ):
         super().__init__()
 
         self.output_size = output_size
         self.output_mode = output_mode
         self.prior = prior
-        self.order = order
 
         self.encode_text = encode_text
         self.encode_amr = encode_amr
         self.project = nn.Linear(self.encode_text.output_size, self.encode_amr.output_size, bias=False)
-
-        if self.order == 2:
-            self.f_z = nn.LSTM(input_size=self.encode_amr.output_size,
-                               hidden_size=self.encode_amr.output_size,
-                               num_layers=1,
-                               bidirectional=False,
-                               batch_first=True)
 
         def get_hidden_size():
             size = self.encode_text.output_size + self.encode_amr.output_size
@@ -737,8 +777,8 @@ class Net(nn.Module):
     @staticmethod
     def from_dataset_and_config(dataset, config, cache_dir):
 
-        num_text_embeddings = len(dataset.text_tokenizer.token_TO_idx)
-        num_amr_embeddings = len(dataset.amr_tokenizer.token_TO_idx)
+        num_text_embeddings = len(dataset.text_tokenizer.vocab)
+        num_amr_embeddings = len(dataset.amr_tokenizer.vocab)
         embedding_dim = config['embedding_dim']
         hidden_size = config['hidden_size']
         dropout = config['dropout']
@@ -823,14 +863,69 @@ class Net(nn.Module):
         batch_size, len_t = x_t.shape
         device = x_t.device
 
+        # TODO: Should we project embeddings?
         h_t, _, _, _ = self.encode_text(batch_map)
         z_t = self.project(h_t)
         h_a, y_a, y_a_mask, label_node_ids = self.encode_amr(batch_map)
 
         size_t = h_t.shape[-1]
         size_a = h_a.shape[-1]
+        size = size_t + size_a
 
-        batch = collections.defaultdict(list)
+        def batched_align_and_predict(h_t, z_t, h_a, y_a, y_a_mask):
+            # TODO: Verify this gives matching posterior with non-batched version.
+
+            n_t, n_a = h_t.shape[1], h_a.shape[1]
+            x_t_mask = x_t != PADDING_IDX
+            batch_n_t = x_t_mask.sum(-1)
+            batch_n_a = y_a_mask.sum(-1)
+
+            def get_h_for_predict():
+                h_a_expand = h_a.unsqueeze(2).expand(batch_size, n_a, n_t, size_a)
+                h_t_expand = h_t.unsqueeze(1).expand(batch_size, n_a, n_t, size_t)
+                h = torch.cat([h_a_expand, h_t_expand], -1)
+                return h
+
+            def get_loss(batch_n_a, batch_n_t, posterior):
+                batch_size = batch_n_a.shape[0]
+                assert torch.sum(batch_n_a * batch_n_t).item() == posterior.shape[0]
+                loss, loss_notreduced = [], []
+
+                offset = 0
+                for i in range(batch_size):
+                    n_a, n_t = batch_n_a[i].item(), batch_n_t[i].item()
+                    block_size = n_a * n_t
+                    block = posterior[offset:offset + block_size]
+                    offset += block_size
+
+                    loss_notreduced.append(-(block.view(n_a, n_t).sum(1) + 1e-8).log())
+                    loss.append(loss_notreduced[-1].sum(0, keepdims=True))
+
+                return loss, loss_notreduced
+
+            prior_tmp = torch.einsum('bxd,byd->bxy', h_a, z_t)
+            assert prior_tmp.shape == (batch_size, n_a, n_t)
+            text_mask = x_t_mask.unsqueeze(1).expand(prior_tmp.shape)
+            node_mask = y_a_mask.unsqueeze(2).expand(prior_tmp.shape)
+            mask = text_mask & node_mask
+            neg_inf = torch.zeros(prior_tmp.shape, device=device)
+            neg_inf[text_mask == False] = -10000
+
+            prior = torch.softmax((prior_tmp + neg_inf)[y_a_mask], 1)
+            prior = prior.view(-1)[text_mask[node_mask]]
+            h_for_predict = get_h_for_predict().reshape(-1, size)[mask.reshape(-1)]
+            dist = torch.softmax(self.predict(h_for_predict), 1)
+
+            index = y_a.unsqueeze(2).expand(batch_size, n_a, n_t)[mask]
+            likelihood = dist.gather(index=index.unsqueeze(1), dim=-1)
+            posterior = prior * likelihood.view(-1)
+
+            loss, loss_notreduced = get_loss(batch_n_a, batch_n_t, posterior)
+
+            output = {}
+            output['loss'] = loss
+            output['loss_notreduced'] = loss_notreduced
+            return output
 
         def align_and_predict(h_t, z_t, h_a, y_a, info):
             n_a, n_t = info['n_a'], info['n_t']
@@ -863,39 +958,30 @@ class Net(nn.Module):
             def get_posterior(prior, likelihood):
                 return prior * likelihood
 
-            def get_prior(h_a, z_t):
+            def get_prior():
                 if self.prior == 'unif':
-                    prior = torch.full((n_a, n_t, 1), 1 / n_t, dtype=torch.float, device=device)
+                    prior = torch.full((n_a, n_t, 1), 1/n_t, dtype=torch.float, device=device)
                 elif self.prior == 'attn':
                     prior = torch.softmax(torch.sum(h_a * z_t, -1, keepdims=True), 1)
                 assert prior.shape == (n_a, n_t, 1)
                 return prior
 
             # likelihood
-            p = get_likelihood()
+            likelihood = get_likelihood()
 
             # prior
-            alpha = get_prior(h_a, z_t)
-
-            if self.order == 2:
-                z0 = (h_a * alpha).sum(0).unsqueeze(0)
-                shape = (1, z0.shape[0], z0.shape[-1])
-                c0 = torch.full(shape, 0, dtype=torch.float, device=device)
-                h0 = torch.full(shape, 0, dtype=torch.float, device=device)
-                z1, _ = self.f_z(z0, (h0, c0))
-
-                alpha = get_prior(h_a, z1)
+            prior = get_prior()
 
             # posterior
-            align = get_posterior(alpha, p)
+            posterior = prior * likelihood
 
             # marginal probability
-            loss_notreduced = -(torch.sum(alpha * p, 1) + 1e-8).log()
+            loss_notreduced = -(torch.sum(posterior, 1) + 1e-8).log()
             loss = loss_notreduced.sum(0)
 
             pr = 0
 
-            return alpha, p, loss, loss_notreduced, align, pr
+            return prior, likelihood, loss, loss_notreduced, posterior, pr
 
         def mask_and_apply(i_b, func):
             # get amr mask
@@ -927,34 +1013,43 @@ class Net(nn.Module):
             info['n_a'] = n_a
             info['n_t'] = n_t
 
-            if args.mask > 0 and self.training:
+            if args.mask > 0 and elf.training:
                 info['mask'] = batch_map['mask'][i_b]
 
             result = func(local_h_t, local_z_t, local_h_a, local_y_a, info)
 
             return result
 
-        for i_b in range(batch_size):
+        if self.training and args.fast:
+            batched_output = batched_align_and_predict(h_t, z_t, h_a, y_a, y_a_mask)
 
-            alpha, p, loss, loss_notreduced, align, pr = mask_and_apply(i_b, align_and_predict)
+            model_output = {}
+            model_output['batch_loss'] = batched_output['loss']
+            model_output['batch_loss_notreduced'] = batched_output['loss_notreduced']
 
-            batch['alpha'].append(alpha)
-            batch['p'].append(p)
-            batch['loss'].append(loss)
-            batch['loss_notreduced'].append(loss_notreduced)
-            batch['align'].append(align)
-            batch['pr'].append(pr)
+        else:
+            batch = collections.defaultdict(list)
+            for i_b in range(batch_size):
 
-        model_output = {}
-        model_output['batch_alpha'] = batch['alpha']
-        model_output['batch_p'] = batch['p']
-        model_output['batch_loss'] = batch['loss']
-        model_output['batch_loss_notreduced'] = batch['loss_notreduced']
-        model_output['batch_align'] = batch['align']
-        model_output['batch_pr'] = batch['pr']
-        model_output['labels'] = y_a
-        model_output['labels_mask'] = y_a_mask
-        model_output['label_node_ids'] = label_node_ids
+                alpha, p, loss, loss_notreduced, align, pr = mask_and_apply(i_b, align_and_predict)
+
+                batch['alpha'].append(alpha)
+                batch['p'].append(p)
+                batch['loss'].append(loss)
+                batch['loss_notreduced'].append(loss_notreduced)
+                batch['align'].append(align)
+                batch['pr'].append(pr)
+
+            model_output = {}
+            model_output['batch_alpha'] = batch['alpha']
+            model_output['batch_p'] = batch['p']
+            model_output['batch_loss'] = batch['loss']
+            model_output['batch_loss_notreduced'] = batch['loss_notreduced']
+            model_output['batch_align'] = batch['align']
+            model_output['batch_pr'] = batch['pr']
+            model_output['labels'] = y_a
+            model_output['labels_mask'] = y_a_mask
+            model_output['label_node_ids'] = label_node_ids
 
         return model_output
 
@@ -964,6 +1059,7 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.hidden_size = hidden_size
+        self.nlayers = nlayers = cfg.get('nlayers', 1)
         self.mode = mode
 
         self.embed = embed
@@ -972,24 +1068,24 @@ class Encoder(nn.Module):
             input_size = embed.output_size
 
         if rnn == 'lstm':
-            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=nlayers,
                                bidirectional=False, batch_first=True)
             self.bidirectional = False
             self.model_type = 'rnn'
 
         elif rnn == 'bilstm':
-            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=cfg.get('nlayers', 1),
+            self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=nlayers,
                                bidirectional=True, batch_first=True)
             self.bidirectional = True
             self.model_type = 'rnn'
 
         elif rnn == 'transformer':
-            self.rnn = TransformerModel(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
+            self.rnn = TransformerModel(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=nlayers, dropout=dropout_p)
             self.bidirectional = False
             self.model_type = 'transformer'
 
         elif rnn == 'bitransformer':
-            self.rnn = BiTransformer(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=cfg.get('nlayers', 1), dropout=dropout_p)
+            self.rnn = BiTransformer(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=nlayers, dropout=dropout_p)
             self.bidirectional = True
             self.model_type = 'transformer'
 
@@ -1016,7 +1112,7 @@ class Encoder(nn.Module):
         batch_size, length = tokens.shape
         hidden_size = self.hidden_size
         n = 2 if self.bidirectional else 1
-        shape = (n, batch_size, hidden_size)
+        shape = (n * self.nlayers, batch_size, hidden_size)
         device = tokens.device
 
         # compute hidden states
@@ -1087,8 +1183,8 @@ def save_checkpoint(path, dataset, net, metrics=None):
 
     tosave = {}
     tosave['state_dict'] = state_dict
-    tosave['text_vocab'] = dataset.text_tokenizer.token_TO_idx
-    tosave['amr_vocab'] = dataset.amr_tokenizer.token_TO_idx
+    tosave['text_vocab'] = dataset.text_tokenizer.vocab
+    tosave['amr_vocab'] = dataset.amr_tokenizer.vocab
     tosave['metrics'] = metrics
 
     try:
@@ -1133,25 +1229,20 @@ def default_model_config():
     config['dropout'] = 0
     config['output_mode'] = 'linear'
     config['prior'] = 'attn'
-    config['order'] = 1
     return config
 
 
 def init_tokenizers(text_vocab_file, amr_vocab_file):
 
     # text tokenizer
-    tokens = read_text_vocab_file(text_vocab_file)
-    text_tokenizer = TextTokenizer()
-    text_tokenizer.set_tokens(tokens)
-    text_tokenizer.finalize()
-    assert text_tokenizer.token_TO_idx[PADDING_TOK] == PADDING_IDX
+    ids_to_tokens = read_text_vocab_file(text_vocab_file)
+    text_tokenizer = TextTokenizer(ids_to_tokens)
+    assert text_tokenizer.vocab[PADDING_TOK] == PADDING_IDX
 
     # amr tokenizer
-    tokens = read_amr_vocab_file(amr_vocab_file)
-    amr_tokenizer = AMRTokenizer()
-    amr_tokenizer.set_tokens(tokens)
-    amr_tokenizer.finalize()
-    assert amr_tokenizer.token_TO_idx[PADDING_TOK] == PADDING_IDX
+    ids_to_tokens = read_amr_vocab_file(amr_vocab_file)
+    amr_tokenizer = AMRTokenizer(ids_to_tokens)
+    assert amr_tokenizer.vocab[PADDING_TOK] == PADDING_IDX
 
     return text_tokenizer, amr_tokenizer
 
@@ -1394,16 +1485,6 @@ def maybe_write(context):
         sys.exit()
 
 
-def break_if_oov(corpus, corpus_file, tokenizer, vocab_file, fun):
-    # sanity check: tokenizer suports all tokens in
-    for amr in corpus:
-        for token in fun(amr):
-            if token not in tokenizer.token_TO_idx:
-                raise Exception(
-                    f'{token} in {corpus_file} not in {vocab_file}'
-                )
-
-
 def main(args):
     batch_size = args.batch_size
     lr = args.lr
@@ -1415,50 +1496,34 @@ def main(args):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    if args.read_only:
-        t = AMRTokenizer()
-        for amr in read_amr2(args.trn_amr, ibm_format=False):
-            t.dfs(amr)
-        sys.exit()
-
-    # TOKENIZERS
+    # Init tokenizers.
     text_tokenizer, amr_tokenizer = init_tokenizers(text_vocab_file=args.vocab_text, amr_vocab_file=args.vocab_amr)
 
-    # DATA
-    # Train
+    # Read train data.
     trn_corpus = safe_read(args.trn_amr, max_length=args.max_length)
-    # Validation
+    # Read (possible multiple) validation data.
     val_corpus_list = [safe_read(path, max_length=args.val_max_length) for path in args.val_amr]
 
-    # sanity check: we should allways have tokens
-    assert all(bool(amr) for amr in trn_corpus), \
-        "{args.trn_amr} must be tokenized"
-    # sanity check: --write-only expects alignments to compare with
-    if args.write_only:
-        assert all(bool(amr.alignments) for amr in trn_corpus), \
-            f"--write-only assumes {args.trn_amr} will be aligned"
-    # sanity check: tokenizer suports all tokens in
-    break_if_oov(trn_corpus, args.trn_amr, text_tokenizer, args.vocab_text, lambda a: a.tokens)
-    break_if_oov(trn_corpus, args.trn_amr, amr_tokenizer, args.vocab_amr, lambda a: a.nodes.values())
-    if args.write_only:
-        for val_corpus, path in zip(val_corpus_list, args.val_amr):
-            # sanity check: --write-only expects alignments to compare with
-            assert all(bool(amr.alignments) for amr in val_corpus), \
-                f"--write-only assumes {path} will be aligned"
-    # sanity check: we should allways have tokens and no OOV
-    for val_corpus, path in zip(val_corpus_list, args.val_amr):
-        assert all(bool(amr) for amr in val_corpus), \
-            "{path} must be tokenized"
-        # sanity check: tokenizer suports all tokens in
-        break_if_oov(val_corpus, path, text_tokenizer, args.vocab_text, lambda a: a.tokens)
-        break_if_oov(val_corpus, path, amr_tokenizer, args.vocab_amr, lambda a: a.nodes.values())
+    # Sanity check data.
+    for i, corpus in enumerate([trn_corpus] + val_corpus_list):
+        # No failures when reading amr.
+        assert all(bool(amr) for amr in corpus), f'corpus:{i} failed check.'
 
-    # datasets
+        # All input data should have alignments. Even if only dummy aligned.
+        # assert all(amr.alignments is not None and len(amr.alignments) > 0 for amr in corpus), f'corpus:{i} failed check.'
+
+        # Check support of tokens.
+        for amr in corpus:
+            for tok in amr.tokens:
+                assert tok in text_tokenizer.vocab, f'corpus:{i} failed check for tok {tok}.'
+            for tok in amr.nodes.values():
+                assert tok in amr_tokenizer.vocab, f'corpus:{i} failed check for tok {tok}.'
+
+    # Init datasets.
     trn_dataset = Dataset(trn_corpus, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer)
     val_dataset_list = [Dataset(x, text_tokenizer=text_tokenizer, amr_tokenizer=amr_tokenizer) for x in val_corpus_list]
 
-    # MODEL
-
+    # Init model.
     net = Net.from_dataset_and_config(trn_dataset, model_config, args.cache_dir)
     if args.load is not None:
         load_checkpoint(args.load, net)
@@ -1481,14 +1546,8 @@ def main(args):
 
     # CACHE dataset items.
 
-    for idx in tqdm(range(len(trn_corpus)), desc='cache-trn', disable=not args.verbose):
-        _ = trn_dataset[idx]
-
-    for i_val in range(len(val_corpus_list)):
-        val_corpus = val_corpus_list[i_val]
-        val_dataset = val_dataset_list[i_val]
-        for idx in tqdm(range(len(val_corpus)), desc='cache-val', disable=not args.verbose):
-            _ = val_dataset[idx]
+    for dset in [trn_dataset] + val_dataset_list:
+        dset.cache_all_items()
 
     # MAIN
 
