@@ -830,8 +830,63 @@ class Net(nn.Module):
 
         size_t = h_t.shape[-1]
         size_a = h_a.shape[-1]
+        size = size_t + size_a
 
-        batch = collections.defaultdict(list)
+        def batched_align_and_predict(h_t, z_t, h_a, y_a, y_a_mask):
+            # TODO: Verify this gives matching posterior with non-batched version.
+
+            n_t, n_a = h_t.shape[1], h_a.shape[1]
+            x_t_mask = x_t != PADDING_IDX
+            batch_n_t = x_t_mask.sum(-1)
+            batch_n_a = y_a_mask.sum(-1)
+
+            def get_h_for_predict():
+                h_a_expand = h_a.unsqueeze(2).expand(batch_size, n_a, n_t, size_a)
+                h_t_expand = h_t.unsqueeze(1).expand(batch_size, n_a, n_t, size_t)
+                h = torch.cat([h_a_expand, h_t_expand], -1)
+                return h
+
+            def get_loss(batch_n_a, batch_n_t, posterior):
+                batch_size = batch_n_a.shape[0]
+                assert torch.dot(batch_n_a, batch_n_t).item() == posterior.shape[0]
+                loss, loss_notreduced = [], []
+
+                offset = 0
+                for i in range(batch_size):
+                    n_a, n_t = batch_n_a[i].item(), batch_n_t[i].item()
+                    block_size = n_a * n_t
+                    block = posterior[offset:offset + block_size]
+                    offset += block_size
+
+                    loss_notreduced.append(-(block.view(n_a, n_t).sum(1) + 1e-8).log())
+                    loss.append(loss_notreduced[-1].sum(0, keepdims=True))
+
+                return loss, loss_notreduced
+
+            prior_tmp = torch.einsum('bxd,byd->bxy', h_a, z_t)
+            assert prior_tmp.shape == (batch_size, n_a, n_t)
+            text_mask = x_t_mask.unsqueeze(1).expand(prior_tmp.shape)
+            node_mask = y_a_mask.unsqueeze(2).expand(prior_tmp.shape)
+            mask = text_mask & node_mask
+            neg_inf = torch.zeros(prior_tmp.shape, device=device)
+            neg_inf[text_mask == False] = -10000
+
+            # TODO: Could save on softmax by skipping non-nodes.
+            prior = torch.softmax(prior_tmp + neg_inf, 2)
+
+            h_for_predict = get_h_for_predict().reshape(-1, size)[mask.reshape(-1)]
+            dist = torch.softmax(self.predict(h_for_predict), 1)
+
+            index = y_a.unsqueeze(2).expand(batch_size, n_a, n_t)[mask]
+            likelihood = dist.gather(index=index.unsqueeze(1), dim=-1)
+            posterior = prior[mask].view(-1) * likelihood.view(-1)
+
+            loss, loss_notreduced = get_loss(batch_n_a, batch_n_t, posterior)
+
+            output = {}
+            output['loss'] = loss
+            output['loss_notreduced'] = loss_notreduced
+            return output
 
         def align_and_predict(h_t, z_t, h_a, y_a, info):
             n_a, n_t = info['n_a'], info['n_t']
@@ -873,21 +928,21 @@ class Net(nn.Module):
                 return prior
 
             # likelihood
-            p = get_likelihood()
+            likelihood = get_likelihood()
 
             # prior
-            alpha = get_prior()
+            prior = get_prior()
 
             # posterior
-            align = get_posterior(alpha, p)
+            posterior = prior * likelihood
 
             # marginal probability
-            loss_notreduced = -(torch.sum(alpha * p, 1) + 1e-8).log()
+            loss_notreduced = -(torch.sum(posterior, 1) + 1e-8).log()
             loss = loss_notreduced.sum(0)
 
             pr = 0
 
-            return alpha, p, loss, loss_notreduced, align, pr
+            return prior, likelihood, loss, loss_notreduced, posterior, pr
 
         def mask_and_apply(i_b, func):
             # get amr mask
@@ -926,27 +981,36 @@ class Net(nn.Module):
 
             return result
 
-        for i_b in range(batch_size):
+        if self.training:
+            batched_output = batched_align_and_predict(h_t, z_t, h_a, y_a, y_a_mask)
 
-            alpha, p, loss, loss_notreduced, align, pr = mask_and_apply(i_b, align_and_predict)
+            model_output = {}
+            model_output['batch_loss'] = batched_output['loss']
+            model_output['batch_loss_notreduced'] = batched_output['loss_notreduced']
 
-            batch['alpha'].append(alpha)
-            batch['p'].append(p)
-            batch['loss'].append(loss)
-            batch['loss_notreduced'].append(loss_notreduced)
-            batch['align'].append(align)
-            batch['pr'].append(pr)
+        else:
+            batch = collections.defaultdict(list)
+            for i_b in range(batch_size):
 
-        model_output = {}
-        model_output['batch_alpha'] = batch['alpha']
-        model_output['batch_p'] = batch['p']
-        model_output['batch_loss'] = batch['loss']
-        model_output['batch_loss_notreduced'] = batch['loss_notreduced']
-        model_output['batch_align'] = batch['align']
-        model_output['batch_pr'] = batch['pr']
-        model_output['labels'] = y_a
-        model_output['labels_mask'] = y_a_mask
-        model_output['label_node_ids'] = label_node_ids
+                alpha, p, loss, loss_notreduced, align, pr = mask_and_apply(i_b, align_and_predict)
+
+                batch['alpha'].append(alpha)
+                batch['p'].append(p)
+                batch['loss'].append(loss)
+                batch['loss_notreduced'].append(loss_notreduced)
+                batch['align'].append(align)
+                batch['pr'].append(pr)
+
+            model_output = {}
+            model_output['batch_alpha'] = batch['alpha']
+            model_output['batch_p'] = batch['p']
+            model_output['batch_loss'] = batch['loss']
+            model_output['batch_loss_notreduced'] = batch['loss_notreduced']
+            model_output['batch_align'] = batch['align']
+            model_output['batch_pr'] = batch['pr']
+            model_output['labels'] = y_a
+            model_output['labels_mask'] = y_a_mask
+            model_output['label_node_ids'] = label_node_ids
 
         return model_output
 
