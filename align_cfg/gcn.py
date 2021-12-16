@@ -81,6 +81,8 @@ class GCNEncoder(nn.Module):
                 diff = max_length - n
 
                 #
+                if batch_map['add_edges']:
+                    import ipdb; ipdb.set_trace()
                 if diff > 0:
                     padding = torch.zeros(diff, size, dtype=torch.float, device=device)
                     new_h.append(torch.cat([gcn_output[offset:offset + n], padding], 0))

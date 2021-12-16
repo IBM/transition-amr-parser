@@ -267,6 +267,11 @@ def argument_parser():
         help="If true, then use GPU.",
         action='store_true',
     )
+    parser.add_argument(
+        "--add-edges",
+        help="If true, then convert edges into new nodes.",
+        action='store_true',
+    )
     # Debug options
     parser.add_argument(
         "--debug",
@@ -494,6 +499,35 @@ class Dataset(object):
         return g, pairwise_dist
 
     def get_geometric_data(self, amr):
+        if args.add_edges:
+            return self.get_geometric_data_add_edges(amr)
+        return self.get_geometric_data_standard(amr)
+
+    def get_geometric_data_add_edges(self, amr):
+        vocab = self.amr_tokenizer.vocab
+        node_ids = get_node_ids(amr)
+        d_node_idx = {k: i for i, k in enumerate(node_ids)}
+
+        edge_index = []
+        for label_idx, (src, label, tgt) in enumerate(amr.edges):
+            label_idx = len(node_ids) + label_idx
+            src_idx = d_node_idx[src]
+            tgt_idx = d_node_idx[tgt]
+
+            edge_index.append([src_idx, label_idx])
+            edge_index.append([label_idx, tgt_idx])
+
+            edge_index.append([tgt_idx, label_idx])
+            edge_index.append([label_idx, src_idx])
+
+        node_labels = [amr.nodes[k] for k in node_ids]
+        edge_labels = [label for src, label, tgt in amr.edges]
+        tokens = torch.tensor([vocab[tok] for tok in node_labels + edge_labels], dtype=torch.long)
+        edge_index = torch.tensor(edge_index, dtype=torch.long)
+        data = Data(edge_index=edge_index.t().contiguous(), y=tokens, num_nodes=len(tokens))
+        return data
+
+    def get_geometric_data_standard(self, amr):
         vocab = self.amr_tokenizer.vocab
 
         node_ids = get_node_ids(amr)
@@ -582,6 +616,7 @@ def batchify(items, cuda=False, train=False):
     batch_map['text_original_tokens'] = [x['text_original_tokens'] for x in items]
     batch_map['items'] = items
     batch_map['device'] = device
+    batch_map['add_edges'] = args.add_edges
 
     if args.mask > 0 and train:
         batch_mask = []
