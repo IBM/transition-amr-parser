@@ -18,7 +18,13 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
-# We will need this to save the alignment log
+# quick exit
+if [ -f $ALIGNED_FOLDER/.done ]; then
+
+    echo "AMR Alignment (Extract). Already done --- do nothing."
+    exit 0
+
+fi
 
 ###### AMR Alignment (Pre-processing)
 if [ -f $ALIGNED_FOLDER/.done.preprocess ]; then
