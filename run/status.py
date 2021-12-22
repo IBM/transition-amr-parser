@@ -152,7 +152,7 @@ def check_model_training(seed_folder, max_epoch, is_done):
     return diplay_lines
 
 
-def read_results(seed_folder, eval_metric, target_epochs):
+def read_results(seed_folder, eval_metric, target_epochs, warnings=True):
 
     val_result_re = re.compile(r'.*de[cv]-checkpoint([0-9]+)\.' + eval_metric)
     validation_folder = f'{seed_folder}/epoch_tests/'
@@ -168,7 +168,7 @@ def read_results(seed_folder, eval_metric, target_epochs):
     missing_epochs = sorted(missing_epochs, reverse=True)
 
     # Warn about faulty scores
-    if faulty_scores:
+    if faulty_scores and warnings:
         print(f'\033[93mWARNING: empty {eval_metric} file(s)\033[0m')
         for faulty in faulty_scores:
             print(faulty)
@@ -177,7 +177,7 @@ def read_results(seed_folder, eval_metric, target_epochs):
     return target_epochs, missing_epochs
 
 
-def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
+def get_checkpoints_to_eval(config_env_vars, seed, ready=False, warnings=True):
     """
     List absolute paths of checkpoints needed for evaluation. Restrict to
     existing ones if read=True
@@ -193,7 +193,7 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False):
     # read results
     target_epochs = list(range(eval_init_epoch, max_epoch+1))
     target_epochs, missing_epochs = read_results(
-        seed_folder, eval_metric, target_epochs
+        seed_folder, eval_metric, target_epochs, warnings=warnings
     )
 
     # construct paths
@@ -253,7 +253,7 @@ def get_corrupted_checkpoints(seed_folder):
         return []
 
 
-def print_status(config_env_vars, seed, do_clear=False):
+def print_status(config_env_vars, seed, do_clear=False, warnings=True):
 
     # Inform about completed stages
     # pre-training ones
@@ -344,7 +344,7 @@ def print_status(config_env_vars, seed, do_clear=False):
     # print
     if do_clear:
         os.system('clear')
-    if corrupted_checkpoints:
+    if corrupted_checkpoints and warnings:
         print()
         print(f"\033[91mWARNING: Small checkpoints, corrupted?\033[0m")
         for ch in corrupted_checkpoints:
@@ -992,10 +992,11 @@ def main(args):
         # ready=True list only those checkpoints that exist already
         assert args.seed, "Requires --seed"
         config_env_vars = read_config_variables(args.config)
-        checkpoints, target_epochs, _ = get_checkpoints_to_eval(
+        checkpoints, targEt_epochs, _ = get_checkpoints_to_eval(
             config_env_vars,
             args.seed,
-            ready=bool(args.list_checkpoints_ready_to_eval)
+            ready=bool(args.list_checkpoints_ready_to_eval),
+            warnings=False
         )
 
         # link and/or remove checkpoints
