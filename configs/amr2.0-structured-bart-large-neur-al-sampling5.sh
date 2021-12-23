@@ -59,7 +59,7 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
 # Number of alignment samples used
 NUM_ALIGNMENT_SAMPLES=5
-ALIGNMENT_FLAGS="--sample-alignments NUM_ALIGNMENT_SAMPLES --rescale-align"
+ALIGNMENT_FLAGS="--sample-alignments $NUM_ALIGNMENT_SAMPLES --rescale-align"
 # Use importance weighted
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
@@ -157,8 +157,7 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-# SEEDS="42 43 44"
-SEEDS="42"
+SEEDS="42 43 44"
 MAX_EPOCH=100
 EVAL_INIT_EPOCH=61
 time_max_between_epochs=30
