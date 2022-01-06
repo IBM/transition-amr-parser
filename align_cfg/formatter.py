@@ -91,6 +91,13 @@ def amr_to_string(amr, alignments=None):
     alignments = amr.alignments
 
     body = ''
+
+    try:
+        amr_id = amr.penman.metadata['id']
+        body += '# ::id {}\n'.format(amr_id)
+    except:
+        pass
+
     body += AMRStringHelper.tok(amr) + '\n'
     if len(amr.nodes) > 0:
         body += AMRStringHelper.alignments(amr, alignments) + '\n'

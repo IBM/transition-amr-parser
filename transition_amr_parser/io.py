@@ -782,6 +782,8 @@ class AMR():
         nodes = {}
         alignments = {}
         edges = []
+        amr_id = None
+
         for key, value in metadata.items():
             if key == 'edge':
                 for items in value:
@@ -803,9 +805,16 @@ class AMR():
                     nodes[node_id] = node_name
             elif key == 'root':
                 root = value[0].split('\t')[1]
+            elif key == 'id':
+                amr_id = value[0].strip()
 
-        return cls(tokens, nodes, edges, root, penman=None,
-                   alignments=alignments, clean=True, connect=False)
+        amr = cls(tokens, nodes, edges, root, penman=None,
+                  alignments=alignments, clean=True, connect=False)
+
+        if amr_id is not None:
+            amr.id = amr_id
+
+        return amr
 
     def get_metadata(self):
         """
