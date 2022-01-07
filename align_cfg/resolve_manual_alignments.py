@@ -18,6 +18,7 @@ from transition_amr_parser.io import read_amr2
 
 MY_GLOBALS = {}
 MY_GLOBALS['stats'] = collections.Counter()
+MY_GLOBALS['new_amr'] = collections.defaultdict(list)
 
 
 def is_int(x):
@@ -137,10 +138,15 @@ def attempt_resolve(datasets, k_amr_align_with_string, k_amr_align, k_amr_corpus
             resolve = datasets['resolve'][k]
 
         if use_string:
-            possible_alignments = resolve_align_with_string(amr, align_list, resolve)
+            new_alignments, success = resolve_align_with_string(amr, align_list, resolve)
 
         else:
-            possible_alignments = resolve_align_with_variable_names(amr, align_list)
+            new_alignments, success = resolve_align_with_variable_names(amr, align_list)
+
+        MY_GLOBALS['stats'][f'success-{success}'] += 1
+
+        if success:
+            MY_GLOBALS['new_amr'][(k_amr_align, k_amr_corpus)].append((amr, new_alignments))
 
 
 def resolve_align_with_string(amr, align_list, resolve=None):
@@ -170,7 +176,7 @@ def resolve_align_with_string(amr, align_list, resolve=None):
     fake_alignments = {k: [0] for k in amr.nodes.keys()}
     f_resolve.write(amr_to_string(amr, alignments=fake_alignments).strip() + '\n')
 
-    seen = set()
+    all_ok = True
 
     for i, align in enumerate(align_list):
 
@@ -186,6 +192,9 @@ def resolve_align_with_string(amr, align_list, resolve=None):
             possible_node_ids = get_possible(amr, fake_node_id, node_name)
 
             o = {fake_node_id: possible_node_ids}
+
+            if len(possible_node_ids) != 1:
+                all_ok = False
 
             if len(possible_node_ids) == 1:
                 msg = 'ok'
@@ -204,13 +213,38 @@ def resolve_align_with_string(amr, align_list, resolve=None):
         # CHECK
         assert len(fake_node_ids) == len(node_names)
 
-        # CHECK
-        node_ids = align['nodes']
-        for node_id in node_ids:
-            assert node_id not in seen
-            seen.add(node_id)
-
     f_resolve.write('\n')
+
+    # CHECK don't align twice.
+    if all_ok:
+        seen = set()
+        for i, align in enumerate(align_list):
+            align_string = align['string']
+            fake_node_ids = align['nodes']
+            node_names = get_node_names(align, align_string)
+
+            for fake_node_id, node_name in zip(fake_node_ids, node_names):
+                node_id = get_possible(amr, fake_node_id, node_name)[0]
+                assert node_id not in seen
+                seen.add(node_id)
+
+    # TODO: Get the final alignments!
+    new_alignments = {}
+
+    if not all_ok:
+        return new_alignments, False
+
+    for i, align in enumerate(align_list):
+        tokens = align['tokens']
+        align_string = align['string']
+        fake_node_ids = align['nodes']
+        node_names = get_node_names(align, align_string)
+
+        for fake_node_id, node_name in zip(fake_node_ids, node_names):
+            node_id = get_possible(amr, fake_node_id, node_name)[0]
+            new_alignments[node_id] = tokens
+
+    return new_alignments, True
 
 
 def resolve_align_with_variable_names(amr, align_list):
@@ -239,6 +273,17 @@ def resolve_align_with_variable_names(amr, align_list):
             seen.add(node_id)
 
     f_resolve.write('\n')
+
+    # Get the final alignments!
+    new_alignments = {}
+
+    for i, align in enumerate(align_list):
+        tokens = align['tokens']
+        for fake_node_id in align['nodes']:
+            node_id = fake_node_id
+            new_alignments[node_id] = tokens
+
+    return new_alignments, True
 
 
 def attempt_resolve_prince(datasets):
@@ -277,9 +322,9 @@ def main():
     paths['additional_amr'] = 'leamr/data-release/amrs/additional_amrs.txt'
 
     # Path to amr3 data.
-    # paths['amr3_train'] = 'DATA/AMR3.0/corpora/train.dummy_align.txt'
-    # paths['amr3_dev'] = 'DATA/AMR3.0/corpora/dev.dummy_align.txt'
-    # paths['amr3_test'] = 'DATA/AMR3.0/corpora/test.dummy_align.txt'
+    paths['amr3_train'] = 'DATA/AMR3.0/corpora/train.dummy_align.txt'
+    paths['amr3_dev'] = 'DATA/AMR3.0/corpora/dev.dummy_align.txt'
+    paths['amr3_test'] = 'DATA/AMR3.0/corpora/test.dummy_align.txt'
 
     for k, v in paths.items():
         print(k, v)
@@ -291,9 +336,17 @@ def main():
 
     attempt_resolve_prince(datasets)
     attempt_resolve_additional(datasets)
-    # attempt_resolve_amr3(datasets)
+    attempt_resolve_amr3(datasets)
 
     print(MY_GLOBALS['stats'])
+
+    for (k_amr_align, k_amr_corpus), corpus in MY_GLOBALS['new_amr'].items():
+        new_file = f'new.{k_amr_corpus}.{k_amr_align}.txt'
+        print(k_amr_corpus, k_amr_align, new_file, len(corpus))
+
+        with open(new_file, 'w') as f:
+            for amr, alignments in corpus:
+                f.write(amr_to_string(amr, alignments=alignments).strip() + '\n\n')
 
 
 if __name__ == '__main__':
