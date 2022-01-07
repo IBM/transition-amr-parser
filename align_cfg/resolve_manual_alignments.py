@@ -1,7 +1,14 @@
 """
 At first:
 
-    Counter({'ok': 3417, 'found_many': 629, 'maybe_ok': 22})
+    Counter({'ok': 3417, 'found_many': 629, 'success-True': 209, 'success-False': 141, 'maybe_ok': 22})
+    prince_amr manual_dev data_manual_align/new.prince_amr.manual_dev.txt 42
+    prince_amr manual_test data_manual_align/new.prince_amr.manual_test.txt 42
+    additional_amr manual_test data_manual_align/new.additional_amr.manual_test.txt 12
+    amr3_train manual_test data_manual_align/new.amr3_train.manual_test.txt 62
+    amr3_dev manual_dev data_manual_align/new.amr3_dev.manual_dev.txt 45
+    amr3_dev manual_test data_manual_align/new.amr3_dev.manual_test.txt 2
+    amr3_test manual_test data_manual_align/new.amr3_test.manual_test.txt 4
 
 After resolving Little Prince and a few others:
 
@@ -333,9 +340,9 @@ def main():
     paths['additional_amr'] = 'leamr/data-release/amrs/additional_amrs.txt'
 
     # Path to amr3 data.
-    paths['amr3_train'] = 'DATA/AMR3.0/corpora/train.dummy_align.txt'
-    paths['amr3_dev'] = 'DATA/AMR3.0/corpora/dev.dummy_align.txt'
-    paths['amr3_test'] = 'DATA/AMR3.0/corpora/test.dummy_align.txt'
+    paths['amr3_train'] = 'DATA/AMR3.0/aligned/cofill/train.txt'
+    paths['amr3_dev'] = 'DATA/AMR3.0/aligned/cofill/dev.txt'
+    paths['amr3_test'] = 'DATA/AMR3.0/aligned/cofill/test.txt'
 
     for k, v in paths.items():
         print(k, v)
