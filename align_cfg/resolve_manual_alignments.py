@@ -39,6 +39,7 @@ from transition_amr_parser.io import read_amr2
 MY_GLOBALS = {}
 MY_GLOBALS['stats'] = collections.Counter()
 MY_GLOBALS['new_amr'] = collections.defaultdict(list)
+MY_GLOBALS['skip_amr'] = collections.defaultdict(list)
 
 
 def is_int(x):
@@ -165,6 +166,8 @@ def attempt_resolve(datasets, k_amr_align_with_string, k_amr_align, k_amr_corpus
 
         if success:
             MY_GLOBALS['new_amr'][(k_amr_align, k_amr_corpus)].append((amr, new_alignments))
+        else:
+            MY_GLOBALS['skip_amr'][(k_amr_align, k_amr_corpus)].append((amr, None))
 
 
 def resolve_align_with_string(amr, align_list, resolve=None):
@@ -369,6 +372,16 @@ def main():
         with open(new_file, 'w') as f:
             for amr, alignments in corpus:
                 f.write(amr_to_string(amr, alignments=alignments).strip() + '\n\n')
+
+    def print_missing():
+        print('missing')
+        for (k_amr_align, k_amr_corpus), corpus in MY_GLOBALS['skip_amr'].items():
+            print(k_amr_corpus, k_amr_align, len(corpus))
+            for amr, _ in corpus:
+                print(f'- {amr.id}')
+
+    print_missing()
+
 
 
 if __name__ == '__main__':
