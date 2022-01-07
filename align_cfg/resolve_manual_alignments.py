@@ -2,12 +2,25 @@
 At first:
 
     Counter({'ok': 3417, 'found_many': 629, 'maybe_ok': 22})
+
+After resolving Little Prince and a few others:
+
+    Counter({'ok': 3441, 'found_many': 627, 'success-True': 220, 'success-False': 130})
+
+    prince_amr manual_dev data_manual_align/new.prince_amr.manual_dev.txt 50
+    prince_amr manual_test data_manual_align/new.prince_amr.manual_test.txt 45
+    additional_amr manual_test data_manual_align/new.additional_amr.manual_test.txt 12
+    amr3_train manual_test data_manual_align/new.amr3_train.manual_test.txt 62
+    amr3_dev manual_dev data_manual_align/new.amr3_dev.manual_dev.txt 45
+    amr3_dev manual_test data_manual_align/new.amr3_dev.manual_test.txt 2
+    amr3_test manual_test data_manual_align/new.amr3_test.manual_test.txt 4
 """
 
 import argparse
 import collections
 import copy
 import json
+import os
 
 from tqdm import tqdm
 
@@ -72,8 +85,6 @@ def read_amr2_as_dict(filename):
             print(f'deleted {amr.id}')
             continue
         new_corpus[amr.id] = amr
-
-    print(filename, len(corpus), len(new_corpus))
 
     return new_corpus
 
@@ -340,8 +351,12 @@ def main():
 
     print(MY_GLOBALS['stats'])
 
+    output_dir = 'data_manual_align'
+
     for (k_amr_align, k_amr_corpus), corpus in MY_GLOBALS['new_amr'].items():
-        new_file = f'new.{k_amr_corpus}.{k_amr_align}.txt'
+        os.system(f'mkdir -p {output_dir}')
+
+        new_file = os.path.join(output_dir, f'new.{k_amr_corpus}.{k_amr_align}.txt')
         print(k_amr_corpus, k_amr_align, new_file, len(corpus))
 
         with open(new_file, 'w') as f:
