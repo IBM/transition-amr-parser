@@ -903,8 +903,17 @@ def read_amr2(file_path, ibm_format=False, tokenize=False):
     with open(file_path) as fid:
         raw_amr = []
         raw_amrs = []
-        for line in tqdm(fid.readlines(), desc='Reading AMR'):
+
+        def read_lines():
+            for line in fid.readlines():
+                yield line
+            yield ''
+
+        for line in tqdm(read_lines(), desc='Reading AMR'):
             if line.strip() == '':
+                if len(raw_amr) == 0:
+                    continue
+
                 if ibm_format:
                     # From ::node, ::edge etc
                     raw_amrs.append(
@@ -918,6 +927,7 @@ def read_amr2(file_path, ibm_format=False, tokenize=False):
                 raw_amr = []
             else:
                 raw_amr.append(line)
+
     return raw_amrs
 
 
