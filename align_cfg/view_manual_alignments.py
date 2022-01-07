@@ -1,3 +1,25 @@
+"""
+not found manual_dev
+- overlap 150
+- notfound 0
+not found manual_test
+- overlap 188
+- notfound 12
+- edinburgh_1003.8
+- edinburgh_1003.9
+- edinburgh_1003.3
+- edinburgh_1003.4
+- edinburgh_1003.7
+- edinburgh_1003.10
+- edinburgh_1003.1
+- edinburgh_1003.2
+- edinburgh_1003.5
+- NATHANS_EXAMPLE
+- edinburgh_1003.6
+- AUSTINS_EXAMPLE
+"""
+
+
 import argparse
 import collections
 import json
