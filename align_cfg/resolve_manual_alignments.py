@@ -1,3 +1,9 @@
+"""
+At first:
+
+    Counter({'ok': 3417, 'found_many': 629, 'maybe_ok': 22})
+"""
+
 import argparse
 import collections
 import copy
@@ -12,6 +18,42 @@ from transition_amr_parser.io import read_amr2
 
 MY_GLOBALS = {}
 MY_GLOBALS['stats'] = collections.Counter()
+
+
+def is_int(x):
+    try:
+        _ = int(x)
+        return True
+    except ValueError:
+        return False
+
+
+def read_resolve_file(filename):
+    corpus = {}
+
+    prev_val = None
+
+    i_alternate = 0
+
+    with open(filename) as f:
+        for line in f:
+            if line.startswith('# ::id'):
+                val = line.strip().split()[-1]
+                prev_val = val
+                corpus[val] = {'align': [], 'resolve': []}
+
+            elif line.startswith('###'):
+                _, msg, o = line.strip().split(' ', 2)
+                o = json.loads(o)
+
+                if is_int(msg):
+                    corpus[prev_val]['align'].append(o)
+                    corpus[prev_val]['resolve'].append([])
+
+                else:
+                    corpus[prev_val]['resolve'][-1].append(o)
+
+    return corpus
 
 
 def read_amr2_as_dict(filename):
@@ -89,15 +131,41 @@ def attempt_resolve(datasets, k_amr_align_with_string, k_amr_align, k_amr_corpus
     for k in list(amr_align.keys()):
         amr = amr_corpus[k]
         align_list = amr_align_with_string[k]
+        resolve = None
+
+        if 'resolve' in datasets and k in datasets['resolve']:
+            resolve = datasets['resolve'][k]
 
         if use_string:
-            possible_alignments = resolve_align_with_string(amr, align_list)
+            possible_alignments = resolve_align_with_string(amr, align_list, resolve)
 
         else:
             possible_alignments = resolve_align_with_variable_names(amr, align_list)
 
 
-def resolve_align_with_string(amr, align_list):
+def resolve_align_with_string(amr, align_list, resolve=None):
+
+    if resolve is not None:
+        d_resolve = {}
+
+        for a, r in zip(resolve['align'], resolve['resolve']):
+            assert len(r) > 0
+
+            for rr in r:
+                assert len(rr) == 1
+
+                for fake_node_id, possible_node_ids in rr.items():
+                    d_resolve[fake_node_id] = possible_node_ids
+
+        def get_possible(amr, fake_node_id, node_name):
+            possible_node_ids = d_resolve[fake_node_id]
+            for k in possible_node_ids:
+                assert amr.nodes[k] == node_name
+            return possible_node_ids
+
+    else:
+        def get_possible(amr, fake_node_id, node_name):
+            return [k for k, v in amr.nodes.items() if v == node_name]
 
     fake_alignments = {k: [0] for k in amr.nodes.keys()}
     f_resolve.write(amr_to_string(amr, alignments=fake_alignments).strip() + '\n')
@@ -115,7 +183,8 @@ def resolve_align_with_string(amr, align_list):
 
         # Body
         for fake_node_id, node_name in zip(fake_node_ids, node_names):
-            possible_node_ids = [k for k, v in amr.nodes.items() if v == node_name]
+            possible_node_ids = get_possible(amr, fake_node_id, node_name)
+
             o = {fake_node_id: possible_node_ids}
 
             if len(possible_node_ids) == 1:
@@ -208,9 +277,9 @@ def main():
     paths['additional_amr'] = 'leamr/data-release/amrs/additional_amrs.txt'
 
     # Path to amr3 data.
-    paths['amr3_train'] = 'DATA/AMR3.0/corpora/train.dummy_align.txt'
-    paths['amr3_dev'] = 'DATA/AMR3.0/corpora/dev.dummy_align.txt'
-    paths['amr3_test'] = 'DATA/AMR3.0/corpora/test.dummy_align.txt'
+    # paths['amr3_train'] = 'DATA/AMR3.0/corpora/train.dummy_align.txt'
+    # paths['amr3_dev'] = 'DATA/AMR3.0/corpora/dev.dummy_align.txt'
+    # paths['amr3_test'] = 'DATA/AMR3.0/corpora/test.dummy_align.txt'
 
     for k, v in paths.items():
         print(k, v)
@@ -218,9 +287,11 @@ def main():
     datasets = {}
     datasets = {k: read_amr2_as_dict(v) if 'amr' in k else read_json(v) for k, v in paths.items()}
 
+    datasets['resolve'] = read_resolve_file('resolve.manual.txt')
+
     attempt_resolve_prince(datasets)
     attempt_resolve_additional(datasets)
-    attempt_resolve_amr3(datasets)
+    # attempt_resolve_amr3(datasets)
 
     print(MY_GLOBALS['stats'])
 
