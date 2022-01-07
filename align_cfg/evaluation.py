@@ -159,6 +159,7 @@ class CorpusRecall(Metric):
             if gold_align[node_id] is None:
                 continue
             total += 1
+
             if pred_align[node_id][0] == gold_align[node_id][0]:
                 correct += 1
 
@@ -315,25 +316,43 @@ class CorpusRecall_WithGoldSpans(CorpusRecall):
     def name(self):
         return '{} using spans for gold'.format(self._name)
 
-    def update(self, gold, pred):
+    def update(self, gold, pred, only_1=False):
         gold_align, pred_align = gold.alignments, pred.alignments
         total, correct = 0, 0
 
         for node_id in gold_align.keys():
-            assert len(pred_align[node_id]) == 1
-            p = pred_align[node_id][0] - 1
 
             # Ignore unaligned nodes
             if gold_align[node_id] is None:
                 continue
 
-            g0 = gold_align[node_id][0] - 1
-            g1 = gold_align[node_id][-1] - 1
+            # Penalty for not predicting.
+            if node_id not in pred_align or pred_align[node_id] is None:
+                total += 1
+                continue
 
             total += 1
 
-            if (p >= g0) and (p <= g1):
-                correct += 1
+            g0 = gold_align[node_id][0] - 1
+            g1 = gold_align[node_id][-1] - 1
+
+            if only_1 or len(pred_align[node_id]) == 1:
+                assert len(pred_align[node_id]) == 1
+
+                p = pred_align[node_id][0] - 1
+
+                if (p >= g0) and (p <= g1):
+                    correct += 1
+
+            else:
+                p0 = pred_align[node_id][0] - 1
+                p1 = pred_align[node_id][-1] - 1
+
+                gset = set(range(g0, g1 + 1))
+                pset = set(range(p0, p1 + 1))
+
+                if len(set.intersection(pset, gset)) > 0:
+                    correct += 1
 
         self.state['total'].append(total)
         self.state['correct'].append(correct)
@@ -409,7 +428,7 @@ class CorpusRecall_WithDupsAndSpans(CorpusRecall):
 
 
 class EvalAlignments(object):
-    def run(self, path_gold, path_pred, verbose=True, only_MAP=False, flexible=False):
+    def run(self, path_gold, path_pred, verbose=True, only_MAP=False, flexible=False, subset=False):
 
         assert os.path.exists(path_gold)
         assert os.path.exists(path_pred)
@@ -420,22 +439,32 @@ class EvalAlignments(object):
             ]
         else:
             metrics = [
-                SentenceRecall(),
-                CorpusRecall(),
-                CorpusRecall_ExcludeNode(),
-                CorpusRecall_DuplicateText(),
-                CorpusRecall_IgnoreURL(),
+                #SentenceRecall(),
+                #CorpusRecall(),
+                #CorpusRecall_ExcludeNode(),
+                #CorpusRecall_DuplicateText(),
+                #CorpusRecall_IgnoreURL(),
                 CorpusRecall_WithGoldSpans(),
-                CorpusRecall_WithDupsAndSpans(),
+                #CorpusRecall_WithDupsAndSpans(),
             ]
 
         gold = read_amr2(path_gold, ibm_format=True)
         pred = read_amr2(path_pred, ibm_format=True)
+        print(f'N = {len(gold)}')
+
+        if subset:
+            d_gold = {amr.id: amr for amr in gold}
+            d_pred = {amr.id: amr for amr in pred}
+            keys = list(set.intersection(set(d_gold.keys()), set(d_pred.keys())))
+
+            gold = [d_gold[k] for k in keys]
+            pred = [d_pred[k] for k in keys]
+            print(f'N = {len(gold)}')
 
         # check node names
         for g, p in zip(gold, pred):
             for k, v in g.nodes.items():
-                assert v == p.nodes[k], (k, v, p.nodes[k])
+                assert v == p.nodes[k], (k, v, p.nodes[k], g.id)
 
         if not flexible:
             assert len(gold) == len(pred), \

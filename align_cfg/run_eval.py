@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--gold', default=None, required=True, type=str)
 parser.add_argument('--pred', default=None, required=True, type=str)
 parser.add_argument('--out-json', default=None, type=str)
+parser.add_argument('--subset', action='store_true')
 args = parser.parse_args()
 
 if args.out_json is None:
@@ -19,7 +20,7 @@ if args.out_json is None:
 
 print('start eval')
 
-eval_output = EvalAlignments().run(args.gold, args.pred, flexible=True)
+eval_output = EvalAlignments().run(args.gold, args.pred, flexible=True, subset=args.subset)
 
 print(eval_output)
 
