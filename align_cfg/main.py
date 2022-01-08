@@ -1178,10 +1178,21 @@ def load_checkpoint(path, net, cuda=False):
 
     state_dict = net.state_dict()
 
+    seen = set()
     for k, v in net.named_parameters():
         if not v.requires_grad:
             print('[load] copying {}'.format(k))
             toload['state_dict'][k] = state_dict[k]
+
+        assert v.shape == toload['state_dict'][k].shape, k
+
+        seen.add(k)
+
+    for k, v in list(toload['state_dict'].items()):
+        if k not in seen:
+            print('WARNING found missing param [load] copying {}'.format(k))
+            my_param = eval(f'net.{k}')
+            toload['state_dict'][k] = my_param.data
 
     # TODO: Verify that vocab lines up.
     net.load_state_dict(toload['state_dict'])
