@@ -519,7 +519,7 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     if (
         amr_string.startswith('"')
         or amr_string[0].isdigit()
-        or amr_string[0] == '-'
+        or amr_string[0] in ['-', '+']
     ):
         amr_string = '(x / '+amr_string+')'
     if not amr_string.startswith('('):
