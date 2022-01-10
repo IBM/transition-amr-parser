@@ -326,6 +326,35 @@ def attempt_resolve_amr3(datasets):
     attempt_resolve(datasets, 'austin', 'manual_dev', 'amr3_test')
     attempt_resolve(datasets, 'austin', 'manual_test', 'amr3_test')
 
+def do_write(d_align, d, output_file):
+    new_corpus = []
+    for corpus in d:
+        for k, amr in corpus.items():
+            if k not in d_align:
+                continue
+            new_corpus.append(amr)
+
+    print(f'writing... {output_file} {len(new_corpus)}')
+    with open(output_file, 'w') as f:
+        fake_alignments = {k: [0] for k in amr.nodes.keys()}
+        body = amr_to_string(amr, alignments=fake_alignments).strip()
+
+        f.write(body + '\n')
+
+def write_amr3_train(datasets, output_dir):
+    d_align = set.union(set(datasets['manual_dev'].keys()), set(datasets['manual_test'].keys()))
+    d = [datasets[k] for k in ['amr3_train']]
+    do_write(d_align, d, os.path.join(output_dir, 'gold.amr3_train.txt'))
+
+def write_amr3_unseen(datasets, output_dir):
+    d_align = set.union(set(datasets['manual_dev'].keys()), set(datasets['manual_test'].keys()))
+    d = [datasets[k] for k in ['amr3_dev', 'amr3_test']]
+    do_write(d_align, d, os.path.join(output_dir, 'gold.amr3_unseen.txt'))
+
+def write_all(datasets, output_dir):
+    d_align = set.union(set(datasets['manual_dev'].keys()), set(datasets['manual_test'].keys()))
+    d = [datasets[k] for k in datasets.keys() if 'amr' in k]
+    do_write(d_align, d, os.path.join(output_dir, 'gold.all.txt'))
 
 def main():
     paths = {}
@@ -363,15 +392,25 @@ def main():
 
     output_dir = 'data_manual_align'
 
-    for (k_amr_align, k_amr_corpus), corpus in MY_GLOBALS['new_amr'].items():
-        os.system(f'mkdir -p {output_dir}')
+    write_amr3_train(datasets, output_dir)
+    write_amr3_unseen(datasets, output_dir)
+    write_all(datasets, output_dir)
 
-        new_file = os.path.join(output_dir, f'new.{k_amr_corpus}.{k_amr_align}.txt')
-        print(k_amr_corpus, k_amr_align, new_file, len(corpus))
+    def write_ok():
+        for (k_amr_align, k_amr_corpus), corpus in MY_GLOBALS['new_amr'].items():
+            os.system(f'mkdir -p {output_dir}')
 
-        with open(new_file, 'w') as f:
-            for amr, alignments in corpus:
-                f.write(amr_to_string(amr, alignments=alignments).strip() + '\n\n')
+            new_file = os.path.join(output_dir, f'new.{k_amr_corpus}.{k_amr_align}.txt')
+            print(k_amr_corpus, k_amr_align, new_file, len(corpus))
+
+            with open(new_file, 'w') as f:
+                for amr, alignments in corpus:
+                    f.write(amr_to_string(amr, alignments=alignments).strip() + '\n\n')
+
+    def print_ok_stats():
+        print('ok')
+        for (k_amr_align, k_amr_corpus), corpus in MY_GLOBALS['new_amr'].items():
+            print(k_amr_corpus, k_amr_align, len(corpus))
 
     def print_missing():
         print('missing')
@@ -380,7 +419,15 @@ def main():
             for amr, _ in corpus:
                 print(f'- {amr.id}')
 
+    def print_missing_stats():
+        print('missing')
+        for (k_amr_align, k_amr_corpus), corpus in MY_GLOBALS['skip_amr'].items():
+            print(k_amr_corpus, k_amr_align, len(corpus))
+
+    write_ok()
     print_missing()
+    print_missing_stats()
+    print_ok_stats()
 
 
 
