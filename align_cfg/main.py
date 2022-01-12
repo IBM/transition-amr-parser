@@ -755,13 +755,14 @@ class TiedSoftmax(nn.Module):
 
 class Net(nn.Module):
     def __init__(self, encode_text, encode_amr, output_size,
-                 output_mode='linear', prior='attn', context='xy',
+                 output_mode='linear', prior='attn', context='xy', ll_dec='ar',
                  ):
         super().__init__()
 
         self.output_size = output_size
         self.output_mode = output_mode
         self.prior = prior
+        self.ll_dec = ll_dec
 
         self.encode_text = encode_text
         self.encode_amr = encode_amr
@@ -809,7 +810,7 @@ class Net(nn.Module):
                                      cache_dir=cache_dir
                                      )
 
-        if config['text_enc'] in ('bilstm', 'bitransformer'):
+        if config['text_enc'] in ('bilstm', 'bitransformer', 'mlp'):
             encode_text = Encoder(text_embed, hidden_size, mode='text', rnn=config['text_enc'], dropout_p=dropout, cfg=config['text_enc_cfg'])
 
         # AMR
@@ -943,6 +944,9 @@ class Net(nn.Module):
 
         def align_and_predict(h_t, z_t, h_a, y_a, info):
             n_a, n_t = info['n_a'], info['n_t']
+
+            if self.ll_dec == 'mask_amr':
+                h_a = torch.zeros_like(h_a)
 
             if self.training and 'mask' in info:
                 # Only predict for masked items.
@@ -1093,6 +1097,11 @@ class Encoder(nn.Module):
             self.bidirectional = True
             self.model_type = 'rnn'
 
+        elif rnn == 'mlp':
+            self.rnn = nn.Sequential(nn.Linear(input_size, hidden_size), nn.Tanh())
+            self.bidirectional = False
+            self.model_type = 'mlp'
+
         elif rnn == 'transformer':
             self.rnn = TransformerModel(ninp=input_size, nhead=cfg.get('nhead', 4), nhid=hidden_size, nlayers=nlayers, dropout=dropout_p)
             self.bidirectional = False
@@ -1140,6 +1149,8 @@ class Encoder(nn.Module):
         if self.model_type == 'rnn':
             output, _ = self.rnn(e, (h0, c0))
         elif self.model_type == 'transformer':
+            output = self.rnn(e)
+        elif self.model_type == 'mlp':
             output = self.rnn(e)
         output = self.dropout(output)
 
@@ -1254,6 +1265,7 @@ def default_model_config():
     config['dropout'] = 0
     config['output_mode'] = 'linear'
     config['prior'] = 'attn'
+    config['ll_dec'] = 'ar'
     return config
 
 
