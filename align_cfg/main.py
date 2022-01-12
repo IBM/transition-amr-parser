@@ -1521,7 +1521,7 @@ def maybe_write(context):
 def main(args):
     batch_size = args.batch_size
     lr = args.lr
-    max_epoch = args.max_epoch
+    max_epoch = args.max_epoch + 1
     seed = args.seed
 
     model_config = JSONConfig(default_model_config()).parse(args.model_config)
@@ -1681,7 +1681,7 @@ def main(args):
 
         save_checkpoint(os.path.join(args.log_dir, 'model.latest.pt'), trn_dataset, net, metrics=dict(epoch=epoch, trn_loss=trn_loss, trn_loss_notreduced=trn_loss_notreduced))
 
-        if epoch % args.save_every_epoch == 0 and epoch > 0:
+        if (epoch + 1) % args.save_every_epoch == 0:
             save_checkpoint(os.path.join(args.log_dir, 'model.epoch_{}.pt'.format(epoch)), trn_dataset, net, metrics=dict(epoch=epoch, trn_loss=trn_loss, trn_loss_notreduced=trn_loss_notreduced))
 
         # VALIDATION
