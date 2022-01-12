@@ -25,8 +25,11 @@ class AMRStringHelper(object):
     def nodes(amr, alignments):
         output = []
         for node_id, name in sorted(amr.nodes.items(), key=lambda x: x[0]):
-            a = alignments[node_id]
-            output.append('# ::node\t{}\t{}\t{}-{}'.format(node_id, name, a[0], a[-1] + 1))
+            if node_id in alignments:
+                a = alignments[node_id]
+                output.append('# ::node\t{}\t{}\t{}-{}'.format(node_id, name, a[0], a[-1] + 1))
+            else:
+                output.append('# ::node\t{}\t{}\t'.format(node_id, name))
         return output
 
     @staticmethod
