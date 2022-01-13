@@ -226,7 +226,14 @@ class SequenceGenerator(object):
             # length should be bsz * beam_size
             for i in new_order:
                 sm = AMRStateMachine(**self.machine_config)
-                sm.reset(tokens=sample['src_sents'][i])
+                if 'gold_amr' in sample:
+                    # align mode
+                    sm.reset(tokens=sample['src_sents'][i],
+                             gold_amr=sample['gold_amr'][i])
+                else:
+                    # normal mode
+                    sm.reset(tokens=sample['src_sents'][i])
+
                 amr_state_machines.append(sm)
 
             canonical_act_ids = amr_state_machines[0].canonical_action_to_dict(self.tgt_dict)
@@ -496,16 +503,25 @@ class SequenceGenerator(object):
                         # TODO update below (currently not used)
                         #      we use "NODE" keyword instead of "PRED"
                         if 'PRED' in act_allowed:
+                            raise NotImplementedError()
                             src_token = sm.get_current_token()
                             if src_token in self.pred_rules:
                                 act_allowed.remove('PRED')
                                 pred_allowed = list(self.pred_rules[src_token].keys())
 
-                    vocab_ids_allowed = set().union(*[set(canonical_act_ids[act]) for act in act_allowed])
+                    # get valid actions
+                    vocab_ids_allowed = set()
+                    for act in act_allowed:
+                        if act in canonical_act_ids:
+                            vocab_ids_allowed |= set(canonical_act_ids[act])
+                        else:
+                            # non canonincal actions (explicit node names)
+                            vocab_ids_allowed.add(self.tgt_dict.index(act))
 
                     # TODO update below
                     # use predicate rules to further restrict the action space for PRED actions
                     if pred_allowed is not None:
+                        raise NotImplementedError()
                         pred_ids_allowed = set(self.tgt_dict.index(f'PRED({sym})') for sym in pred_allowed)
                         vocab_ids_allowed = vocab_ids_allowed.union(pred_ids_allowed)
 

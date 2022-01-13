@@ -22,7 +22,7 @@ from fairseq_ext.data.amr_action_pointer_dataset import collate
 # OR (same results) from fairseq_ext.data.amr_action_pointer_graphmp_dataset import collate
 from transition_amr_parser.amr_machine import AMRStateMachine
 #from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
-from transition_amr_parser.io import read_config_variables, read_tokenized_sentences
+from transition_amr_parser.io import read_config_variables, read_tokenized_sentences, read_amr
 from fairseq_ext.utils import post_process_action_pointer_prediction, post_process_action_pointer_prediction_bartsv, clean_pointer_arcs
 from fairseq_ext.utils_import import import_user_module
 
@@ -36,6 +36,11 @@ def argument_parsing():
         '-i', '--in-tokenized-sentences',
         type=str,
         help='File with one __tokenized__ sentence per line'
+    )
+    parser.add_argument(
+        '--in-amr',
+        type=str,
+        help='AMR in Penman format to align'
     )
     parser.add_argument(
         '--service',
@@ -91,8 +96,13 @@ def argument_parsing():
     args = parser.parse_args()
 
     # sanity checks
-    assert bool(args.in_tokenized_sentences) or bool(args.service), \
+    assert (
+        bool(args.in_tokenized_sentences) or bool(args.in_amr)
+    ) or bool(args.service), \
         "Must either specify --in-tokenized-sentences or set --service"
+
+    assert bool(args.in_tokenized_sentences) != bool(args.in_amr), \
+        "Provide either --in-tokenize-sentences or --in-amr"
 
     return args
 
@@ -313,7 +323,9 @@ class AMRParser:
         return bart_data
 
     def convert_sentences_to_data(self, sentences, batch_size,
-                                  roberta_batch_size):
+                                  roberta_batch_size, gold_amrs=None):
+
+        assert gold_amrs is None or len(sentences) == len(gold_amrs)
 
         # extract RoBERTa features
         roberta_features = \
@@ -330,7 +342,9 @@ class AMRParser:
                 'source': ids,
                 'src_wordpieces': wordpieces_roberta,
                 'src_wp2w': word2piece_scattered_indices,
-                'src_tokens': tokenize_line(sentence)  # original source tokens
+                # original source tokens
+                'src_tokens': tokenize_line(sentence),
+                'gold_amr': None if gold_amrs is None else gold_amrs[index]
             })
         return data
 
@@ -346,6 +360,15 @@ class AMRParser:
                 input_feeding=True,
                 collate_tgt_states=False
             )
+
+            # FIXME: This avoids adding collate code for each dataset but not
+            # elegant
+            if any(a.get('gold_amr', None) is not None for a in sample):
+                # This also relies on ID bing the relative index as set above
+                batch['gold_amr'] = [
+                    samples[id]['gold_amr'] for id in batch['id']
+                ]
+
             batches.append(batch)
         return batches
 
@@ -389,7 +412,8 @@ class AMRParser:
 
         return predictions
 
-    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10):
+    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10,
+                        gold_amrs=None):
         """parse a list of sentences.
 
         Args:
@@ -409,8 +433,12 @@ class AMRParser:
             #    tokens.append("<ROOT>")
             sentences.append(" ".join(tokens))
 
-        data = self.convert_sentences_to_data(sentences, batch_size,
-                                              roberta_batch_size)
+        data = self.convert_sentences_to_data(
+            sentences,
+            batch_size,
+            roberta_batch_size,
+            gold_amrs=gold_amrs
+        )
         data_iterator = self.get_iterator(data, batch_size)
 
         # Loop over batches of sentences
@@ -483,7 +511,11 @@ def main():
 
     # load parser
     start = time.time()
-    parser = AMRParser.from_checkpoint(args.in_checkpoint,roberta_cache_path=args.roberta_cache_path,inspector=inspector)
+    parser = AMRParser.from_checkpoint(
+        args.in_checkpoint,
+        roberta_cache_path=args.roberta_cache_path,
+        inspector=inspector
+    )
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to load parser: {time_secs}')
@@ -512,11 +544,21 @@ def main():
 
     else:
 
+        if args.in_amr:
+            gold_amrs = read_amr(args.in_amr)
+            tokenized_sentences = [amr.tokens for amr in gold_amrs]
+        else:
+            gold_amrs = None
+            tokenized_sentences = read_tokenized_sentences(
+                args.in_tokenized_sentences
+            )
+
         # Parse sentences
         result = parser.parse_sentences(
-            read_tokenized_sentences(args.in_tokenized_sentences),
+            tokenized_sentences,
             batch_size=args.batch_size,
-            roberta_batch_size=args.roberta_batch_size
+            roberta_batch_size=args.roberta_batch_size,
+            gold_amrs=gold_amrs
         )
 
         with open(args.out_amr, 'w') as fid:
