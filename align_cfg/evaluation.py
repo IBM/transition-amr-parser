@@ -322,14 +322,14 @@ class CorpusRecall_ForCOFILL(CorpusRecall):
 
     @property
     def name(self):
-        return '{} using spans for gold (cofill)'.format(self._name)
+        return 'Node-to-Token F1'
 
     def update(self, gold, pred, only_1=False):
         gold_align, pred_align = gold.alignments, pred.alignments
 
         m = collections.Counter()
 
-        for node_id in gold_align.keys():
+        for node_id in gold.nodes.keys():
 
             # Ignore unaligned nodes
             if gold_align[node_id] is None:
@@ -386,6 +386,61 @@ class CorpusRecall_ForCOFILL(CorpusRecall):
         result['total'] = total
 
         return result
+
+
+class CorpusRecall_ForCOFILL_EasySpan(CorpusRecall_ForCOFILL):
+
+    @property
+    def name(self):
+        return 'Node-to-Token F1 (easy span)'
+
+    def update(self, gold, pred, only_1=False):
+        gold_align, pred_align = gold.alignments, pred.alignments
+
+        m = collections.Counter()
+
+        for node_id in gold.nodes.keys():
+
+            # Ignore unaligned nodes
+            if gold_align[node_id] is None:
+                if node_id not in pred_align or pred_align[node_id] is None:
+                    pass
+
+                else:
+                    p0 = pred_align[node_id][0]
+                    p1 = pred_align[node_id][-1]
+                    pset = set(range(p0, p1 + 1))
+                    m['fp'] += len(pset)
+
+                continue
+
+            g0 = gold_align[node_id][0]
+            g1 = gold_align[node_id][-1]
+            gset = set(range(g0, g1 + 1))
+
+            assert g0 >= 0
+            assert g1 >= g0
+
+            # Penalty for not predicting.
+            if node_id not in pred_align or pred_align[node_id] is None:
+                m['fn'] += len(gset)
+                continue
+
+            p0 = pred_align[node_id][0]
+            p1 = pred_align[node_id][-1]
+            pset = set(range(p0, p1 + 1))
+
+
+            intersect = len(set.intersection(pset, gset))
+            if intersect > 0:
+                pset = set.union(gset, pset)
+
+            m['tp'] += len(set.intersection(pset, gset))
+            m['fn'] += len(gset) - len(set.intersection(pset, gset))
+            m['fp'] += len(pset) - len(set.intersection(pset, gset))
+
+        for k, v in m.items():
+            self.state[k].append(v)
 
 
 class CorpusRecall_WithGoldSpans(CorpusRecall):
@@ -524,6 +579,7 @@ class EvalAlignments(object):
                 #CorpusRecall_IgnoreURL(),
                 CorpusRecall_WithGoldSpans(),
                 CorpusRecall_ForCOFILL(),
+                CorpusRecall_ForCOFILL_EasySpan(),
                 #CorpusRecall_WithDupsAndSpans(),
             ]
 
@@ -535,6 +591,8 @@ class EvalAlignments(object):
         remove_wiki_gold = True
         remove_wiki_pred = True
         attempt_rotate = True
+        count_tokenization = True
+        restrict_tokenization = False
 
         if remove_wiki_pred:
             for amr in pred:
@@ -699,6 +757,25 @@ class EvalAlignments(object):
                     p = rotate(g, p)
                 new_corpus.append(p)
             pred = new_corpus
+
+        if count_tokenization:
+            m = collections.Counter()
+            for g, p in zip(gold, pred):
+                if ' '.join(g.tokens) != ' '.join(p.tokens):
+                    m['different'] += 1
+                m['total'] += 1
+            print('count_tokenization', m)
+
+        if restrict_tokenization:
+            new_g, new_p = [], []
+            for g, p in zip(gold, pred):
+                if ' '.join(g.tokens) != ' '.join(p.tokens):
+                    continue
+                new_g.append(g)
+                new_p.append(p)
+            print(f'restrict_tokenization {len(gold)} -> {len(new_g)}')
+            gold = new_g
+            pred = new_p
 
         # check node names
         for g, p in zip(gold, pred):
