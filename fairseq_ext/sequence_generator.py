@@ -9,6 +9,7 @@ import math
 from copy import deepcopy
 import json
 import os
+from ipdb import set_trace
 
 import torch
 from packaging import version
@@ -512,8 +513,11 @@ class SequenceGenerator(object):
                     # get valid actions
                     vocab_ids_allowed = set()
                     for act in act_allowed:
+                        bact = sm.get_base_action(act)
                         if act in canonical_act_ids:
                             vocab_ids_allowed |= set(canonical_act_ids[act])
+                        elif bact != 'NODE' and bact in canonical_act_ids:
+                            vocab_ids_allowed |= set(canonical_act_ids[bact])
                         else:
                             # non canonincal actions (explicit node names)
                             vocab_ids_allowed.add(self.tgt_dict.index(act))

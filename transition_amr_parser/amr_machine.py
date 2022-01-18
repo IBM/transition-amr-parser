@@ -455,58 +455,75 @@ class AMRStateMachine():
         return 'NODE'
 
     def _get_valid_align_actions(self):
+        '''Get actions that generate given gold AMR'''
 
-        # if there is a pending arc, do it
-        # separate nodes in stack from top of the stack
-        nodes = sorted(self.nodes.items(), key=lambda x: x[0])
-        node_ids = [x[0] for x in nodes]
+        # Here we differentiate ids (unique identifiers of nodes inside a
+        # graph) from labels (node names, which may be repeatable). In align
+        # mode, we can not enforce predicting ids, as we do not know what the
+        # model is thinking. We just constrain to predict labels.
+        # We can't as well predict the ROOT until the full graph is produced
+
+        # Get just edge labels (ignoring node ids, which we can not enforce) as
+        # well as node labels that are missing.
+        missing_gold_nodes = []
+        node_names = list(self.nodes.values())
+        for nid, nname in self.gold_amr.nodes.items():
+            if nname in node_names:
+                node_names.remove(nname)
+            else:
+                missing_gold_nodes.append(nname)
+        # edges
         missing_gold_edges = []
-        for (source, label, target) in self.gold_amr.edges:
+        for (s, l, t) in self.gold_amr.edges:
+            edge = (self.gold_amr.nodes[s], l, self.gold_amr.nodes[t])
+            if edge not in self.edges:
+                missing_gold_edges.append(edge)
 
-            # if nodes involved not predicted skip
-            if (
-                source not in self.gold_id_map
-                or target not in self.gold_id_map
-            ):
+        # collect missing gold edge labels
+        # get the content of the stack
+        node_stack_labels = [self.nodes[nid] for nid in self.node_stack]
+        arc_actions = []
+        for (gold_s_label, gold_e_label, gold_t_label) in missing_gold_edges:
+
+            if len(node_stack_labels) < 2:
                 continue
 
-            # map from gold ids to parsing ids
-            gold_source = self.gold_id_map[source]
-            gold_target = self.gold_id_map[target]
+            # gold source is top of the stack (left-arc)
+            if gold_s_label == node_stack_labels[-1]:
+                # look for gold target labels in the stack (may be multiple)
+                for stack_pos, stack_nid in enumerate(self.node_stack):
+                    if gold_t_label == self.action_history[stack_nid]:
+                        if self.absolute_stack_pos:
+                            index = stack_nid
+                        else:
+                            raise NotImplementedError()
+                        arc_actions.append(f'>LA({index},{gold_e_label})')
 
-            # skip if edge exists
-            if (gold_source, label, gold_target) in self.edges:
-                continue
+            elif gold_t_label == node_stack_labels[-1]:
+                # look for gold target labels in the stack (may be multiple)
+                for stack_pos, stack_nid in enumerate(self.node_stack):
+                    if gold_s_label == self.action_history[stack_nid]:
+                        if self.absolute_stack_pos:
+                            index = stack_nid
+                        else:
+                            raise NotImplementedError()
+                        arc_actions.append(f'>RA({index},{gold_e_label})')
 
-            # source is top of the stack (left-arc)
-            if gold_source == node_ids[-1] and gold_target in node_ids[:-1]:
-                missing_gold_edges.append(
-                    [(gold_source, label, gold_target), target]
-                )
-
-            # target is top of the stack (right-arc)
-            if gold_target == node_ids[-1] and gold_source in node_ids[:-1]:
-                missing_gold_edges.append(
-                    [(gold_source, label, gold_target), source]
-                )
-
-        # process furthest away node
-        if missing_gold_edges:
-            return sorted(missing_gold_edges, lambda x: x[1])[0][0]
+        # return arc action that points to earliest node
+        if arc_actions:
+            # set_trace(context=30)
+            #return sorted(arc_actions, key=lambda x: x[1])[0][0:1]
+            return arc_actions
 
         # otherwise choose between producing a gold node and shifting (if
         # possible)
-        valid_base_actions = [
-            normalize(nname) for nid, nname in self.gold_amr.nodes.items()
-            if nid not in self.gold_id_map
-        ]
+        valid_base_actions = [normalize(nname) for nname in missing_gold_nodes]
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
 
-        set_trace(context=30)
-
         if valid_base_actions == []:
             # if no possible option, just close
+            set_trace(context=30)
             return ['CLOSE']
         else:
             return valid_base_actions
@@ -657,13 +674,6 @@ class AMRStateMachine():
             self.nodes[node_id] = normalize(self.tokens[self.tok_cursor])
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
-            if self.gold_amr:
-                set_trace(context=30)
-                missing_nodes = [
-                    normalize(nname)
-                    for nid, nname in self.gold_amr.nodes.items()
-                    if nid not in self.gold_id_map
-                ]
 
         else:
 
@@ -674,17 +684,6 @@ class AMRStateMachine():
             self.nodes[node_id] = action
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
-
-            if self.gold_amr:
-                # for align mode, localized the id that we just predicted
-                set_trace(context=30)
-                missing_gold_nodes = [
-                    nid
-                    for nid, nname in self.gold_amr.nodes.items()
-                    if nname == action
-                ]
-                assert missing_gold_nodes, \
-                    'expected a missing gold node in alignment mode'
 
         # Action for each time-step
         self.action_history.append(action)
