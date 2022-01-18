@@ -274,8 +274,8 @@ class AMRParser:
 
         print("Finished loading models")
 
-        # ===== load other args =====
-        machine_config = os.path.join(config_data_dict['ORACLE_FOLDER'], 'machine_config.json')
+        # load other args
+        machine_config = os.path.join(model_folder, 'machine_config.json')
         assert os.path.isfile(machine_config), f"Missing {machine_config}"
 
         return cls(models,task, task.src_dict, task.tgt_dict, machine_config,
