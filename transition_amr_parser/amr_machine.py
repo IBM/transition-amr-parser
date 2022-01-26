@@ -493,11 +493,6 @@ class AMRStateMachine():
         # current nodes
         # self.gold_id_map
 
-        # if self.get_current_token() == "New" and self.action_history[-1] == 'COPY':
-        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
-        if self.action_history and self.action_history[-1] == 'cause-01':
-            set_trace(context=30)
-
         # determine if there are pending arc actions
         # gold triples for the multiple id mappings
         arc_actions = []
@@ -743,6 +738,11 @@ class AMRStateMachine():
     def get_annotation(self):
         amr = AMR(self.tokens, self.nodes, self.edges, self.root,
                   alignments=self.alignments, clean=True, connect=True)
+        if self.gold_amr:
+            # Sanity check, we reproduce the gold AMR
+            set_trace(context=30)
+            print()
+
         return amr.__str__()
 
 
