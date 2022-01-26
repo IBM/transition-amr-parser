@@ -457,11 +457,11 @@ class AMRStateMachine():
             return action[:3]
         return 'NODE'
 
-    def _get_valid_align_arc_actions(self):
-        pass
-
-    def _get_valid_align_actions(self):
-        '''Get actions that generate given gold AMR'''
+    def _map_decoded_and_gold_ids(self):
+        '''
+        Given partial aligned graph and gold graph map each prediced node id to
+        a gold id
+        '''
 
         # Here we differentiate node ids, unique identifiers of nodes inside a
         # graph, from labels, node names, which may be repeatable.
@@ -469,29 +469,37 @@ class AMRStateMachine():
         # corresponds. Only if the label is unique or its graph position is
         # unique we can determine it. So we need to wait until enough edges are
         # available
-#         gold_ids_by_nname = defaultdict(list)
-#         for nid, nname in self.gold_amr.nodes.items():
-#             gold_ids_by_nname[nname].append(nid)
-
-        # We can't as well predict the ROOT until the full graph is produced
 
         # get gold node to possible decoded nodes
-        node_by_label = defaultdict(list)
-        for nid, nname in self.nodes.items():
-            node_by_label[normalize(nname)].append(nid)
-        gold_to_dec_ids = defaultdict(list)
-        for g_nid, g_nname in self.gold_amr.nodes.items():
-            if g_nid in self.gold_id_map:
-                # if we know the mapping, use it
-                gold_to_dec_ids[g_nid] = self.gold_id_map[g_nid]
-            else:
-                # accumulate possible candidates due to ambigueties
-                gold_to_dec_ids[g_nid].extend(node_by_label[normalize(g_nname)])
+        gnode_by_label = defaultdict(list)
+        for gnid, gnname in self.gold_amr.nodes.items():
+            gnode_by_label[normalize(gnname)].append(gnid)
 
-        # TODO:
-        # since last call, there may be new edges that help us disambiguate
-        # current nodes
-        # self.gold_id_map
+        gold_to_dec_ids = defaultdict(list)
+        for nid, nname in self.nodes.items():
+            if nid in self.gold_id_map:
+                set_trace(context=30)
+                pass
+            else:
+                for gnid in gnode_by_label[normalize(nname)]:
+                    gold_to_dec_ids[gnid].append(nid)
+
+        # store already unambiguous nodes
+        for gnid, nids in gold_to_dec_ids.items():
+            if len(nids) == 1:
+                self.gold_id_map[nids[0]] = gnid
+
+        return gold_to_dec_ids
+
+    def _get_valid_align_arc_actions(self):
+
+        # map gold and aligned graph ids for the time being. Final mapping will
+        # be in self.gold_id_map
+        gold_to_dec_ids = self._map_decoded_and_gold_ids()
+
+        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
+        # if self.action_history and self.action_history[-1] == 'cause-01':
+        #    set_trace(context=30)
 
         # determine if there are pending arc actions
         # gold triples for the multiple id mappings
@@ -535,7 +543,15 @@ class AMRStateMachine():
                         # LA
                         arc_actions.append(f'>LA({t},{gold_e_label})')
 
+        return arc_actions
+
+    def _get_valid_align_actions(self):
+        '''Get actions that generate given gold AMR'''
+
+        # We can't as well predict the ROOT until the full graph is produced
+
         # return arc actions if any
+        arc_actions = self._get_valid_align_arc_actions()
         if arc_actions:
             # TODO: Pointer and label can only be enforced independently, which
             # means that if we hae two diffrent arcs to choose from, we could
