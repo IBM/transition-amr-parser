@@ -441,7 +441,10 @@ class AMRStateMachine():
         return result
 
     def get_current_token(self):
-        return self.tokens[self.tok_cursor]
+        if self.tok_cursor >= len(self.tokens):
+            return None
+        else:
+            return self.tokens[self.tok_cursor]
 
     def get_base_action(self, action):
         """Get the base action form, by stripping the labels, etc."""
@@ -454,76 +457,125 @@ class AMRStateMachine():
             return action[:3]
         return 'NODE'
 
+    def _get_valid_align_arc_actions(self):
+        pass
+
     def _get_valid_align_actions(self):
         '''Get actions that generate given gold AMR'''
 
-        # Here we differentiate ids (unique identifiers of nodes inside a
-        # graph) from labels (node names, which may be repeatable). In align
-        # mode, we can not enforce predicting ids, as we do not know what the
-        # model is thinking. We just constrain to predict labels.
+        # Here we differentiate node ids, unique identifiers of nodes inside a
+        # graph, from labels, node names, which may be repeatable.
+        # when a node is predicted, it may be ambiguous to which gold node it
+        # corresponds. Only if the label is unique or its graph position is
+        # unique we can determine it. So we need to wait until enough edges are
+        # available
+#         gold_ids_by_nname = defaultdict(list)
+#         for nid, nname in self.gold_amr.nodes.items():
+#             gold_ids_by_nname[nname].append(nid)
+
         # We can't as well predict the ROOT until the full graph is produced
+
+        # get gold node to possible decoded nodes
+        node_by_label = defaultdict(list)
+        for nid, nname in self.nodes.items():
+            node_by_label[normalize(nname)].append(nid)
+        gold_to_dec_ids = defaultdict(list)
+        for g_nid, g_nname in self.gold_amr.nodes.items():
+            if g_nid in self.gold_id_map:
+                # if we know the mapping, use it
+                gold_to_dec_ids[g_nid] = self.gold_id_map[g_nid]
+            else:
+                # accumulate possible candidates due to ambigueties
+                gold_to_dec_ids[g_nid].extend(node_by_label[normalize(g_nname)])
+
+        # TODO:
+        # since last call, there may be new edges that help us disambiguate
+        # current nodes
+        # self.gold_id_map
+
+        # if self.get_current_token() == "New" and self.action_history[-1] == 'COPY':
+        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
+        if self.action_history and self.action_history[-1] == 'cause-01':
+            set_trace(context=30)
+
+        # determine if there are pending arc actions
+        # gold triples for the multiple id mappings
+        arc_actions = []
+        for (gold_s_id, gold_e_label, gold_t_id) in self.gold_amr.edges:
+
+            if not (
+                # one or more possible RAs
+                any(
+                    n in gold_to_dec_ids[gold_s_id]
+                    for n in self.node_stack[:-1]
+                ) and self.node_stack[-1] in gold_to_dec_ids[gold_t_id]
+                # one or more possible LAs
+                or any(
+                    n in gold_to_dec_ids[gold_t_id]
+                    for n in self.node_stack[:-1]
+                ) and self.node_stack[-1] in gold_to_dec_ids[gold_s_id]
+            ):
+                continue
+
+            # if any possible disambiguated gold edge exists, we can skip this
+            # one
+            missing_versions = []
+            found = False
+            for nid in gold_to_dec_ids[gold_s_id]:
+                for nid2 in gold_to_dec_ids[gold_t_id]:
+                    if (nid, gold_e_label, nid2) in self.edges:
+                        found = True
+                        break
+                    missing_versions.append((nid, gold_e_label, nid2))
+                if found:
+                    break
+
+            if not found:
+                # other possible disambiguations
+                for (s, l, t) in missing_versions:
+                    if s in self.node_stack[:-1] and t == self.node_stack[-1]:
+                        # RA
+                        arc_actions.append(f'>RA({s},{gold_e_label})')
+                    else:
+                        # LA
+                        arc_actions.append(f'>LA({t},{gold_e_label})')
+
+        # return arc actions if any
+        if arc_actions:
+            # TODO: Pointer and label can only be enforced independently, which
+            # means that if we hae two diffrent arcs to choose from, we could
+            # make a mistake. We need to enforce an arc order.
+            return arc_actions
 
         # Get just edge labels (ignoring node ids, which we can not enforce) as
         # well as node labels that are missing.
         missing_gold_nodes = []
         node_names = list(self.nodes.values())
         for nid, nname in self.gold_amr.nodes.items():
-            if nname in node_names:
+            nname = normalize(nname)
+            if nid in self.gold_id_map:
+                # we have it and it is identified, remove its name for other
+                # instances of the same label that are not identified
+                node_names.remove(nname)
+            elif nname in node_names:
+                # label is there but it could be another node of same label
                 node_names.remove(nname)
             else:
                 missing_gold_nodes.append(nname)
-        # edges
-        missing_gold_edges = []
-        for (s, l, t) in self.gold_amr.edges:
-            edge = (self.gold_amr.nodes[s], l, self.gold_amr.nodes[t])
-            if edge not in self.edges:
-                missing_gold_edges.append(edge)
-
-        # collect missing gold edge labels
-        # get the content of the stack
-        node_stack_labels = [self.nodes[nid] for nid in self.node_stack]
-        arc_actions = []
-        for (gold_s_label, gold_e_label, gold_t_label) in missing_gold_edges:
-
-            if len(node_stack_labels) < 2:
-                continue
-
-            # gold source is top of the stack (left-arc)
-            if gold_s_label == node_stack_labels[-1]:
-                # look for gold target labels in the stack (may be multiple)
-                for stack_pos, stack_nid in enumerate(self.node_stack):
-                    if gold_t_label == self.action_history[stack_nid]:
-                        if self.absolute_stack_pos:
-                            index = stack_nid
-                        else:
-                            raise NotImplementedError()
-                        arc_actions.append(f'>LA({index},{gold_e_label})')
-
-            elif gold_t_label == node_stack_labels[-1]:
-                # look for gold target labels in the stack (may be multiple)
-                for stack_pos, stack_nid in enumerate(self.node_stack):
-                    if gold_s_label == self.action_history[stack_nid]:
-                        if self.absolute_stack_pos:
-                            index = stack_nid
-                        else:
-                            raise NotImplementedError()
-                        arc_actions.append(f'>RA({index},{gold_e_label})')
-
-        # return arc action that points to earliest node
-        if arc_actions:
-            # set_trace(context=30)
-            #return sorted(arc_actions, key=lambda x: x[1])[0][0:1]
-            return arc_actions
 
         # otherwise choose between producing a gold node and shifting (if
         # possible)
-        valid_base_actions = [normalize(nname) for nname in missing_gold_nodes]
+        valid_base_actions = []
+        for nname in missing_gold_nodes:
+            if normalize(nname) == self.get_current_token():
+                valid_base_actions.append('COPY')
+            else:
+                valid_base_actions.append(normalize(nname))
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
 
         if valid_base_actions == []:
             # if no possible option, just close
-            set_trace(context=30)
             return ['CLOSE']
         else:
             return valid_base_actions

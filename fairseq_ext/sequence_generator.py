@@ -9,7 +9,9 @@ import math
 from copy import deepcopy
 import json
 import os
+import re
 from ipdb import set_trace
+from collections import defaultdict
 
 import torch
 from packaging import version
@@ -494,6 +496,8 @@ class SequenceGenerator(object):
             # ==========> bug: self.tgt_dict is somehow changed with an additional token '<<unk>>' at the end
 
             if amr_state_machines is not None:
+
+                constrain_pointer = defaultdict(lambda: defaultdict(list))
                 for i, j in enumerate(valid_bbsz_idx):
                     sm = amr_state_machines[j]
                     act_allowed = sm.get_valid_actions()
@@ -511,13 +515,18 @@ class SequenceGenerator(object):
                                 pred_allowed = list(self.pred_rules[src_token].keys())
 
                     # get valid actions
+                    # TODO: Move out of fairseq code into own function
                     vocab_ids_allowed = set()
                     for act in act_allowed:
-                        bact = sm.get_base_action(act)
-                        if act in canonical_act_ids:
+                        if act == 'CLOSE':
+                            vocab_ids_allowed.add(self.tgt_dict.index('</s>'))
+                        elif act in canonical_act_ids:
                             vocab_ids_allowed |= set(canonical_act_ids[act])
-                        elif bact != 'NODE' and bact in canonical_act_ids:
-                            vocab_ids_allowed |= set(canonical_act_ids[bact])
+                        elif re.match(r'>[LR]A\(([0-9]+),([^)]+)\)', act):
+                            arc, index, label = re.match(r'>([LR]A)\(([0-9]+),([^)]+)\)', act).groups()
+                            new_act = f'>{arc}({label})'
+                            vocab_ids_allowed.add(self.tgt_dict.index(new_act))
+                            constrain_pointer[j.item()][int(index)].append(new_act)
                         else:
                             # non canonincal actions (explicit node names)
                             vocab_ids_allowed.add(self.tgt_dict.index(act))
@@ -638,6 +647,7 @@ class SequenceGenerator(object):
                             tgt_actions_nodemask[i, 1:] = tgt_actions_nodemask.new(actions_nodemask)
                         else:
                             tgt_actions_nodemask[i, :-1] = tgt_actions_nodemask.new(actions_nodemask)
+
                 else:
                     if self.shift_pointer_value:
                         # only mask out the current action, and the first position, which is the eos (</s>) token
@@ -653,6 +663,22 @@ class SequenceGenerator(object):
             pointer_probs = avg_attn_tgt_scores.clone()
             pointer_probs[~tgt_actions_nodemask] = 0
 
+            if constrain_pointer:
+                # if you have more than action that requires pointer,
+                # add masks, but also forbid the labels of the non chosen
+                # NOTE: We need to shitf index by 1, see below
+                bsize, seqlen = pointer_probs.shape
+                for j in range(bsize):
+                    if not bool(constrain_pointer[j]):
+                        continue
+                    num_valid = len([1 for x in constrain_pointer[j].values() if x])
+                    for i in range(seqlen - 1):
+                        if constrain_pointer[j][i]:
+                            pointer_probs[j, i+1] =  1 / num_valid
+                        else:
+                            pointer_probs[j, i+1] = 0
+
+            # TODO: most probable pointing determines valid label choice
             pointer_max, pointer_argmax = pointer_probs.max(dim=1)
             """
             NOTE the pointer distribution is from the target input side self-attention, which is shifted to the right
@@ -679,17 +705,37 @@ class SequenceGenerator(object):
                 tgt_pointers_valid[tgt_actions_nodemask_any] = pointer_argmax[tgt_actions_nodemask_any]
                 tgt_pointers[valid_bbsz_mask, step + 1] = tgt_pointers_valid
 
+
             # 3) use the pointer log probs to modify the next ARC ('LA', 'RA', 'LA(root)') actions scores
             # for rows with valid pointer value, modify the arc action scores;
             # for rows with no valid pointer value, set the arc action scores to -inf to block
             if modify_arcact_score:
                 # NOTE for either we use '>LA(root)' or not in our oracle for handling root node
+
                 arc_action_ids = list(set().union(*[canonical_act_ids[act] for act in ['>LA', '>RA', '>LA(root)']
                                                     if act in canonical_act_ids]))
                 lprobs_arcs = lprobs[:, arc_action_ids]
                 lprobs_arcs[tgt_actions_nodemask_any, :] += coef * pointer_max[tgt_actions_nodemask_any].unsqueeze(1)
                 lprobs_arcs[~tgt_actions_nodemask_any, :] = -math.inf
                 lprobs[:, arc_action_ids] = lprobs_arcs
+
+                if constrain_pointer:
+                    # If pointer is constrained, we need to also constrain arc
+                    # labels consistently. Since we selected already an action 
+                    # history position per sentence, this tells use which are
+                    # actions to restrict to
+                    for j, idx_act in constrain_pointer.items():
+                        if not bool(constrain_pointer[j]):
+                            continue
+                        save_action_lprobs = []
+                        for action in constrain_pointer[j][pointer_argmax[j].item()]:
+                            idx = self.tgt_dict.index(action)
+                            save_action_lprobs.append((idx, lprobs[j, idx].item())) 
+                        # all other actions are forbidden    
+                        lprobs[j, :] = -math.inf
+                        for idx, lprob in save_action_lprobs:
+                            assert lprob != -math.inf, "Alignment error, forced arc has probability zero"
+                            lprobs[j, idx] = lprob
 
             # ====================================================
 
@@ -917,8 +963,16 @@ class SequenceGenerator(object):
             # candidate space size
 
             valid_bbsz_mask = active_mask_selected.lt(cand_size)    # size (bsz, beam_size)
-            assert valid_bbsz_mask.any(
-                dim=1).all(), 'there must be remaining valid candidates for each sentence in batch'
+            if not valid_bbsz_mask.any(dim=1).all():
+                if any(bool(m.gold_amr) for m in amr_state_machines):
+                    all_valid_actions = ' '.join([a for m in amr_state_machines for a in m.get_valid_actions()])    
+                    raise Exception(
+                        'there must be remaining valid candidates for each sentence in batch\n'
+                        'Maybe trying to align a node name not in vocabulary?, \n'
+                        f'check {all_valid_actions}'
+                    )
+                else:
+                    raise Exception('there must be remaining valid candidates for each sentence in batch')
             valid_bbsz_mask = valid_bbsz_mask.view(-1)    # size (bsz x beam_size,)
             valid_bbsz_idx = valid_bbsz_mask.nonzero().squeeze(-1)    # size (valid_bbsz_num,)
 
@@ -976,6 +1030,7 @@ class SequenceGenerator(object):
                     if not is_valid:
                         continue
                     # eos changed to CLOSE action (although NOTE currently this will never be eos at this step)
+                    # FIXME: This is state machine specific, we need to remove it
                     act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
                     sm.update(join_action_pointer(act, act_pos.item()))
                     # sm.update(act)
