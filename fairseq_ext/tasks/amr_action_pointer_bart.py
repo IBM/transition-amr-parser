@@ -231,7 +231,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         assert len(paths) > 0
         # find language pair automatically
         if args.source_lang is None or args.target_lang is None:
-            args.source_lang, args.target_lang = data_utils.infer_language_pair(paths[0])
+            args.source_lang, args.target_lang = data_utils.infer_language_pair(args.save_dir)
         if args.source_lang is None or args.target_lang is None:
             raise Exception('Could not infer language pair, please provide it explicitly')
 
@@ -239,8 +239,8 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         assert args.target_lang == 'actions', 'target extension must be "actions"'
         args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
         args.target_lang_pos = 'actions_pos'
-        src_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.source_lang)))
-        tgt_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.target_lang_nopos)))
+        src_dict = cls.load_dictionary(os.path.join(args.save_dir, 'dict.{}.txt'.format(args.source_lang)))
+        tgt_dict = cls.load_dictionary(os.path.join(args.save_dir, 'dict.{}.txt'.format(args.target_lang_nopos)))
         # TODO target dictionary 'actions_nopos' is hard coded now; change it later
         assert src_dict.pad() == tgt_dict.pad()
         assert src_dict.eos() == tgt_dict.eos()
