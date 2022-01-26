@@ -458,6 +458,17 @@ class AMRStateMachine():
         return 'NODE'
 
     def _map_decoded_and_gold_ids(self):
+        '''
+        Given partial aligned graph and gold graph map each prediced node id to
+        a gold id
+        '''
+
+        # Here we differentiate node ids, unique identifiers of nodes inside a
+        # graph, from labels, node names, which may be repeatable.
+        # when a node is predicted, it may be ambiguous to which gold node it
+        # corresponds. Only if the label is unique or its graph position is
+        # unique we can determine it. So we need to wait until enough edges are
+        # available
 
         # get gold node to possible decoded nodes
         node_by_label = defaultdict(list)
@@ -480,17 +491,16 @@ class AMRStateMachine():
                     # if len(possible_ids) != 1:
                     assert len(possible_ids) == 1
                     gold_to_dec_ids[g_nid] = possible_ids[0:1]
+                elif len(possible_ids) > 0:
+                    set_trace(context=30)
+                    print()
 
         return gold_to_dec_ids
 
     def _get_valid_align_arc_actions(self):
 
-        # Here we differentiate node ids, unique identifiers of nodes inside a
-        # graph, from labels, node names, which may be repeatable.
-        # when a node is predicted, it may be ambiguous to which gold node it
-        # corresponds. Only if the label is unique or its graph position is
-        # unique we can determine it. So we need to wait until enough edges are
-        # available
+        # map gold and aligned graph ids for the time being. Final mapping will
+        # be in self.gold_id_map
         gold_to_dec_ids = self._map_decoded_and_gold_ids()
 
         # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
