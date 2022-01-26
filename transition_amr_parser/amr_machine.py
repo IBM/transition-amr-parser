@@ -457,23 +457,7 @@ class AMRStateMachine():
             return action[:3]
         return 'NODE'
 
-    def _get_valid_align_arc_actions(self):
-        pass
-
-    def _get_valid_align_actions(self):
-        '''Get actions that generate given gold AMR'''
-
-        # Here we differentiate node ids, unique identifiers of nodes inside a
-        # graph, from labels, node names, which may be repeatable.
-        # when a node is predicted, it may be ambiguous to which gold node it
-        # corresponds. Only if the label is unique or its graph position is
-        # unique we can determine it. So we need to wait until enough edges are
-        # available
-#         gold_ids_by_nname = defaultdict(list)
-#         for nid, nname in self.gold_amr.nodes.items():
-#             gold_ids_by_nname[nname].append(nid)
-
-        # We can't as well predict the ROOT until the full graph is produced
+    def _map_decoded_and_gold_ids(self):
 
         # get gold node to possible decoded nodes
         node_by_label = defaultdict(list)
@@ -492,18 +476,23 @@ class AMRStateMachine():
 
                 # if name is not repeated in gold graph, we can assign the
                 # mapping
-                if len(possible_ids)> 0 and g_name_counts[g_nname] == 1:
+                if len(possible_ids) > 0 and g_name_counts[g_nname] == 1:
                     # if len(possible_ids) != 1:
                     assert len(possible_ids) == 1
                     gold_to_dec_ids[g_nid] = possible_ids[0:1]
 
-        # TODO:
-        # since last call, there may be new edges that help us disambiguate
-        # current nodes
+        return gold_to_dec_ids
 
-        # self.gold_id_map
+    def _get_valid_align_arc_actions(self):
 
-        # if self.get_current_token() == "New" and self.action_history[-1] == 'COPY':
+        # Here we differentiate node ids, unique identifiers of nodes inside a
+        # graph, from labels, node names, which may be repeatable.
+        # when a node is predicted, it may be ambiguous to which gold node it
+        # corresponds. Only if the label is unique or its graph position is
+        # unique we can determine it. So we need to wait until enough edges are
+        # available
+        gold_to_dec_ids = self._map_decoded_and_gold_ids()
+
         # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
         # if self.action_history and self.action_history[-1] == 'cause-01':
         #    set_trace(context=30)
@@ -550,7 +539,15 @@ class AMRStateMachine():
                         # LA
                         arc_actions.append(f'>LA({t},{gold_e_label})')
 
+        return arc_actions
+
+    def _get_valid_align_actions(self):
+        '''Get actions that generate given gold AMR'''
+
+        # We can't as well predict the ROOT until the full graph is produced
+
         # return arc actions if any
+        arc_actions = self._get_valid_align_arc_actions()
         if arc_actions:
             # TODO: Pointer and label can only be enforced independently, which
             # means that if we hae two diffrent arcs to choose from, we could
