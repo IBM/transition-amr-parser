@@ -480,23 +480,33 @@ class AMRStateMachine():
         for nid, nname in self.nodes.items():
             node_by_label[normalize(nname)].append(nid)
         gold_to_dec_ids = defaultdict(list)
+        g_name_counts = Counter(self.gold_amr.nodes.values())
         for g_nid, g_nname in self.gold_amr.nodes.items():
             if g_nid in self.gold_id_map:
                 # if we know the mapping, use it
-                gold_to_dec_ids[g_nid] = self.gold_id_map[g_nid]
+                gold_to_dec_ids[g_nid] = [self.gold_id_map[g_nid]]
             else:
                 # accumulate possible candidates due to ambigueties
-                gold_to_dec_ids[g_nid].extend(node_by_label[normalize(g_nname)])
+                possible_ids = node_by_label[normalize(g_nname)]
+                gold_to_dec_ids[g_nid].extend(possible_ids)
+
+                # if name is not repeated in gold graph, we can assign the
+                # mapping
+                if len(possible_ids)> 0 and g_name_counts[g_nname] == 1:
+                    # if len(possible_ids) != 1:
+                    assert len(possible_ids) == 1
+                    gold_to_dec_ids[g_nid] = possible_ids[0:1]
 
         # TODO:
         # since last call, there may be new edges that help us disambiguate
         # current nodes
+
         # self.gold_id_map
 
         # if self.get_current_token() == "New" and self.action_history[-1] == 'COPY':
         # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
-        if self.action_history and self.action_history[-1] == 'cause-01':
-            set_trace(context=30)
+        # if self.action_history and self.action_history[-1] == 'cause-01':
+        #    set_trace(context=30)
 
         # determine if there are pending arc actions
         # gold triples for the multiple id mappings
