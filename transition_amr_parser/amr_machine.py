@@ -477,17 +477,16 @@ class AMRStateMachine():
 
         gold_to_dec_ids = defaultdict(list)
         for nid, nname in self.nodes.items():
-            if nid in self.gold_id_map:
-                set_trace(context=30)
-                pass
-            else:
-                for gnid in gnode_by_label[normalize(nname)]:
-                    gold_to_dec_ids[gnid].append(nid)
+            for gnid in gnode_by_label[normalize(nname)]:
+                gold_to_dec_ids[gnid].append(nid)
 
-        # store already unambiguous nodes
+        # store already unambiguous and colapse with stored mappings
         for gnid, nids in gold_to_dec_ids.items():
-            if len(nids) == 1:
-                self.gold_id_map[nids[0]] = gnid
+            if gnid in self.gold_id_map:
+                # override with exiting matches
+                self.gold_id_map[gnid] = self.gold_id_map[gnid]
+            elif len(nids) == 1:
+                self.gold_id_map[gnid] = nids[0]
 
         return gold_to_dec_ids
 
