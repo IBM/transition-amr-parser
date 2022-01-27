@@ -470,23 +470,39 @@ class AMRStateMachine():
         # unique we can determine it. So we need to wait until enough edges are
         # available
 
-        # get gold node to possible decoded nodes
+        # get gold node to possible decoded nodes with common node label
         gnode_by_label = defaultdict(list)
         for gnid, gnname in self.gold_amr.nodes.items():
             gnode_by_label[normalize(gnname)].append(gnid)
-
         gold_to_dec_ids = defaultdict(list)
         for nid, nname in self.nodes.items():
             for gnid in gnode_by_label[normalize(nname)]:
                 gold_to_dec_ids[gnid].append(nid)
 
-        # store already unambiguous and colapse with stored mappings
+        # correct for mappings that have been already disambiguated and add
+        # possible new ones
         for gnid, nids in gold_to_dec_ids.items():
             if gnid in self.gold_id_map:
                 # override with exiting matches
-                self.gold_id_map[gnid] = self.gold_id_map[gnid]
-            elif len(nids) == 1:
-                self.gold_id_map[gnid] = nids[0]
+                gold_to_dec_ids[gnid] = self.gold_id_map[gnid]
+
+            elif (
+                len(nids) == 1
+                and len(
+                    [1 for n in gold_to_dec_ids.values() if n == nids[0:1]]
+                ) == 1
+            ):
+                # after last action was executed, there is a unique gold to
+                # decoded node pair for this gold id, we can add it to the
+                # final mappiong
+
+                #if self.tokens[:3] == ['Good', 'things', 'also']:
+                #   set_trace(context=30)
+
+                self.gold_id_map[gnid] = nids[0:1]
+            else:
+                # ambiguous case
+                pass
 
         return gold_to_dec_ids
 
