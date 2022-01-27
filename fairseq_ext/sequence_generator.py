@@ -721,7 +721,7 @@ class SequenceGenerator(object):
 
                 if constrain_pointer:
                     # If pointer is constrained, we need to also constrain arc
-                    # labels consistently. Since we selected already an action 
+                    # labels consistently. Since we selected already an action
                     # history position per sentence, this tells use which are
                     # actions to restrict to
                     for j, idx_act in constrain_pointer.items():
@@ -730,12 +730,17 @@ class SequenceGenerator(object):
                         save_action_lprobs = []
                         for action in constrain_pointer[j][pointer_argmax[j].item()]:
                             idx = self.tgt_dict.index(action)
-                            save_action_lprobs.append((idx, lprobs[j, idx].item())) 
-                        # all other actions are forbidden    
+                            save_action_lprobs.append((idx, lprobs[j, idx].item()))
+                        # all other actions are forbidden
                         lprobs[j, :] = -math.inf
                         for idx, lprob in save_action_lprobs:
-                            assert lprob != -math.inf, "Alignment error, forced arc has probability zero"
                             lprobs[j, idx] = lprob
+
+                        if (lprobs[j, :] == -math.inf).all(): set_trace(context=30)
+
+                        assert (lprobs[j, :] != -math.inf).any(), \
+                            "Alignment error, one force arc must have p>0"
+
 
             # ====================================================
 
@@ -965,7 +970,7 @@ class SequenceGenerator(object):
             valid_bbsz_mask = active_mask_selected.lt(cand_size)    # size (bsz, beam_size)
             if not valid_bbsz_mask.any(dim=1).all():
                 if any(bool(m.gold_amr) for m in amr_state_machines):
-                    all_valid_actions = ' '.join([a for m in amr_state_machines for a in m.get_valid_actions()])    
+                    all_valid_actions = ' '.join([a for m in amr_state_machines for a in m.get_valid_actions()])
                     raise Exception(
                         'there must be remaining valid candidates for each sentence in batch\n'
                         'Maybe trying to align a node name not in vocabulary?, \n'
