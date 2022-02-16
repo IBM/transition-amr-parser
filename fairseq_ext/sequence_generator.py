@@ -971,10 +971,11 @@ class SequenceGenerator(object):
             if not valid_bbsz_mask.any(dim=1).all():
                 if any(bool(m.gold_amr) for m in amr_state_machines):
                     all_valid_actions = ' '.join([a for m in amr_state_machines for a in m.get_valid_actions()])
+                    set_trace(context=30)
                     raise Exception(
                         'there must be remaining valid candidates for each sentence in batch\n'
                         'Maybe trying to align a node name not in vocabulary?, \n'
-                        f'check {all_valid_actions}'
+                        f'check: {all_valid_actions}'
                     )
                 else:
                     raise Exception('there must be remaining valid candidates for each sentence in batch')

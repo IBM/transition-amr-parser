@@ -307,6 +307,36 @@ class AMROracle():
         return ['CLOSE'], [1.0]
 
 
+def get_neighbour_disambiguation(amr):
+
+    gnode_by_label = defaultdict(list)
+    for gnid, gnname in amr.nodes.items():
+        gnode_by_label[normalize(gnname)].append(gnid)
+
+    # get all neighbours
+    id_neighbours = {}
+    for nid, nname in amr.nodes.items():
+        if len(gnode_by_label[nname]) > 1:
+            id_neighbours[nid] = []
+            for (s, l, t) in amr.edges:
+                if s == nid or t == nid:
+                    id_neighbours[nid].append(
+                        (amr.nodes[s], l, amr.nodes[t])
+                    )
+
+    # get the unique identifying edges, i.e. the edegs that only appear as
+    # relatives of one of the nodes in a set that shares same node label
+    for nname, nids in gnode_by_label.items():
+        if len(nids) == 1:
+            continue
+        edge_counts = Counter([e for n in nids for e in id_neighbours[n]])
+        for nid in nids:
+            id_neighbours[nid] = [
+                e for e in id_neighbours[nid] if edge_counts[e] == 1
+            ]
+
+    return id_neighbours
+
 class AMRStateMachine():
 
     def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
@@ -386,10 +416,14 @@ class AMRStateMachine():
         self.tok_cursor = 0
         self.node_stack = []
         self.action_history = []
+
         # ONLY for align mode.
         self.gold_amr = gold_amr
-        # map from gold ids to parsing ids
+        # map from gold ids to parsing ids and edges to disambiguate repeated
+        # labels. NOTE: This is no unique identifier for the whole graph
         self.gold_id_map = {}
+        self.gold_neighbours = get_neighbour_disambiguation(self.gold_amr)
+
         # AMR as we construct it
         # NOTE: We will use position of node generating action in action
         # history as node_id
@@ -460,7 +494,7 @@ class AMRStateMachine():
     def _map_decoded_and_gold_ids(self):
         '''
         Given partial aligned graph and gold graph map each prediced node id to
-        a gold id
+        a gold id by matching node labels and edges to neighbours
         '''
 
         # Here we differentiate node ids, unique identifiers of nodes inside a
@@ -469,6 +503,14 @@ class AMRStateMachine():
         # corresponds. Only if the label is unique or its graph position is
         # unique we can determine it. So we need to wait until enough edges are
         # available
+
+        def get_key_edges(nid, ids=False):
+            return set([
+                (e[0], e[1], self.nodes[e[2]]) if ids else
+                (self.nodes[e[0]], e[1], self.nodes[e[2]])
+                for e in self.edges
+                if e[0] == nids[0] or e[2] == nid
+            ])
 
         # get gold node to possible decoded nodes with common node label
         gnode_by_label = defaultdict(list)
@@ -479,14 +521,19 @@ class AMRStateMachine():
             for gnid in gnode_by_label[normalize(nname)]:
                 gold_to_dec_ids[gnid].append(nid)
 
-        # correct for mappings that have been already disambiguated and add
-        # possible new ones
+        # check if we can disambiguate node id mappings based on exclusion bias
+        # or edges
         for gnid, nids in gold_to_dec_ids.items():
-            if gnid in self.gold_id_map:
-                # override with exiting matches
-                gold_to_dec_ids[gnid] = self.gold_id_map[gnid]
 
-            elif (
+            if gnid in self.gold_id_map:
+                continue
+
+            # FIXME: Removing this leads to unexpected multiple bnids to one
+            # nid
+
+            nid2gnid = {v[0]: k for k, v in self.gold_id_map.items()}
+
+            if (
                 len(nids) == 1
                 and len(
                     [1 for n in gold_to_dec_ids.values() if n == nids[0:1]]
@@ -495,14 +542,86 @@ class AMRStateMachine():
                 # after last action was executed, there is a unique gold to
                 # decoded node pair for this gold id, we can add it to the
                 # final mappiong
-
-                #if self.tokens[:3] == ['Good', 'things', 'also']:
-                #   set_trace(context=30)
-
                 self.gold_id_map[gnid] = nids[0:1]
+
+            elif len(nids) == 1:
+
+                # this nid also appears on another gnid
+                # try to disambiguate with edges
+                key_edges = get_key_edges(nids[0])
+                if (
+                    bool(key_edges)
+                    and key_edges <= set(self.gold_neighbours[gnid])
+                ):
+                    self.gold_id_map[gnid] = nids[0:1]
+
+            elif self.gold_neighbours[gnid] != []:
+
+                # this gnid has multiple nids assigned
+                # try to disambiguate with edges
+                for nid in nids:
+                    key_edges = get_key_edges(nid)
+                    if (
+                        bool(key_edges)
+                        and key_edges <= set(self.gold_neighbours[gnid])
+                    ):
+                        self.gold_id_map[gnid] = [nid]
+                        break
+
+            elif len(nids) > 1:
+
+                # this gnid has multiple nids assigned
+                # if previous fails 1-distance neighbours is not enough. We may
+                # get lucky and be able to locate and edge to a mapped parent
+                for nid in nids:
+                    edges = list(get_key_edges(nid, ids=True))
+                    if (
+                        len(edges) == 1
+                        and edges[0][0] in nid2gnid
+                        and (
+                            nid2gnid[edges[0][0]], edges[0][1], gnid
+                        ) in self.gold_amr.edges
+                    ):
+                        self.gold_id_map[gnid] = [nid]
+                        break
+
             else:
-                # ambiguous case
-                pass
+                set_trace(context=30)
+                print()
+
+
+            if bool(self.gold_id_map) and max(Counter([y for x in self.gold_id_map.values() for y in x]).values()) > 1:
+                set_trace(context=30)
+                print()
+
+        # if self.action_history and self.action_history[-1] == '>RA(135,:mode)':
+        #    set_trace(context=30)
+        #    print()
+
+        # TODO: Disambiguate by no more edges to predict
+
+        # filter current mapping with disambiguations
+        # if self.action_history and self.action_history[-1] == '>LA(0,:snt1)':
+        #    set_trace(context=30)
+        #    pass
+
+        assigned_nids = [n for ns in self.gold_id_map.values() for n in ns]
+        to_delete = []
+        for gid, nids in gold_to_dec_ids.items():
+            if gid in self.gold_id_map:
+                # override with stablished mappings
+                gold_to_dec_ids[gid] = self.gold_id_map[gid]
+            else:
+                # do not forget to also delete decoding nids that have been
+                # assigned. This may imply deleting that option alltogether
+                for nid in nids:
+                    if nid in assigned_nids:
+                        gold_to_dec_ids[gid].remove(nid)
+                if gold_to_dec_ids[gid] == []:
+                    to_delete.append(gid)
+        # cleanup
+        for gid in to_delete:
+            del gold_to_dec_ids[gid]
 
         return gold_to_dec_ids
 
@@ -512,17 +631,15 @@ class AMRStateMachine():
         # be in self.gold_id_map
         gold_to_dec_ids = self._map_decoded_and_gold_ids()
 
-        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
-        # if self.action_history and self.action_history[-1] == 'cause-01':
-        #    set_trace(context=30)
-
         # determine if there are pending arc actions
         # gold triples for the multiple id mappings
         arc_actions = []
         for (gold_s_id, gold_e_label, gold_t_id) in self.gold_amr.edges:
 
+
+            # if edge node ids are not in the node stack and head of node
+            # stack both for right arc and left arc, ignore this one
             if not (
-                # one or more possible RAs
                 any(
                     n in gold_to_dec_ids[gold_s_id]
                     for n in self.node_stack[:-1]
@@ -565,6 +682,10 @@ class AMRStateMachine():
 
         # We can't as well predict the ROOT until the full graph is produced
 
+        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
+        if self.action_history and len(self.action_history) == 204:
+            set_trace(context=30)
+
         # return arc actions if any
         arc_actions = self._get_valid_align_arc_actions()
         if arc_actions:
@@ -577,15 +698,28 @@ class AMRStateMachine():
         # well as node labels that are missing.
         missing_gold_nodes = []
         node_names = list(self.nodes.values())
+        # remove first all mapped nodes
+        for _, nids in self.gold_id_map.items():
+            if self.nodes[nids[0]] not in node_names:
+                set_trace(context=30)
+            node_names.remove(self.nodes[nids[0]])
+
+        # if self.action_history and self.action_history[-1] == '>RA(135,:mode)':
+        #    set_trace(context=30)
+        #    print()
+
+        # remove then ambiguous predicted labels and add the rest to missing
+        # nodes
         for nid, nname in self.gold_amr.nodes.items():
             nname = normalize(nname)
             if nid in self.gold_id_map:
-                # we have it and it is identified, remove its name for other
-                # instances of the same label that are not identified
-                node_names.remove(nname)
+                continue
             elif nname in node_names:
-                # label is there but it could be another node of same label
-                node_names.remove(nname)
+                # label is predicted but gnid is not determined at this step
+                try:
+                    node_names.remove(nname)
+                except:
+                    set_trace(context=30)
             else:
                 missing_gold_nodes.append(nname)
 
