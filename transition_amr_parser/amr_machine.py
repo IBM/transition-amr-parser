@@ -337,6 +337,7 @@ def get_neighbour_disambiguation(amr):
 
     return id_neighbours
 
+
 class AMRStateMachine():
 
     def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
@@ -627,53 +628,61 @@ class AMRStateMachine():
 
     def _get_valid_align_arc_actions(self):
 
-        # map gold and aligned graph ids for the time being. Final mapping will
-        # be in self.gold_id_map
+        # note that actions predict node lebels, not node ids so during partial
+        # decoding we may not know which gold node corresponds to which decoded
+        # node until a number of edges has been predicted.
+        # Here update the mapping between gold and decoded node ids. Since we
+        # predicted nodes or edges this may have changed
         gold_to_dec_ids = self._map_decoded_and_gold_ids()
 
-        # determine if there are pending arc actions
-        # gold triples for the multiple id mappings
-        arc_actions = []
+        # note that during partial decoding we may have multiple possible
+        # decoded edges for each gold edge (due to ambigous node mapping above)
+        # Here we cluster gold edges by same potential decoded edges.
+        decoded_to_goldedges = defaultdict(list)
+        goldedges_to_candidates = defaultdict(list)
         for (gold_s_id, gold_e_label, gold_t_id) in self.gold_amr.edges:
-
-
-            # if edge node ids are not in the node stack and head of node
-            # stack both for right arc and left arc, ignore this one
-            if not (
-                any(
-                    n in gold_to_dec_ids[gold_s_id]
-                    for n in self.node_stack[:-1]
-                ) and self.node_stack[-1] in gold_to_dec_ids[gold_t_id]
-                # one or more possible LAs
-                or any(
-                    n in gold_to_dec_ids[gold_t_id]
-                    for n in self.node_stack[:-1]
-                ) and self.node_stack[-1] in gold_to_dec_ids[gold_s_id]
-            ):
-                continue
-
-            # if any possible disambiguated gold edge exists, we can skip this
-            # one
-            missing_versions = []
-            found = False
+            key = []
             for nid in gold_to_dec_ids[gold_s_id]:
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (nid, gold_e_label, nid2) in self.edges:
-                        found = True
-                        break
-                    missing_versions.append((nid, gold_e_label, nid2))
-                if found:
-                    break
-
-            if not found:
-                # other possible disambiguations
-                for (s, l, t) in missing_versions:
-                    if s in self.node_stack[:-1] and t == self.node_stack[-1]:
-                        # RA
-                        arc_actions.append(f'>RA({s},{gold_e_label})')
+                        key.append((nid, gold_e_label, nid2))
                     else:
-                        # LA
-                        arc_actions.append(f'>LA({t},{gold_e_label})')
+                        goldedges_to_candidates[
+                            (gold_s_id, gold_e_label, gold_t_id)
+                        ].append((nid, gold_e_label, nid2))
+            decoded_to_goldedges[tuple(key)].append(
+                (gold_s_id, gold_e_label, gold_t_id)
+            )
+
+        # if there are N gold edges and N possible decoded edges (even if we do
+        # not know which is which) consider those gold edges complete,
+        # otherwise add to caondidates
+        missing_gold_edges = []
+        for dec_edges, gold_edges in decoded_to_goldedges.items():
+            if len(dec_edges) != len(gold_edges):
+                missing_gold_edges.extend(gold_edges)
+            elif len(dec_edges) > len(gold_edges):
+                set_trace(context=30)
+                raise Exception()
+
+        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
+        if self.action_history and len(self.action_history) >= 204:
+            set_trace(context=30)
+
+        # corresponding possible decoded edges
+        arc_actions = []
+        for (gold_s_id, gold_e_label, gold_t_id) in missing_gold_edges:
+            for (s, l, t) in goldedges_to_candidates[
+                (gold_s_id, gold_e_label, gold_t_id)
+            ]:
+                if s in self.node_stack[:-1] and t == self.node_stack[-1]:
+                    # right arc stack --> top
+                    action = f'>RA({s},{gold_e_label})'
+                else:
+                    # left arc stack <-- top
+                    action = f'>LA({t},{gold_e_label})'
+                if action not in arc_actions:
+                    arc_actions.append(action)
 
         return arc_actions
 
@@ -681,10 +690,6 @@ class AMRStateMachine():
         '''Get actions that generate given gold AMR'''
 
         # We can't as well predict the ROOT until the full graph is produced
-
-        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
-        if self.action_history and len(self.action_history) == 204:
-            set_trace(context=30)
 
         # return arc actions if any
         arc_actions = self._get_valid_align_arc_actions()
@@ -716,10 +721,7 @@ class AMRStateMachine():
                 continue
             elif nname in node_names:
                 # label is predicted but gnid is not determined at this step
-                try:
-                    node_names.remove(nname)
-                except:
-                    set_trace(context=30)
+                node_names.remove(nname)
             else:
                 missing_gold_nodes.append(nname)
 
