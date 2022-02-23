@@ -20,6 +20,7 @@ import re
 # need to be installed with pip install penman
 import penman
 from penman.layout import Push
+from ipdb import set_trace
 
 
 class AMR():
@@ -31,11 +32,11 @@ class AMR():
                  alignments=None, clean=True, connect=False, id=None):
 
         # make graph un editable
-        self.tokens = tokens
-        self.nodes = nodes
-        self.edges = edges
+        self.tokens = list(tokens)
+        self.nodes = dict(nodes)
+        self.edges = list(edges)
         self.penman = penman
-        self.alignments = alignments
+        self.alignments = dict(alignments) if alignments else None
         self.id = id
 
         # edges by parent
@@ -53,15 +54,21 @@ class AMR():
 
         # do the cleaning when necessary (e.g. build the AMR graph from model
         # output, which might not be valid)
-        if clean:
+        # if clean:
             # cleaning is needed for oracle for AMR 3.0 training data
-            self.clean_amr()
-        if connect:
-            self.connect_graph()
+        #    self.clean_amr()
+        # if connect:
+        #    self.connect_graph()
 
-        # if self.root is None:
-        #     # breakpoint()
-        #     self.connect_graph()
+        if self.root is None:
+            # heuristic to find a root if missing
+            # simple criteria, head with more children is the root
+            roots = [n for n in self.nodes if len(self.parents(n)) == 0]
+            roots = sorted(roots, key=lambda n: len(self.children(n)))
+            # add rel edges
+            self.root = roots[-1]
+            for n in roots[:-1]:
+                self.edges.append((self.root, AMR.default_rel, n))
 
     def clean_amr(self):
         # empty graph
