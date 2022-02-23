@@ -475,6 +475,17 @@ class AMRStateMachine():
         # import ipdb; ipdb.set_trace(context=30)
         return result
 
+    def __str__(self):
+
+        string = ' '.join(self.tokens) + '\n\n'
+        string += ' '.join(self.action_history) + '\n\n'
+        amr_str = self.get_annotation()
+        amr_str = '\n'.join(x for x in amr_str.split('\n') if x and x[0] != '#')
+        string += f'{amr_str}\n\n'
+        # string += ' '.join(self.get_valid_actions()) + '\n\n'
+
+        return string
+
     def get_current_token(self):
         if self.tok_cursor >= len(self.tokens):
             return None
@@ -590,21 +601,13 @@ class AMRStateMachine():
                 set_trace(context=30)
                 print()
 
-
-            if bool(self.gold_id_map) and max(Counter([y for x in self.gold_id_map.values() for y in x]).values()) > 1:
+            if (
+                bool(self.gold_id_map) and max(Counter(
+                    [y for x in self.gold_id_map.values() for y in x]
+                ).values()) > 1
+            ):
                 set_trace(context=30)
                 print()
-
-        # if self.action_history and self.action_history[-1] == '>RA(135,:mode)':
-        #    set_trace(context=30)
-        #    print()
-
-        # TODO: Disambiguate by no more edges to predict
-
-        # filter current mapping with disambiguations
-        # if self.action_history and self.action_history[-1] == '>LA(0,:snt1)':
-        #    set_trace(context=30)
-        #    pass
 
         assigned_nids = [n for ns in self.gold_id_map.values() for n in ns]
         to_delete = []
@@ -628,7 +631,12 @@ class AMRStateMachine():
 
     def _get_valid_align_arc_actions(self):
 
-        # note that actions predict node lebels, not node ids so during partial
+        #if self.action_history and '>RA(52,:op2)' in self.action_history:
+        #    print(self)
+        #    set_trace()
+        #    print()
+
+        # note that actions predict node labels, not node ids so during partial
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges has been predicted.
         # Here update the mapping between gold and decoded node ids. Since we
@@ -641,22 +649,60 @@ class AMRStateMachine():
         decoded_to_goldedges = defaultdict(list)
         goldedges_to_candidates = defaultdict(list)
         for (gold_s_id, gold_e_label, gold_t_id) in self.gold_amr.edges:
+
+            if not (
+                # one or more possible RAs
+                any(
+                    n in gold_to_dec_ids[gold_s_id]
+                    for n in self.node_stack[:-1]
+                ) and self.node_stack[-1] in gold_to_dec_ids[gold_t_id]
+                # one or more possible LAs
+                or any(
+                    n in gold_to_dec_ids[gold_t_id]
+                    for n in self.node_stack[:-1]
+                ) and self.node_stack[-1] in gold_to_dec_ids[gold_s_id]
+            ):
+                # skip if no ids present involved in this gold edge
+                continue
+
+            # store decoded <-> gold cluster
             key = []
+            used_nids = []
+            used_nid2s = []
             for nid in gold_to_dec_ids[gold_s_id]:
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (nid, gold_e_label, nid2) in self.edges:
+                        # this possible disambiguation is already decoded
                         key.append((nid, gold_e_label, nid2))
-                    else:
-                        goldedges_to_candidates[
-                            (gold_s_id, gold_e_label, gold_t_id)
-                        ].append((nid, gold_e_label, nid2))
+                        used_nids.append(nid)
+                        used_nid2s.append(nid2)
             decoded_to_goldedges[tuple(key)].append(
                 (gold_s_id, gold_e_label, gold_t_id)
             )
 
+            # store potential decodable edges for this gold edge. Note that we
+            # can further disambiguate for this given gold edge
+            for nid in gold_to_dec_ids[gold_s_id]:
+                if nid in used_nids:
+                    # if we used this already above, is not a possible decoding
+                    continue
+                for nid2 in gold_to_dec_ids[gold_t_id]:
+                    if (
+                        nid2 in used_nid2s
+                        or (nid, gold_e_label, nid2) in self.edges
+                    ):
+                        # if we used this already above, is not a possible
+                        # decoding
+                        continue
+
+                    # this is a potential decoding option
+                    goldedges_to_candidates[
+                        (gold_s_id, gold_e_label, gold_t_id)
+                    ].append((nid, gold_e_label, nid2))
+
         # if there are N gold edges and N possible decoded edges (even if we do
         # not know which is which) consider those gold edges complete,
-        # otherwise add to caondidates
+        # otherwise add to candidates
         missing_gold_edges = []
         for dec_edges, gold_edges in decoded_to_goldedges.items():
             if len(dec_edges) != len(gold_edges):
@@ -665,9 +711,10 @@ class AMRStateMachine():
                 set_trace(context=30)
                 raise Exception()
 
-        # if self.action_history and self.action_history[-1] == '>LA(6,:ARG0)':
-        if self.action_history and len(self.action_history) >= 204:
-            set_trace(context=30)
+        #if self.action_history and 'go-01' in self.action_history:
+        #if self.action_history and self.action_history[-1] == 'you':
+        #    set_trace(context=30)
+        #    print()
 
         # corresponding possible decoded edges
         arc_actions = []
@@ -708,10 +755,6 @@ class AMRStateMachine():
             if self.nodes[nids[0]] not in node_names:
                 set_trace(context=30)
             node_names.remove(self.nodes[nids[0]])
-
-        # if self.action_history and self.action_history[-1] == '>RA(135,:mode)':
-        #    set_trace(context=30)
-        #    print()
 
         # remove then ambiguous predicted labels and add the rest to missing
         # nodes
@@ -905,10 +948,10 @@ class AMRStateMachine():
     def get_annotation(self):
         amr = AMR(self.tokens, self.nodes, self.edges, self.root,
                   alignments=self.alignments, clean=True, connect=True)
-        if self.gold_amr:
-            # Sanity check, we reproduce the gold AMR
-            set_trace(context=30)
-            print()
+        #if self.gold_amr:
+        #    # Sanity check, we reproduce the gold AMR
+        #    set_trace(context=30)
+        #    print()
 
         return amr.__str__()
 
