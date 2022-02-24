@@ -524,10 +524,39 @@ class AMRStateMachine():
                 if e[0] == nids[0] or e[2] == nid
             ])
 
-        # get gold node to possible decoded nodes with common node label
+        # assign gold node ids to decoded node ids based on node label
+        # firts collect ids mapped by nodel label for both, ignore mappings
+        # that we know
         gnode_by_label = defaultdict(list)
         for gnid, gnname in self.gold_amr.nodes.items():
-            gnode_by_label[normalize(gnname)].append(gnid)
+            if gnid not in self.gold_id_map:
+                gnode_by_label[normalize(gnname)].append(gnid)
+        node_by_label = defaultdict(list)
+        for nid, nname in self.nodes.items():
+            if nid not in self.gold_id_map.values():
+                node_by_label[normalize(nname)].append(nid)
+        # collect ambiguous mappings
+        gold_to_dec_ids = defaultdict(list)
+        gold_dec_map = defaultdict(list)
+        for gnname, gnids in gnode_by_label.items():
+            # note key may be (), hence the extend
+            gold_dec_map[tuple(gnids)].extend(node_by_label[gnname])
+            for gnid in gnids:
+                gold_to_dec_ids[gnid] = node_by_label[gnname]
+
+        # disambiguate
+        for gnids, nids in gold_dec_map.items():
+            if len(gnids) == len(nids) == 1:
+                # by elimination
+                self.gold_id_map[gnids[0]] = nids[0]
+            elif len(gnids) <  len(nids):
+                # cant be
+                set_trace(context=30)
+                raise Exception()
+
+        return gold_dec_map, gold_to_dec_ids
+
+
         gold_to_dec_ids = defaultdict(list)
         for nid, nname in self.nodes.items():
             for gnid in gnode_by_label[normalize(nname)]:
@@ -643,7 +672,8 @@ class AMRStateMachine():
            set_trace()
            print()
 
-        gold_to_dec_ids = self._map_decoded_and_gold_ids()
+        gold_dec_map, gold_to_dec_ids = self._map_decoded_and_gold_ids()
+        set_trace(context=30)
 
         # note that during partial decoding we may have multiple possible
         # decoded edges for each gold edge (due to ambigous node mapping above)
@@ -753,10 +783,10 @@ class AMRStateMachine():
         missing_gold_nodes = []
         node_names = list(self.nodes.values())
         # remove first all mapped nodes
-        for _, nids in self.gold_id_map.items():
-            if self.nodes[nids[0]] not in node_names:
+        for _, nid in self.gold_id_map.items():
+            if self.nodes[nid] not in node_names:
                 set_trace(context=30)
-            node_names.remove(self.nodes[nids[0]])
+            node_names.remove(self.nodes[nid])
 
         # remove then ambiguous predicted labels and add the rest to missing
         # nodes
