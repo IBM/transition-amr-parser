@@ -631,16 +631,18 @@ class AMRStateMachine():
 
     def _get_valid_align_arc_actions(self):
 
-        #if self.action_history and '>RA(52,:op2)' in self.action_history:
-        #    print(self)
-        #    set_trace()
-        #    print()
-
         # note that actions predict node labels, not node ids so during partial
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges has been predicted.
         # Here update the mapping between gold and decoded node ids. Since we
         # predicted nodes or edges this may have changed
+
+        # if self.action_history and '>RA(165,:ARG0)' in self.action_history:
+        if self.action_history[-3:] == ['>RA(4,:snt7)', 'SHIFT', 'you']:
+           print(self)
+           set_trace()
+           print()
+
         gold_to_dec_ids = self._map_decoded_and_gold_ids()
 
         # note that during partial decoding we may have multiple possible
