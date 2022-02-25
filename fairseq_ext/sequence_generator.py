@@ -736,10 +736,13 @@ class SequenceGenerator(object):
                         for idx, lprob in save_action_lprobs:
                             lprobs[j, idx] = lprob
 
-                        if (lprobs[j, :] == -math.inf).all(): set_trace(context=30)
+                        # model may have assigned -inf to forced action, set to prob 1
+                        if (lprobs[j, :] == -math.inf).all(): 
+                            # FIXME: Add a warning for this
+                            lprobs[j, idx] = 0.0
 
-                        assert (lprobs[j, :] != -math.inf).any(), \
-                            "Alignment error, one force arc must have p>0"
+                        #assert (lprobs[j, :] != -math.inf).any(), \
+                        #    "Alignment error, one force arc must have p>0"
 
 
             # ====================================================
