@@ -371,6 +371,50 @@ class AlignModeTracker():
         a gold id by matching node labels and edges to neighbours
         '''
 
+        dec2gold = {}
+        for nname, (gnids, nids) in self.gold_id_map.items():
+            for i in range(len(nids)):
+                dec2gold[nids[i]] = gnids[i]
+
+        if False:
+        # if machine.action_history and 'executive' in machine.action_history:
+            # SHIFT work-09
+            print(machine)
+            print(' '.join(f'{k} {v}' for k, v in self.gold_id_map.items() if v[1]))
+            print()
+            print(' '.join(f'{k} {v}' for k, v in self.ambiguous_gold_id_map.items() if v[1]))
+            set_trace()
+
+        # check if nodes can be disambiguated by propagating ids through edges
+        for (s, l, t) in machine.edges:
+            if s in dec2gold and t not in dec2gold:
+                for gt, gl in self.gold_amr.children(dec2gold[s]):
+                    if self.gold_amr.nodes[gt] == machine.nodes[t] and gl == l:
+                        nname = normalize(machine.nodes[t])
+                        if nname not in self.gold_id_map:
+                            self.gold_id_map[nname] = [[gt], [t]]
+                            self.ambiguous_gold_id_map[nname][0].remove(gt)
+                            self.ambiguous_gold_id_map[nname][1].remove(t)
+                            if self.ambiguous_gold_id_map[nname][0] == []:
+                                del self.ambiguous_gold_id_map[nname]
+                        else:
+                            set_trace(context=30)
+                            print()
+
+            if t in dec2gold and s not in dec2gold:
+                for gs, gl in self.gold_amr.parents(dec2gold[t]):
+                    if self.gold_amr.nodes[gs] == machine.nodes[s] and gl == l:
+                        nname = normalize(machine.nodes[s])
+                        if nname not in self.gold_id_map:
+                            self.gold_id_map[nname] = [[gs], [s]]
+                            self.ambiguous_gold_id_map[nname][0].remove(gs)
+                            self.ambiguous_gold_id_map[nname][1].remove(s)
+                            if self.ambiguous_gold_id_map[nname][0] == []:
+                                del self.ambiguous_gold_id_map[nname]
+                        else:
+                            set_trace(context=30)
+                            print()
+
         # Here we differentiate node ids, unique identifiers of nodes inside a
         # graph, from labels, node names, which may be repeatable.
         # when a node is predicted, it may be ambiguous to which gold node it
@@ -409,9 +453,11 @@ class AlignModeTracker():
                         self.gold_id_map[nname][1].append(nid)
 
                         # this should not happen
-                        if len(self.gold_id_map[nname][1]) > len(self.gold_id_map[nname][0]):
-                                set_trace(context=30)
-                                print()
+                        if (
+                            len(self.gold_id_map[nname][1])
+                            > len(self.gold_id_map[nname][0])
+                        ):
+                            raise Exception()
 
                     else:
                         set_trace(context=30)
@@ -454,10 +500,10 @@ class AlignModeTracker():
                     self.gold_id_map[gnname][1].append(nid)
 
             # if only one is left, this is also unambiguous
-            left_gnids = tuple(
+            left_gnids = [
                 n for n in self.ambiguous_gold_id_map[gnname][0]
                 if n not in gnid_updates
-            )
+            ]
             left_nids = [
                 n for n in self.ambiguous_gold_id_map[gnname][1]
                 if n not in nid_updates
@@ -578,7 +624,7 @@ class AlignModeTracker():
 
         # note that actions predict node labels, not node ids so during partial
         # decoding we may not know which gold node corresponds to which decoded
-        # node until a number of edges has been predicted.
+        # node until a number of edges have been predicted.
         # Here update the mapping between gold and decoded node ids. Since we
         # predicted nodes or edges this may have changed
         decoded_to_goldedges, goldedges_to_candidates = \
@@ -794,10 +840,6 @@ class AMRStateMachine():
 
         # We can't as well predict the ROOT until the full graph is produced
         #if self.action_history and '>LA(95,:polarity)' in self.action_history:
-        #if self.action_history and '>RA(145,:mode)' in self.action_history:
-        # if self.action_history and '>RA(37,:op2)' in self.action_history:
-        #if self.action_history[-3:] == ['>RA(4,:snt7)', 'SHIFT', 'you']:
-        #if self.get_current_token() == 'IM':
         if False:
             # SHIFT work-09
             print(self)
