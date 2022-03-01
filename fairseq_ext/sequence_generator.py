@@ -19,7 +19,7 @@ from packaging import version
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
-from transition_amr_parser.amr_machine import AMRStateMachine
+from transition_amr_parser.amr_machine import AMRStateMachine, normalize
 from fairseq_ext.utils import join_action_pointer
 
 
@@ -501,6 +501,7 @@ class SequenceGenerator(object):
                 for i, j in enumerate(valid_bbsz_idx):
                     sm = amr_state_machines[j]
                     act_allowed = sm.get_valid_actions()
+
                     # use predicate rules to further restrict the action space for PRED actions
                     pred_allowed = None
                     if use_pred_rules:
@@ -530,6 +531,42 @@ class SequenceGenerator(object):
                         else:
                             # non canonincal actions (explicit node names)
                             vocab_ids_allowed.add(self.tgt_dict.index(act))
+
+                    # in align mode
+                    # there can not be any <unk>
+                    # if a node name is not in the vocabulary, we need to force
+                    # a COPY at least on the last time that it is possible
+                    if sm.gold_amr is not None:
+
+                        # forced COPY
+                        remaining_tokens = [
+                            normalize(t) 
+                            for t in sm.tokens[sm.tok_cursor+1:]
+                        ]
+                        for nname in sm.align_tracker.get_missing_nnames():
+                            nname = normalize(nname)
+                            if (
+                                self.tgt_dict.index(nname) 
+                                == self.tgt_dict.index('<unk>') 
+                                and nname == normalize(sm.get_current_token()) 
+                                and nname not in remaining_tokens
+                            ):
+                                copy_idx = self.tgt_dict.index('COPY')
+                                assert copy_idx in vocab_ids_allowed, \
+                                    'align mode needs all nodes to be in ' \
+                                    'the vocabulary or predictable by COPY.' \
+                                    ' This should not be happening.'    
+                                vocab_ids_allowed = {copy_idx}
+
+                        # no <unk>
+                        unk_set = set([self.tgt_dict.index('<unk>')])
+                        unk_actions_str = ' '.join(act_allowed)
+                        if not bool(vocab_ids_allowed -  unk_set):
+                            set_trace(context=30)
+                        assert bool(vocab_ids_allowed -  unk_set), \
+                            f'all of "{unk_actions_str}" are <unk>: you can' \
+                            ' not use align mode enforcing actions not in ' \
+                            'the vocabulary'
 
                     # TODO update below
                     # use predicate rules to further restrict the action space for PRED actions

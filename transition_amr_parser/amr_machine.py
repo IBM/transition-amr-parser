@@ -321,14 +321,15 @@ class AlignModeTracker():
         for gnid, gnname in gold_amr.nodes.items():
             gnode_by_label[normalize(gnname)].append(gnid)
 
-        # collect ambiguous and certain mappings separately
+        # collect ambiguous and certain mappings separately in the structure
+        # {node_label: [[gold_ids], [decoded_ids]]}
         self.gold_id_map = defaultdict(dict)
         self.ambiguous_gold_id_map = defaultdict(dict)
         for gnname, gnids in gnode_by_label.items():
             if len(gnids) == 1:
-                self.gold_id_map[gnname] = [gnids[0], None]
+                self.gold_id_map[gnname] = [gnids, []]
             else:
-                self.ambiguous_gold_id_map[gnname] = [tuple(gnids), []]
+                self.ambiguous_gold_id_map[gnname] = [gnids, []]
 
         # get a hash of each node that can disambiguate based on size 1
         # neighbouhood
@@ -341,7 +342,7 @@ class AlignModeTracker():
             gnode_by_label[normalize(gnname)].append(gnid)
 
         # get all neighbours
-        id_neighbours = {}
+        id_neighbours = defaultdict(list)
         for nid, nname in amr.nodes.items():
             if len(gnode_by_label[nname]) > 1:
                 id_neighbours[nid] = []
@@ -395,7 +396,7 @@ class AlignModeTracker():
             for nid in nids:
                 found = False
                 if nname in self.gold_id_map:
-                    if nid == self.gold_id_map[nname][1]:
+                    if nid in self.gold_id_map[nname][1]:
                         found = True
                 if nname in self.ambiguous_gold_id_map:
                     if nid in self.ambiguous_gold_id_map[nname][1]:
@@ -405,7 +406,16 @@ class AlignModeTracker():
                     if nname in self.ambiguous_gold_id_map:
                         self.ambiguous_gold_id_map[nname][1].append(nid)
                     elif nname in self.gold_id_map:
-                        self.gold_id_map[nname][1] = nid
+                        self.gold_id_map[nname][1].append(nid)
+
+                        # this should not happen
+                        if len(self.gold_id_map[nname][1]) > len(self.gold_id_map[nname][0]):
+                                set_trace(context=30)
+                                print()
+
+                    else:
+                        set_trace(context=30)
+                        raise Exception()
 
         # disambiguate and store expansion list
         delete_nname = []
@@ -426,19 +436,22 @@ class AlignModeTracker():
                     continue
 
                 for gnid in gnids:
-                    if key_edges <= set(self.gold_neighbours[gnid]):
+                    # if key_edges <= set(self.gold_neighbours[gnid]):
+                    if bool(key_edges & set(self.gold_neighbours[gnid])):
                         gnid_updates.append(gnid)
                         nid_updates.append(nid)
                         # this should not be needed as the key_edges whould be
                         # unique
                         break
 
-            set_trace(context=30)
-
             # once we have all updates change maps accordingly
             # assign all disambiguated nodes
             for (gnid, nid) in zip(gnid_updates, nid_updates):
-                self.gold_id_map[gnname] = [gnid, nid]
+                if gnname not in self.gold_id_map:
+                    self.gold_id_map[gnname] = [[], []]
+                if nid not in self.gold_id_map[gnname][1]:
+                    self.gold_id_map[gnname][0].append(gnid)
+                    self.gold_id_map[gnname][1].append(nid)
 
             # if only one is left, this is also unambiguous
             left_gnids = tuple(
@@ -451,29 +464,29 @@ class AlignModeTracker():
             ]
             if len(left_gnids) == 1:
                 if len(left_nids):
-                    self.gold_id_map[gnname] = [left_gnids[0], left_nids[0]]
+                    self.gold_id_map[gnname][0].append(left_gnids[0])
+                    self.gold_id_map[gnname][1].append(left_nids[0])
                 else:
-                    self.gold_id_map[gnname] = [left_gnids[0], None]
-
+                    self.gold_id_map[gnname][0].append(left_gnids[0])
                 delete_nname.append(gnname)
+            else:
+                # overwrite ambiguous set, removing the newly assigned nodes
+                self.ambiguous_gold_id_map[gnname] = [left_gnids, left_nids]
 
         for nname in delete_nname:
             del self.ambiguous_gold_id_map[nname]
 
-        # create expansion list for edge search
+        # create expansion list for edge search. Ambiguous maps have nor order,
+        # asign every gold to every decoded. Normal map is ordered and maps one
+        # to one
         gold_to_dec_ids = dict()
         for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
             if nids != []:
                 for gnid in gnids:
                     gold_to_dec_ids[gnid] = nids
-
-        try:
-            for gnname, (gnid, nid) in self.gold_id_map.items():
-                if nid is not None:
-                    gold_to_dec_ids[gnid] = [nid]
-        except:
-            set_trace(context=30)
-            print()
+        for gnname, (gnids, nids) in self.gold_id_map.items():
+            for gnid, nid in zip(gnids, nids):
+                gold_to_dec_ids[gnid] = [nid]
 
         return gold_to_dec_ids
 
@@ -546,6 +559,20 @@ class AlignModeTracker():
                     ].append((nid, gold_e_label, nid2))
 
         return decoded_to_goldedges, goldedges_to_candidates
+
+    def get_missing_nnames(self):
+
+        # Add from ambiguous and normal mappings the nodes that have not yet
+        # been decoded
+        missing_gold_nodes = []
+        for nname, (gnids, nids) in self.gold_id_map.items():
+            if len(gnids) > len(nids) and nname not in missing_gold_nodes:
+                missing_gold_nodes.append(nname)
+        for nname, (gnids, nids) in self.ambiguous_gold_id_map.items():
+            if len(gnids) > len(nids) and nname not in missing_gold_nodes:
+                missing_gold_nodes.append(nname)
+
+        return missing_gold_nodes
 
 
 class AMRStateMachine():
@@ -629,8 +656,8 @@ class AMRStateMachine():
         self.action_history = []
 
         # ONLY for align mode.
+        self.gold_amr = gold_amr
         if gold_amr:
-            self.gold_amr = gold_amr
             self.align_tracker = AlignModeTracker(gold_amr)
 
         # AMR as we construct it
@@ -725,12 +752,6 @@ class AMRStateMachine():
         # Here update the mapping between gold and decoded node ids. Since we
         # predicted nodes or edges this may have changed
 
-        # if self.action_history and '>RA(165,:ARG0)' in self.action_history:
-        if self.action_history[-3:] == ['>RA(4,:snt7)', 'SHIFT', 'you']:
-            print(self)
-            set_trace()
-            print()
-
         decoded_to_goldedges, goldedges_to_candidates = \
             self.align_tracker.current_map(self)
 
@@ -771,9 +792,17 @@ class AMRStateMachine():
         '''Get actions that generate given gold AMR'''
 
         # We can't as well predict the ROOT until the full graph is produced
-        print(self)
-        print('\n'.join(f'{k} {v}' for k, v in self.align_tracker.ambiguous_gold_id_map.items() if v[1]))
-        set_trace()
+        #if self.action_history and '>LA(95,:polarity)' in self.action_history:
+        #if self.action_history and '>RA(145,:mode)' in self.action_history:
+        if self.action_history and '>RA(37,:op2)' in self.action_history:
+        #if self.action_history[-3:] == ['>RA(4,:snt7)', 'SHIFT', 'you']:
+        #if self.get_current_token() == 'IM':
+            # SHIFT work-09
+            print(self)
+            print(' '.join(f'{k} {v}' for k, v in self.align_tracker.gold_id_map.items() if v[1]))
+            print()
+            print(' '.join(f'{k} {v}' for k, v in self.align_tracker.ambiguous_gold_id_map.items() if v[1]))
+            set_trace()
 
         # return arc actions if any
         arc_actions = self._get_valid_align_arc_actions()
@@ -783,21 +812,10 @@ class AMRStateMachine():
             # make a mistake. We need to enforce an arc order.
             return arc_actions
 
-        # Add from ambiguous and normal mappings the nodes that have not yet
-        # been decoded
-        missing_gold_nodes = []
-        for nname, (gnid, nid) in self.align_tracker.gold_id_map.items():
-            if nid is None:
-                missing_gold_nodes.append(nname)
-        for nname, (gnids, nids) in self.align_tracker.ambiguous_gold_id_map.items():
-            # in this case we need to produce len(gnids) of this node label
-            if len(gnids) > len(nids) and nname not in missing_gold_nodes:
-                missing_gold_nodes.append(nname)
-
         # otherwise choose between producing a gold node and shifting (if
         # possible)
         valid_base_actions = []
-        for nname in missing_gold_nodes:
+        for nname in self.align_tracker.get_missing_nnames():
             if normalize(nname) == self.get_current_token():
                 valid_base_actions.append('COPY')
             else:

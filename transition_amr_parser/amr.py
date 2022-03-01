@@ -61,10 +61,21 @@ class AMR():
         #    self.connect_graph()
 
         if self.root is None:
-            # heuristic to find a root if missing
-            # simple criteria, head with more children is the root
             roots = [n for n in self.nodes if len(self.parents(n)) == 0]
-            roots = sorted(roots, key=lambda n: len(self.children(n)))
+            for nid in roots:
+                if 'multi-sentence' == self.nodes[nid]:
+                    self.root = nid
+                    break
+            if self.root is not None:
+                # put root at the end
+                roots.remove(self.root)
+                roots.append(self.root)
+
+            else:    
+                # heuristic to find a root if missing
+                # simple criteria, head with more children is the root
+                roots = sorted(roots, key=lambda n: len(self.children(n)))
+
             # add rel edges
             self.root = roots[-1]
             for n in roots[:-1]:
