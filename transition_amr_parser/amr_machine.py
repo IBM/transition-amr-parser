@@ -574,6 +574,35 @@ class AlignModeTracker():
 
         return missing_gold_nodes
 
+    def get_missing_edges(self, machine):
+
+        # note that actions predict node labels, not node ids so during partial
+        # decoding we may not know which gold node corresponds to which decoded
+        # node until a number of edges has been predicted.
+        # Here update the mapping between gold and decoded node ids. Since we
+        # predicted nodes or edges this may have changed
+        decoded_to_goldedges, goldedges_to_candidates = \
+            self.current_map(machine)
+
+        # if there are N gold edges and N possible decoded edges (even if we do
+        # not know which is which) consider those gold edges complete,
+        # otherwise add to candidates
+        missing_gold_edges = []
+        for dec_edges, gold_edges in decoded_to_goldedges.items():
+            if len(dec_edges) != len(gold_edges):
+                missing_gold_edges.extend(gold_edges)
+            elif len(dec_edges) > len(gold_edges):
+                set_trace(context=30)
+                raise Exception()
+
+        # expand to all possible disambiguations
+        expanded_missing_gold_edges = []
+        for gold_edge in missing_gold_edges:
+            for gold_edge_candidate in goldedges_to_candidates[gold_edge]:
+                expanded_missing_gold_edges.append(gold_edge_candidate)
+
+        return expanded_missing_gold_edges
+
 
 class AMRStateMachine():
 
@@ -746,45 +775,17 @@ class AMRStateMachine():
 
     def _get_valid_align_arc_actions(self):
 
-        # note that actions predict node labels, not node ids so during partial
-        # decoding we may not know which gold node corresponds to which decoded
-        # node until a number of edges has been predicted.
-        # Here update the mapping between gold and decoded node ids. Since we
-        # predicted nodes or edges this may have changed
-
-        decoded_to_goldedges, goldedges_to_candidates = \
-            self.align_tracker.current_map(self)
-
-        # if there are N gold edges and N possible decoded edges (even if we do
-        # not know which is which) consider those gold edges complete,
-        # otherwise add to candidates
-        missing_gold_edges = []
-        for dec_edges, gold_edges in decoded_to_goldedges.items():
-            if len(dec_edges) != len(gold_edges):
-                missing_gold_edges.extend(gold_edges)
-            elif len(dec_edges) > len(gold_edges):
-                set_trace(context=30)
-                raise Exception()
-
-        #if self.action_history and 'go-01' in self.action_history:
-        #if self.action_history and self.action_history[-1] == 'you':
-        #    set_trace(context=30)
-        #    print()
-
         # corresponding possible decoded edges
         arc_actions = []
-        for (gold_s_id, gold_e_label, gold_t_id) in missing_gold_edges:
-            for (s, l, t) in goldedges_to_candidates[
-                (gold_s_id, gold_e_label, gold_t_id)
-            ]:
-                if s in self.node_stack[:-1] and t == self.node_stack[-1]:
-                    # right arc stack --> top
-                    action = f'>RA({s},{gold_e_label})'
-                else:
-                    # left arc stack <-- top
-                    action = f'>LA({t},{gold_e_label})'
-                if action not in arc_actions:
-                    arc_actions.append(action)
+        for (s, gold_e_label, t) in self.align_tracker.get_missing_edges(self):
+            if s in self.node_stack[:-1] and t == self.node_stack[-1]:
+                # right arc stack --> top
+                action = f'>RA({s},{gold_e_label})'
+            else:
+                # left arc stack <-- top
+                action = f'>LA({t},{gold_e_label})'
+            if action not in arc_actions:
+                arc_actions.append(action)
 
         return arc_actions
 
@@ -794,9 +795,10 @@ class AMRStateMachine():
         # We can't as well predict the ROOT until the full graph is produced
         #if self.action_history and '>LA(95,:polarity)' in self.action_history:
         #if self.action_history and '>RA(145,:mode)' in self.action_history:
-        if self.action_history and '>RA(37,:op2)' in self.action_history:
+        # if self.action_history and '>RA(37,:op2)' in self.action_history:
         #if self.action_history[-3:] == ['>RA(4,:snt7)', 'SHIFT', 'you']:
         #if self.get_current_token() == 'IM':
+        if False:
             # SHIFT work-09
             print(self)
             print(' '.join(f'{k} {v}' for k, v in self.align_tracker.gold_id_map.items() if v[1]))
