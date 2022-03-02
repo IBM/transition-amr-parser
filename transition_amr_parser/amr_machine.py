@@ -376,8 +376,10 @@ class AlignModeTracker():
             for i in range(len(nids)):
                 dec2gold[nids[i]] = gnids[i]
 
+        # if True:
         if False: #True:
         # if machine.action_history and 'person' in machine.action_history:
+        # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
             # SHIFT work-09
             print(machine)
             print(' '.join(f'{k} {v}' for k, v in self.gold_id_map.items() if v[1]))
@@ -396,6 +398,8 @@ class AlignModeTracker():
                         else:
                             self.gold_id_map[nname][0].append(gt)
                             self.gold_id_map[nname][1].append(t)
+                        # also update decoded -> gold map
+                        dec2gold[t] = gt
                         # remove from ambiguous list
                         self.ambiguous_gold_id_map[nname][0].remove(gt)
                         self.ambiguous_gold_id_map[nname][1].remove(t)
@@ -410,7 +414,7 @@ class AlignModeTracker():
                     if self.gold_amr.nodes[gs] == machine.nodes[s] and gl == l:
                         candidates.append((gs, gl))
 
-                if len(candidates)== 1:
+                if len(candidates) == 1:
                     gs, gl = candidates[0]
                     nname = normalize(machine.nodes[s])
                     if nname not in self.gold_id_map:
@@ -418,6 +422,8 @@ class AlignModeTracker():
                     else:
                         self.gold_id_map[nname][0].append(gs)
                         self.gold_id_map[nname][1].append(s)
+                    # also update decoded -> gold map
+                    dec2gold[s] = gs
                     self.ambiguous_gold_id_map[nname][0].remove(gs)
                     self.ambiguous_gold_id_map[nname][1].remove(s)
                     if self.ambiguous_gold_id_map[nname][0] == []:
