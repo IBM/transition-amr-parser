@@ -309,7 +309,7 @@ class SequenceGenerator(object):
 
             return False
 
-        def finalize_hypos(step, bbsz_idx, eos_scores, unfinalized_scores=None):
+        def finalize_hypos(step, bbsz_idx, eos_scores, state_machines, unfinalized_scores=None):
             """
             Finalize the given hypotheses at this step, while keeping the total
             number of finalized hypotheses per sentence <= beam_size.
@@ -380,7 +380,7 @@ class SequenceGenerator(object):
                 if self.match_source_len and step > src_lengths[unfin_idx]:  # TODO should this be "sent"?
                     score = -math.inf
 
-                def get_hypo():
+                def get_hypo(state_machine):
 
                     if attn_clone is not None:
                         # remove padding tokens from attn scores
@@ -411,17 +411,18 @@ class SequenceGenerator(object):
                         'attention_tgt': hypo_attn_tgt,
                         'alignment_tgt': alignment_tgt,
                         'pointer_tgt': tgt_pointers_clone[i],
-                        'pointer_scores': scores_tgt_pointers_clone[i]
+                        'pointer_scores': scores_tgt_pointers_clone[i],
+                        'state_machine': state_machine
                     }
                     # ===========================================================
 
                 if len(finalized[sent]) < beam_size:
-                    finalized[sent].append(get_hypo())
+                    finalized[sent].append(get_hypo(state_machines[i]))
                 elif not self.stop_early and score > worst_finalized[sent]['score']:
                     # replace worst hypo for this sentence with new/better one
                     worst_idx = worst_finalized[sent]['idx']
                     if worst_idx is not None:
-                        finalized[sent][worst_idx] = get_hypo()
+                        finalized[sent][worst_idx] = get_hypo(state_machines[i])
 
                     # find new worst finalized hypo for this sentence
                     idx, s = min(enumerate(finalized[sent]), key=lambda r: r[1]['score'])
@@ -540,22 +541,22 @@ class SequenceGenerator(object):
 
                         # forced COPY
                         remaining_tokens = [
-                            normalize(t) 
+                            normalize(t)
                             for t in sm.tokens[sm.tok_cursor+1:]
                         ]
                         for nname in sm.align_tracker.get_missing_nnames():
                             nname = normalize(nname)
                             if (
-                                self.tgt_dict.index(nname) 
-                                == self.tgt_dict.index('<unk>') 
-                                and nname == normalize(sm.get_current_token()) 
+                                self.tgt_dict.index(nname)
+                                == self.tgt_dict.index('<unk>')
+                                and nname == normalize(sm.get_current_token())
                                 and nname not in remaining_tokens
                             ):
                                 copy_idx = self.tgt_dict.index('COPY')
                                 assert copy_idx in vocab_ids_allowed, \
                                     'align mode needs all nodes to be in ' \
                                     'the vocabulary or predictable by COPY.' \
-                                    ' This should not be happening.'    
+                                    ' This should not be happening.'
                                 vocab_ids_allowed = {copy_idx}
 
                         # no <unk>
@@ -774,7 +775,7 @@ class SequenceGenerator(object):
                             lprobs[j, idx] = lprob
 
                         # model may have assigned -inf to forced action, set to prob 1
-                        if (lprobs[j, :] == -math.inf).all(): 
+                        if (lprobs[j, :] == -math.inf).all():
                             # FIXME: Add a warning for this
                             lprobs[j, idx] = 0.0
 
@@ -873,7 +874,7 @@ class SequenceGenerator(object):
                     descending=True,
                     out=(eos_scores, eos_bbsz_idx),
                 )
-                num_remaining_sent -= len(finalize_hypos(step, eos_bbsz_idx, eos_scores))
+                num_remaining_sent -= len(finalize_hypos(step, eos_bbsz_idx, eos_scores, amr_state_machines))
                 #assert num_remaining_sent == 0
                 # stop the loop here
                 break
@@ -911,7 +912,7 @@ class SequenceGenerator(object):
                     # options but we haven't reached beam_size --> force quit for this sentence
                     cand_scores[:, :beam_size][eos_mask[:, :beam_size]] = -math.inf
                     # ==================================================
-                    finalized_sents = finalize_hypos(step, eos_bbsz_idx, eos_scores, cand_scores)
+                    finalized_sents = finalize_hypos(step, eos_bbsz_idx, eos_scores, amr_state_machines, cand_scores)
                     num_remaining_sent -= len(finalized_sents)
 
             assert num_remaining_sent >= 0

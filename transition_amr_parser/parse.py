@@ -377,6 +377,10 @@ class AMRParser:
         # following generate.py
         hypos = self.task.inference_step(self.generator, self.models, sample, self.args, prefix_tokens=None)
         assert self.args.nbest == 1, 'Currently we only support outputing the top predictions'
+
+        # FIXME: Temporary sanity check
+        assert all(s.tokens == h[0]['state_machine'].tokens for s, h in zip(sample['gold_amr'], hypos))
+
         predictions = []
         #print("sample: ", sample)
         for i, sample_id in enumerate(sample['id'].tolist()):
@@ -393,13 +397,6 @@ class AMRParser:
                 if self.args.clean_arcs:    # this is 0 by default
                     actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
                                                                                           actions_pos,
-                                                                                          actions)
-
-                if to_amr:
-                    machine = AMRStateMachine.from_config(self.machine_config)
-                else:
-                    machine = None
-
                 predictions.append({
                     'actions_nopos': actions_nopos,
                     'actions_pos': actions_pos,
@@ -407,7 +404,7 @@ class AMRParser:
                     'reference': target_tokens,
                     'src_tokens': src_tokens,
                     'sample_id': sample_id,
-                    'machine': machine
+                    'machine': hypo['state_machine']
                 })
 
         return predictions
@@ -458,18 +455,22 @@ class AMRParser:
             if not self.to_amr:
                 continue
 
-            for pred_dict in predictions:
+            # FIXME: Entropic
+            for index, pred_dict in enumerate(predictions):
                 sample_id = pred_dict['sample_id']
-                machine = pred_dict['machine']
-
-                machine.reset(pred_dict['src_tokens'])
-                if pred_dict['actions'][-1] != 'CLOSE':
-                    pred_dict['actions'].append('CLOSE');
-                for action in pred_dict['actions']:
-                    machine.update(action)
-                assert machine.is_closed
-
-                amr_annotations[sample_id] = machine.get_annotation()
+                # FIXME: Why this?
+                # machine = pred_dict['machine']
+                # machine.reset(
+                #    pred_dict['src_tokens'],
+                #    gold_amr=sample['gold_amr'][index]
+                # )
+                # if pred_dict['actions'][-1] != 'CLOSE':
+                #     pred_dict['actions'].append('CLOSE')
+                # for action in pred_dict['actions']:
+                #     machine.update(action)
+                # assert machine.is_closed
+                # amr_annotations[sample_id] = machine.get_annotation()
+                amr_annotations[sample_id] = pred_dict['machine'].get_annotation()
 
         # return the AMRs in order
         results = []
