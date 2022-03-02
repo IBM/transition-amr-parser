@@ -376,8 +376,8 @@ class AlignModeTracker():
             for i in range(len(nids)):
                 dec2gold[nids[i]] = gnids[i]
 
-        if False:
-        # if machine.action_history and 'executive' in machine.action_history:
+        if False: #True:
+        # if machine.action_history and 'person' in machine.action_history:
             # SHIFT work-09
             print(machine)
             print(' '.join(f'{k} {v}' for k, v in self.gold_id_map.items() if v[1]))
@@ -393,27 +393,35 @@ class AlignModeTracker():
                         nname = normalize(machine.nodes[t])
                         if nname not in self.gold_id_map:
                             self.gold_id_map[nname] = [[gt], [t]]
-                            self.ambiguous_gold_id_map[nname][0].remove(gt)
-                            self.ambiguous_gold_id_map[nname][1].remove(t)
-                            if self.ambiguous_gold_id_map[nname][0] == []:
-                                del self.ambiguous_gold_id_map[nname]
                         else:
-                            set_trace(context=30)
-                            print()
+                            self.gold_id_map[nname][0].append(gt)
+                            self.gold_id_map[nname][1].append(t)
+                        # remove from ambiguous list
+                        self.ambiguous_gold_id_map[nname][0].remove(gt)
+                        self.ambiguous_gold_id_map[nname][1].remove(t)
+                        if self.ambiguous_gold_id_map[nname][0] == []:
+                            del self.ambiguous_gold_id_map[nname]
 
-            if t in dec2gold and s not in dec2gold:
+            elif t in dec2gold and s not in dec2gold:
+                # Due to co-reference, we can have more than one edge meeting
+                # conditions here, in this case, we skip
+                candidates = []
                 for gs, gl in self.gold_amr.parents(dec2gold[t]):
                     if self.gold_amr.nodes[gs] == machine.nodes[s] and gl == l:
-                        nname = normalize(machine.nodes[s])
-                        if nname not in self.gold_id_map:
-                            self.gold_id_map[nname] = [[gs], [s]]
-                            self.ambiguous_gold_id_map[nname][0].remove(gs)
-                            self.ambiguous_gold_id_map[nname][1].remove(s)
-                            if self.ambiguous_gold_id_map[nname][0] == []:
-                                del self.ambiguous_gold_id_map[nname]
-                        else:
-                            set_trace(context=30)
-                            print()
+                        candidates.append((gs, gl))
+
+                if len(candidates)== 1:
+                    gs, gl = candidates[0]
+                    nname = normalize(machine.nodes[s])
+                    if nname not in self.gold_id_map:
+                        self.gold_id_map[nname] = [[gs], [s]]
+                    else:
+                        self.gold_id_map[nname][0].append(gs)
+                        self.gold_id_map[nname][1].append(s)
+                    self.ambiguous_gold_id_map[nname][0].remove(gs)
+                    self.ambiguous_gold_id_map[nname][1].remove(s)
+                    if self.ambiguous_gold_id_map[nname][0] == []:
+                        del self.ambiguous_gold_id_map[nname]
 
         # Here we differentiate node ids, unique identifiers of nodes inside a
         # graph, from labels, node names, which may be repeatable.
