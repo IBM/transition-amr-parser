@@ -399,6 +399,7 @@ class AMRParser:
                 if self.args.clean_arcs:    # this is 0 by default
                     actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
                                                                                           actions_pos,
+                                                                                          actions)
                 predictions.append({
                     'actions_nopos': actions_nopos,
                     'actions_pos': actions_pos,
