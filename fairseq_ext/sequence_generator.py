@@ -11,7 +11,7 @@ import json
 import os
 import re
 from ipdb import set_trace
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 import torch
 from packaging import version
@@ -417,12 +417,12 @@ class SequenceGenerator(object):
                     # ===========================================================
 
                 if len(finalized[sent]) < beam_size:
-                    finalized[sent].append(get_hypo(state_machines[i]))
+                    finalized[sent].append(get_hypo(state_machines[idx]))
                 elif not self.stop_early and score > worst_finalized[sent]['score']:
                     # replace worst hypo for this sentence with new/better one
                     worst_idx = worst_finalized[sent]['idx']
                     if worst_idx is not None:
-                        finalized[sent][worst_idx] = get_hypo(state_machines[i])
+                        finalized[sent][worst_idx] = get_hypo(state_machines[idx])
 
                     # find new worst finalized hypo for this sentence
                     idx, s = min(enumerate(finalized[sent]), key=lambda r: r[1]['score'])
@@ -536,30 +536,47 @@ class SequenceGenerator(object):
                     # in align mode
                     # there can not be any <unk>
                     # if a node name is not in the vocabulary, we need to force
-                    # a COPY at least on the last time that it is possible
-                    if sm.gold_amr is not None:
+                    # a COPY at least on the last time that it is possible,
+                    # taking into account that there may be more than one token
+                    if (
+                        sm.gold_amr is not None
+                        and sm.get_current_token() is not None
+                    ):
 
                         # forced COPY
-                        remaining_tokens = [
+                        # count the number of times each token appears
+                        future_token_nname_counts = Counter([
                             normalize(t)
                             for t in sm.tokens[sm.tok_cursor+1:]
-                        ]
-                        for nname in sm.align_tracker.get_missing_nnames():
-                            nname = normalize(nname)
-                            if (
-                                self.tgt_dict.index(nname)
-                                == self.tgt_dict.index('<unk>')
-                                and nname == normalize(sm.get_current_token())
-                                and nname not in remaining_tokens
-                            ):
-                                copy_idx = self.tgt_dict.index('COPY')
-                                assert copy_idx in vocab_ids_allowed, \
-                                    'align mode needs all nodes to be in ' \
-                                    'the vocabulary or predictable by COPY.' \
-                                    ' This should not be happening.'
-                                vocab_ids_allowed = {copy_idx}
+                        ])
 
-                        # no <unk>
+                        # count the number of times each node not in vocabulary
+                        # appears
+                        missing_unk_nodes = Counter()
+                        unk_idx = self.tgt_dict.index('<unk>')
+                        for nname in sm.align_tracker.get_missing_nnames(repeat=True):
+                            nname = normalize(nname)
+                            if self.tgt_dict.index(nname) == unk_idx:
+                                missing_unk_nodes.update([nname])
+
+                        # if token under cursor matches a node not in
+                        # vocabulary and we have not enough future tokens of
+                        # this type to produce all missing nodes, we have no
+                        # option but to COPY
+                        nname = normalize(sm.get_current_token())
+                        if (
+                            nname in missing_unk_nodes
+                            and future_token_nname_counts[nname]
+                                < missing_unk_nodes[nname]
+                        ):
+                            copy_idx = self.tgt_dict.index('COPY')
+                            assert copy_idx in vocab_ids_allowed, \
+                                'align mode needs all nodes to be in ' \
+                                'the vocabulary or predictable by COPY.' \
+                                ' This should not be happening.'
+                            vocab_ids_allowed = {copy_idx}
+
+                        # in align mode, there can not be <unk>
                         unk_set = set([self.tgt_dict.index('<unk>')])
                         unk_actions_str = ' '.join(act_allowed)
                         if not bool(vocab_ids_allowed -  unk_set):

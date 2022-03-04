@@ -375,11 +375,13 @@ class AMRParser:
     def parse_batch(self, sample, to_amr=True):
         # parse a batch of data
         # following generate.py
+
         hypos = self.task.inference_step(self.generator, self.models, sample, self.args, prefix_tokens=None)
         assert self.args.nbest == 1, 'Currently we only support outputing the top predictions'
 
         # FIXME: Temporary sanity check
-        assert all(s.tokens == h[0]['state_machine'].tokens for s, h in zip(sample['gold_amr'], hypos))
+        if not all(s.tokens == h[0]['state_machine'].tokens for s, h in zip(sample['gold_amr'], hypos)):
+            set_trace(context=30)
 
         predictions = []
         #print("sample: ", sample)

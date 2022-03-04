@@ -71,7 +71,7 @@ class AMR():
                 roots.remove(self.root)
                 roots.append(self.root)
 
-            else:    
+            else:
                 # heuristic to find a root if missing
                 # simple criteria, head with more children is the root
                 roots = sorted(roots, key=lambda n: len(self.children(n)))
