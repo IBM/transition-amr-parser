@@ -323,8 +323,8 @@ class AlignModeTracker():
 
         # collect ambiguous and certain mappings separately in the structure
         # {node_label: [[gold_ids], [decoded_ids]]}
-        self.gold_id_map = defaultdict(dict)
-        self.ambiguous_gold_id_map = defaultdict(dict)
+        self.gold_id_map = defaultdict(lambda: [[], []])
+        self.ambiguous_gold_id_map = defaultdict(lambda: [[], []])
         for gnname, gnids in gnode_by_label.items():
             if len(gnids) == 1:
                 self.gold_id_map[gnname] = [gnids, []]
@@ -381,68 +381,97 @@ class AlignModeTracker():
         a gold id by matching node labels and edges to neighbours
         '''
 
-        # get gold to decoded node map without node names
-        dec2gold = self.get_flat_map()
-
         # if True:
-        if False: #True:
+        if False:
         # if machine.action_history and 'person' in machine.action_history:
         # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
-        # if machine.action_history and machine.action_history[-1] == '>RA(114,:name)':
+        # if machine.action_history and machine.action_history[-1] == '>LA(37,:ARG0-of)':
+        # if machine.action_history and '>RA(27,:domain)' in machine.action_history:
             # SHIFT work-09
             print(machine)
             print(' '.join(f'{k} {v}' for k, v in self.gold_id_map.items() if v[1]))
             print()
             print(' '.join(f'{k} {v}' for k, v in self.ambiguous_gold_id_map.items() if v[1]))
             set_trace(context=30)
+            # set_trace()
+
+        # get gold to decoded node map without node names
+        dec2gold = self.get_flat_map()
 
         # check if nodes can be disambiguated by propagating ids through edges
         for (s, l, t) in machine.edges:
             if s in dec2gold and t not in dec2gold:
+                # We can have more than one edge meeting
+                # conditions here, in this case, we skip
+                candidates = []
+                nname = normalize(machine.nodes[t])
                 for gt, gl in self.gold_amr.children(dec2gold[s]):
                     if (
                         normalize(self.gold_amr.nodes[gt]) == machine.nodes[t]
                         and gl == l
                     ):
-                        nname = normalize(machine.nodes[t])
-                        if nname not in self.gold_id_map:
-                            self.gold_id_map[nname] = [[gt], [t]]
-                        else:
-                            self.gold_id_map[nname][0].append(gt)
-                            self.gold_id_map[nname][1].append(t)
-                        # also update decoded -> gold map
-                        dec2gold[t] = gt
-                        # remove from ambiguous list
-                        self.ambiguous_gold_id_map[nname][0].remove(gt)
-                        self.ambiguous_gold_id_map[nname][1].remove(t)
-                        if self.ambiguous_gold_id_map[nname][0] == []:
-                            del self.ambiguous_gold_id_map[nname]
+
+                        # FIXME: Debug
+                        if gt in self.gold_id_map[nname][0]:
+                            set_trace(context=30)
+                            print()
+                        if gt not in self.ambiguous_gold_id_map[nname][0]:
+                            set_trace(context=30)
+                            print()
+
+                        candidates.append((gt, gl))
+
+                if len(candidates) == 1:
+                    gt, gl = candidates[0]
+                    if nname not in self.gold_id_map:
+                        self.gold_id_map[nname] = [[gt], [t]]
+                    else:
+                        self.gold_id_map[nname][0].append(gt)
+                        self.gold_id_map[nname][1].append(t)
+                    # remove from ambiguous list
+                    self.ambiguous_gold_id_map[nname][0].remove(gt)
+                    self.ambiguous_gold_id_map[nname][1].remove(t)
+                    if self.ambiguous_gold_id_map[nname][0] == []:
+                        del self.ambiguous_gold_id_map[nname]
+                    # also update decoded -> gold map and ignore other
+                    # edges. FIXME: This is a greedy decision.
+                    dec2gold[t] = gt
 
             elif t in dec2gold and s not in dec2gold:
                 # Due to co-reference, we can have more than one edge meeting
                 # conditions here, in this case, we skip
                 candidates = []
+                nname = normalize(machine.nodes[s])
                 for gs, gl in self.gold_amr.parents(dec2gold[t]):
                     if (
                         normalize(self.gold_amr.nodes[gs]) == machine.nodes[s]
                         and gl == l
                     ):
+
+                        # FIXME: Debug
+                        if gs in self.gold_id_map[nname][0]:
+                            set_trace(context=30)
+                            print()
+                        if gs not in self.ambiguous_gold_id_map[nname][0]:
+                            set_trace(context=30)
+                            print()
+
                         candidates.append((gs, gl))
 
                 if len(candidates) == 1:
                     gs, gl = candidates[0]
-                    nname = normalize(machine.nodes[s])
                     if nname not in self.gold_id_map:
                         self.gold_id_map[nname] = [[gs], [s]]
                     else:
                         self.gold_id_map[nname][0].append(gs)
                         self.gold_id_map[nname][1].append(s)
-                    # also update decoded -> gold map
-                    dec2gold[s] = gs
                     self.ambiguous_gold_id_map[nname][0].remove(gs)
                     self.ambiguous_gold_id_map[nname][1].remove(s)
                     if self.ambiguous_gold_id_map[nname][0] == []:
                         del self.ambiguous_gold_id_map[nname]
+                    # also update decoded -> gold map and ignore other
+                    # edges. FIXME: This is a greedy decision.
+                    dec2gold[s] = gs
 
         # Here we differentiate node ids, unique identifiers of nodes inside a
         # graph, from labels, node names, which may be repeatable.
@@ -1097,7 +1126,9 @@ class AMRStateMachine():
             # used in align mode (we do not allways know root in-situ)
             # this should be fixable with non in-situ root
             gold2dec = self.align_tracker.get_flat_map(reverse=True)
-            self.root = gold2dec[self.gold_amr.root]
+            if self.gold_amr.root in gold2dec:
+                # this will not work for partial AMRs
+                self.root = gold2dec[self.gold_amr.root]
 
         amr = AMR(self.tokens, self.nodes, self.edges, self.root,
                   alignments=self.alignments, clean=True, connect=True)
