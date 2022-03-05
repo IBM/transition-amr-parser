@@ -27,6 +27,17 @@ ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 
+def print_and_break(aligner, machine):
+
+    if machine.action_history and '>LA(39,:ARG0-of)' in machine.action_history:
+        # SHIFT work-09
+        print(machine)
+        print(' '.join(f'{k} {v}' for k, v in aligner.gold_id_map.items() if v[1]))
+        print()
+        print(' '.join(f'{k} {v}' for k, v in aligner.ambiguous_gold_id_map.items() if v[1]))
+        set_trace(context=30)
+        # set_trace()
+
 def red_background(string):
     return "\033[101m%s\033[0m" % string
 
@@ -382,18 +393,10 @@ class AlignModeTracker():
         '''
 
         # if True:
-        if False:
+        # if False:
         # if machine.action_history and 'person' in machine.action_history:
         # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
-        # if machine.action_history and machine.action_history[-1] == '>LA(37,:ARG0-of)':
-        # if machine.action_history and '>RA(27,:domain)' in machine.action_history:
-            # SHIFT work-09
-            print(machine)
-            print(' '.join(f'{k} {v}' for k, v in self.gold_id_map.items() if v[1]))
-            print()
-            print(' '.join(f'{k} {v}' for k, v in self.ambiguous_gold_id_map.items() if v[1]))
-            set_trace(context=30)
-            # set_trace()
+        print_and_break(self, machine)
 
         # get gold to decoded node map without node names
         dec2gold = self.get_flat_map()
@@ -422,6 +425,9 @@ class AlignModeTracker():
                         candidates.append((gt, gl))
 
                 if len(candidates) == 1:
+
+                    print_and_break(self, machine)
+
                     gt, gl = candidates[0]
                     if nname not in self.gold_id_map:
                         self.gold_id_map[nname] = [[gt], [t]]
@@ -459,6 +465,9 @@ class AlignModeTracker():
                         candidates.append((gs, gl))
 
                 if len(candidates) == 1:
+
+                    print_and_break(self, machine)
+
                     gs, gl = candidates[0]
                     if nname not in self.gold_id_map:
                         self.gold_id_map[nname] = [[gs], [s]]
