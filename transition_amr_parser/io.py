@@ -25,7 +25,7 @@ def read_amr(file_path, ibm_format=False, tokenize=False, bar=True):
                 else:
                     # From penman
                     raw_amrs.append(
-                        AMR.from_penman(raw_amr, tokenize=tokenize)
+                        AMR.from_penman(' '.join(raw_amr), tokenize=tokenize)
                     )
                 raw_amr = []
             else:

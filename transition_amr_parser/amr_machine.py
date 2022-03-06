@@ -15,7 +15,7 @@ from transition_amr_parser.io import (
     read_tokenized_sentences,
     write_tokenized_sentences
 )
-from transition_amr_parser.clbar import yellow_font, clbar
+from transition_amr_parser.clbar import yellow_font, green_font, clbar
 from ipdb import set_trace
 
 # change the format of pointer string from LA(label;pos) -> LA(pos,label)
@@ -27,15 +27,22 @@ ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 
-def print_and_break(aligner, machine):
+def print_and_break(context, aligner, machine):
 
     if machine.action_history and '>LA(39,:ARG0-of)' in machine.action_history:
         # SHIFT work-09
-        print(machine)
-        print(' '.join(f'{k} {v}' for k, v in aligner.gold_id_map.items() if v[1]))
+        dec2gold = aligner.get_flat_map()
+        node_map = {
+            k: green_font(f'{k}-{dec2gold[k]}')
+                if k in dec2gold else yellow_font(k)
+            for k in machine.nodes
+        }
+        print(machine.state_str(node_map))
+        keys = [k for k, v in aligner.ambiguous_gold_id_map.items() if v[1]]
+        print(' '.join(f'{k} {aligner.gold_id_map[k]}' for k in keys))
         print()
-        print(' '.join(f'{k} {v}' for k, v in aligner.ambiguous_gold_id_map.items() if v[1]))
-        set_trace(context=30)
+        print(' '.join(f'{k} {aligner.ambiguous_gold_id_map[k]}' for k in keys))
+        set_trace(context=context)
         # set_trace()
 
 def red_background(string):
@@ -396,7 +403,7 @@ class AlignModeTracker():
         # if False:
         # if machine.action_history and 'person' in machine.action_history:
         # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
-        print_and_break(self, machine)
+        # print_and_break(1, self, machine)
 
         # get gold to decoded node map without node names
         dec2gold = self.get_flat_map()
@@ -404,6 +411,11 @@ class AlignModeTracker():
         # check if nodes can be disambiguated by propagating ids through edges
         for (s, l, t) in machine.edges:
             if s in dec2gold and t not in dec2gold:
+
+                # get children and parents
+                s_children = [e for e in self.edges is e[0] == s]
+                s_parents = [e for e in self.edges is e[2] == s]
+
                 # We can have more than one edge meeting
                 # conditions here, in this case, we skip
                 candidates = []
@@ -412,6 +424,10 @@ class AlignModeTracker():
                     if (
                         normalize(self.gold_amr.nodes[gt]) == machine.nodes[t]
                         and gl == l
+                        # if decoded candidate has some subgraph, check it is
+                        # consistent with the alignment that we are going to
+                        # make
+
                     ):
 
                         # FIXME: Debug
@@ -426,7 +442,7 @@ class AlignModeTracker():
 
                 if len(candidates) == 1:
 
-                    print_and_break(self, machine)
+                    # print_and_break(1, self, machine)
 
                     gt, gl = candidates[0]
                     if nname not in self.gold_id_map:
@@ -466,7 +482,7 @@ class AlignModeTracker():
 
                 if len(candidates) == 1:
 
-                    print_and_break(self, machine)
+                    # print_and_break(1, self, machine)
 
                     gs, gl = candidates[0]
                     if nname not in self.gold_id_map:
@@ -862,8 +878,10 @@ class AMRStateMachine():
         # import ipdb; ipdb.set_trace(context=30)
         return result
 
-    def __str__(self):
-
+    def state_str(self, node_map=None):
+        '''
+        Return string representing machine state
+        '''
         string = ' '.join(self.tokens[:self.tok_cursor])
         if self.tok_cursor < len(self.tokens):
             string += f' \033[7m{self.tokens[self.tok_cursor]}\033[0m '
@@ -873,7 +891,7 @@ class AMRStateMachine():
 
         string += ' '.join(self.action_history) + '\n\n'
         if self.edges:
-            amr_str = self.get_annotation()
+            amr_str = self.get_annotation(node_map=node_map)
         else:
             # invalid AMR
             amr_str = '\n'.join(
@@ -883,9 +901,11 @@ class AMRStateMachine():
             x for x in amr_str.split('\n') if x and x[0] != '#'
         )
         string += f'{amr_str}\n\n'
-        # string += ' '.join(self.get_valid_actions()) + '\n\n'
 
         return string
+
+    def __str__(self):
+        return self.state_str()
 
     def get_current_token(self):
         if self.tok_cursor >= len(self.tokens):
@@ -1127,8 +1147,7 @@ class AMRStateMachine():
         # Action for each time-step
         self.action_history.append(action)
 
-    def get_annotation(self):
-
+    def get_amr(self):
         # special handling for align mode
         if self.gold_amr and self.root is None:
             # FIXME: This is because ROOT is predicted in-situ and can not be
@@ -1139,10 +1158,11 @@ class AMRStateMachine():
                 # this will not work for partial AMRs
                 self.root = gold2dec[self.gold_amr.root]
 
-        amr = AMR(self.tokens, self.nodes, self.edges, self.root,
-                  alignments=self.alignments, clean=True, connect=True)
+        return AMR(self.tokens, self.nodes, self.edges, self.root,
+                   alignments=self.alignments, clean=True, connect=True)
 
-        return amr.__str__()
+    def get_annotation(self, node_map=None):
+        return self.get_amr().to_penman(node_map=node_map)
 
 
 def get_ngram(sequence, order):
