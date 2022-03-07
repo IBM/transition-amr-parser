@@ -69,30 +69,25 @@ class AMR():
 
         # locate all heads of the entire graph (there should be only one)
         heads = [n for n in self.nodes if len(self.parents(n)) == 0]
+        # heuristics to find the root
+        if self.root is None:
+            if len(heads) == 1:
+                self.root = heads[0]
+            elif 'multi-sentence' in self.nodes.values():
+                for nid in heads:
+                    if 'multi-sentence' == self.nodes[nid]:
+                        self.root = nid
+                        break
+            else:
+                # heuristic to find a root if missing
+                # simple criteria, head with more children is the root
+                self.root= sorted(heads, key=lambda n: len(self.children(n)))[-1]
+
         if len(heads) > 1:
             # add rel edges from detached subgraphs to the root
             heads.remove(self.root)
             for n in heads:
                 self.edges.append((self.root, AMR.default_rel, n))
-
-#         if self.root is None:
-#             if len(roots) == 1:
-#                 self.root = roots[0]
-#             elif 'multi-sentence' in self.nodes.values()
-#             for nid in roots:
-#                 if 'multi-sentence' == self.nodes[nid]:
-#                     self.root = nid
-#                     break
-#             if self.root is not None:
-#                 # put root at the end
-#                 roots.remove(self.root)
-#                 roots.append(self.root)
-#
-#             else:
-#                 # heuristic to find a root if missing
-#                 # simple criteria, head with more children is the root
-#                 roots = sorted(roots, key=lambda n: len(self.children(n)))
-
 
     def clean_amr(self):
         # empty graph
@@ -627,7 +622,7 @@ class AMR():
                     else:
                         g.epidata[key] = [align]
 
-        return penman.encode(g)
+        return penman.encode(g, indent=4)
 
     def to_jamr(self):
         """ FIXME: do not use """
