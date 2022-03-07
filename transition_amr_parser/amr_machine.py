@@ -29,21 +29,20 @@ arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 def print_and_break(context, aligner, machine):
 
-    if machine.action_history and '>LA(39,:ARG0-of)' in machine.action_history:
-        # SHIFT work-09
-        dec2gold = aligner.get_flat_map()
-        node_map = {
-            k: green_font(f'{k}-{dec2gold[k]}')
-                if k in dec2gold else yellow_font(k)
-            for k in machine.nodes
-        }
-        print(machine.state_str(node_map))
-        keys = [k for k, v in aligner.ambiguous_gold_id_map.items() if v[1]]
-        print(' '.join(f'{k} {aligner.gold_id_map[k]}' for k in keys))
-        print()
-        print(' '.join(f'{k} {aligner.ambiguous_gold_id_map[k]}' for k in keys))
-        set_trace(context=context)
-        # set_trace()
+    # SHIFT work-09
+    dec2gold = aligner.get_flat_map()
+    node_map = {
+        k: green_font(f'{k}-{dec2gold[k]}')
+            if k in dec2gold else yellow_font(k)
+        for k in machine.nodes
+    }
+    print(machine.state_str(node_map))
+    keys = [k for k, v in aligner.ambiguous_gold_id_map.items() if v[1]]
+    print(' '.join(f'{k} {aligner.gold_id_map[k]}' for k in keys))
+    print()
+    print(' '.join(f'{k} {aligner.ambiguous_gold_id_map[k]}' for k in keys))
+    set_trace(context=context)
+    # set_trace()
 
 def red_background(string):
     return "\033[101m%s\033[0m" % string
@@ -399,22 +398,12 @@ class AlignModeTracker():
         a gold id by matching node labels and edges to neighbours
         '''
 
-        # if True:
-        # if False:
-        # if machine.action_history and 'person' in machine.action_history:
-        # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
-        # print_and_break(1, self, machine)
-
         # get gold to decoded node map without node names
         dec2gold = self.get_flat_map()
 
         # check if nodes can be disambiguated by propagating ids through edges
         for (s, l, t) in machine.edges:
             if s in dec2gold and t not in dec2gold:
-
-                # get children and parents
-                s_children = [e for e in self.edges is e[0] == s]
-                s_parents = [e for e in self.edges is e[2] == s]
 
                 # We can have more than one edge meeting
                 # conditions here, in this case, we skip
@@ -619,9 +608,14 @@ class AlignModeTracker():
 
         return gold_to_dec_ids
 
-    def current_map(self, machine):
+    def current_map(self, machine, gold_to_dec_ids):
 
-        gold_to_dec_ids = self._map_decoded_and_gold_ids(machine)
+        # if True:
+        # if False:
+        # if machine.action_history and 'person' in machine.action_history:
+        # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
+        # if machine.action_history and '>RA(9,:ARG2)' in machine.action_history:
+        #    print_and_break(30, self, machine)
 
         # note that during partial decoding we may have multiple possible
         # decoded edges for each gold edge (due to ambigous node mapping above)
@@ -655,17 +649,24 @@ class AlignModeTracker():
             # store decoded <-> gold cluster
             key = []
             used_nids = []
-            used_nid2s = []
+            used_target_nids = []
             for nid in gold_to_dec_ids[gold_s_id]:
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (nid, gold_e_label, nid2) in machine.edges:
                         # this possible disambiguation is already decoded
                         key.append((nid, gold_e_label, nid2))
+                        # FIXME: re-entrancies
                         used_nids.append(nid)
-                        used_nid2s.append(nid2)
+                        # targets may be used more than once due to
+                        # re-entrancies
+                        used_target_nids.append(nid2)
             decoded_to_goldedges[tuple(key)].append(
                 (gold_s_id, gold_e_label, gold_t_id)
             )
+
+            # if machine.action_history and '>RA(9,:ARG2)' in machine.action_history and gold_t_id == 't3':
+            #    set_trace(context=30)
+            #    print()
 
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
@@ -675,7 +676,9 @@ class AlignModeTracker():
                     continue
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (
-                        nid2 in used_nid2s
+                        # FIXME: This needs to be a refcount due to
+                        # re-entrancies
+                        nid2 in used_target_nids
                         or (nid, gold_e_label, nid2) in machine.edges
                     ):
                         # if we used this already above, is not a possible
@@ -715,13 +718,17 @@ class AlignModeTracker():
 
     def get_missing_edges(self, machine):
 
+        # update gold and decoded graph alignments
+        # TODO: move to AMRMachine.update()
+        gold_to_dec_ids = self._map_decoded_and_gold_ids(machine)
+
         # note that actions predict node labels, not node ids so during partial
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges have been predicted.
         # Here update the mapping between gold and decoded node ids. Since we
         # predicted nodes or edges this may have changed
         decoded_to_goldedges, goldedges_to_candidates = \
-            self.current_map(machine)
+            self.current_map(machine, gold_to_dec_ids)
 
         # if there are N gold edges and N possible decoded edges (even if we do
         # not know which is which) consider those gold edges complete,
@@ -891,7 +898,7 @@ class AMRStateMachine():
 
         string += ' '.join(self.action_history) + '\n\n'
         if self.edges:
-            amr_str = self.get_annotation(node_map=node_map)
+            amr_str = self.get_amr().to_penman(node_map=node_map)
         else:
             # invalid AMR
             amr_str = '\n'.join(
@@ -942,16 +949,6 @@ class AMRStateMachine():
 
     def _get_valid_align_actions(self):
         '''Get actions that generate given gold AMR'''
-
-        # We can't as well predict the ROOT until the full graph is produced
-        #if self.action_history and '>LA(95,:polarity)' in self.action_history:
-        if False:
-            # SHIFT work-09
-            print(self)
-            print(' '.join(f'{k} {v}' for k, v in self.align_tracker.gold_id_map.items() if v[1]))
-            print()
-            print(' '.join(f'{k} {v}' for k, v in self.align_tracker.ambiguous_gold_id_map.items() if v[1]))
-            set_trace()
 
         # return arc actions if any
         arc_actions = self._get_valid_align_arc_actions()
@@ -1148,12 +1145,36 @@ class AMRStateMachine():
         self.action_history.append(action)
 
     def get_amr(self):
+        return AMR(self.tokens, self.nodes, self.edges, self.root,
+                   alignments=self.alignments, clean=True, connect=True)
+
+    def get_aligned_amr(self):
         # special handling for align mode
-        if self.gold_amr and self.root is None:
-            # FIXME: This is because ROOT is predicted in-situ and can not be
-            # used in align mode (we do not allways know root in-situ)
+        # TODO: Just alter self.gold_amr.penman alignments for max
+        # compatibility
+
+        # map from decoded nodes to gold nodes
+        gold2dec = self.align_tracker.get_flat_map(reverse=True)
+        dec2gold = {v: k for k, v in gold2dec.items()}
+
+        # sanity check: all nodes and edges there
+        if any(n not in dec2gold for n in self.nodes):
+            set_trace(context=30)
+
+        edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in self.edges]
+        missing = set(self.gold_amr.edges) - set(edges)
+        excess = set(edges) - set(self.gold_amr.edges)
+        if bool(missing):
+            set_trace(context=30)
+            print()
+        elif bool(excess):
+            set_trace(context=30)
+            print()
+
+        if self.root is None:
+            # FIXME: This is because ROOT is predicted in-situ and can not
+            # be used in align mode (we do not allways know root in-situ)
             # this should be fixable with non in-situ root
-            gold2dec = self.align_tracker.get_flat_map(reverse=True)
             if self.gold_amr.root in gold2dec:
                 # this will not work for partial AMRs
                 self.root = gold2dec[self.gold_amr.root]
@@ -1162,7 +1183,11 @@ class AMRStateMachine():
                    alignments=self.alignments, clean=True, connect=True)
 
     def get_annotation(self, node_map=None):
-        return self.get_amr().to_penman(node_map=node_map)
+        # return self.get_amr().to_penman(node_map=node_map)
+        if self.gold_amr:
+            return self.get_aligned_amr().to_jamr()
+        else:
+            return self.get_amr().to_jamr()
 
 
 def get_ngram(sequence, order):
