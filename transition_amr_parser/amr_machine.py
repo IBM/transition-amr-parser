@@ -348,9 +348,23 @@ class AlignModeTracker():
             else:
                 self.ambiguous_gold_id_map[gnname] = [gnids, []]
 
+        # re-entrancy counts for both gold and decoded
+        # {node_id: number_of_parents}
+        self.num_gold_parents = {
+            n: len(self.gold_amr.parents(n)) for n in self.gold_amr.nodes
+        }
+        self.num_dec_parents = {}
+
         # get a hash of each node that can disambiguate based on size 1
         # neighbouhood
         self.gold_neighbours = self.get_neighbour_disambiguation(gold_amr)
+
+        # this will hold decoded edges aligned to gold edges, including
+        # ambiguous cases (many aligned ot many)
+        self.decoded_to_goldedges = {}
+        # this will hold which postential decoded edges would correspond to
+        # each pending gold edge
+        self.goldedges_to_candidates = {}
 
     def get_neighbour_disambiguation(self, amr):
 
@@ -382,14 +396,40 @@ class AlignModeTracker():
 
         return id_neighbours
 
-    def get_flat_map(self, reverse=False):
+    def get_flat_map(self, reverse=False, ambiguous=False):
+        '''
+        Get a flat map from gold_id_map and optionally ambiguous_gold_id_map
+        relating gold nodes with decoded ones
+        '''
+
         dec2gold = {}
+        # Normal map is ordered and maps one to one
         for nname, (gnids, nids) in self.gold_id_map.items():
             for i in range(len(nids)):
                 if reverse:
-                    dec2gold[gnids[i]] = nids[i]
+                    if ambiguous:
+                        # TODO: Unify type here
+                        dec2gold[gnids[i]] = [nids[i]]
+                    else:
+                        dec2gold[gnids[i]] = nids[i]
                 else:
-                    dec2gold[nids[i]] = gnids[i]
+                    if ambiguous:
+                        dec2gold[nids[i]] = [gnids[i]]
+                    else:
+                        dec2gold[nids[i]] = gnids[i]
+
+        # Add also one to many map from ambiguous nodes
+        if ambiguous:
+            # Ambiguous maps have nor order, asign every gold to every decoded.
+            for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
+                if nids != []:
+                    if reverse:
+                        for gnid in gnids:
+                            dec2gold[gnid] = nids
+                    else:
+                        for nid in nids:
+                            dec2gold[nid] = gnids
+
         return dec2gold
 
     def _map_decoded_and_gold_ids(self, machine):
@@ -594,21 +634,47 @@ class AlignModeTracker():
         for nname in delete_nname:
             del self.ambiguous_gold_id_map[nname]
 
-        # create expansion list for edge search. Ambiguous maps have nor order,
-        # asign every gold to every decoded. Normal map is ordered and maps one
-        # to one
-        gold_to_dec_ids = dict()
-        for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
-            if nids != []:
-                for gnid in gnids:
-                    gold_to_dec_ids[gnid] = nids
-        for gnname, (gnids, nids) in self.gold_id_map.items():
-            for gnid, nid in zip(gnids, nids):
-                gold_to_dec_ids[gnid] = [nid]
+#         # create expansion list for edge search. Ambiguous maps have nor order,
+#         # asign every gold to every decoded. Normal map is ordered and maps one
+#         # to one
+#         gold_to_dec_ids = dict()
+#         for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
+#             if nids != []:
+#                 for gnid in gnids:
+#                     gold_to_dec_ids[gnid] = nids
+#         for gnname, (gnids, nids) in self.gold_id_map.items():
+#             for gnid, nid in zip(gnids, nids):
+#                 gold_to_dec_ids[gnid] = [nid]
+#
+#         return gold_to_dec_ids
 
-        return gold_to_dec_ids
+    def update(self, machine):
+        '''
+        Update state of aligner given latest state machine state
+        '''
 
-    def current_map(self, machine, gold_to_dec_ids):
+        print_and_break(30, self, machine)
+
+        # update gold and decoded graph alignments
+        # TODO: separate propagation and context matchers
+        self._map_decoded_and_gold_ids(machine)
+
+        # note that actions predict node labels, not node ids so during partial
+        # decoding we may not know which gold node corresponds to which decoded
+        # node until a number of edges have been predicted.
+        # Here update the mapping between gold and decoded node ids. Since we
+        # predicted nodes or edges this may have changed
+        self._map_decoded_and_gold_edges(machine)
+
+    def set_pair(gold_id, decoded_id):
+        # TODO: Update stats about re-entrancies of decoded nodes
+        pass
+
+    def _map_decoded_and_gold_edges(self, machine):
+
+        # get a map from every gold node to every potential aligned decoded
+        # node
+        gold_to_dec_ids = self.get_flat_map(reverse=True, ambiguous=True)
 
         # if True:
         # if False:
@@ -618,10 +684,10 @@ class AlignModeTracker():
         #    print_and_break(30, self, machine)
 
         # note that during partial decoding we may have multiple possible
-        # decoded edges for each gold edge (due to ambigous node mapping above)
+        # decoded edges for each gold edge (due to ambiguous node mapping above)
         # Here we cluster gold edges by same potential decoded edges.
-        decoded_to_goldedges = defaultdict(list)
-        goldedges_to_candidates = defaultdict(list)
+        self.decoded_to_goldedges = defaultdict(list)
+        self.goldedges_to_candidates = defaultdict(list)
         for (gold_s_id, gold_e_label, gold_t_id) in self.gold_amr.edges:
 
             if (
@@ -631,20 +697,25 @@ class AlignModeTracker():
                 # no decoded candidates for this edge yet
                 continue
 
-            if not (
-                # one or more possible RAs
-                any(
-                    n in gold_to_dec_ids[gold_s_id]
-                    for n in machine.node_stack[:-1]
-                ) and machine.node_stack[-1] in gold_to_dec_ids[gold_t_id]
-                # one or more possible LAs
-                or any(
-                    n in gold_to_dec_ids[gold_t_id]
-                    for n in machine.node_stack[:-1]
-                ) and machine.node_stack[-1] in gold_to_dec_ids[gold_s_id]
-            ):
-                # non of the ids is at the top of the stack
-                continue
+            try:
+                if not (
+                    # one or more possible RAs
+                    any(
+                        n in gold_to_dec_ids[gold_s_id]
+                        for n in machine.node_stack[:-1]
+                    ) and machine.node_stack[-1] in gold_to_dec_ids[gold_t_id]
+                    # one or more possible LAs
+                    or any(
+                        n in gold_to_dec_ids[gold_t_id]
+                        for n in machine.node_stack[:-1]
+                    ) and machine.node_stack[-1] in gold_to_dec_ids[gold_s_id]
+                ):
+                    # non of the ids is at the top of the stack
+                    continue
+
+            except:
+                set_trace(context=30)
+                print()
 
             # store decoded <-> gold cluster
             key = []
@@ -660,7 +731,7 @@ class AlignModeTracker():
                         # targets may be used more than once due to
                         # re-entrancies
                         used_target_nids.append(nid2)
-            decoded_to_goldedges[tuple(key)].append(
+            self.decoded_to_goldedges[tuple(key)].append(
                 (gold_s_id, gold_e_label, gold_t_id)
             )
 
@@ -686,11 +757,9 @@ class AlignModeTracker():
                         continue
 
                     # this is a potential decoding option
-                    goldedges_to_candidates[
+                    self.goldedges_to_candidates[
                         (gold_s_id, gold_e_label, gold_t_id)
                     ].append((nid, gold_e_label, nid2))
-
-        return decoded_to_goldedges, goldedges_to_candidates
 
     def get_missing_nnames(self, repeat=False):
 
@@ -718,23 +787,11 @@ class AlignModeTracker():
 
     def get_missing_edges(self, machine):
 
-        # update gold and decoded graph alignments
-        # TODO: move to AMRMachine.update()
-        gold_to_dec_ids = self._map_decoded_and_gold_ids(machine)
-
-        # note that actions predict node labels, not node ids so during partial
-        # decoding we may not know which gold node corresponds to which decoded
-        # node until a number of edges have been predicted.
-        # Here update the mapping between gold and decoded node ids. Since we
-        # predicted nodes or edges this may have changed
-        decoded_to_goldedges, goldedges_to_candidates = \
-            self.current_map(machine, gold_to_dec_ids)
-
         # if there are N gold edges and N possible decoded edges (even if we do
         # not know which is which) consider those gold edges complete,
         # otherwise add to candidates
         missing_gold_edges = []
-        for dec_edges, gold_edges in decoded_to_goldedges.items():
+        for dec_edges, gold_edges in self.decoded_to_goldedges.items():
             if len(dec_edges) != len(gold_edges):
                 missing_gold_edges.extend(gold_edges)
             elif len(dec_edges) > len(gold_edges):
@@ -744,7 +801,7 @@ class AlignModeTracker():
         # expand to all possible disambiguations
         expanded_missing_gold_edges = []
         for gold_edge in missing_gold_edges:
-            for gold_edge_candidate in goldedges_to_candidates[gold_edge]:
+            for gold_edge_candidate in self.goldedges_to_candidates[gold_edge]:
                 expanded_missing_gold_edges.append(gold_edge_candidate)
 
         return expanded_missing_gold_edges
@@ -830,11 +887,6 @@ class AMRStateMachine():
         self.node_stack = []
         self.action_history = []
 
-        # ONLY for align mode.
-        self.gold_amr = gold_amr
-        if gold_amr:
-            self.align_tracker = AlignModeTracker(gold_amr)
-
         # AMR as we construct it
         # NOTE: We will use position of node generating action in action
         # history as node_id
@@ -847,6 +899,13 @@ class AMRStateMachine():
 
         # state info useful in the model
         self.actions_tokcursor = []
+
+        # align mode
+        self.gold_amr = gold_amr
+        if gold_amr:
+            # this will track the node alignments between
+            self.align_tracker = AlignModeTracker(gold_amr)
+            self.align_tracker.update(self)
 
     @classmethod
     def from_config(cls, config_path):
@@ -931,8 +990,10 @@ class AMRStateMachine():
             return action[:3]
         return 'NODE'
 
-    def _get_valid_align_arc_actions(self):
+    def _get_valid_align_actions(self):
+        '''Get actions that generate given gold AMR'''
 
+        # return arc actions if any
         # corresponding possible decoded edges
         arc_actions = []
         for (s, gold_e_label, t) in self.align_tracker.get_missing_edges(self):
@@ -945,13 +1006,6 @@ class AMRStateMachine():
             if action not in arc_actions:
                 arc_actions.append(action)
 
-        return arc_actions
-
-    def _get_valid_align_actions(self):
-        '''Get actions that generate given gold AMR'''
-
-        # return arc actions if any
-        arc_actions = self._get_valid_align_arc_actions()
         if arc_actions:
             # TODO: Pointer and label can only be enforced independently, which
             # means that if we hae two diffrent arcs to choose from, we could
@@ -1143,6 +1197,10 @@ class AMRStateMachine():
 
         # Action for each time-step
         self.action_history.append(action)
+
+        # Update align mode tracker after machine state has been updated
+        if self.gold_amr:
+            self.align_tracker.update(self)
 
     def get_amr(self):
         return AMR(self.tokens, self.nodes, self.edges, self.root,
