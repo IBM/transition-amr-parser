@@ -1,4 +1,3 @@
-from collections import defaultdict, Counter
 import json
 import argparse
 import os
@@ -6,6 +5,7 @@ from functools import partial
 import re
 from copy import deepcopy
 from itertools import chain
+from collections import defaultdict, Counter
 
 from tqdm import tqdm
 import numpy as np
@@ -37,10 +37,7 @@ def print_and_break(context, aligner, machine):
         for k in machine.nodes
     }
     print(machine.state_str(node_map))
-    keys = [k for k, v in aligner.ambiguous_gold_id_map.items() if v[1]]
-    print(' '.join(f'{k} {aligner.gold_id_map[k]}' for k in keys))
-    print()
-    print(' '.join(f'{k} {aligner.ambiguous_gold_id_map[k]}' for k in keys))
+    print(aligner)
     set_trace(context=context)
     # set_trace()
 
@@ -366,6 +363,16 @@ class AlignModeTracker():
         # each pending gold edge
         self.goldedges_to_candidates = {}
 
+    def __str__(self):
+
+        keys = [k for k, v in self.ambiguous_gold_id_map.items() if v[1]]
+        string = ' '.join(f'{k} {self.gold_id_map[k]}' for k in keys)
+        string += ' '
+        string += ' '.join(
+            f'{k} {self.ambiguous_gold_id_map[k]}' for k in keys
+        )
+        return string
+
     def get_neighbour_disambiguation(self, amr):
 
         gnode_by_label = defaultdict(list)
@@ -432,7 +439,7 @@ class AlignModeTracker():
 
         return dec2gold
 
-    def _map_decoded_and_gold_ids(self, machine):
+    def _map_decoded_and_gold_ids_by_propagation(self, machine):
         '''
         Given partial aligned graph and gold graph map each prediced node id to
         a gold id by matching node labels and edges to neighbours
@@ -453,37 +460,17 @@ class AlignModeTracker():
                     if (
                         normalize(self.gold_amr.nodes[gt]) == machine.nodes[t]
                         and gl == l
-                        # if decoded candidate has some subgraph, check it is
-                        # consistent with the alignment that we are going to
-                        # make
-
+                        # FIXME: if decoded candidate has some subgraph, check
+                        # it is consistent with the alignment that we are going
+                        # to make
+                        # <-- HERE
                     ):
-
-                        # FIXME: Debug
-                        if gt in self.gold_id_map[nname][0]:
-                            set_trace(context=30)
-                            print()
-                        if gt not in self.ambiguous_gold_id_map[nname][0]:
-                            set_trace(context=30)
-                            print()
-
                         candidates.append((gt, gl))
 
                 if len(candidates) == 1:
-
                     # print_and_break(1, self, machine)
-
                     gt, gl = candidates[0]
-                    if nname not in self.gold_id_map:
-                        self.gold_id_map[nname] = [[gt], [t]]
-                    else:
-                        self.gold_id_map[nname][0].append(gt)
-                        self.gold_id_map[nname][1].append(t)
-                    # remove from ambiguous list
-                    self.ambiguous_gold_id_map[nname][0].remove(gt)
-                    self.ambiguous_gold_id_map[nname][1].remove(t)
-                    if self.ambiguous_gold_id_map[nname][0] == []:
-                        del self.ambiguous_gold_id_map[nname]
+                    self.disambiguate_pair(nname, gt, t)
                     # also update decoded -> gold map and ignore other
                     # edges. FIXME: This is a greedy decision.
                     dec2gold[t] = gt
@@ -498,34 +485,16 @@ class AlignModeTracker():
                         normalize(self.gold_amr.nodes[gs]) == machine.nodes[s]
                         and gl == l
                     ):
-
-                        # FIXME: Debug
-                        if gs in self.gold_id_map[nname][0]:
-                            set_trace(context=30)
-                            print()
-                        if gs not in self.ambiguous_gold_id_map[nname][0]:
-                            set_trace(context=30)
-                            print()
-
                         candidates.append((gs, gl))
 
                 if len(candidates) == 1:
-
-                    # print_and_break(1, self, machine)
-
                     gs, gl = candidates[0]
-                    if nname not in self.gold_id_map:
-                        self.gold_id_map[nname] = [[gs], [s]]
-                    else:
-                        self.gold_id_map[nname][0].append(gs)
-                        self.gold_id_map[nname][1].append(s)
-                    self.ambiguous_gold_id_map[nname][0].remove(gs)
-                    self.ambiguous_gold_id_map[nname][1].remove(s)
-                    if self.ambiguous_gold_id_map[nname][0] == []:
-                        del self.ambiguous_gold_id_map[nname]
+                    self.disambiguate_pair(nname, gs, s)
                     # also update decoded -> gold map and ignore other
                     # edges. FIXME: This is a greedy decision.
                     dec2gold[s] = gs
+
+    def _map_decoded_and_gold_ids_by_context(self, machine):
 
         # Here we differentiate node ids, unique identifiers of nodes inside a
         # graph, from labels, node names, which may be repeatable.
@@ -541,39 +510,6 @@ class AlignModeTracker():
                 for e in machine.edges
                 if e[0] == nid or e[2] == nid
             ])
-
-        # updated view of decoded nodes by predicate
-        node_by_label = defaultdict(list)
-        for nid, nname in machine.nodes.items():
-            node_by_label[normalize(nname)].append(nid)
-
-        # Add new nodes
-        for nname, nids in node_by_label.items():
-            for nid in nids:
-                found = False
-                if nname in self.gold_id_map:
-                    if nid in self.gold_id_map[nname][1]:
-                        found = True
-                if nname in self.ambiguous_gold_id_map:
-                    if nid in self.ambiguous_gold_id_map[nname][1]:
-                        found = True
-
-                if not found:
-                    if nname in self.ambiguous_gold_id_map:
-                        self.ambiguous_gold_id_map[nname][1].append(nid)
-                    elif nname in self.gold_id_map:
-                        self.gold_id_map[nname][1].append(nid)
-
-                        # this should not happen
-                        if (
-                            len(self.gold_id_map[nname][1])
-                            > len(self.gold_id_map[nname][0])
-                        ):
-                            raise Exception()
-
-                    else:
-                        set_trace(context=30)
-                        raise Exception()
 
         # disambiguate and store expansion list
         delete_nname = []
@@ -605,70 +541,86 @@ class AlignModeTracker():
             # once we have all updates change maps accordingly
             # assign all disambiguated nodes
             for (gnid, nid) in zip(gnid_updates, nid_updates):
-                if gnname not in self.gold_id_map:
-                    self.gold_id_map[gnname] = [[], []]
                 if nid not in self.gold_id_map[gnname][1]:
-                    self.gold_id_map[gnname][0].append(gnid)
-                    self.gold_id_map[gnname][1].append(nid)
+                    self.disambiguate_pair(gnname, gnid, nid)
 
-            # if only one is left, this is also unambiguous
-            left_gnids = [
-                n for n in self.ambiguous_gold_id_map[gnname][0]
-                if n not in gnid_updates
-            ]
-            left_nids = [
-                n for n in self.ambiguous_gold_id_map[gnname][1]
-                if n not in nid_updates
-            ]
-            if len(left_gnids) == 1:
-                if len(left_nids):
-                    self.gold_id_map[gnname][0].append(left_gnids[0])
-                    self.gold_id_map[gnname][1].append(left_nids[0])
-                else:
-                    self.gold_id_map[gnname][0].append(left_gnids[0])
-                delete_nname.append(gnname)
-            else:
-                # overwrite ambiguous set, removing the newly assigned nodes
-                self.ambiguous_gold_id_map[gnname] = [left_gnids, left_nids]
-
-        for nname in delete_nname:
-            del self.ambiguous_gold_id_map[nname]
-
-#         # create expansion list for edge search. Ambiguous maps have nor order,
-#         # asign every gold to every decoded. Normal map is ordered and maps one
-#         # to one
-#         gold_to_dec_ids = dict()
-#         for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
-#             if nids != []:
-#                 for gnid in gnids:
-#                     gold_to_dec_ids[gnid] = nids
-#         for gnname, (gnids, nids) in self.gold_id_map.items():
-#             for gnid, nid in zip(gnids, nids):
-#                 gold_to_dec_ids[gnid] = [nid]
-#
-#         return gold_to_dec_ids
 
     def update(self, machine):
         '''
         Update state of aligner given latest state machine state
         '''
 
-        print_and_break(30, self, machine)
-
-        # update gold and decoded graph alignments
-        # TODO: separate propagation and context matchers
-        self._map_decoded_and_gold_ids(machine)
-
         # note that actions predict node labels, not node ids so during partial
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges have been predicted.
-        # Here update the mapping between gold and decoded node ids. Since we
-        # predicted nodes or edges this may have changed
+
+        # print_and_break(30, self, machine)
+
+        # add nodes created in this update
+        dec2gold = self.get_flat_map(ambiguous=True)
+        for nid, nname in machine.nodes.items():
+            if nid not in dec2gold:
+                if nname in self.ambiguous_gold_id_map:
+                    self.ambiguous_gold_id_map[nname][1].append(nid)
+                elif nname in self.gold_id_map:
+                    # FIXME:
+                    self.gold_id_map[nname][1].append(nid)
+                else:
+                    raise Exception()
+
+        # update re-entrancy counts
+        num_dec_parents = Counter()
+        for (s, l, t) in machine.edges:
+            # completed if: self.num_dec_parents[t] == self.num_gold_parents[t]
+            if any(
+                num_dec_parents[t] == self.num_gold_parents[n]
+                for n in dec2gold[t] if n != self.gold_amr.root
+            ):
+                set_trace(context=30)
+                print()
+            num_dec_parents[t] += 1
+        self.num_dec_parents = num_dec_parents
+
+        # update gold and decoded graph alignments
+        # propagating from aligned pairs to unaligned ones
+        self._map_decoded_and_gold_ids_by_propagation(machine)
+        # by context matching
+        self._map_decoded_and_gold_ids_by_context(machine)
+
+        # if machine.action_history and '>RA(9,:ARG2)' in machine.action_history:
+        #    print_and_break(30, self, machine)
+
+        # update edge alignments
         self._map_decoded_and_gold_edges(machine)
 
-    def set_pair(gold_id, decoded_id):
-        # TODO: Update stats about re-entrancies of decoded nodes
-        pass
+    def disambiguate_pair(self, nname, gold_id, decoded_id):
+
+        # FIXME: Debug
+        if gold_id in self.gold_id_map[nname][0]:
+            set_trace(context=30)
+            print()
+        if gold_id not in self.ambiguous_gold_id_map[nname][0]:
+            set_trace(context=30)
+            print()
+
+        # remove from ambigous list
+        self.ambiguous_gold_id_map[nname][0].remove(gold_id)
+        self.ambiguous_gold_id_map[nname][1].remove(decoded_id)
+        if self.ambiguous_gold_id_map[nname][0] == []:
+            del self.ambiguous_gold_id_map[nname]
+
+        # Add to final list
+        self.gold_id_map[nname][0].append(gold_id)
+        self.gold_id_map[nname][1].append(decoded_id)
+
+        # if only one node left in ambiguous_gold_id_map, it is not ambiguous
+        if (
+            len(self.ambiguous_gold_id_map[nname][0]) == 1
+            and len(self.ambiguous_gold_id_map[nname][1]) == 1
+        ):
+            gold_id = self.ambiguous_gold_id_map[nname][0][0]
+            decoded_id = self.ambiguous_gold_id_map[nname][1][0]
+            self.disambiguate_pair(nname, gold_id, decoded_id)
 
     def _map_decoded_and_gold_edges(self, machine):
 
@@ -680,7 +632,6 @@ class AlignModeTracker():
         # if False:
         # if machine.action_history and 'person' in machine.action_history:
         # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
-        # if machine.action_history and '>RA(9,:ARG2)' in machine.action_history:
         #    print_and_break(30, self, machine)
 
         # note that during partial decoding we may have multiple possible
@@ -697,25 +648,20 @@ class AlignModeTracker():
                 # no decoded candidates for this edge yet
                 continue
 
-            try:
-                if not (
-                    # one or more possible RAs
-                    any(
-                        n in gold_to_dec_ids[gold_s_id]
-                        for n in machine.node_stack[:-1]
-                    ) and machine.node_stack[-1] in gold_to_dec_ids[gold_t_id]
-                    # one or more possible LAs
-                    or any(
-                        n in gold_to_dec_ids[gold_t_id]
-                        for n in machine.node_stack[:-1]
-                    ) and machine.node_stack[-1] in gold_to_dec_ids[gold_s_id]
-                ):
-                    # non of the ids is at the top of the stack
-                    continue
-
-            except:
-                set_trace(context=30)
-                print()
+            if not (
+                # one or more possible RAs
+                any(
+                    n in gold_to_dec_ids[gold_s_id]
+                    for n in machine.node_stack[:-1]
+                ) and machine.node_stack[-1] in gold_to_dec_ids[gold_t_id]
+                # one or more possible LAs
+                or any(
+                    n in gold_to_dec_ids[gold_t_id]
+                    for n in machine.node_stack[:-1]
+                ) and machine.node_stack[-1] in gold_to_dec_ids[gold_s_id]
+            ):
+                # non of the ids is at the top of the stack
+                continue
 
             # store decoded <-> gold cluster
             key = []
@@ -747,10 +693,10 @@ class AlignModeTracker():
                     continue
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (
-                        # FIXME: This needs to be a refcount due to
-                        # re-entrancies
-                        nid2 in used_target_nids
+                        # we need to take into account re-entrancies
+                        self.num_dec_parents[nid2] == self.num_gold_parents[gold_t_id]
                         or (nid, gold_e_label, nid2) in machine.edges
+                        or nid == nid2
                     ):
                         # if we used this already above, is not a possible
                         # decoding
