@@ -356,6 +356,13 @@ class AlignModeTracker():
         # neighbouhood
         self.gold_neighbours = self.get_neighbour_disambiguation(gold_amr)
 
+        # there can be more than one edge betweentow nodes e.g. John hurt
+        # himself
+        self.num_edges_by_node_pair = Counter()
+        self.num_edges_by_node_pair.update(
+            (gs, gt) for gs, _, gt in gold_amr.edges
+        )
+
         # this will hold decoded edges aligned to gold edges, including
         # ambiguous cases (many aligned ot many)
         self.decoded_to_goldedges = {}
@@ -367,7 +374,7 @@ class AlignModeTracker():
 
         keys = [k for k, v in self.ambiguous_gold_id_map.items() if v[1]]
         string = ' '.join(f'{k} {self.gold_id_map[k]}' for k in keys)
-        string += ' '
+        string += ' \n\n'
         string += ' '.join(
             f'{k} {self.ambiguous_gold_id_map[k]}' for k in keys
         )
@@ -554,8 +561,6 @@ class AlignModeTracker():
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges have been predicted.
 
-        # print_and_break(30, self, machine)
-
         # add nodes created in this update
         dec2gold = self.get_flat_map(ambiguous=True)
         for nid, nname in machine.nodes.items():
@@ -587,8 +592,9 @@ class AlignModeTracker():
         # by context matching
         self._map_decoded_and_gold_ids_by_context(machine)
 
-        # if machine.action_history and '>RA(9,:ARG2)' in machine.action_history:
-        #    print_and_break(30, self, machine)
+        # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
+        # if machine.action_history and 'have-degree-91' in machine.action_history:
+        #    print_and_break(1, self, machine)
 
         # update edge alignments
         self._map_decoded_and_gold_edges(machine)
@@ -666,17 +672,14 @@ class AlignModeTracker():
             # store decoded <-> gold cluster
             key = []
             used_nids = []
-            used_target_nids = []
             for nid in gold_to_dec_ids[gold_s_id]:
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (nid, gold_e_label, nid2) in machine.edges:
                         # this possible disambiguation is already decoded
                         key.append((nid, gold_e_label, nid2))
-                        # FIXME: re-entrancies
                         used_nids.append(nid)
                         # targets may be used more than once due to
                         # re-entrancies
-                        used_target_nids.append(nid2)
             self.decoded_to_goldedges[tuple(key)].append(
                 (gold_s_id, gold_e_label, gold_t_id)
             )
@@ -700,6 +703,13 @@ class AlignModeTracker():
                     ):
                         # if we used this already above, is not a possible
                         # decoding
+                        continue
+
+                    # constrain to gold number of edges per node pairs.
+                    if (
+                        self.num_edges_by_node_pair[(gold_s_id, gold_t_id)] ==
+                        sum((e[0], e[2]) == (nid, nid2) for e in machine.edges)
+                    ):
                         continue
 
                     # this is a potential decoding option
