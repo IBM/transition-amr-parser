@@ -45,6 +45,59 @@ def red_background(string):
     return "\033[101m%s\033[0m" % string
 
 
+def get_gold_node_hashes(gold_nodes, gold_edges):
+
+    # cluster node ids by node label
+    gnode_by_label = defaultdict(list)
+    for gnid, gnname in gold_nodes.items():
+        gnode_by_label[normalize(gnname)].append(gnid)
+
+    # get all neighbours of each node
+    id_neighbours = defaultdict(list)
+    nname_neighbours = defaultdict(list)
+    for nid, nname in gold_nodes.items():
+        id_neighbours[nid] = []
+        for (s, l, t) in gold_edges:
+            if s == nid:
+                id_neighbours[nid].append(((s, l, t), t))
+                nname_neighbours[nid].append((amr.nodes[s], l, anr.nodes[t]))
+            elif t == nid:
+                id_neighbours[nid].append(((s, l, t), s))
+
+    # visit increasing neighbourhoods until you get a hash that can
+    node_hash = {}
+    max_neigbourhood_size = 3
+    for nname, nids in gnode_by_label.items():
+
+        if len(nids) == 1:
+            # single node, trivial
+            continue
+
+        pending_nids = nids
+
+        neighbourhood = dict(id_neighbours)
+        for size in range(max_neigbourhood_size):
+
+            for s in range(size - 1):
+                for nid in pending_nids:
+                    neighbourhood[nid]
+
+            edge_counts = Counter([e for pending_nids in nids for e in id_neighbours[n]])
+
+            for nid in pending_nids:
+                # any edge appearing in only one node is a valid hash
+                # FIXME: also same edge 2+ for the same node
+                hash_edges = [
+                    e for e in id_neighbours[nid] if edge_counts[e] == 1
+                ]
+                if hash_edges:
+
+                    node_hash[nid] = hash_edges
+                    pending_nids.remove(nid)
+
+    return id_neighbours
+
+
 def graph_alignments(unaligned_nodes, amr):
     """
     Shallow alignment fixer: Inherit the alignment of the last child or first
@@ -382,11 +435,12 @@ class AlignModeTracker():
 
     def get_neighbour_disambiguation(self, amr):
 
+        # cluster node ids by node label
         gnode_by_label = defaultdict(list)
         for gnid, gnname in amr.nodes.items():
             gnode_by_label[normalize(gnname)].append(gnid)
 
-        # get all neighbours
+        # get all neighbours of each node
         id_neighbours = defaultdict(list)
         for nid, nname in amr.nodes.items():
             if len(gnode_by_label[nname]) > 1:
@@ -597,6 +651,7 @@ class AlignModeTracker():
         #    print_and_break(1, self, machine)
 
         # update edge alignments
+        # TODO: maybe use node alignment here for propagation (iteratively)
         self._map_decoded_and_gold_edges(machine)
 
     def disambiguate_pair(self, nname, gold_id, decoded_id):
@@ -633,12 +688,6 @@ class AlignModeTracker():
         # get a map from every gold node to every potential aligned decoded
         # node
         gold_to_dec_ids = self.get_flat_map(reverse=True, ambiguous=True)
-
-        # if True:
-        # if False:
-        # if machine.action_history and 'person' in machine.action_history:
-        # if machine.action_history and machine.action_history[-2:] == ['person', '>LA(35,:ARG0-of)']:
-        #    print_and_break(30, self, machine)
 
         # note that during partial decoding we may have multiple possible
         # decoded edges for each gold edge (due to ambiguous node mapping above)
@@ -685,8 +734,8 @@ class AlignModeTracker():
             )
 
             # if machine.action_history and '>RA(9,:ARG2)' in machine.action_history and gold_t_id == 't3':
-            #    set_trace(context=30)
-            #    print()
+            # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
+            #    print_and_break(1, self, machine)
 
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
