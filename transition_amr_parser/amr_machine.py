@@ -27,6 +27,186 @@ ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 
+def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
+                                  forbid_nodes=None, backtrack=None):
+    """
+    given graph defined by {gold_nodes} and {gold_edges} and node ids
+    coresponding to nodes with same label {gnids} return structure that can be
+    queried with a subgraph of the graph to identify each node in {gnids}
+    """
+
+    # loop over gold node is for same nname
+    ids_by_key = defaultdict(set)
+    hop_ids = defaultdict(set)
+    new_backtrack = {}
+    for gnid in gnids:
+        for (gs, gl, gt) in gold_edges:
+
+            # if we are hoping through a graph, avoid revisiting nodes
+            if forbid_nodes:
+                if gs == gnid and gt in forbid_nodes:
+                    continue
+                elif gt == gnid and gs in forbid_nodes:
+                    continue
+
+            # construct key from edge of current node
+            if gs == gnid:
+                # child of nid
+                key = f'> {gl} {gold_nodes[gt]}'
+                hop_ids[key].add(gt)
+                new_backtrack[gt] = gnid
+            elif gt == gnid:
+                # parent of nid
+                key = f'{gold_nodes[gs]} {gl} <'
+                hop_ids[key].add(gs)
+                new_backtrack[gs] = gnid
+            else:
+                continue
+            ids_by_key[key].add(gnid)
+
+    # create key value pairs from edges by considering edges that identify nine
+    # or more nodes from the total of gnids
+    edge_values = defaultdict(list)
+    found_gnids = set()
+    non_identifying_keys = []
+    for key, key_gnids in ids_by_key.items():
+        if len(key_gnids) == 1:
+            # uniquely identifies one gold_id
+            edge_values[key] = list(key_gnids)[0:1]
+            found_gnids |= key_gnids
+        elif len(key_gnids) < len(gnids):
+            # uniquely identifies two or more gold_ids
+            edge_values[key] = list(key_gnids)
+            non_identifying_keys.append(key)
+        else:
+            # does not indentify anything
+            non_identifying_keys.append(key)
+
+    if (
+        len(found_gnids) < len(gnids)
+        and max_size > 1
+        and len(non_identifying_keys)
+    ):
+
+        if backtrack is not None:
+            new_backtrack = {k: backtrack[v] for k, v in new_backtrack.items()}
+
+        # if there are pending ids to be identified expand neighbourhood one
+        # hop, indicate not to revisit nodes
+        for key in non_identifying_keys:
+            hop_edge_values = generate_matching_gold_hashes(
+                gold_nodes, gold_edges, list(hop_ids[key]),
+                max_size=max_size - 1, forbid_nodes=gnids,
+                backtrack=new_backtrack
+            )
+
+            for hop_key, hop_values in hop_edge_values.items():
+                # back-track to get previous node we departured from
+                backtracked_values = []
+                for hop_value in hop_values:
+                    if isinstance(hop_value, list):
+                        backtracked_values.extend([x for x in hop_value])
+                    elif isinstance(hop_value, dict):
+                        # Need to recursively replace
+                        # Lets skip for now
+                        # backtracked_values.extend([x for x in hop_value])
+                        # set_trace(context=30)
+                        pass
+                    else:
+                        backtracked_values.append(hop_value)
+                edge_values[key].append({hop_key: backtracked_values})
+
+    return edge_values
+
+
+def get_matching_gold_ids(nodes, edges, nid, edge_values):
+    #
+    # returns gold ids than can be uniquely assigned to node nid:
+    # examples [], ['a1'], ['a1', 'a3']
+    #
+    # Not ambiguous
+    #
+    # edge_values = {None: ['a1']}
+    #
+    # Can be disambiguated with neighborhood 1
+    #
+    # edge_values = {('> :mod some'): ['a1']}
+    #
+    # Can be disambiguated with neighbouthood 2
+    #
+    # edge_values = {('paint-01 :ARG0 <'): {('> :mod some'): ['a1']}}
+    #
+    # Can partially be disambiguated with neighborhood 1 (assume > 2 gold_ids)
+    #
+    # edge_values = {('> :mod some'): ['a1', 'a3']}
+
+    # edge_value: defaultdict(list) per nname
+
+    if None in edge_values:
+        return edge_values[None]
+
+    candidates = []
+    for (s, l, t) in edges:
+
+        # construct key from edge of current node
+        if s == nid:
+            # child of nid
+            key = f'> {l} {nodes[t]}'
+        elif t == nid:
+            # parent of nid
+            key = f'{nodes[s]} {l} <'
+        else:
+            continue
+
+        # get a match if any
+        edge_value = edge_values[key]
+
+        if isinstance(edge_value, list) and len(edge_value) == 1:
+            # we hit one unique gold_id match return
+            return edge_value
+
+        elif isinstance(edge_value, list) and len(edge_value) > 1:
+            # if we hit a match with more than one gold_id, keep it for now
+            candidates.append(edge_value)
+
+        elif isinstance(edge_value, dict):
+            # if we hit neighbouthood > 1, process that one
+            if s == nid:
+                return get_matching_gold_ids(nodes, edges, t, edge_value)
+            else:
+                return get_matching_gold_ids(nodes, edges, s, edge_value)
+
+    # if we reach here, return the candidate with less gold nodes
+    # i.e. favor ['a1', 'a3'] vs ['a1', 'a3', 'a4']
+    if candidates:
+        return sorted(candidates, key=len)[0]
+    else:
+        return []
+
+
+def get_gold_node_hashes(gold_nodes, gold_edges):
+
+    # cluster node ids by node label
+    gnode_by_label = defaultdict(list)
+    for gnid, gnname in gold_nodes.items():
+        gnode_by_label[normalize(gnname)].append(gnid)
+
+    # loop over clusters of node label and possible node ids
+    max_neigbourhood_size = 3
+    rules = dict()
+    for gnname, gnids in gnode_by_label.items():
+        if len(gnids) == 1:
+            # simple case: node label appears only one in graph
+            rules[gnname] = [gnids[0]]
+        else:
+            rules[gnname] = generate_matching_gold_hashes(
+                gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size
+            )
+
+    set_trace(context=30)
+    print()
+
+
 def print_and_break(context, aligner, machine):
 
     # SHIFT work-09
@@ -45,57 +225,57 @@ def red_background(string):
     return "\033[101m%s\033[0m" % string
 
 
-def get_gold_node_hashes(gold_nodes, gold_edges):
-
-    # cluster node ids by node label
-    gnode_by_label = defaultdict(list)
-    for gnid, gnname in gold_nodes.items():
-        gnode_by_label[normalize(gnname)].append(gnid)
-
-    # get all neighbours of each node
-    id_neighbours = defaultdict(list)
-    nname_neighbours = defaultdict(list)
-    for nid, nname in gold_nodes.items():
-        id_neighbours[nid] = []
-        for (s, l, t) in gold_edges:
-            if s == nid:
-                id_neighbours[nid].append(((s, l, t), t))
-                nname_neighbours[nid].append((amr.nodes[s], l, anr.nodes[t]))
-            elif t == nid:
-                id_neighbours[nid].append(((s, l, t), s))
-
-    # visit increasing neighbourhoods until you get a hash that can
-    node_hash = {}
-    max_neigbourhood_size = 3
-    for nname, nids in gnode_by_label.items():
-
-        if len(nids) == 1:
-            # single node, trivial
-            continue
-
-        pending_nids = nids
-
-        neighbourhood = dict(id_neighbours)
-        for size in range(max_neigbourhood_size):
-
-            for s in range(size - 1):
-                for nid in pending_nids:
-                    neighbourhood[nid]
-
-            edge_counts = Counter([e for pending_nids in nids for e in id_neighbours[n]])
-
-            for nid in pending_nids:
-                # any edge appearing in only one node is a valid hash
-                # FIXME: also same edge 2+ for the same node
-                hash_edges = [
-                    e for e in id_neighbours[nid] if edge_counts[e] == 1
-                ]
-                if hash_edges:
-
-                    node_hash[nid] = hash_edges
-                    pending_nids.remove(nid)
-
-    return id_neighbours
+# def get_gold_node_hashes(gold_nodes, gold_edges):
+#
+#     # cluster node ids by node label
+#     gnode_by_label = defaultdict(list)
+#     for gnid, gnname in gold_nodes.items():
+#         gnode_by_label[normalize(gnname)].append(gnid)
+#
+#     # get all neighbours of each node
+#     id_neighbours = defaultdict(list)
+#     nname_neighbours = defaultdict(list)
+#     for nid, nname in gold_nodes.items():
+#         id_neighbours[nid] = []
+#         for (s, l, t) in gold_edges:
+#             if s == nid:
+#                 id_neighbours[nid].append(((s, l, t), t))
+#                 nname_neighbours[nid].append((gold_nodes[s], l, gold_nodes[t]))
+#             elif t == nid:
+#                 id_neighbours[nid].append(((s, l, t), s))
+#
+#     # visit increasing neighbourhoods until you get a hash that can
+#     node_hash = {}
+#     max_neigbourhood_size = 3
+#     for nname, nids in gnode_by_label.items():
+#
+#         if len(nids) == 1:
+#             # single node, trivial
+#             continue
+#
+#         pending_nids = nids
+#
+#         neighbourhood = dict(id_neighbours)
+#         for size in range(max_neigbourhood_size):
+#
+#             for s in range(size - 1):
+#                 for nid in pending_nids:
+#                     neighbourhood[nid]
+#
+#             edge_counts = Counter([e for pending_nids in nids for e in id_neighbours[n]])
+#
+#             for nid in pending_nids:
+#                 # any edge appearing in only one node is a valid hash
+#                 # FIXME: also same edge 2+ for the same node
+#                 hash_edges = [
+#                     e for e in id_neighbours[nid] if edge_counts[e] == 1
+#                 ]
+#                 if hash_edges:
+#
+#                     node_hash[nid] = hash_edges
+#                     pending_nids.remove(nid)
+#
+#     return id_neighbours
 
 
 def graph_alignments(unaligned_nodes, amr):
