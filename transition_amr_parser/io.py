@@ -20,7 +20,7 @@ def read_amr(file_path, ibm_format=False, tokenize=False, bar=True):
                 if ibm_format:
                     # From ::node, ::edge etc
                     raw_amrs.append(
-                        AMR.from_metadata(raw_amr, tokenize=tokenize)
+                        AMR.from_metadata(raw_amr)
                     )
                 else:
                     # From penman
