@@ -70,6 +70,7 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
     found_gnids = set()
     non_identifying_keys = []
     for key, key_gnids in ids_by_key.items():
+
         if len(key_gnids) == 1:
             # uniquely identifies one gold_id
             edge_values[key] = list(key_gnids)[0:1]
@@ -94,27 +95,27 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
         # if there are pending ids to be identified expand neighbourhood one
         # hop, indicate not to revisit nodes
         for key in non_identifying_keys:
+
             hop_edge_values = generate_matching_gold_hashes(
                 gold_nodes, gold_edges, list(hop_ids[key]),
                 max_size=max_size - 1, forbid_nodes=gnids,
                 backtrack=new_backtrack
             )
+            # reached recursion depth and returns
+            if hop_edge_values != {}:
+                edge_values[key].append(hop_edge_values)
 
-            for hop_key, hop_values in hop_edge_values.items():
-                # back-track to get previous node we departured from
-                backtracked_values = []
-                for hop_value in hop_values:
-                    if isinstance(hop_value, list):
-                        backtracked_values.extend([x for x in hop_value])
-                    elif isinstance(hop_value, dict):
-                        # Need to recursively replace
-                        # Lets skip for now
-                        # backtracked_values.extend([x for x in hop_value])
-                        # set_trace(context=30)
-                        pass
-                    else:
-                        backtracked_values.append(hop_value)
-                edge_values[key].append({hop_key: backtracked_values})
+    if backtrack is not None:
+        new_edge_values = defaultdict(list)
+        for k, v in edge_values.items():
+            for vi in v:
+                if isinstance(vi, dict):
+                    new_edge_values[k].append(vi)
+                elif backtrack[vi] not in new_edge_values[k]:
+                    new_edge_values[k].append(backtrack[vi])
+        edge_values = dict(new_edge_values)
+    else:
+        edge_values = dict(edge_values)
 
     return edge_values
 
@@ -199,13 +200,15 @@ def get_gold_node_hashes(gold_nodes, gold_edges):
             # simple case: node label appears only one in graph
             rules[gnname] = [gnids[0]]
         else:
+            # if gnname == 'more':
+            #    # b 106
+            #    set_trace(context=30)
+
             rules[gnname] = generate_matching_gold_hashes(
                 gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size
             )
 
-    set_trace(context=30)
-    print()
-
+    return rules
 
 def print_and_break(context, aligner, machine):
 
@@ -587,7 +590,8 @@ class AlignModeTracker():
 
         # get a hash of each node that can disambiguate based on size 1
         # neighbouhood
-        self.gold_neighbours = self.get_neighbour_disambiguation(gold_amr)
+        # self.gold_neighbours = self.get_neighbour_disambiguation(gold_amr)
+        self.gold_neighbours = self.get_gold_node_hashes(gold_amr.nodes, gold_amr.edges)
 
         # there can be more than one edge betweentow nodes e.g. John hurt
         # himself
@@ -769,6 +773,8 @@ class AlignModeTracker():
                 key_edges = get_key_edges(nid)
                 if not bool(key_edges):
                     continue
+
+                set_trace(context=30)
 
                 for gnid in gnids:
                     # if key_edges <= set(self.gold_neighbours[gnid]):
