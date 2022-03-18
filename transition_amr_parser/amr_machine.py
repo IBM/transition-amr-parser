@@ -120,7 +120,33 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
     return edge_values
 
 
-def get_matching_gold_ids(nodes, edges, nid, edge_values):
+def get_edge_keys(nodes, edges, nid, ids=False):
+    # get edges for this node
+    key_nids = []
+    for (s, l, t) in edges:
+
+        # construct key from edge of current node
+        if s == nid:
+            # child of nid
+            if ids:
+                key_nid = (f'> {l} {t}', t)
+            else:
+                key_nid = (f'> {l} {nodes[t]}', t)
+        elif t == nid:
+            # parent of nid
+            if ids:
+                key_nid = (f'{s} {l} <', s)
+            else:
+                key_nid = (f'{nodes[s]} {l} <', s)
+        else:
+            continue
+
+        key_nids.append(key_nid)
+
+    return key_nids
+
+
+def get_matching_gold_ids(nodes, edges, nid, edge_values, ids=False):
     #
     # returns gold ids than can be uniquely assigned to node nid:
     # examples [], ['a1'], ['a1', 'a3']
@@ -146,43 +172,60 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values):
     if None in edge_values:
         return edge_values[None]
 
-    candidates = []
-    for (s, l, t) in edges:
+    key_nids = get_edge_keys(nodes, edges, nid, ids=ids)
 
-        # construct key from edge of current node
-        if s == nid:
-            # child of nid
-            key = f'> {l} {nodes[t]}'
-        elif t == nid:
-            # parent of nid
-            key = f'{nodes[s]} {l} <'
-        else:
+    # match against pre-computed edge keys
+    # collect all shallow disambiguations
+    candidates = []
+    for (key, knid) in key_nids:
+        # get a match if any
+        for edge_value in edge_values.get(key, []):
+            if not isinstance(edge_value, dict):
+                candidates.append(edge_value)
+
+    # for node id mode, we only need size 1 neighborhood
+    if ids: 
+        return candidates
+
+    # collect all recursive disambiguations. Note that they can only narrow
+    # down our search or leave it as is, never widen it
+    tree_keys = []
+    for (key, knid) in key_nids:
+
+        if key in tree_keys:
             continue
 
         # get a match if any
-        edge_value = edge_values[key]
+        for edge_value in edge_values.get(key, []):
 
-        if isinstance(edge_value, list) and len(edge_value) == 1:
-            # we hit one unique gold_id match return
-            return edge_value
+            if isinstance(edge_value, dict):
+                # if we hit neighbouthood > 1, process that one
+                new_candidates = \
+                    get_matching_gold_ids(nodes, edges, knid, edge_value)
+                if new_candidates == []:
+                    # not enough information to discrimnate further e.g. edges
+                    # not yet decoded
+                    pass
+                elif (
+                    candidates == [] 
+                    or len(new_candidates) < len(candidates)
+                ):
+                    # more restrictive disambiguation, take it
+                    # set_trace(context=30)
+                    candidates = new_candidates
+                elif len(new_candidates) == len(candidates):    
+                    # equaly restrictive, intersect
+                    # set_trace(context=30)
+                    candidates = sorted(set(new_candidates) & set(candidates))
+                    assert candidates, "Algorihm implementation error: There"\
+                        " can not be conflicting disambiguations"
+                else:    
+                    # less restrictive (redundant) ignore
+                    pass
 
-        elif isinstance(edge_value, list) and len(edge_value) > 1:
-            # if we hit a match with more than one gold_id, keep it for now
-            candidates.append(edge_value)
+                tree_keys.append(key)
 
-        elif isinstance(edge_value, dict):
-            # if we hit neighbouthood > 1, process that one
-            if s == nid:
-                return get_matching_gold_ids(nodes, edges, t, edge_value)
-            else:
-                return get_matching_gold_ids(nodes, edges, s, edge_value)
-
-    # if we reach here, return the candidate with less gold nodes
-    # i.e. favor ['a1', 'a3'] vs ['a1', 'a3', 'a4']
-    if candidates:
-        return sorted(candidates, key=len)[0]
-    else:
-        return []
+    return candidates
 
 
 def get_gold_node_hashes(gold_nodes, gold_edges):
@@ -591,7 +634,7 @@ class AlignModeTracker():
         # get a hash of each node that can disambiguate based on size 1
         # neighbouhood
         # self.gold_neighbours = self.get_neighbour_disambiguation(gold_amr)
-        self.gold_neighbours = self.get_gold_node_hashes(gold_amr.nodes, gold_amr.edges)
+        self.gold_neighbours = get_gold_node_hashes(gold_amr.nodes, gold_amr.edges)
 
         # there can be more than one edge betweentow nodes e.g. John hurt
         # himself
@@ -748,14 +791,6 @@ class AlignModeTracker():
         # unique we can determine it. So we need to wait until enough edges are
         # available
 
-        def get_key_edges(nid, ids=False):
-            return set([
-                (e[0], e[1], machine.nodes[e[2]]) if ids else
-                (machine.nodes[e[0]], e[1], machine.nodes[e[2]])
-                for e in machine.edges
-                if e[0] == nid or e[2] == nid
-            ])
-
         # disambiguate and store expansion list
         delete_nname = []
         for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
@@ -767,30 +802,21 @@ class AlignModeTracker():
             # disambiguate
             # FIXME: If the keys do not uniquely identify nodes, this will
             # be a greedy selection
-            gnid_updates = []
-            nid_updates = []
             for nid in nids:
-                key_edges = get_key_edges(nid)
-                if not bool(key_edges):
-                    continue
 
-                set_trace(context=30)
+                if machine.action_history and '>RA(29,:ARG3)' in machine.action_history:
+                    print_and_break(1, self, machine)
 
-                for gnid in gnids:
-                    # if key_edges <= set(self.gold_neighbours[gnid]):
-                    if bool(key_edges & set(self.gold_neighbours[gnid])):
-                        gnid_updates.append(gnid)
-                        nid_updates.append(nid)
-                        # this should not be needed as the key_edges whould be
-                        # unique
-                        break
+                matches = get_matching_gold_ids(
+                    machine.nodes, machine.edges, nid,
+                    self.gold_neighbours[gnname]
+                )
 
-            # once we have all updates change maps accordingly
-            # assign all disambiguated nodes
-            for (gnid, nid) in zip(gnid_updates, nid_updates):
-                if nid not in self.gold_id_map[gnname][1]:
-                    self.disambiguate_pair(gnname, gnid, nid)
-
+                # TODO: Support |subset| > 1 assignment
+                if len(matches) == 1:
+                    gnid = matches[0]
+                    if nid not in self.gold_id_map[gnname][1]:
+                        self.disambiguate_pair(gnname, gnid, nid)
 
     def update(self, machine):
         '''
@@ -816,29 +842,45 @@ class AlignModeTracker():
         # update re-entrancy counts
         num_dec_parents = Counter()
         for (s, l, t) in machine.edges:
-            # completed if: self.num_dec_parents[t] == self.num_gold_parents[t]
-            if any(
-                num_dec_parents[t] == self.num_gold_parents[n]
-                for n in dec2gold[t] if n != self.gold_amr.root
+            if all( 
+                n != self.gold_amr.root 
+                and num_dec_parents[t] == self.num_gold_parents[n]
+                for n in dec2gold[t]
             ):
+                # at least one option should have less number of parents
                 set_trace(context=30)
                 print()
             num_dec_parents[t] += 1
         self.num_dec_parents = num_dec_parents
 
+        # if machine.action_history and 'have-degree-91' in machine.action_history:
+        # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
+        # if machine.action_history and '>LA(29,:ARG1-of)' in machine.action_history:
+        #    print_and_break(30, self, machine)
+
         # update gold and decoded graph alignments
         # propagating from aligned pairs to unaligned ones
-        self._map_decoded_and_gold_ids_by_propagation(machine)
+        # self._map_decoded_and_gold_ids_by_propagation(machine)
         # by context matching
         self._map_decoded_and_gold_ids_by_context(machine)
 
-        # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
-        # if machine.action_history and 'have-degree-91' in machine.action_history:
-        #    print_and_break(1, self, machine)
+        # when only one ambiguous node is left, its not ambiguous any more
+        for nname in self.ambiguous_gold_id_map.keys():
+            self.exclusion_disambiguation(nname)
 
         # update edge alignments
         # TODO: maybe use node alignment here for propagation (iteratively)
         self._map_decoded_and_gold_edges(machine)
+
+    def exclusion_disambiguation(self, nname):
+        # if only one node left in ambiguous_gold_id_map, it is not ambiguous
+        if (
+            len(self.ambiguous_gold_id_map[nname][0]) == 1
+            and len(self.ambiguous_gold_id_map[nname][1]) == 1
+        ):
+            gold_id = self.ambiguous_gold_id_map[nname][0][0]
+            decoded_id = self.ambiguous_gold_id_map[nname][1][0]
+            self.disambiguate_pair(nname, gold_id, decoded_id)
 
     def disambiguate_pair(self, nname, gold_id, decoded_id):
 
@@ -850,7 +892,7 @@ class AlignModeTracker():
             set_trace(context=30)
             print()
 
-        # remove from ambigous list
+        # remove from ambiguous list
         self.ambiguous_gold_id_map[nname][0].remove(gold_id)
         self.ambiguous_gold_id_map[nname][1].remove(decoded_id)
         if self.ambiguous_gold_id_map[nname][0] == []:
@@ -861,13 +903,7 @@ class AlignModeTracker():
         self.gold_id_map[nname][1].append(decoded_id)
 
         # if only one node left in ambiguous_gold_id_map, it is not ambiguous
-        if (
-            len(self.ambiguous_gold_id_map[nname][0]) == 1
-            and len(self.ambiguous_gold_id_map[nname][1]) == 1
-        ):
-            gold_id = self.ambiguous_gold_id_map[nname][0][0]
-            decoded_id = self.ambiguous_gold_id_map[nname][1][0]
-            self.disambiguate_pair(nname, gold_id, decoded_id)
+        self.exclusion_disambiguation(nname)
 
     def _map_decoded_and_gold_edges(self, machine):
 
