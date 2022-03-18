@@ -27,6 +27,21 @@ ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 
+def print_and_break(context, aligner, machine):
+
+    # SHIFT work-09
+    dec2gold = aligner.get_flat_map()
+    node_map = {
+        k: green_font(f'{k}-{dec2gold[k]}')
+            if k in dec2gold else yellow_font(k)
+        for k in machine.nodes
+    }
+    print(machine.state_str(node_map))
+    print(aligner)
+    set_trace(context=context)
+    # set_trace()
+
+
 def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
                                   forbid_nodes=None, backtrack=None):
     """
@@ -252,20 +267,6 @@ def get_gold_node_hashes(gold_nodes, gold_edges):
             )
 
     return rules
-
-def print_and_break(context, aligner, machine):
-
-    # SHIFT work-09
-    dec2gold = aligner.get_flat_map()
-    node_map = {
-        k: green_font(f'{k}-{dec2gold[k]}')
-            if k in dec2gold else yellow_font(k)
-        for k in machine.nodes
-    }
-    print(machine.state_str(node_map))
-    print(aligner)
-    set_trace(context=context)
-    # set_trace()
 
 def red_background(string):
     return "\033[101m%s\033[0m" % string
@@ -804,8 +805,8 @@ class AlignModeTracker():
             # be a greedy selection
             for nid in nids:
 
-                if machine.action_history and '>RA(29,:ARG3)' in machine.action_history:
-                    print_and_break(1, self, machine)
+                # if machine.action_history and '>RA(29,:ARG3)' in machine.action_history:
+                #    print_and_break(1, self, machine)
 
                 matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
