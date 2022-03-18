@@ -43,7 +43,8 @@ def print_and_break(context, aligner, machine):
 
 
 def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
-                                  forbid_nodes=None, backtrack=None):
+                                  ids=False, forbid_nodes=None,
+                                  backtrack=None):
     """
     given graph defined by {gold_nodes} and {gold_edges} and node ids
     coresponding to nodes with same label {gnids} return structure that can be
@@ -67,12 +68,18 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
             # construct key from edge of current node
             if gs == gnid:
                 # child of nid
-                key = f'> {gl} {gold_nodes[gt]}'
+                if ids:
+                    key = f'> {gl} {gt}'
+                else:
+                    key = f'> {gl} {gold_nodes[gt]}'
                 hop_ids[key].add(gt)
                 new_backtrack[gt] = gnid
             elif gt == gnid:
                 # parent of nid
-                key = f'{gold_nodes[gs]} {gl} <'
+                if ids:
+                    key = f'{gs} {gl} <'
+                else:
+                    key = f'{gold_nodes[gs]} {gl} <'
                 hop_ids[key].add(gs)
                 new_backtrack[gs] = gnid
             else:
@@ -98,21 +105,23 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
             # does not indentify anything
             non_identifying_keys.append(key)
 
+    # if there are pending ids to be identified expand neighbourhood one
+    # hop, indicate not to revisit nodes
     if (
         len(found_gnids) < len(gnids)
         and max_size > 1
         and len(non_identifying_keys)
+        # if we are using gold node ids and not labels, size = 1 is all we need
+        and not ids
     ):
 
         if backtrack is not None:
             new_backtrack = {k: backtrack[v] for k, v in new_backtrack.items()}
 
-        # if there are pending ids to be identified expand neighbourhood one
-        # hop, indicate not to revisit nodes
         for key in non_identifying_keys:
 
             hop_edge_values = generate_matching_gold_hashes(
-                gold_nodes, gold_edges, list(hop_ids[key]),
+                gold_nodes, gold_edges, list(hop_ids[key]), ids=ids,
                 max_size=max_size - 1, forbid_nodes=gnids,
                 backtrack=new_backtrack
             )
@@ -199,7 +208,7 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, ids=False):
                 candidates.append(edge_value)
 
     # for node id mode, we only need size 1 neighborhood
-    if ids: 
+    if ids:
         return candidates
 
     # collect all recursive disambiguations. Note that they can only narrow
@@ -222,19 +231,19 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, ids=False):
                     # not yet decoded
                     pass
                 elif (
-                    candidates == [] 
+                    candidates == []
                     or len(new_candidates) < len(candidates)
                 ):
                     # more restrictive disambiguation, take it
                     # set_trace(context=30)
                     candidates = new_candidates
-                elif len(new_candidates) == len(candidates):    
+                elif len(new_candidates) == len(candidates):
                     # equaly restrictive, intersect
                     # set_trace(context=30)
                     candidates = sorted(set(new_candidates) & set(candidates))
                     assert candidates, "Algorihm implementation error: There"\
                         " can not be conflicting disambiguations"
-                else:    
+                else:
                     # less restrictive (redundant) ignore
                     pass
 
@@ -243,7 +252,7 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, ids=False):
     return candidates
 
 
-def get_gold_node_hashes(gold_nodes, gold_edges):
+def get_gold_node_hashes(gold_nodes, gold_edges, ids=False):
 
     # cluster node ids by node label
     gnode_by_label = defaultdict(list)
@@ -258,15 +267,13 @@ def get_gold_node_hashes(gold_nodes, gold_edges):
             # simple case: node label appears only one in graph
             rules[gnname] = [gnids[0]]
         else:
-            # if gnname == 'more':
-            #    # b 106
-            #    set_trace(context=30)
-
             rules[gnname] = generate_matching_gold_hashes(
-                gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size
+                gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size,
+                ids=ids
             )
 
     return rules
+
 
 def red_background(string):
     return "\033[101m%s\033[0m" % string
@@ -632,10 +639,17 @@ class AlignModeTracker():
         }
         self.num_dec_parents = {}
 
-        # get a hash of each node that can disambiguate based on size 1
-        # neighbouhood
-        # self.gold_neighbours = self.get_neighbour_disambiguation(gold_amr)
-        self.gold_neighbours = get_gold_node_hashes(gold_amr.nodes, gold_amr.edges)
+        # a data structure list(dict|list) that can disambiguate a decoded node
+        # (assign it to it gold node, give sufficient decoded edges). This will
+        # search entire graph neighbourhood
+        self.dec_neighbours = get_gold_node_hashes(
+            gold_amr.nodes, gold_amr.edges
+        )
+        # the same but given gold_ids already alignet to decoded ids. this only
+        # needs size 1
+        self.gold_neighbours = get_gold_node_hashes(
+            gold_amr.nodes, gold_amr.edges, ids=True
+        )
 
         # there can be more than one edge betweentow nodes e.g. John hurt
         # himself
@@ -810,7 +824,7 @@ class AlignModeTracker():
 
                 matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
-                    self.gold_neighbours[gnname]
+                    self.dec_neighbours[gnname]
                 )
 
                 # TODO: Support |subset| > 1 assignment
@@ -843,8 +857,8 @@ class AlignModeTracker():
         # update re-entrancy counts
         num_dec_parents = Counter()
         for (s, l, t) in machine.edges:
-            if all( 
-                n != self.gold_amr.root 
+            if all(
+                n != self.gold_amr.root
                 and num_dec_parents[t] == self.num_gold_parents[n]
                 for n in dec2gold[t]
             ):
