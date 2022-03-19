@@ -144,7 +144,7 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
     return edge_values
 
 
-def get_edge_keys(nodes, edges, nid, ids=False):
+def get_edge_keys(nodes, edges, nid, id_map=None):
     # get edges for this node
     key_nids = []
     for (s, l, t) in edges:
@@ -152,14 +152,14 @@ def get_edge_keys(nodes, edges, nid, ids=False):
         # construct key from edge of current node
         if s == nid:
             # child of nid
-            if ids:
-                key_nid = (f'> {l} {t}', t)
+            if id_map:
+                key_nid = (f'> {l} {id_map[t]}', t)
             else:
                 key_nid = (f'> {l} {nodes[t]}', t)
         elif t == nid:
             # parent of nid
-            if ids:
-                key_nid = (f'{s} {l} <', s)
+            if id_map:
+                key_nid = (f'{id_map[s]} {l} <', s)
             else:
                 key_nid = (f'{nodes[s]} {l} <', s)
         else:
@@ -170,7 +170,7 @@ def get_edge_keys(nodes, edges, nid, ids=False):
     return key_nids
 
 
-def get_matching_gold_ids(nodes, edges, nid, edge_values, ids=False):
+def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
     #
     # returns gold ids than can be uniquely assigned to node nid:
     # examples [], ['a1'], ['a1', 'a3']
@@ -196,7 +196,7 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, ids=False):
     if None in edge_values:
         return edge_values[None]
 
-    key_nids = get_edge_keys(nodes, edges, nid, ids=ids)
+    key_nids = get_edge_keys(nodes, edges, nid, id_map=id_map)
 
     # match against pre-computed edge keys
     # collect all shallow disambiguations
@@ -208,7 +208,7 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, ids=False):
                 candidates.append(edge_value)
 
     # for node id mode, we only need size 1 neighborhood
-    if ids:
+    if id_map:
         return candidates
 
     # collect all recursive disambiguations. Note that they can only narrow
@@ -651,6 +651,15 @@ class AlignModeTracker():
             gold_amr.nodes, gold_amr.edges, ids=True
         )
 
+        # sanity check all nodes can be disambiguated with current conditions
+        for nname in self.dec_neighbours:
+            if (
+                self.dec_neighbours[nname] == []
+                and self.gold_neighbours[nname] == []
+            ):
+                set_trace(context=30)
+                print()
+
         # there can be more than one edge betweentow nodes e.g. John hurt
         # himself
         self.num_edges_by_node_pair = Counter()
@@ -807,7 +816,6 @@ class AlignModeTracker():
         # available
 
         # disambiguate and store expansion list
-        delete_nname = []
         for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
 
             if nids == []:
@@ -820,12 +828,19 @@ class AlignModeTracker():
             for nid in nids:
 
                 # if machine.action_history and '>RA(29,:ARG3)' in machine.action_history:
-                #    print_and_break(1, self, machine)
+                #   print_and_break(30, self, machine)
 
                 matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
                     self.dec_neighbours[gnname]
                 )
+
+                prop_matches = get_matching_gold_ids(
+                    machine.nodes, machine.edges, nid,
+                    self.gold_neighbours[gnname], id_map=self.get_flat_map()
+                )
+                if prop_matches and len(prop_matches) < len(matches):
+                    matches = prop_matches
 
                 # TODO: Support |subset| > 1 assignment
                 if len(matches) == 1:
