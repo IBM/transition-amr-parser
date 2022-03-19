@@ -614,13 +614,15 @@ class AMR():
 def add_alignments_to_penman(g, alignments, string=False):
 
     for (nid, label, trg) in g.attributes():
-        g.epidata[(nid, label, trg)].append(
-            surface.Alignment(tuple(alignments[nid]), prefix='')
-        )
+        if (nid, label, trg) in g.epidata:
+            g.epidata[(nid, label, trg)].append(
+                surface.Alignment(tuple(alignments[nid]), prefix='')
+            )
     for (nid, label, nname) in g.instances():
-        g.epidata[(nid, label, nname)].append(
-            surface.Alignment(tuple(alignments[nid]), prefix='')
-        )
+        if (nid, label, nname) in g.epidata:
+            g.epidata[(nid, label, nname)].append(
+                surface.Alignment(tuple(alignments[nid]), prefix='')
+            )
 
     if string:
         return penman.encode(g, indent=4)

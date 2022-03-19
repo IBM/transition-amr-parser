@@ -35,8 +35,10 @@ def debug_align_mode(machine):
     dec2gold = {v: k for k, v in gold2dec.items()}
 
     # sanity check: all nodes and edges there
-    if any(n not in dec2gold for n in machine.nodes):
+    missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
+    if missing_nodes:
         set_trace(context=30)
+        return
 
     # sanity check: all nodes and edges match
     edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
@@ -850,9 +852,6 @@ class AlignModeTracker():
             # be a greedy selection
             for nid in nids:
 
-                # if machine.action_history and '>RA(29,:ARG3)' in machine.action_history:
-                #   print_and_break(30, self, machine)
-
                 matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
                     self.dec_neighbours[gnname]
@@ -897,10 +896,11 @@ class AlignModeTracker():
         for (s, l, t) in machine.edges:
             if all(
                 n != self.gold_amr.root
-                and num_dec_parents[t] == self.num_gold_parents[n]
-                for n in dec2gold[t]
+                and num_dec_parents[s] == self.num_gold_parents[n]
+                for n in dec2gold[s]
             ):
-                # at least one option should have less number of parents
+                # at least one possible alignment of this node shouldstill have
+                # pending parents
                 set_trace(context=30)
                 print()
             num_dec_parents[t] += 1
@@ -1008,20 +1008,20 @@ class AlignModeTracker():
                 (gold_s_id, gold_e_label, gold_t_id)
             )
 
-            # if machine.action_history and '>RA(9,:ARG2)' in machine.action_history and gold_t_id == 't3':
-            # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
-            #    print_and_break(1, self, machine)
-
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
             for nid in gold_to_dec_ids[gold_s_id]:
+
+                # if machine.action_history[-2:] == ['SHIFT', 'name'] and nid == 1:
+                #    print_and_break(30, self, machine)
+
                 if nid in used_nids:
                     # if we used this already above, is not a possible decoding
                     continue
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (
                         # we need to take into account re-entrancies
-                        self.num_dec_parents[nid2] == self.num_gold_parents[gold_t_id]
+                        self.num_dec_parents[nid] == self.num_gold_parents[gold_s_id]
                         or (nid, gold_e_label, nid2) in machine.edges
                         or nid == nid2
                     ):
@@ -1272,6 +1272,9 @@ class AMRStateMachine():
 
     def _get_valid_align_actions(self):
         '''Get actions that generate given gold AMR'''
+
+        # if self.action_history and '>RA(38,:mod)' in self.action_history:
+        #    print_and_break(30, self.align_tracker, self)
 
         # return arc actions if any
         # corresponding possible decoded edges
