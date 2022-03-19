@@ -13,8 +13,10 @@ from transition_amr_parser.io import (
     AMR,
     read_amr,
     read_tokenized_sentences,
-    write_tokenized_sentences
+    write_tokenized_sentences,
 )
+from transition_amr_parser.amr import add_alignments_to_penman
+
 from transition_amr_parser.clbar import yellow_font, green_font, clbar
 from ipdb import set_trace
 
@@ -25,6 +27,27 @@ arc_regex = re.compile(r'>[RL]A\((.*),(.*)\)')
 la_nopointer_regex = re.compile(r'>LA\((.*)\)')
 ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
+
+
+def debug_align_mode(machine):
+
+    gold2dec = machine.align_tracker.get_flat_map(reverse=True)
+    dec2gold = {v: k for k, v in gold2dec.items()}
+
+    # sanity check: all nodes and edges there
+    if any(n not in dec2gold for n in machine.nodes):
+        set_trace(context=30)
+
+    # sanity check: all nodes and edges match
+    edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
+    missing = set(machine.gold_amr.edges) - set(edges)
+    excess = set(edges) - set(machine.gold_amr.edges)
+    if bool(missing):
+        set_trace(context=30)
+        print()
+    elif bool(excess):
+        set_trace(context=30)
+        print()
 
 
 def print_and_break(context, aligner, machine):
@@ -1464,27 +1487,13 @@ class AMRStateMachine():
                    alignments=self.alignments, clean=True, connect=True)
 
     def get_aligned_amr(self):
+
         # special handling for align mode
         # TODO: Just alter self.gold_amr.penman alignments for max
         # compatibility
 
         # map from decoded nodes to gold nodes
         gold2dec = self.align_tracker.get_flat_map(reverse=True)
-        dec2gold = {v: k for k, v in gold2dec.items()}
-
-        # sanity check: all nodes and edges there
-        if any(n not in dec2gold for n in self.nodes):
-            set_trace(context=30)
-
-        edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in self.edges]
-        missing = set(self.gold_amr.edges) - set(edges)
-        excess = set(edges) - set(self.gold_amr.edges)
-        if bool(missing):
-            set_trace(context=30)
-            print()
-        elif bool(excess):
-            set_trace(context=30)
-            print()
 
         if self.root is None:
             # FIXME: This is because ROOT is predicted in-situ and can not
@@ -1498,10 +1507,28 @@ class AMRStateMachine():
                    alignments=self.alignments, clean=True, connect=True)
 
     def get_annotation(self, node_map=None):
-        # return self.get_amr().to_penman(node_map=node_map)
         if self.gold_amr:
-            node_map = self.align_tracker.get_flat_map()
-            return self.get_aligned_amr().to_penman(node_map=node_map)
+
+            # DEBUG
+            debug_align_mode(self)
+
+            # Align mode
+            # If we read the gold AMR from penman, we can just apply the
+            # alignments to it, thus keeping the epidata info intact
+            if self.gold_amr.penman:
+                gold2dec = self.align_tracker.get_flat_map()
+                alignments = {
+                    gold2dec[nid]: pos for nid, pos in self.alignments.items()
+                }
+                return add_alignments_to_penman(
+                    self.gold_amr.penman,
+                    alignments,
+                    string=True
+                )
+
+            else:
+                node_map = self.align_tracker.get_flat_map()
+                return self.get_aligned_amr().to_penman(node_map=node_map)
         else:
             return self.get_amr().to_jamr()
 

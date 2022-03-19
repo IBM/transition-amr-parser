@@ -593,34 +593,8 @@ class AMR():
         g = Graph(instances + edges + attributes)
         g.metadata = metadata
 
-        # Add alignments
-        if isi and amr.alignments:
-            # to variables
-            for nid, nname in amr.nodes.items():
-                if amr.alignments.get(nid, None) is not None:
-                    pos = tuple(amr.alignments[nid])
-                    align = surface.Alignment(pos, prefix='')
-                    key = (nid, ':instance', nname)
-                    if key in g.epidata:
-                        g.epidata[key].append(align)
-                    else:
-                        g.epidata[key] = [align]
-
-            # to constants
-            for attribute in attributes:
-                nid = attribute.source
-                key = (attribute.source, attribute.role, attribute.target)
-                if amr.alignments.get(nid, None) is not None:
-                    pos = tuple(amr.alignments[nid])
-                    align = surface.Alignment(pos, prefix='')
-                    if key in g.epidata:
-                        # be carefull: bad AMRs like ":polarity -" duplicates
-                        # will have duplicate epidata that we can not add
-                        # twice
-                        if align not in g.epidata[key]:
-                            g.epidata[key].append(align)
-                    else:
-                        g.epidata[key] = [align]
+        # port the alignmens from the AMR class to the penman module class
+        g = add_alignments_to_penman(g, amr.alignments)
 
         return penman.encode(g, indent=4)
 
@@ -635,6 +609,23 @@ class AMR():
 
     def children(self, node_id):
         return self.edges_by_parent.get(node_id, [])
+
+
+def add_alignments_to_penman(g, alignments, string=False):
+
+    for (nid, label, trg) in g.attributes():
+        g.epidata[(nid, label, trg)].append(
+            surface.Alignment(tuple(alignments[nid]), prefix='')
+        )
+    for (nid, label, nname) in g.instances():
+        g.epidata[(nid, label, nname)].append(
+            surface.Alignment(tuple(alignments[nid]), prefix='')
+        )
+
+    if string:
+        return penman.encode(g, indent=4)
+    else:
+        return g
 
 
 def escape_nodes(amr):
