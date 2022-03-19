@@ -152,13 +152,13 @@ def get_edge_keys(nodes, edges, nid, id_map=None):
         # construct key from edge of current node
         if s == nid:
             # child of nid
-            if id_map:
+            if id_map and t in id_map:
                 key_nid = (f'> {l} {id_map[t]}', t)
             else:
                 key_nid = (f'> {l} {nodes[t]}', t)
         elif t == nid:
             # parent of nid
-            if id_map:
+            if id_map and s in id_map:
                 key_nid = (f'{id_map[s]} {l} <', s)
             else:
                 key_nid = (f'{nodes[s]} {l} <', s)
@@ -1500,7 +1500,8 @@ class AMRStateMachine():
     def get_annotation(self, node_map=None):
         # return self.get_amr().to_penman(node_map=node_map)
         if self.gold_amr:
-            return self.get_aligned_amr().to_jamr()
+            node_map = self.align_tracker.get_flat_map()
+            return self.get_aligned_amr().to_penman(node_map=node_map)
         else:
             return self.get_amr().to_jamr()
 
