@@ -896,11 +896,10 @@ class AlignModeTracker():
         for (s, l, t) in machine.edges:
             if all(
                 n != self.gold_amr.root
-                and num_dec_parents[s] == self.num_gold_parents[n]
-                for n in dec2gold[s]
+                and num_dec_parents[t] == self.num_gold_parents[n]
+                for n in dec2gold[t]
             ):
-                # at least one possible alignment of this node shouldstill have
-                # pending parents
+                # at least one option should have less number of parents
                 set_trace(context=30)
                 print()
             num_dec_parents[t] += 1
@@ -1012,8 +1011,8 @@ class AlignModeTracker():
             # can further disambiguate for this given gold edge
             for nid in gold_to_dec_ids[gold_s_id]:
 
-                # if machine.action_history[-2:] == ['SHIFT', 'name'] and nid == 1:
-                #    print_and_break(30, self, machine)
+                if machine.action_history[-2:] == ['SHIFT', 'name'] and nid == 1:
+                   print_and_break(30, self, machine)
 
                 if nid in used_nids:
                     # if we used this already above, is not a possible decoding
@@ -1021,7 +1020,7 @@ class AlignModeTracker():
                 for nid2 in gold_to_dec_ids[gold_t_id]:
                     if (
                         # we need to take into account re-entrancies
-                        self.num_dec_parents[nid] == self.num_gold_parents[gold_s_id]
+                        self.num_dec_parents[nid2] == self.num_gold_parents[gold_t_id]
                         or (nid, gold_e_label, nid2) in machine.edges
                         or nid == nid2
                     ):
@@ -1513,7 +1512,7 @@ class AMRStateMachine():
         if self.gold_amr:
 
             # DEBUG
-            debug_align_mode(self)
+            # debug_align_mode(self)
 
             # Align mode
             # If we read the gold AMR from penman, we can just apply the
