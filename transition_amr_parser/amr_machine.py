@@ -957,17 +957,9 @@ class AlignModeTracker():
         # if only one node left in ambiguous_gold_id_map, it is not ambiguous
         self.exclusion_disambiguation(nname)
 
-    def _map_decoded_and_gold_edges(self, machine):
+    def get_potential_gold_edges(self, machine, gold_to_dec_ids):
 
-        # get a map from every gold node to every potential aligned decoded
-        # node
-        gold_to_dec_ids = self.get_flat_map(reverse=True, ambiguous=True)
-
-        # note that during partial decoding we may have multiple possible
-        # decoded edges for each gold edge (due to ambiguous node mapping above)
-        # Here we cluster gold edges by same potential decoded edges.
-        self.decoded_to_goldedges = defaultdict(list)
-        self.goldedges_to_candidates = defaultdict(list)
+        potential_gold_edges = []
         for (gold_s_id, gold_e_label, gold_t_id) in self.gold_amr.edges:
 
             if (
@@ -992,6 +984,30 @@ class AlignModeTracker():
                 # non of the ids is at the top of the stack
                 continue
 
+            potential_gold_edges.append((gold_s_id, gold_e_label, gold_t_id))
+
+        return potential_gold_edges
+
+    def _map_decoded_and_gold_edges(self, machine):
+
+        if Counter(machine.action_history)['name'] > 1:
+           print_and_break(1, self, machine)
+
+        # get a map from every gold node to every potential aligned decoded
+        # node
+        gold_to_dec_ids = self.get_flat_map(reverse=True, ambiguous=True)
+
+        potential_gold_edges = self.get_potential_gold_edges(
+            machine, gold_to_dec_ids
+        )
+
+        # note that during partial decoding we may have multiple possible
+        # decoded edges for each gold edge (due to ambiguous node mapping above)
+        # Here we cluster gold edges by same potential decoded edges.
+        self.decoded_to_goldedges = defaultdict(list)
+        self.goldedges_to_candidates = defaultdict(list)
+        for (gold_s_id, gold_e_label, gold_t_id) in potential_gold_edges:
+
             # store decoded <-> gold cluster
             key = []
             used_nids = []
@@ -1010,9 +1026,6 @@ class AlignModeTracker():
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
             for nid in gold_to_dec_ids[gold_s_id]:
-
-                if machine.action_history[-2:] == ['SHIFT', 'name'] and nid == 1:
-                   print_and_break(30, self, machine)
 
                 if nid in used_nids:
                     # if we used this already above, is not a possible decoding
