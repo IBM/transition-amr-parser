@@ -96,7 +96,7 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
                 if ids:
                     key = f'> {gl} {gt}'
                 else:
-                    key = f'> {gl} {gold_nodes[gt]}'
+                    key = f'> {gl} {normalize(gold_nodes[gt])}'
                 hop_ids[key].add(gt)
                 new_backtrack[gt] = gnid
             elif gt == gnid:
@@ -104,7 +104,7 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
                 if ids:
                     key = f'{gs} {gl} <'
                 else:
-                    key = f'{gold_nodes[gs]} {gl} <'
+                    key = f'{normalize(gold_nodes[gs])} {gl} <'
                 hop_ids[key].add(gs)
                 new_backtrack[gs] = gnid
             else:
@@ -180,13 +180,13 @@ def get_edge_keys(nodes, edges, nid, id_map=None):
             if id_map and t in id_map:
                 key_nid = (f'> {l} {id_map[t]}', t)
             else:
-                key_nid = (f'> {l} {nodes[t]}', t)
+                key_nid = (f'> {l} {normalize(nodes[t])}', t)
         elif t == nid:
             # parent of nid
             if id_map and s in id_map:
                 key_nid = (f'{id_map[s]} {l} <', s)
             else:
-                key_nid = (f'{nodes[s]} {l} <', s)
+                key_nid = (f'{normalize(nodes[s])} {l} <', s)
         else:
             continue
 
@@ -805,7 +805,6 @@ class AlignModeTracker():
                         candidates.append((gt, gl))
 
                 if len(candidates) == 1:
-                    # print_and_break(1, self, machine)
                     gt, gl = candidates[0]
                     self.disambiguate_pair(nname, gt, t)
                     # also update decoded -> gold map and ignore other
@@ -990,13 +989,13 @@ class AlignModeTracker():
 
     def _map_decoded_and_gold_edges(self, machine):
 
-        if Counter(machine.action_history)['name'] > 1:
-           print_and_break(1, self, machine)
+        # if Counter(machine.action_history)['name'] > 1:
+        # if machine.action_history and '>LA(7,:op1)' in machine.action_history:
+        #    print_and_break(1, self, machine)
 
         # get a map from every gold node to every potential aligned decoded
-        # node
         gold_to_dec_ids = self.get_flat_map(reverse=True, ambiguous=True)
-
+        # get potential gold edges to predicty given stack content
         potential_gold_edges = self.get_potential_gold_edges(
             machine, gold_to_dec_ids
         )
