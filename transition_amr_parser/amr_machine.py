@@ -910,8 +910,8 @@ class AlignModeTracker():
         # if machine.action_history and '>RA(21,:ARG0-of)' in machine.action_history:
         # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
         # if machine.action_history[-2:] == ['SHIFT', 'have-org-role-91']:
-        if len(machine.action_history) == 90:
-            print_and_break(30, self, machine)
+        # if len(machine.action_history) == 90:
+        #    print_and_break(30, self, machine)
 
         # update gold and decoded graph alignments
         # propagating from aligned pairs to unaligned ones
