@@ -625,7 +625,7 @@ def add_alignments_to_penman(g, alignments, string=False):
             )
 
     if string:
-        return penman.encode(g, indent=4)
+        return penman.encode(g, indent=4) + '\n'
     else:
         return g
 
