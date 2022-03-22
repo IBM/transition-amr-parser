@@ -10,6 +10,7 @@ from functools import wraps
 # pip install penman spacy ipdb numpy
 import numpy as np
 try:
+    # version?
     import spacy
     from spacy.tokens.doc import Doc
 except ImportError as e:

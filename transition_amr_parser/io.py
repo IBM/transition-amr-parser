@@ -8,7 +8,7 @@ from transition_amr_parser.amr import AMR
 
 
 def read_amr(file_path, ibm_format=False, tokenize=False, bar=True,
-             generate=False):
+             generate=False, indices=None):
 
     with open(file_path) as fid:
         raw_amr = []
@@ -17,8 +17,21 @@ def read_amr(file_path, ibm_format=False, tokenize=False, bar=True,
             bar = tqdm
         else:
             def bar(x, desc=None): return x
+        index = 0
+        found_indices = []
         for line in bar(fid.readlines(), desc='Reading AMR'):
             if line.strip() == '':
+
+                # skip parsing of penman based on index
+                if indices is not None and index not in indices:
+                    index += 1
+                    raw_amr = []
+                    continue
+                else:
+                    index += 1
+
+                found_indices.append(index)
+
                 if ibm_format:
                     # from jamr + IBM metadata (::node, ::edge etc)
                     amr = AMR.from_metadata(raw_amr)
@@ -31,7 +44,11 @@ def read_amr(file_path, ibm_format=False, tokenize=False, bar=True,
                 else:
                     raw_amrs.append(amr)
                 raw_amr = []
+                if indices is not None and len(found_indices) == len(indices):
+                    break
+
             else:
+
                 # line accumuator
                 raw_amr.append(line)
 

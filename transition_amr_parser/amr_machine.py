@@ -16,6 +16,8 @@ from transition_amr_parser.io import (
     write_tokenized_sentences,
 )
 from transition_amr_parser.amr import add_alignments_to_penman
+# TODO: Remove this dependency
+import penman
 
 from transition_amr_parser.clbar import yellow_font, green_font, clbar
 from ipdb import set_trace
@@ -40,6 +42,9 @@ def print_and_break(machine, context=1):
             if k in dec2gold else yellow_font(k)
         for k in machine.nodes
     }
+    # print
+    os.system('clear')
+    print()
     print(machine.state_str(node_map))
     print(aligner)
     set_trace(context=context)
@@ -53,16 +58,16 @@ def debug_align_mode(machine):
     # sanity check: all nodes and edges there
     missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
     if missing_nodes:
-        print_and_break(1, machine.align_tracker, machine)
+        print_and_break(machine)
 
     # sanity check: all nodes and edges match
     edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
     missing = set(machine.gold_amr.edges) - set(edges)
     excess = set(edges) - set(machine.gold_amr.edges)
     if bool(missing):
-        print_and_break(1, machine.align_tracker, machine)
+        print_and_break(machine)
     elif bool(excess):
-        print_and_break(1, machine.align_tracker, machine)
+        print_and_break(machine)
 
 
 def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
@@ -265,8 +270,9 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
                     merge_cand = sorted(set(new_candidates) & set(candidates))
                     if not merge_cand:
                         set_trace(context=30)
-                    assert merge_cand, "Algorihm implementation error: There"\
-                        " can not be conflicting disambiguations"
+                        print()
+                    # assert merge_cand, "Algorihm implementation error: There"\
+                    #    " can not be conflicting disambiguations"
                 else:
                     # less restrictive (redundant) ignore
                     pass
@@ -907,12 +913,6 @@ class AlignModeTracker():
             num_dec_parents[t] += 1
         self.num_dec_parents = num_dec_parents
 
-        # if machine.action_history and '>RA(21,:ARG0-of)' in machine.action_history:
-        # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
-        # if machine.action_history[-2:] == ['SHIFT', 'have-org-role-91']:
-        # if len(machine.action_history) == 90:
-        #    print_and_break(30, self, machine)
-
         # update gold and decoded graph alignments
         # propagating from aligned pairs to unaligned ones
         # self._map_decoded_and_gold_ids_by_propagation(machine)
@@ -993,13 +993,6 @@ class AlignModeTracker():
 
     def _map_decoded_and_gold_edges(self, machine):
 
-        # if Counter(machine.action_history)['name'] > 1:
-        # if machine.action_history and 'monetary-quantity' in machine.action_history:
-        # if 'clergymen' in machine.tokens and machine.action_history[-3:] == ['>RA(0,:ARG2)', 'SHIFT', '-']:
-        if 'clergymen' in machine.tokens and machine.action_history and machine.action_history[-1] == ['-']:
-            print(self.gold_id_map['-'])
-            print_and_break(30, self, machine)
-
         # get a map from every gold node to every potential aligned decoded
         gold_to_dec_ids = self.get_flat_map(reverse=True, ambiguous=True)
         # get potential gold edges to predicty given stack content
@@ -1028,6 +1021,9 @@ class AlignModeTracker():
             self.decoded_to_goldedges[tuple(key)].append(
                 (gold_s_id, gold_e_label, gold_t_id)
             )
+
+            # if len(machine.action_history) > 13 and gold_t_id == '2':
+            #    print_and_break(machine, context=30)
 
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
@@ -1107,7 +1103,7 @@ class AlignModeTracker():
 
 class AMRStateMachine():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=True,
                  use_copy=True):
 
         # Here non state variables (do not change across sentences) as well as
@@ -1117,6 +1113,10 @@ class AMRStateMachine():
         # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
         # rather than relative to stack top
         self.absolute_stack_pos = absolute_stack_pos
+        if not absolute_stack_pos:
+            # to support align-mode. Also it may be unnecesarily confusing to
+            # have to modes
+            raise NotImplementedError('Deprecated relative stack indexing')
 
         # use copy action
         self.use_copy = use_copy
@@ -1209,16 +1209,27 @@ class AMRStateMachine():
     def from_config(cls, config_path):
         with open(config_path) as fid:
             config = json.loads(fid.read())
+        # remove state
+        del config['state']
         return cls(**config)
 
-    def save(self, config_path):
+    def save(self, config_path, state=False):
         with open(config_path, 'w') as fid:
             # NOTE: Add here all *non state* variables in __init__()
-            fid.write(json.dumps(dict(
+            data = dict(
                 reduce_nodes=self.reduce_nodes,
                 absolute_stack_pos=self.absolute_stack_pos,
                 use_copy=self.use_copy
-            )))
+            )
+            if state:
+                data['state'] = dict(
+                    tokens=self.tokens,
+                    action_history=self.action_history
+                )
+                if self.gold_amr:
+                    data['state']['gold_amr'] = penman.encode(self.gold_amr.penman)
+                    data['state']['gold_id_map'] = dict(self.align_tracker.gold_id_map)
+            fid.write(json.dumps(data))
 
     def __deepcopy__(self, memo):
         """
@@ -1255,7 +1266,11 @@ class AMRStateMachine():
 
         string += ' '.join(self.action_history) + '\n\n'
         if self.edges:
-            amr_str = self.get_amr().to_penman(node_map=node_map)
+            try:
+                amr_str = self.get_amr().to_penman(node_map=node_map)
+            except:
+                set_trace(context=30)
+                amr_str = self.get_amr()
         else:
             # invalid AMR
             amr_str = '\n'.join(
@@ -1531,7 +1546,7 @@ class AMRStateMachine():
         if self.gold_amr:
 
             # DEBUG
-            debug_align_mode(self)
+            # debug_align_mode(self)
 
             # Align mode
             # If we read the gold AMR from penman, we can just apply the
