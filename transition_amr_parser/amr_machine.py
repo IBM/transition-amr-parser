@@ -29,30 +29,9 @@ ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 
-def debug_align_mode(machine):
+def print_and_break(machine, context=1):
 
-    gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-    dec2gold = {v: k for k, v in gold2dec.items()}
-
-    # sanity check: all nodes and edges there
-    missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
-    if missing_nodes:
-        set_trace(context=30)
-        return
-
-    # sanity check: all nodes and edges match
-    edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
-    missing = set(machine.gold_amr.edges) - set(edges)
-    excess = set(edges) - set(machine.gold_amr.edges)
-    if bool(missing):
-        set_trace(context=30)
-        print()
-    elif bool(excess):
-        set_trace(context=30)
-        print()
-
-
-def print_and_break(context, aligner, machine):
+    aligner = machine.align_tracker
 
     # SHIFT work-09
     dec2gold = aligner.get_flat_map()
@@ -64,7 +43,26 @@ def print_and_break(context, aligner, machine):
     print(machine.state_str(node_map))
     print(aligner)
     set_trace(context=context)
-    # set_trace()
+
+
+def debug_align_mode(machine):
+
+    gold2dec = machine.align_tracker.get_flat_map(reverse=True)
+    dec2gold = {v: k for k, v in gold2dec.items()}
+
+    # sanity check: all nodes and edges there
+    missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
+    if missing_nodes:
+        print_and_break(1, machine.align_tracker, machine)
+
+    # sanity check: all nodes and edges match
+    edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
+    missing = set(machine.gold_amr.edges) - set(edges)
+    excess = set(edges) - set(machine.gold_amr.edges)
+    if bool(missing):
+        print_and_break(1, machine.align_tracker, machine)
+    elif bool(excess):
+        print_and_break(1, machine.align_tracker, machine)
 
 
 def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
@@ -114,14 +112,12 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
     # create key value pairs from edges by considering edges that identify nine
     # or more nodes from the total of gnids
     edge_values = defaultdict(list)
-    found_gnids = set()
     non_identifying_keys = []
     for key, key_gnids in ids_by_key.items():
 
         if len(key_gnids) == 1:
             # uniquely identifies one gold_id
             edge_values[key] = list(key_gnids)[0:1]
-            found_gnids |= key_gnids
         elif len(key_gnids) < len(gnids):
             # uniquely identifies two or more gold_ids
             edge_values[key] = list(key_gnids)
@@ -133,8 +129,7 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
     # if there are pending ids to be identified expand neighbourhood one
     # hop, indicate not to revisit nodes
     if (
-        len(found_gnids) < len(gnids)
-        and max_size > 1
+        max_size > 1
         and len(non_identifying_keys)
         # if we are using gold node ids and not labels, size = 1 is all we need
         and not ids
@@ -229,7 +224,10 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
     for (key, knid) in key_nids:
         # get a match if any
         for edge_value in edge_values.get(key, []):
-            if not isinstance(edge_value, dict):
+            if (
+                not isinstance(edge_value, dict)
+                and edge_value not in candidates
+            ):
                 candidates.append(edge_value)
 
     # for node id mode, we only need size 1 neighborhood
@@ -264,9 +262,10 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
                     candidates = new_candidates
                 elif len(new_candidates) == len(candidates):
                     # equaly restrictive, intersect
-                    # set_trace(context=30)
-                    candidates = sorted(set(new_candidates) & set(candidates))
-                    assert candidates, "Algorihm implementation error: There"\
+                    merge_cand = sorted(set(new_candidates) & set(candidates))
+                    if not merge_cand:
+                        set_trace(context=30)
+                    assert merge_cand, "Algorihm implementation error: There"\
                         " can not be conflicting disambiguations"
                 else:
                     # less restrictive (redundant) ignore
@@ -277,7 +276,8 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
     return candidates
 
 
-def get_gold_node_hashes(gold_nodes, gold_edges, ids=False):
+def get_gold_node_hashes(gold_nodes, gold_edges, ids=False,
+                         max_neigbourhood_size=6):
 
     # cluster node ids by node label
     gnode_by_label = defaultdict(list)
@@ -285,13 +285,16 @@ def get_gold_node_hashes(gold_nodes, gold_edges, ids=False):
         gnode_by_label[normalize(gnname)].append(gnid)
 
     # loop over clusters of node label and possible node ids
-    max_neigbourhood_size = 3
     rules = dict()
     for gnname, gnids in gnode_by_label.items():
         if len(gnids) == 1:
             # simple case: node label appears only one in graph
             rules[gnname] = [gnids[0]]
         else:
+
+            # if gnname == 'have-org-role-91':
+            #    set_trace(context=30)
+
             rules[gnname] = generate_matching_gold_hashes(
                 gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size,
                 ids=ids
@@ -668,7 +671,7 @@ class AlignModeTracker():
         # (assign it to it gold node, give sufficient decoded edges). This will
         # search entire graph neighbourhood
         self.dec_neighbours = get_gold_node_hashes(
-            gold_amr.nodes, gold_amr.edges
+            gold_amr.nodes, gold_amr.edges, max_neigbourhood_size=6
         )
         # the same but given gold_ids already alignet to decoded ids. this only
         # needs size 1
@@ -904,10 +907,11 @@ class AlignModeTracker():
             num_dec_parents[t] += 1
         self.num_dec_parents = num_dec_parents
 
-        # if machine.action_history and 'have-degree-91' in machine.action_history:
+        # if machine.action_history and '>RA(21,:ARG0-of)' in machine.action_history:
         # if machine.action_history and '>LA(43,:ARG3)' in machine.action_history:
-        # if machine.action_history and '>LA(29,:ARG1-of)' in machine.action_history:
-        #    print_and_break(30, self, machine)
+        # if machine.action_history[-2:] == ['SHIFT', 'have-org-role-91']:
+        if len(machine.action_history) == 90:
+            print_and_break(30, self, machine)
 
         # update gold and decoded graph alignments
         # propagating from aligned pairs to unaligned ones
@@ -990,8 +994,11 @@ class AlignModeTracker():
     def _map_decoded_and_gold_edges(self, machine):
 
         # if Counter(machine.action_history)['name'] > 1:
-        # if machine.action_history and '>LA(7,:op1)' in machine.action_history:
-        #    print_and_break(1, self, machine)
+        # if machine.action_history and 'monetary-quantity' in machine.action_history:
+        # if 'clergymen' in machine.tokens and machine.action_history[-3:] == ['>RA(0,:ARG2)', 'SHIFT', '-']:
+        if 'clergymen' in machine.tokens and machine.action_history and machine.action_history[-1] == ['-']:
+            print(self.gold_id_map['-'])
+            print_and_break(30, self, machine)
 
         # get a map from every gold node to every potential aligned decoded
         gold_to_dec_ids = self.get_flat_map(reverse=True, ambiguous=True)
@@ -1524,13 +1531,17 @@ class AMRStateMachine():
         if self.gold_amr:
 
             # DEBUG
-            # debug_align_mode(self)
+            debug_align_mode(self)
 
             # Align mode
             # If we read the gold AMR from penman, we can just apply the
             # alignments to it, thus keeping the epidata info intact
             if self.gold_amr.penman:
                 gold2dec = self.align_tracker.get_flat_map()
+                # DEBUG
+                if any(nid not in gold2dec for nid in self.alignments):
+                    set_trace(context=30)
+                # /DEBUG
                 alignments = {
                     gold2dec[nid]: pos for nid, pos in self.alignments.items()
                 }

@@ -7,7 +7,9 @@ from collections import Counter
 from transition_amr_parser.amr import AMR
 
 
-def read_amr(file_path, ibm_format=False, tokenize=False, bar=True):
+def read_amr(file_path, ibm_format=False, tokenize=False, bar=True,
+             generate=False):
+
     with open(file_path) as fid:
         raw_amr = []
         raw_amrs = []
@@ -18,19 +20,23 @@ def read_amr(file_path, ibm_format=False, tokenize=False, bar=True):
         for line in bar(fid.readlines(), desc='Reading AMR'):
             if line.strip() == '':
                 if ibm_format:
-                    # From ::node, ::edge etc
-                    raw_amrs.append(
-                        AMR.from_metadata(raw_amr)
-                    )
+                    # from jamr + IBM metadata (::node, ::edge etc)
+                    amr = AMR.from_metadata(raw_amr)
                 else:
-                    # From penman
-                    raw_amrs.append(
-                        AMR.from_penman(' '.join(raw_amr), tokenize=tokenize)
-                    )
+                    # from penman
+                    amr = AMR.from_penman(' '.join(raw_amr), tokenize=tokenize)
+                # append this AMR and clean line accumulator
+                if generate:
+                    yield amr
+                else:
+                    raw_amrs.append(amr)
                 raw_amr = []
             else:
+                # line accumuator
                 raw_amr.append(line)
-    return raw_amrs
+
+    if not generate:
+        return raw_amrs
 
 
 def read_frame(xml_file):
