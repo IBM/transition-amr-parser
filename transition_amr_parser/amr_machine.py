@@ -875,7 +875,7 @@ class AlignModeTracker():
                 # TODO: Support |subset| > 1 assignment
                 if len(matches) == 1:
                     gnid = matches[0]
-                    if nid not in self.gold_id_map[gnname][1]:
+                    if nid not in self.gold_id_map[gnname][1] and gnid not in self.gold_id_map[gnname][0]:
                         self.disambiguate_pair(gnname, gnid, nid)
 
     def update(self, machine):
@@ -908,7 +908,7 @@ class AlignModeTracker():
                 for n in dec2gold[t]
             ):
                 # at least one option should have less number of parents
-                set_trace(context=30)
+                # set_trace(context=30)
                 print()
             num_dec_parents[t] += 1
         self.num_dec_parents = num_dec_parents
@@ -1559,6 +1559,7 @@ class AMRStateMachine():
                 # /DEBUG
                 alignments = {
                     gold2dec[nid]: pos for nid, pos in self.alignments.items()
+                    # if nid in gold2dec
                 }
                 return add_alignments_to_penman(
                     self.gold_amr.penman,

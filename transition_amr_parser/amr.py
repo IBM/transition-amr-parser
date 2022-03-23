@@ -611,15 +611,23 @@ class AMR():
         return self.edges_by_parent.get(node_id, [])
 
 
-def add_alignments_to_penman(g, alignments, string=False):
+def add_alignments_to_penman(g, alignments, string=False, strict=True):
 
+    # FIXME: strict = True
     for (nid, label, trg) in g.attributes():
-        if (nid, label, trg) in g.epidata:
+        if (
+            (nid, label, trg) in g.epidata
+            and (nid in alignments or not strict)
+        ):
             g.epidata[(nid, label, trg)].append(
                 surface.Alignment(tuple(alignments[nid]), prefix='')
             )
+
     for (nid, label, nname) in g.instances():
-        if (nid, label, nname) in g.epidata:
+        if (
+            (nid, label, nname) in g.epidata
+            and (nid in alignments or not strict)
+        ):
             g.epidata[(nid, label, nname)].append(
                 surface.Alignment(tuple(alignments[nid]), prefix='')
             )

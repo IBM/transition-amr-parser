@@ -68,6 +68,11 @@ def main():
     if surface_rules:
         rules = RuleAlignments()
 
+    # stats to compute Smatch
+    num_tries = 0
+    num_hits = 0
+    num_gold = 0
+
     # loop over all AMRs, return basic alignment
     aligned_penman = []
     for index, amr in enumerate(amrs):
@@ -102,18 +107,29 @@ def main():
         # sanity check: all nodes and edges there
         missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
         if missing_nodes:
-            print_and_break(machine)
+           print_and_break(machine)
 
         # sanity check: all nodes and edges match
-        edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
+        edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges if (e[0] in dec2gold and e[2] in dec2gold)]
         missing = set(machine.gold_amr.edges) - set(edges)
         excess = set(edges) - set(machine.gold_amr.edges)
         if bool(missing):
-            print_and_break(machine)
+           print_and_break(machine)
         elif bool(excess):
-            print_and_break(machine)
+           print_and_break(machine)
+
+        # edges
+        num_tries += len(machine.edges)
+        num_hits += len(machine.edges) - len(missing)
+        num_gold += len(machine.gold_amr.edges)
 
         aligned_penman.append(machine.get_annotation())
+
+    set_trace(context=30)
+    precision = num_hits / num_tries
+    recall = num_hits / num_gold
+    fscore = 2 * (precision * recall) / (precision + recall)
+    print(precision, recall, fscore)
 
 
 def play():
@@ -148,5 +164,5 @@ def play():
 
 
 if __name__ == '__main__':
-    # main()
+    #main()
     play()
