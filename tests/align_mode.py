@@ -7,6 +7,7 @@ from transition_amr_parser.amr_machine import AMRStateMachine, print_and_break
 from numpy.random import choice
 from collections import defaultdict
 from ipdb import set_trace
+from numpy.random import randint
 
 
 surface_rules = True
@@ -73,9 +74,14 @@ def main():
     num_hits = 0
     num_gold = 0
 
+    random_index = randint(1000)
+
     # loop over all AMRs, return basic alignment
     aligned_penman = []
     for index, amr in enumerate(amrs):
+
+        if index != random_index:
+            continue
 
         # start the machine in align mode
         machine.reset(amr.tokens, gold_amr=amr)
@@ -86,6 +92,8 @@ def main():
         # runs machine until completion
         while not machine.is_closed:
 
+            print_and_break(machine, 1)
+
             # valid actions
             if surface_rules:
                 possible_actions = rules.get_valid_actions()
@@ -95,28 +103,31 @@ def main():
             # random choice among those options
             action = choice(possible_actions)
 
-            # print_and_break(machine)
-
             # update machine
             machine.update(action)
 
         # sanity check
         gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-        dec2gold = {v: k for k, v in gold2dec.items()}
+        dec2gold = {v[0]: k for k, v in gold2dec.items()}
 
         # sanity check: all nodes and edges there
-        missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
+        missing_nodes = [
+            n for n in machine.gold_amr.nodes if n not in gold2dec
+        ]
         if missing_nodes:
-           print_and_break(machine)
+            print_and_break(machine)
 
         # sanity check: all nodes and edges match
-        edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges if (e[0] in dec2gold and e[2] in dec2gold)]
+        edges = [
+            (dec2gold[e[0]], e[1], dec2gold[e[2]])
+            for e in machine.edges if (e[0] in dec2gold and e[2] in dec2gold)
+        ]
         missing = set(machine.gold_amr.edges) - set(edges)
         excess = set(edges) - set(machine.gold_amr.edges)
         if bool(missing):
-           print_and_break(machine)
+            print_and_break(machine)
         elif bool(excess):
-           print_and_break(machine)
+            print_and_break(machine)
 
         # edges
         num_tries += len(machine.edges)
@@ -134,17 +145,34 @@ def main():
 
 def play():
 
-    state = json.loads(open('tmp.json').read())['state']
-    machine = AMRStateMachine.from_config('tmp.json')
+    MAX_HISTORY = None
 
+    state = json.loads(open('tmp2.json').read())['state']
+    machine = AMRStateMachine.from_config('tmp2.json')
     machine.reset(state['tokens'], gold_amr=AMR.from_penman(state['gold_amr']))
 
+    # play recorder actions
     for action in state['action_history']:
+
+        # stop playing and switch to random sampling
+        if MAX_HISTORY and len(machine.action_history) > MAX_HISTORY:
+            break
+
+        valid_actions = machine.get_valid_actions()
+        if action not in valid_actions:
+            set_trace(context=30)
+
         machine.update(action)
+
+    # random choice of actions
+    if MAX_HISTORY:
+        while not machine.is_closed:
+            action = choice(machine.get_valid_actions())
+            machine.update(action)
 
     # sanity check
     gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-    dec2gold = {v: k for k, v in gold2dec.items()}
+    dec2gold = {v[0]: k for k, v in gold2dec.items()}
 
     # sanity check: all nodes and edges there
     missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]

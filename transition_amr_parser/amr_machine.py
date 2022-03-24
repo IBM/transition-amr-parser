@@ -38,8 +38,8 @@ def print_and_break(machine, context=1):
     # SHIFT work-09
     dec2gold = aligner.get_flat_map()
     node_map = {
-        k: green_font(f'{k}-{dec2gold[k]}')
-            if k in dec2gold else yellow_font(k)
+        k: green_font(f'{k}-{dec2gold[k][0]}')
+        if k in dec2gold else yellow_font(k)
         for k in machine.nodes
     }
     # print
@@ -53,7 +53,7 @@ def print_and_break(machine, context=1):
 def debug_align_mode(machine):
 
     gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-    dec2gold = {v: k for k, v in gold2dec.items()}
+    dec2gold = {v[0]: k for k, v in gold2dec.items()}
 
     # sanity check: all nodes and edges there
     missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
@@ -658,13 +658,17 @@ class AlignModeTracker():
 
         # collect ambiguous and certain mappings separately in the structure
         # {node_label: [[gold_ids], [decoded_ids]]}
-        self.gold_id_map = defaultdict(lambda: [[], []])
-        self.ambiguous_gold_id_map = defaultdict(lambda: [[], []])
+        # self.ambiguous_gold_id_map = defaultdict(lambda: [[], []])
+        self.gold_id_map = dict()
         for gnname, gnids in gnode_by_label.items():
-            if len(gnids) == 1:
-                self.gold_id_map[gnname] = [gnids, []]
-            else:
-                self.ambiguous_gold_id_map[gnname] = [gnids, []]
+            # examples:
+            # {
+            #    12: ['h'],
+            #    3: ['h2', 'h3'],
+            #    7: ['h2', 'h3'],
+            # None: ['h4']
+            # }
+            self.gold_id_map[gnname] = {None: gnids}
 
         # re-entrancy counts for both gold and decoded
         # {node_id: number_of_parents}
@@ -710,12 +714,36 @@ class AlignModeTracker():
 
     def __str__(self):
 
-        keys = [k for k, v in self.ambiguous_gold_id_map.items() if v[1]]
-        string = ' '.join(f'{k} {self.gold_id_map[k]}' for k in keys)
+        string = ''
+        for nname, pairs in self.gold_id_map.items():
+
+            # exclude pairs that will not be ambiguous
+            if len(pairs) == 1 and len(pairs.values()) == 1:
+                continue
+
+            string += f'"{nname}" '
+            for nid, gnids in pairs.items():
+                if nid is None:
+                    # unassigned gold node ids
+                    str2 = ' '.join(gnids)
+                    string += '['
+                    string += yellow_font(f'{str2}')
+                    string += '] '
+
+                elif len(gnids) > 1:
+                    # assigned but not 1-1
+                    str2 = ' '.join(gnids)
+                    string += f'{nid}: '
+                    string += '['
+                    string += yellow_font(f'{str2}')
+                    string += '] '
+
+                else:    
+                    # 1-1 assigned
+                    str2 = ' '.join(gnids)
+                    string += green_font(f'{nid}-{str2} ')
+
         string += ' \n\n'
-        string += ' '.join(
-            f'{k} {self.ambiguous_gold_id_map[k]}' for k in keys
-        )
         return string
 
     def get_neighbour_disambiguation(self, amr):
@@ -751,37 +779,19 @@ class AlignModeTracker():
 
     def get_flat_map(self, reverse=False, ambiguous=False):
         '''
-        Get a flat map from gold_id_map and optionally ambiguous_gold_id_map
-        relating gold nodes with decoded ones
+        Get a flat map from gold_id_map, optionally including ambiguous pairs
         '''
 
-        dec2gold = {}
         # Normal map is ordered and maps one to one
-        for nname, (gnids, nids) in self.gold_id_map.items():
-            for i in range(len(nids)):
-                if reverse:
-                    if ambiguous:
-                        # TODO: Unify type here
-                        dec2gold[gnids[i]] = [nids[i]]
-                    else:
-                        dec2gold[gnids[i]] = nids[i]
-                else:
-                    if ambiguous:
-                        dec2gold[nids[i]] = [gnids[i]]
-                    else:
-                        dec2gold[nids[i]] = gnids[i]
-
-        # Add also one to many map from ambiguous nodes
-        if ambiguous:
-            # Ambiguous maps have nor order, asign every gold to every decoded.
-            for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
-                if nids != []:
+        dec2gold = defaultdict(list)
+        for nname, pairs in self.gold_id_map.items():
+            for nid, gnids in pairs.items():
+                if (len(gnids) == 1 or ambiguous) and nid is not None:
                     if reverse:
                         for gnid in gnids:
-                            dec2gold[gnid] = nids
+                            dec2gold[gnid].append(nid)
                     else:
-                        for nid in nids:
-                            dec2gold[nid] = gnids
+                        dec2gold[nid] = gnids
 
         return dec2gold
 
@@ -849,34 +859,32 @@ class AlignModeTracker():
         # available
 
         # disambiguate and store expansion list
-        for gnname, (gnids, nids) in self.ambiguous_gold_id_map.items():
+        for gnname, pairs in self.gold_id_map.items():
+            for nid, gnids in pairs.items():
 
-            if nids == []:
-                # already solved or no new nodes to disambiguate
-                continue
+                # not ambiguous or no new nodes to disambiguate
+                if len(gnids) == 1 or nid is None:
+                    continue
 
-            # disambiguate
-            # FIXME: If the keys do not uniquely identify nodes, this will
-            # be a greedy selection
-            for nid in nids:
-
+                # disambiguate by neighbourhood of decoded nodes
                 matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
                     self.dec_neighbours[gnname]
                 )
 
+                # disambiguate by neighbourhood of aligned gold nodes
                 prop_matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
-                    self.gold_neighbours[gnname], id_map=self.get_flat_map()
+                    self.gold_neighbours[gnname],
+                    id_map=self.get_flat_map()
                 )
+
+                # keep more restrictive disambiguation
                 if prop_matches and len(prop_matches) < len(matches):
                     matches = prop_matches
 
-                # TODO: Support |subset| > 1 assignment
-                if len(matches) == 1:
-                    gnid = matches[0]
-                    if nid not in self.gold_id_map[gnname][1] and gnid not in self.gold_id_map[gnname][0]:
-                        self.disambiguate_pair(gnname, gnid, nid)
+                if matches:
+                    self.disambiguate_pair(gnname, nid, matches)
 
     def update(self, machine):
         '''
@@ -887,17 +895,29 @@ class AlignModeTracker():
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges have been predicted.
 
+        if len(machine.action_history) > 26:
+            print_and_break(machine, 30)
+
         # add nodes created in this update
         dec2gold = self.get_flat_map(ambiguous=True)
         for nid, nname in machine.nodes.items():
-            if nid not in dec2gold:
-                if nname in self.ambiguous_gold_id_map:
-                    self.ambiguous_gold_id_map[nname][1].append(nid)
-                elif nname in self.gold_id_map:
-                    # FIXME:
-                    self.gold_id_map[nname][1].append(nid)
+            if nname not in self.gold_id_map:
+                # e.g. <unk>
+                set_trace(context=30)
+                raise Exception()
+
+            # if this is a new decoded node add it to the map dict
+            if nid not in self.gold_id_map[nname]:
+                if (
+                    len(self.dec_neighbours[nname]) == 1
+                    and not isinstance(self.dec_neighbours[nname], dict)
+                ):
+                    # 1-1 mapping, assign directly
+                    gnid = self.dec_neighbours[nname]
+                    self.disambiguate_pair(nname, nid, gnid)
                 else:
-                    raise Exception()
+                    # otherwise add to unassigned nodes
+                    self.disambiguate_pair(nname, nid, [])
 
         # update re-entrancy counts
         num_dec_parents = Counter()
@@ -920,45 +940,121 @@ class AlignModeTracker():
         self._map_decoded_and_gold_ids_by_context(machine)
 
         # when only one ambiguous node is left, its not ambiguous any more
-        for nname in self.ambiguous_gold_id_map.keys():
-            self.exclusion_disambiguation(nname)
+        # for nname in self.gold_id_map.keys():
+        #    self.exclusion_disambiguation(nname)
 
         # update edge alignments
         # TODO: maybe use node alignment here for propagation (iteratively)
         self._map_decoded_and_gold_edges(machine)
 
-    def exclusion_disambiguation(self, nname):
-        # if only one node left in ambiguous_gold_id_map, it is not ambiguous
-        if (
-            len(self.ambiguous_gold_id_map[nname][0]) == 1
-            and len(self.ambiguous_gold_id_map[nname][1]) == 1
-        ):
-            gold_id = self.ambiguous_gold_id_map[nname][0][0]
-            decoded_id = self.ambiguous_gold_id_map[nname][1][0]
-            self.disambiguate_pair(nname, gold_id, decoded_id)
+#     def exclusion_disambiguation(self, nname, assigned_nids=None):
+#         # if only one node left, it is not ambiguous
+# 
+#         if assigned_nids is None:
+#             assigned_nids = [
+#                 nid
+#                 for nid, gnids in self.gold_id_map[nname].items()
+#                 if len(gnids) == 1
+#             ]
+# 
+#         new_pairs = dict()
+#         for nid, gnids in self.gold_id_map[nname].items():
+#             if len(gnids) > 1:
+#                 new_pairs[nid] = [n for n in gnids if n not in assigned_nids]
+#             else:
+#                 new_pairs[nid] = gnids
+#         self.gold_id_map[nname] = new_pairs
 
-    def disambiguate_pair(self, nname, gold_id, decoded_id):
 
-        # FIXME: Debug
-        if gold_id in self.gold_id_map[nname][0]:
-            set_trace(context=30)
-            print()
-        if gold_id not in self.ambiguous_gold_id_map[nname][0]:
-            set_trace(context=30)
-            print()
+    def disambiguate_pair(self, nname, decoded_id, gold_ids):
 
-        # remove from ambiguous list
-        self.ambiguous_gold_id_map[nname][0].remove(gold_id)
-        self.ambiguous_gold_id_map[nname][1].remove(decoded_id)
-        if self.ambiguous_gold_id_map[nname][0] == []:
-            del self.ambiguous_gold_id_map[nname]
+        # TODO: more checks
+        assert isinstance(gold_ids, list)
+        assert isinstance(decoded_id, str) or isinstance(decoded_id, int)
 
-        # Add to final list
-        self.gold_id_map[nname][0].append(gold_id)
-        self.gold_id_map[nname][1].append(decoded_id)
+        # get lists of decoded ids and gold ids that are already 1-1 mapped
+        assigned_nids = []
+        assigned_gnids = []
+        unassigned_gnids = []
+        for nid, gnids in self.gold_id_map[nname].items():
+            if len(gnids) == 1 and nid is not None:
+                # 1-1 map
+                assigned_nids.append(nid)
+                if gnids[0] not in assigned_gnids:
+                    assigned_gnids.append(gnids[0])
+            else:
+                for gnid in gnids:
+                    if gnid not in unassigned_gnids:
+                        unassigned_gnids.append(gnid)
+        assigned_pairs = zip(assigned_nids, assigned_gnids)
 
-        # if only one node left in ambiguous_gold_id_map, it is not ambiguous
-        self.exclusion_disambiguation(nname)
+        # new decoded node assign to the None set if exists
+        if gold_ids == []:
+
+            # Add a new decoded node to its bucket unassigned
+
+            # check node not has been decoded yet
+            if decoded_id in self.gold_id_map[nname]:
+                set_trace(context=30)
+                raise Exception(f'{decoded_id} already decoded')
+
+            if None not in self.gold_id_map[nname]:
+                set_trace(context=30)
+                raise Exception(f'No more free nodes')
+
+            # if not assigned, start by assigning that decode node to all
+            # unasigned gold_ids
+            if None in self.gold_id_map[nname]:
+                self.gold_id_map[nname][decoded_id] = \
+                    self.gold_id_map[nname][None]
+            else:
+                # with no further info assign it all non 1-1-mapped nodes
+                self.gold_id_map[nname][decoded_id] = unassigned_gnids
+
+        else:
+
+            if decoded_id in self.gold_id_map[nname]:
+
+                old_gnids = self.gold_id_map[nname][decoded_id]
+
+                # check this is not a less restrictive disambiguation
+                if old_gnids and len(old_gnids) <= len(gold_ids):
+                    set_trace(context=30)
+                    raise Exception(f'Less restrictive disambiguation')
+
+            else:
+                # new decoded node
+                pass
+
+            # check we have not 1-1-mapped this already
+            if decoded_id in assigned_nids:
+                set_trace(context=30)
+                raise Exception(f'{decoded_id} already disambiguated')
+            if bool(set(gold_ids) & set(assigned_gnids)):
+                raise Exception(f'{gold_ids} already disambiguated')
+   
+            # assign one or more gold ids
+            # e.g. {2: ['h1', 'h2']}
+            self.gold_id_map[nname][decoded_id] = gold_ids
+    
+            # remove gold nodes from not assigned
+            for gnid in gold_ids:
+                if gnid in self.gold_id_map[nname][None]:
+                    self.gold_id_map[nname][None].remove(gnid)
+            if self.gold_id_map[nname][None] == []:      
+                del self.gold_id_map[nname][None]
+            
+            # if it is a 1-1 assignment remove from all other assignments. This
+            # needs to be done repeteadly as we may generate new unique maps
+            while assigned_gnids:
+                mapped_gnid = assigned_gnids.pop()
+                for nid2, gnids in self.gold_id_map[nname].items():
+                    if len(gnids) > 1 and mapped_gnid in gnids:
+                        self.gold_id_map[nname][nid2].remove(mapped_gnid)
+                        if len(self.gold_id_map[nname][nid2]) == 1:
+                            assigned_gnids.append(
+                                self.gold_id_map[nname][nid2][0]
+                            )
 
     def get_potential_gold_edges(self, machine, gold_to_dec_ids):
 
@@ -1022,9 +1118,6 @@ class AlignModeTracker():
                 (gold_s_id, gold_e_label, gold_t_id)
             )
 
-            # if len(machine.action_history) > 13 and gold_t_id == '2':
-            #    print_and_break(machine, context=30)
-
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
             for nid in gold_to_dec_ids[gold_s_id]:
@@ -1060,20 +1153,17 @@ class AlignModeTracker():
         # Add from ambiguous and normal mappings the nodes that have not yet
         # been decoded
         missing_gold_nodes = []
-        for nname, (gnids, nids) in self.gold_id_map.items():
-            if len(gnids) > len(nids) and nname not in missing_gold_nodes:
+        for nname, pairs in self.gold_id_map.items():
+
+            # get the total number of gold nodes with this node and the number
+            # of decoded nodes
+            total_gnids = len(set([y for x in pairs.values() for y in x]))
+            total_decoded = len([k for k in pairs.keys() if k is not None])
+            num_missing = total_gnids - total_decoded
+            assert num_missing >= 0
+            if num_missing:
                 if repeat:
-                    missing_gold_nodes.extend(
-                        [nname] * (len(gnids) - len(nids))
-                    )
-                else:
-                    missing_gold_nodes.append(nname)
-        for nname, (gnids, nids) in self.ambiguous_gold_id_map.items():
-            if len(gnids) > len(nids) and nname not in missing_gold_nodes:
-                if repeat:
-                    missing_gold_nodes.extend(
-                        [nname] * (len(gnids) - len(nids))
-                    )
+                    missing_gold_nodes.extend([nname] * num_missing)
                 else:
                     missing_gold_nodes.append(nname)
 
@@ -1305,9 +1395,6 @@ class AMRStateMachine():
 
     def _get_valid_align_actions(self):
         '''Get actions that generate given gold AMR'''
-
-        # if self.action_history and '>RA(38,:mod)' in self.action_history:
-        #    print_and_break(30, self.align_tracker, self)
 
         # return arc actions if any
         # corresponding possible decoded edges
@@ -1558,7 +1645,8 @@ class AMRStateMachine():
                     set_trace(context=30)
                 # /DEBUG
                 alignments = {
-                    gold2dec[nid]: pos for nid, pos in self.alignments.items()
+                    gold2dec[nid][0]: pos
+                    for nid, pos in self.alignments.items()
                     # if nid in gold2dec
                 }
                 return add_alignments_to_penman(
