@@ -1,6 +1,5 @@
 import sys
 import json
-import os
 from transition_amr_parser.amr import AMR
 from transition_amr_parser.io import read_amr
 from transition_amr_parser.amr_machine import AMRStateMachine, print_and_break
@@ -145,30 +144,35 @@ def main():
 
 def play():
 
-    MAX_HISTORY = None
+    MAX_HISTORY = -1
 
+    # read data
     state = json.loads(open('tmp2.json').read())['state']
     machine = AMRStateMachine.from_config('tmp2.json')
     machine.reset(state['tokens'], gold_amr=AMR.from_penman(state['gold_amr']))
 
-    # play recorder actions
+    # play recorder actions fully or until time step MAX_HISTORY
     for action in state['action_history']:
 
         # stop playing and switch to random sampling
-        if MAX_HISTORY and len(machine.action_history) > MAX_HISTORY:
+        if (
+            MAX_HISTORY is not None
+            and len(machine.action_history) > MAX_HISTORY
+        ):
             break
 
         valid_actions = machine.get_valid_actions()
         if action not in valid_actions:
             set_trace(context=30)
 
+        print_and_break(machine, 1)
         machine.update(action)
 
-    # random choice of actions
-    if MAX_HISTORY:
-        while not machine.is_closed:
-            action = choice(machine.get_valid_actions())
-            machine.update(action)
+    # continue with random choice of actions
+    while not machine.is_closed:
+        action = choice(machine.get_valid_actions())
+        print_and_break(machine, 1)
+        machine.update(action)
 
     # sanity check
     gold2dec = machine.align_tracker.get_flat_map(reverse=True)
