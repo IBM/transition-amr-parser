@@ -859,6 +859,7 @@ class AlignModeTracker():
         # available
 
         # disambiguate and store expansion list
+        match_updates = []
         for gnname, pairs in self.gold_id_map.items():
             for nid, gnids in pairs.items():
 
@@ -884,7 +885,11 @@ class AlignModeTracker():
                     matches = prop_matches
 
                 if matches:
-                    self.disambiguate_pair(gnname, nid, matches)
+                    match_updates.append((gnname, nid, matches))
+
+        # perform the updates
+        for (gnname, nid, matches) in match_updates:
+            self.disambiguate_pair(gnname, nid, matches)
 
     def update(self, machine):
         '''
@@ -979,6 +984,9 @@ class AlignModeTracker():
         for nid, gnids in self.gold_id_map[nname].items():
             if len(gnids) == 1 and nid is not None:
                 # 1-1 map
+                if decoded_id == nid:
+                    # already assigned
+                    set_trace(context=30)
                 assigned_nids.append(nid)
                 if gnids[0] not in assigned_gnids:
                     assigned_gnids.append(gnids[0])
@@ -986,6 +994,13 @@ class AlignModeTracker():
                 for gnid in gnids:
                     if gnid not in unassigned_gnids:
                         unassigned_gnids.append(gnid)
+
+        # if we are assigning something, remove gold_ids that have been
+        # assigned
+        if gold_ids:
+            gold_ids = [n for n in gold_ids if n not in assigned_gnids]
+            if not bool(gold_ids):
+                set_trace(context=30)
 
         self.sanity_checks(
             nname, decoded_id, gold_ids, assigned_nids, assigned_gnids
@@ -1013,7 +1028,6 @@ class AlignModeTracker():
     def sanity_checks(self, nname, decoded_id, gold_ids, assigned_nids, 
                       assigned_gnids):
 
-        # new decoded node assign to the None set if exists
         if gold_ids == []:
 
             # Add a new decoded node to its bucket unassigned
@@ -1029,32 +1043,39 @@ class AlignModeTracker():
 
         else:
 
+            # assign one or more gold ids to decoded_id
+
+            # we have not assigned these gold ids before
+            if set(gold_ids) & set(assigned_gnids):
+                set_trace(context=30)
+                raise Exception(f'{gold_ids} already disambiguated')
+
             if decoded_id in self.gold_id_map[nname]:
 
                 old_gnids = self.gold_id_map[nname][decoded_id]
+
+                # check we have not 1-1-mapped this already
+                if decoded_id in assigned_nids:
+                    set_trace(context=30)
+                    raise Exception(f'{decoded_id} already disambiguated')
+
                 # check this is not a less restrictive disambiguation
-                if old_gnids and len(old_gnids) <= len(gold_ids):
+                if (
+                    old_gnids and len(old_gnids) <= len(gold_ids)
+                    and set(gold_ids) != set(old_gnids)
+                ):
                     set_trace(context=30)
                     raise Exception(f'Less restrictive disambiguation')
 
-            else:
-                # new decoded node
-                pass
-
-            # check we have not 1-1-mapped this already
-            if decoded_id in assigned_nids:
-                set_trace(context=30)
-                raise Exception(f'{decoded_id} already disambiguated')
-            if bool(set(gold_ids) & set(assigned_gnids)):
-                raise Exception(f'{gold_ids} already disambiguated')
-
     def cleanup_map(self, nname, gold_ids, assigned_gnids):
     
-        # remove gold nodes from not assigned
-        if None in self.gold_id_map[nname]:
-            for gnid in gold_ids:
-                if gnid in self.gold_id_map[nname][None]:
-                    self.gold_id_map[nname][None].remove(gnid)
+        # if there is a 1-1 assignment remove that node from the None list
+        if (
+            None in self.gold_id_map[nname] 
+            and len(gold_ids) == 1 
+            and gold_ids[0] in self.gold_id_map[nname][None]
+        ):
+            self.gold_id_map[nname][None].remove(gold_ids[0])
             if self.gold_id_map[nname][None] == []:      
                 del self.gold_id_map[nname][None]
         
@@ -1063,7 +1084,7 @@ class AlignModeTracker():
         while assigned_gnids:
             mapped_gnid = assigned_gnids.pop()
             for nid2, gnids in self.gold_id_map[nname].items():
-                if (len(gnids) > 1 or nid2 is None) and mapped_gnid in gnids:
+                if len(gnids) > 1 and mapped_gnid in gnids:
                     # remove this one2one mapped node from all other maps
                     # this other maps include None, which may have only that 
                     # gold id (len == 1)
@@ -1073,6 +1094,13 @@ class AlignModeTracker():
                             self.gold_id_map[nname][nid2][0]
                         )
 
+        # remove None if empty 
+        if (
+            None in self.gold_id_map[nname] 
+            and self.gold_id_map[nname][None] == []
+        ): 
+            del self.gold_id_map[nname][None]
+    
     def get_potential_gold_edges(self, machine, gold_to_dec_ids):
 
         potential_gold_edges = []

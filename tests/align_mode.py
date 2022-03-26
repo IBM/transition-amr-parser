@@ -6,7 +6,7 @@ from transition_amr_parser.amr_machine import AMRStateMachine, print_and_break
 from numpy.random import choice
 from collections import defaultdict
 from ipdb import set_trace
-from numpy.random import randint
+# from numpy.random import randint
 
 
 surface_rules = True
@@ -62,6 +62,9 @@ class RuleAlignments():
 
 def main():
 
+    trace = False
+    trace_if_error = False
+
     # read AMR instantiate state machine and rules
     amrs = read_amr(sys.argv[1], generate=True)
     machine = AMRStateMachine()
@@ -73,14 +76,14 @@ def main():
     num_hits = 0
     num_gold = 0
 
-    random_index = randint(1000)
+    # random_index = randint(1000)
 
     # loop over all AMRs, return basic alignment
     aligned_penman = []
     for index, amr in enumerate(amrs):
 
-        if index != random_index:
-            continue
+        # if index != random_index:
+        #    continue
 
         # start the machine in align mode
         machine.reset(amr.tokens, gold_amr=amr)
@@ -91,7 +94,8 @@ def main():
         # runs machine until completion
         while not machine.is_closed:
 
-            print_and_break(machine, 1)
+            if trace:
+                print_and_break(machine, 1)
 
             # valid actions
             if surface_rules:
@@ -113,7 +117,7 @@ def main():
         missing_nodes = [
             n for n in machine.gold_amr.nodes if n not in gold2dec
         ]
-        if missing_nodes:
+        if missing_nodes and trace_if_error:
             print_and_break(machine)
 
         # sanity check: all nodes and edges match
@@ -123,9 +127,9 @@ def main():
         ]
         missing = set(machine.gold_amr.edges) - set(edges)
         excess = set(edges) - set(machine.gold_amr.edges)
-        if bool(missing):
+        if bool(missing) and trace_if_error:
             print_and_break(machine)
-        elif bool(excess):
+        elif bool(excess) and trace_if_error:
             print_and_break(machine)
 
         # edges
@@ -135,20 +139,22 @@ def main():
 
         aligned_penman.append(machine.get_annotation())
 
-    set_trace(context=30)
     precision = num_hits / num_tries
     recall = num_hits / num_gold
     fscore = 2 * (precision * recall) / (precision + recall)
     print(precision, recall, fscore)
+    set_trace(context=30)
+    print()
 
 
 def play():
 
-    MAX_HISTORY = -1
+    MAX_HISTORY = None
+    STATE_FILE = 'tmp.json'
 
     # read data
-    state = json.loads(open('tmp2.json').read())['state']
-    machine = AMRStateMachine.from_config('tmp2.json')
+    state = json.loads(open(STATE_FILE).read())['state']
+    machine = AMRStateMachine.from_config(STATE_FILE)
     machine.reset(state['tokens'], gold_amr=AMR.from_penman(state['gold_amr']))
 
     # play recorder actions fully or until time step MAX_HISTORY
@@ -196,5 +202,5 @@ def play():
 
 
 if __name__ == '__main__':
-    #main()
+    # main()
     play()
