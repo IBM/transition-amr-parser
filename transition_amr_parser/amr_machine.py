@@ -199,7 +199,13 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
     ):
 
         if backtrack is not None:
-            new_backtrack = {k: backtrack[v] for k, v in new_backtrack.items()}
+            new_backtrack = {
+                k: backtrack[v] 
+                for k, v in new_backtrack.items()
+                # TODO: Ensure this is missing due to allowing some
+                # re-entrancies to propagat in get_ids_by_key
+                if v in backtrack
+            }
 
         for key in non_identifying_keys:
 
