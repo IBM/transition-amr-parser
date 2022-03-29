@@ -152,7 +152,7 @@ def main():
 def play():
 
     MAX_HISTORY = None
-    STATE_FILE = 'debug.json'
+    STATE_FILE = 'tmp.json'
     state = json.loads(open(STATE_FILE).read())['state']
     machine = AMRStateMachine.from_config(STATE_FILE)
     # repeat run to find stochastic errors

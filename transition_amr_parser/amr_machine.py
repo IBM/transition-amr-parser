@@ -155,7 +155,8 @@ def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids):
                 if len(new_backtrack[t]) > 1:
                     ignore = True
                     delete_backtracks.add(t)
-            if not ignore:
+            # if not ignore:
+            if delete_backtracks != set(targets): #  no target left
                 non_identifying_keys.append(key)
             else:
                 #set_trace(context=30)
@@ -217,7 +218,11 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
             for vi in v:
                 if isinstance(vi, dict):
                     new_edge_values[k].append(vi)
-                elif backtrack[vi] not in new_edge_values[k]:
+                elif (
+                    # re-entrant nodes have been removed from backtrack
+                    vi in backtrack
+                    and backtrack[vi] not in new_edge_values[k]
+                ):
                     new_edge_values[k].append(backtrack[vi])
         edge_values = dict(new_edge_values)
     else:
@@ -254,6 +259,36 @@ def get_edge_keys(nodes, edges, nid, id_map=None):
     return key_nids
 
 
+def merge_candidates(new_candidates, candidates):
+
+    if new_candidates == []:
+        # not enough information to discrimnate further e.g. edges
+        # not yet decoded
+        return candidates
+
+    elif (
+        candidates == []
+        or len(new_candidates) < len(candidates)
+    ):
+        # more restrictive disambiguation, take it
+        # set_trace(context=30)
+        return new_candidates
+
+    elif len(new_candidates) == len(candidates):
+        # equaly restrictive, intersect
+        merge_cand = sorted(set(new_candidates) & set(candidates))
+        if not merge_cand:
+            set_trace(context=30)
+            print()
+        # assert merge_cand, "Algorihm implementation error: There"\
+        #    " can not be conflicting disambiguations"
+        return merge_cand
+
+    else:
+        # less restrictive (redundant) ignore
+        return candidates
+
+
 def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
     #
     # returns gold ids than can be uniquely assigned to node nid:
@@ -287,15 +322,17 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
     candidates = []
     for (key, knid) in key_nids:
         # get a match if any
+        new_candidates = []
         for edge_value in edge_values.get(key, []):
-            if (
-                not isinstance(edge_value, dict)
-                and edge_value not in candidates
-            ):
-                candidates.append(edge_value)
+            if not isinstance(edge_value, dict):
+                new_candidates.append(edge_value)
 
-    # for node id mode, we only need size 1 neighborhood
-    if id_map:
+        # apply merging criteria
+        candidates = merge_candidates(new_candidates, candidates)
+
+    # if we already found an exact match, no need to progress.
+    # also, for node id mode, we only need size 1 neighborhood
+    if id_map or len(candidates) == 1:
         return candidates
 
     # collect all recursive disambiguations. Note that they can only narrow
@@ -313,29 +350,10 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
                 # if we hit neighbouthood > 1, process that one
                 new_candidates = \
                     get_matching_gold_ids(nodes, edges, knid, edge_value)
-                if new_candidates == []:
-                    # not enough information to discrimnate further e.g. edges
-                    # not yet decoded
-                    pass
-                elif (
-                    candidates == []
-                    or len(new_candidates) < len(candidates)
-                ):
-                    # more restrictive disambiguation, take it
-                    # set_trace(context=30)
-                    candidates = new_candidates
-                elif len(new_candidates) == len(candidates):
-                    # equaly restrictive, intersect
-                    merge_cand = sorted(set(new_candidates) & set(candidates))
-                    if not merge_cand:
-                        set_trace(context=30)
-                        print()
-                    # assert merge_cand, "Algorihm implementation error: There"\
-                    #    " can not be conflicting disambiguations"
-                else:
-                    # less restrictive (redundant) ignore
-                    pass
 
+                # apply merging criteria
+                candidates = merge_candidates(new_candidates, candidates)
+  
                 tree_keys.append(key)
 
     return candidates
@@ -357,13 +375,14 @@ def get_gold_node_hashes(gold_nodes, gold_edges, ids=False,
             rules[gnname] = [gnids[0]]
         else:
 
-            if normalize(gnname) == 'name': set_trace(context=30)
+            # if normalize(gnname) == 'name': set_trace(context=30)
 
             rules[gnname] = generate_matching_gold_hashes(
                 gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size,
                 ids=ids
             )
 
+    # set_trace(context=30)
     return rules
 
 
@@ -925,8 +944,8 @@ class AlignModeTracker():
                 if len(gnids) == 1 or nid is None:
                     continue
 
-                # if len(machine.action_history) > 30:
-                #    set_trace(context=30)
+                # if len(machine.action_history) > 18 and gnname == 'name':
+                #    print_and_break(machine, 1)
 
                 # disambiguate by neighbourhood of decoded nodes
                 matches = get_matching_gold_ids(
