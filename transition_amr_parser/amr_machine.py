@@ -115,7 +115,8 @@ def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids):
             else:
                 continue
 
-            ids_by_key[key].append(gnid)
+            if gnid not in ids_by_key[key]:
+                ids_by_key[key].append(gnid)
 
     # create key value pairs from edges by considering edges that identify nine
     # or more nodes from the total of gnids
@@ -234,12 +235,14 @@ def get_edge_keys(nodes, edges, nid, id_map=None):
         if s == nid:
             # child of nid
             if id_map and t in id_map:
+                # FIXME: id_map[t][0]
                 key_nid = (f'> {l} {id_map[t]}', t)
             else:
                 key_nid = (f'> {l} {normalize(nodes[t])}', t)
         elif t == nid:
             # parent of nid
             if id_map and s in id_map:
+                # FIXME: id_map[s][0]
                 key_nid = (f'{id_map[s]} {l} <', s)
             else:
                 key_nid = (f'{normalize(nodes[s])} {l} <', s)
@@ -354,7 +357,7 @@ def get_gold_node_hashes(gold_nodes, gold_edges, ids=False,
             rules[gnname] = [gnids[0]]
         else:
 
-            # if normalize(gnname) == '-': set_trace(context=30)
+            if normalize(gnname) == 'name': set_trace(context=30)
 
             rules[gnname] = generate_matching_gold_hashes(
                 gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size,
@@ -1482,11 +1485,7 @@ class AMRStateMachine():
 
         string += ' '.join(self.action_history) + '\n\n'
         if self.edges:
-            try:
-                amr_str = self.get_amr().to_penman(node_map=node_map)
-            except:
-                set_trace(context=30)
-                amr_str = self.get_amr()
+            amr_str = self.get_amr().to_penman(node_map=node_map)
         else:
             # invalid AMR
             amr_str = '\n'.join(
@@ -1500,7 +1499,20 @@ class AMRStateMachine():
         return string
 
     def __str__(self):
-        return self.state_str()
+
+        if self.gold_amr:
+            # align mode
+            # create a node map relating decoded and gold ids with color code
+            dec2gold = self.align_tracker.get_flat_map()
+            node_map = {
+                k: green_font(f'{k}-{dec2gold[k][0]}')
+                if k in dec2gold else yellow_font(k)
+                for k in self.nodes
+            }
+            tracker = self.align_tracker
+            return f'{self.state_str(node_map)}\n{tracker.__str__()}'
+        else:
+            return self.state_str()
 
     def get_current_token(self):
         if self.tok_cursor >= len(self.tokens):

@@ -155,11 +155,16 @@ def play():
     STATE_FILE = 'debug.json'
     state = json.loads(open(STATE_FILE).read())['state']
     machine = AMRStateMachine.from_config(STATE_FILE)
+    # repeat run to find stochastic errors
+    repeat = 1
 
-    for i in tqdm(range(100)):
+    for i in tqdm(range(repeat)):
 
         # read data
-        machine.reset(state['tokens'], gold_amr=AMR.from_penman(state['gold_amr']))
+        machine.reset(
+            state['tokens'],
+            gold_amr=AMR.from_penman(state['gold_amr'])
+        )
 
         # play recorder actions fully or until time step MAX_HISTORY
         for action in state['action_history']:
@@ -171,8 +176,8 @@ def play():
             ):
                 break
 
-            # if len(machine.action_history) > 30:
-            #    print_and_break(machine, 30)
+            # if len(machine.action_history) > 17:
+            #    print_and_break(machine, 1)
             #    machine.get_valid_actions()
 
             # valid_actions = machine.get_valid_actions()
@@ -193,7 +198,9 @@ def play():
         dec2gold = {v[0]: k for k, v in gold2dec.items()}
 
         # sanity check: all nodes and edges there
-        missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
+        missing_nodes = [
+            n for n in machine.gold_amr.nodes if n not in gold2dec
+        ]
         if missing_nodes:
             print_and_break(machine)
 
