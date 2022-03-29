@@ -1,4 +1,6 @@
 import sys
+from tqdm import tqdm
+from copy import deepcopy
 import json
 from transition_amr_parser.amr import AMR
 from transition_amr_parser.io import read_amr
@@ -150,57 +152,64 @@ def main():
 def play():
 
     MAX_HISTORY = None
-    STATE_FILE = 'tmp.json'
-
-    # read data
+    STATE_FILE = 'debug.json'
     state = json.loads(open(STATE_FILE).read())['state']
     machine = AMRStateMachine.from_config(STATE_FILE)
-    machine.reset(state['tokens'], gold_amr=AMR.from_penman(state['gold_amr']))
 
-    # play recorder actions fully or until time step MAX_HISTORY
-    for action in state['action_history']:
+    for i in tqdm(range(100)):
 
-        # stop playing and switch to random sampling
-        if (
-            MAX_HISTORY is not None
-            and len(machine.action_history) > MAX_HISTORY
-        ):
-            break
+        # read data
+        machine.reset(state['tokens'], gold_amr=AMR.from_penman(state['gold_amr']))
 
-        valid_actions = machine.get_valid_actions()
-        if action not in valid_actions:
-            set_trace(context=30)
+        # play recorder actions fully or until time step MAX_HISTORY
+        for action in state['action_history']:
 
-        print_and_break(machine, 1)
-        machine.update(action)
+            # stop playing and switch to random sampling
+            if (
+                MAX_HISTORY is not None
+                and len(machine.action_history) > MAX_HISTORY
+            ):
+                break
 
-    # continue with random choice of actions
-    while not machine.is_closed:
-        action = choice(machine.get_valid_actions())
-        print_and_break(machine, 1)
-        machine.update(action)
+            # if len(machine.action_history) > 30:
+            #    print_and_break(machine, 30)
+            #    machine.get_valid_actions()
 
-    # sanity check
-    gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-    dec2gold = {v[0]: k for k, v in gold2dec.items()}
+            # valid_actions = machine.get_valid_actions()
+            # if action not in valid_actions:
+            #   set_trace(context=30)
 
-    # sanity check: all nodes and edges there
-    missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
-    if missing_nodes:
-        print_and_break(machine)
+            # print_and_break(machine, 1)
+            machine.update(action)
 
-    # sanity check: all nodes and edges match
-    edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
-    missing = set(machine.gold_amr.edges) - set(edges)
-    excess = set(edges) - set(machine.gold_amr.edges)
-    if bool(missing):
-        print_and_break(machine)
-    elif bool(excess):
-        print_and_break(machine)
+        # continue with random choice of actions
+        while not machine.is_closed:
+            action = choice(machine.get_valid_actions())
+            # print_and_break(machine, 1)
+            machine.update(action)
 
-    print_and_break(machine)
+        # sanity check
+        gold2dec = machine.align_tracker.get_flat_map(reverse=True)
+        dec2gold = {v[0]: k for k, v in gold2dec.items()}
+
+        # sanity check: all nodes and edges there
+        missing_nodes = [n for n in machine.gold_amr.nodes if n not in gold2dec]
+        if missing_nodes:
+            print_and_break(machine)
+
+        # sanity check: all nodes and edges match
+        edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
+        missing = set(machine.gold_amr.edges) - set(edges)
+        excess = set(edges) - set(machine.gold_amr.edges)
+        if bool(missing):
+            print_and_break(machine)
+        elif bool(excess):
+            print_and_break(machine)
+
+        # print_and_break(machine)
+        old_machine = deepcopy(machine)
 
 
 if __name__ == '__main__':
-    # main()
+    #main()
     play()

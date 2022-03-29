@@ -62,12 +62,114 @@ def debug_align_mode(machine):
 
     # sanity check: all nodes and edges match
     edges = [(dec2gold[e[0]], e[1], dec2gold[e[2]]) for e in machine.edges]
-    missing = set(machine.gold_amr.edges) - set(edges)
-    excess = set(edges) - set(machine.gold_amr.edges)
+    missing = sorted(set(machine.gold_amr.edges) - set(edges))
+    excess = sorted(set(edges) - set(machine.gold_amr.edges))
     if bool(missing):
         print_and_break(machine)
     elif bool(excess):
         print_and_break(machine)
+
+
+def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids):
+
+    # loop over gold node is for same nname
+    # source gold id given edge key
+    ids_by_key = defaultdict(list)
+    # target gold id given edge key
+    hop_ids = defaultdict(list)
+    # source node id we jumped to get to given target gnid
+    new_backtrack = defaultdict(list)
+    for gnid in gnids:
+        for (gs, gl, gt) in gold_edges:
+
+            # if we are hoping through a graph, avoid revisiting nodes
+            if forbid_nodes:
+                if gs == gnid and gt in forbid_nodes:
+                    continue
+                elif gt == gnid and gs in forbid_nodes:
+                    continue
+            # skip it does not involve this edge
+            elif gnid not in [gs, gt]:
+                continue
+
+            # construct key from edge of current node
+            # ignore re-entrant nodes
+            if gs == gnid: # and ra_count[gt] < 2:
+                # child of nid
+                if ids:
+                    key = f'> {gl} {gt}'
+                else:
+                    key = f'> {gl} {normalize(gold_nodes[gt])}'
+                if gt not in hop_ids[key]:
+                    hop_ids[key].append(gt)
+                new_backtrack[gt].append(gnid)
+            elif gt == gnid: # and la_count[gs] < 2:
+                # parent of nid
+                if ids:
+                    key = f'{gs} {gl} <'
+                else:
+                    key = f'{normalize(gold_nodes[gs])} {gl} <'
+                if gs not in hop_ids[key]:
+                    hop_ids[key].append(gs)
+                new_backtrack[gs].append(gnid)
+            else:
+                continue
+
+            ids_by_key[key].append(gnid)
+
+    # create key value pairs from edges by considering edges that identify nine
+    # or more nodes from the total of gnids
+    edge_values = defaultdict(list)
+    non_identifying_keys = []
+    delete_backtracks = set()
+    for key, key_gnids in ids_by_key.items():
+
+        targets = hop_ids[key]
+
+        if any(len(new_backtrack[t]) == 0 for t in targets):
+            set_trace(context=30)
+            pass
+
+        if len(key_gnids) == 1:
+            # uniquely identifies one gold_id
+            edge_values[key] = list(key_gnids)[0:1]
+            # there is no jump, so no backtrack
+            for t in targets:
+                delete_backtracks.add(t)
+        else:
+
+            if len(key_gnids) < len(gnids):
+                # uniquely identifies two or more gold_ids, add it
+                edge_values[key] = sorted(key_gnids)
+
+            if len(key_gnids) > len(gnids):
+                # error
+                set_trace(context=30)
+                print()
+
+            # if some target backtracks to more than one source, this is a
+            # reentrancy and we ignore it for propagation  
+            ignore = False
+            for t in targets:
+                if len(new_backtrack[t]) > 1:
+                    ignore = True
+                    delete_backtracks.add(t)
+            if not ignore:
+                non_identifying_keys.append(key)
+            else:
+                #set_trace(context=30)
+                pass
+
+    # delete backtracks that will not be used because edge alread identifies
+    # uniquely or edge is a re-entrancy shared across nodes to disambiguate
+    # also make all other backtracks single items
+    new_backtrack = {
+        k: v[0]
+        for k, v in new_backtrack.items()
+        if k not in delete_backtracks
+    }
+
+    return edge_values, non_identifying_keys, hop_ids, new_backtrack
 
 
 def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
@@ -79,57 +181,11 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
     queried with a subgraph of the graph to identify each node in {gnids}
     """
 
-    # loop over gold node is for same nname
-    ids_by_key = defaultdict(set)
-    hop_ids = defaultdict(set)
-    new_backtrack = {}
-    for gnid in gnids:
-        for (gs, gl, gt) in gold_edges:
+    # if gnids == ['c3', 'c4']: set_trace(context=30)
 
-            # if we are hoping through a graph, avoid revisiting nodes
-            if forbid_nodes:
-                if gs == gnid and gt in forbid_nodes:
-                    continue
-                elif gt == gnid and gs in forbid_nodes:
-                    continue
-
-            # construct key from edge of current node
-            if gs == gnid:
-                # child of nid
-                if ids:
-                    key = f'> {gl} {gt}'
-                else:
-                    key = f'> {gl} {normalize(gold_nodes[gt])}'
-                hop_ids[key].add(gt)
-                new_backtrack[gt] = gnid
-            elif gt == gnid:
-                # parent of nid
-                if ids:
-                    key = f'{gs} {gl} <'
-                else:
-                    key = f'{normalize(gold_nodes[gs])} {gl} <'
-                hop_ids[key].add(gs)
-                new_backtrack[gs] = gnid
-            else:
-                continue
-            ids_by_key[key].add(gnid)
-
-    # create key value pairs from edges by considering edges that identify nine
-    # or more nodes from the total of gnids
-    edge_values = defaultdict(list)
-    non_identifying_keys = []
-    for key, key_gnids in ids_by_key.items():
-
-        if len(key_gnids) == 1:
-            # uniquely identifies one gold_id
-            edge_values[key] = list(key_gnids)[0:1]
-        elif len(key_gnids) < len(gnids):
-            # uniquely identifies two or more gold_ids
-            edge_values[key] = list(key_gnids)
-            non_identifying_keys.append(key)
-        else:
-            # does not indentify anything
-            non_identifying_keys.append(key)
+    # get unique and non unique edges and from/to where we jump in the latter
+    edge_values, non_identifying_keys, hop_ids, new_backtrack = \
+        get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids)
 
     # if there are pending ids to be identified expand neighbourhood one
     # hop, indicate not to revisit nodes
@@ -146,7 +202,7 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
         for key in non_identifying_keys:
 
             hop_edge_values = generate_matching_gold_hashes(
-                gold_nodes, gold_edges, list(hop_ids[key]), ids=ids,
+                gold_nodes, gold_edges, sorted(hop_ids[key]), ids=ids,
                 max_size=max_size - 1, forbid_nodes=gnids,
                 backtrack=new_backtrack
             )
@@ -298,8 +354,7 @@ def get_gold_node_hashes(gold_nodes, gold_edges, ids=False,
             rules[gnname] = [gnids[0]]
         else:
 
-            # if gnname == 'have-org-role-91':
-            #    set_trace(context=30)
+            # if normalize(gnname) == '-': set_trace(context=30)
 
             rules[gnname] = generate_matching_gold_hashes(
                 gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size,
@@ -867,6 +922,9 @@ class AlignModeTracker():
                 if len(gnids) == 1 or nid is None:
                     continue
 
+                # if len(machine.action_history) > 30:
+                #    set_trace(context=30)
+
                 # disambiguate by neighbourhood of decoded nodes
                 matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
@@ -879,6 +937,9 @@ class AlignModeTracker():
                     self.gold_neighbours[gnname],
                     id_map=self.get_flat_map()
                 )
+
+                # if len(machine.action_history) > 21:
+                #    print_and_break(machine, 30)
 
                 # keep more restrictive disambiguation
                 if prop_matches and len(prop_matches) < len(matches):
@@ -899,9 +960,6 @@ class AlignModeTracker():
         # note that actions predict node labels, not node ids so during partial
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges have been predicted.
-
-        # if len(machine.action_history) > 26:
-        #    print_and_break(machine, 30)
 
         # add nodes created in this update
         dec2gold = self.get_flat_map(ambiguous=True)
@@ -976,6 +1034,29 @@ class AlignModeTracker():
         # TODO: more checks
         assert isinstance(gold_ids, list)
         assert isinstance(decoded_id, str) or isinstance(decoded_id, int)
+
+        # fast exit
+        if decoded_id in self.gold_id_map[nname] and gold_ids != []:
+
+            old_gnids = self.gold_id_map[nname][decoded_id]
+            intersection = sorted(set(gold_ids) & set(old_gnids))
+
+            if set(gold_ids) == set(old_gnids):
+                # we already have assigned this
+                return
+            elif set(gold_ids) < set(old_gnids):
+                # more restrictive assignment
+                pass
+            elif bool(intersection):
+                # FIXME: not sure if this activates in invalid casesd that we
+                # are not seeing
+                # keep the intersection of gold_ids
+                gold_ids = [n for n in gold_ids if n in intersection]
+
+            else:
+                # this should not be happening
+                set_trace(context=30)
+                print()
 
         # get lists of decoded ids and gold ids that are already 1-1 mapped
         assigned_nids = []
@@ -1643,12 +1724,12 @@ class AMRStateMachine():
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
 
-        # Action for each time-step
-        self.action_history.append(action)
-
         # Update align mode tracker after machine state has been updated
         if self.gold_amr:
             self.align_tracker.update(self)
+
+        # Action for each time-step
+        self.action_history.append(action)
 
     def get_amr(self):
         return AMR(self.tokens, self.nodes, self.edges, self.root,
@@ -1692,7 +1773,7 @@ class AMRStateMachine():
                 alignments = {
                     gold2dec[nid][0]: pos
                     for nid, pos in self.alignments.items()
-                    # if nid in gold2dec
+                    if nid in gold2dec
                 }
                 return add_alignments_to_penman(
                     self.gold_amr.penman,
