@@ -1,4 +1,5 @@
 import argparse
+import os
 from tqdm import tqdm
 from copy import deepcopy
 import json
@@ -85,12 +86,22 @@ def main(args):
             ):
                 break
 
+            # breakpoint
             if (
                 (
                     args.trace_step is not None
                     and len(machine.action_history) >= args.trace_step
                 ) or args.trace
             ):
+                os.system('clear')
+                print(machine)
+                set_trace(context=args.context)
+                machine.get_valid_actions()
+                print()
+
+            # machine valid actions inconsistent with recorded actions
+            if action not in machine.get_valid_actions():
+                os.system('clear')
                 print(machine)
                 set_trace(context=args.context)
                 machine.get_valid_actions()
@@ -107,6 +118,7 @@ def main(args):
                     and len(machine.action_history) >= args.trace_step
                 ) or args.trace_random
             ):
+                os.system('clear')
                 print(machine)
                 set_trace(context=args.context)
                 machine.get_valid_actions()
@@ -123,6 +135,7 @@ def main(args):
                 n for n in machine.gold_amr.nodes if n not in gold2dec
             ]
             if missing_nodes:
+                os.system('clear')
                 print(machine)
                 set_trace(context=args.context)
                 print()

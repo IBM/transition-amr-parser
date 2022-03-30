@@ -282,6 +282,7 @@ def merge_candidates(new_candidates, candidates):
         # equaly restrictive, intersect
         merge_cand = sorted(set(new_candidates) & set(candidates))
         if not merge_cand:
+            # FIXME: temporary solution to get stats
             set_trace(context=30)
             print()
         # assert merge_cand, "Algorihm implementation error: There"\
@@ -979,6 +980,9 @@ class AlignModeTracker():
 
         # perform the updates
         for (gnname, nid, matches) in match_updates:
+            # FIXME: tenporary solution to get stats
+            # if bool(set(self.gold_id_map[gnname][nid]) & set(matches)):
+            #    continue
             self.disambiguate_pair(gnname, nid, matches)
 
     def update(self, machine):
@@ -1528,7 +1532,16 @@ class AMRStateMachine():
         string += '\n\n'
 
         if self.edges:
-            amr_str = self.get_amr().to_penman(node_map=node_map)
+            try:
+                # TODO: remove debug code.
+                # This can die with cicles saying its a disconnected graph
+                amr_str = self.get_amr().to_penman(node_map=node_map)
+            except:
+                cosa = self.get_amr()
+                set_trace(context=30)
+                cosa.to_penman()
+                cosa.to_penman(node_map=node_map)
+                print()
         else:
             # invalid AMR
             amr_str = '\n'.join(
