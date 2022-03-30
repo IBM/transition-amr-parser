@@ -99,5 +99,24 @@ use `--results` to check for scores once models are finished.
 
 ## Decode with Pre-trained model
 
-As of now `Structured-BART` does not support standalone parsing. Use the
-`action-pointer` or `stack-Transformer` branches for this.
+To use from the command line with a trained model do
+
+```bash
+amr-parse -c $in_checkpoint -i $input_file -o file.amr
+```
+
+It will parse each line of `$input_file` separately (assumed tokenized).
+`$in_checkpoint` is the Pytorch checkpoint of a trained model. The `file.amr`
+will contain the PENMAN notation AMR with additional alignment information as
+comments. Use the flag `--service` together with `-c` for an iterative parsing
+mode.
+
+To use from other Python code with a trained model do
+
+```python
+from transition_amr_parser.parse import AMRParser
+parser = AMRParser.from_checkpoint(in_checkpoint)
+annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
+# Penman notation
+print(''.join(annotations[0][0]))
+```
