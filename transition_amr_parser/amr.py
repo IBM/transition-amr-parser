@@ -89,6 +89,17 @@ class AMR():
             for n in heads:
                 self.edges.append((self.root, AMR.default_rel, n))
 
+        # redo edges
+        # edges by parent
+        self.edges_by_parent = defaultdict(list)
+        for (source, edge_name, target) in self.edges:
+            self.edges_by_parent[source].append((target, edge_name))
+
+        # edges by child
+        self.edges_by_child = defaultdict(list)
+        for (source, edge_name, target) in self.edges:
+            self.edges_by_child[target].append((source, edge_name))
+
     def clean_amr(self):
         # empty graph
         if not self.nodes:
