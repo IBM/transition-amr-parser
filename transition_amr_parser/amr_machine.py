@@ -246,15 +246,13 @@ def get_edge_keys(nodes, edges, nid, id_map=None):
         if s == nid:
             # child of nid
             if id_map and t in id_map:
-                # FIXME: id_map[t][0]
-                key_nid = (f'> {l} {id_map[t]}', t)
+                key_nid = (f'> {l} {id_map[t][0]}', t)
             else:
                 key_nid = (f'> {l} {normalize(nodes[t])}', t)
         elif t == nid:
             # parent of nid
             if id_map and s in id_map:
-                # FIXME: id_map[s][0]
-                key_nid = (f'{id_map[s]} {l} <', s)
+                key_nid = (f'{id_map[s][0]} {l} <', s)
             else:
                 key_nid = (f'{normalize(nodes[s])} {l} <', s)
         else:
@@ -970,7 +968,10 @@ class AlignModeTracker():
                 #    print_and_break(machine, 30)
 
                 # keep more restrictive disambiguation
-                if prop_matches and len(prop_matches) < len(matches):
+                if (
+                    prop_matches 
+                    and (matches == [] or len(prop_matches) < len(matches))
+                ):
                     matches = prop_matches
 
                 if matches:
@@ -1339,8 +1340,18 @@ class AlignModeTracker():
         # expand to all possible disambiguations
         expanded_missing_gold_edges = []
         for gold_edge in missing_gold_edges:
-            for gold_edge_candidate in self.goldedges_to_candidates[gold_edge]:
-                expanded_missing_gold_edges.append(gold_edge_candidate)
+            for (cand_s, cand_l, cand_t) in self.goldedges_to_candidates[gold_edge]:
+                # avoid exiting edges 
+                skip = False
+                for (s, l, t) in machine.edges:
+                    if s == cand_s and cand_l == l and normalize(machine.nodes[cand_t]) == normalize(machine.nodes[t]):
+                        skip = True
+                        break
+                    elif t == cand_t and cand_l == l and normalize(machine.nodes[cand_s]) == normalize(machine.nodes[s]):
+                        skip = True
+                        break
+                if not skip:    
+                    expanded_missing_gold_edges.append((cand_s, cand_l, cand_t))
 
         return expanded_missing_gold_edges
 
@@ -1508,7 +1519,14 @@ class AMRStateMachine():
         else:
             string += '\n\n'
 
-        string += ' '.join(self.action_history) + '\n\n'
+        # string += ' '.join(self.action_history) + '\n\n'
+        for action in self.action_history:
+            if action in ['SHIFT', 'ROOT', 'CLOSE'] or action.startswith('>'):
+                string += f'{action} '
+            else:    
+                string += f'\033[7m{action}\033[0m '
+        string += '\n\n'
+
         if self.edges:
             amr_str = self.get_amr().to_penman(node_map=node_map)
         else:
