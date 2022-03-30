@@ -151,6 +151,11 @@ def main():
 
 def play():
 
+    trace = False
+    trace_step = 28
+    trace_random = True
+    context = 1 
+
     MAX_HISTORY = None
     STATE_FILE = 'tmp.json'
     state = json.loads(open(STATE_FILE).read())['state']
@@ -176,21 +181,26 @@ def play():
             ):
                 break
 
-            # if len(machine.action_history) > 17:
-            #    print_and_break(machine, 1)
-            #    machine.get_valid_actions()
+            if (
+                (
+                    trace_step is not None 
+                    and len(machine.action_history) >= trace_step
+                ) or trace
+            ):
+                print_and_break(machine, context)
 
-            # valid_actions = machine.get_valid_actions()
-            # if action not in valid_actions:
-            #   set_trace(context=30)
-
-            # print_and_break(machine, 1)
             machine.update(action)
 
         # continue with random choice of actions
         while not machine.is_closed:
             action = choice(machine.get_valid_actions())
-            # print_and_break(machine, 1)
+            if (
+                (
+                    trace_step is not None 
+                    and len(machine.action_history) >= trace_step
+                ) or trace_random
+            ):
+                print_and_break(machine, context)
             machine.update(action)
 
         # sanity check
@@ -214,9 +224,11 @@ def play():
             print_and_break(machine)
 
         # print_and_break(machine)
+        set_trace(context=30)
         old_machine = deepcopy(machine)
+        machine = AMRStateMachine.from_config(STATE_FILE)
 
 
 if __name__ == '__main__':
-    main()
-    # play()
+    #  main()
+    play()
