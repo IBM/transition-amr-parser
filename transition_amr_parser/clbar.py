@@ -22,6 +22,10 @@ from datetime import datetime
 import numpy as np
 
 
+def red_background(string):
+    return "\033[101m%s\033[0m" % string
+
+
 def yellow_font(string):
     return "\033[93m%s\033[0m" % string
 

@@ -26,6 +26,16 @@ from penman import surface
 from ipdb import set_trace
 
 
+def normalize(token):
+    """
+    Normalize token or node
+    """
+    if token == '"':
+        return token
+    else:
+        return token.replace('"', '')
+
+
 class AMR():
 
     # relation used for detached subgraph

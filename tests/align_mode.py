@@ -4,16 +4,14 @@ from copy import deepcopy
 import json
 from transition_amr_parser.amr import AMR
 from transition_amr_parser.io import read_amr
-from transition_amr_parser.amr_machine import AMRStateMachine, print_and_break
+from transition_amr_parser.amr_machine import AMRStateMachine
+from transition_amr_parser.gold_subgraph_align import (
+    BadAlignModeSample, check_gold_alignment
+)
 from numpy.random import choice
-from collections import defaultdict
+from collections import defaultdict, Counter
 from ipdb import set_trace
 # from numpy.random import randint
-
-
-surface_rules = True
-if surface_rules:
-    from transition_amr_parser.amr_aligner import surface_aligner
 
 
 class RuleAlignments():
@@ -65,12 +63,14 @@ class RuleAlignments():
 def main():
 
     trace = False
-    trace_if_error = False
+    trace_if_error = True
+    surface_rules = False
 
     # read AMR instantiate state machine and rules
     amrs = read_amr(sys.argv[1], generate=True)
     machine = AMRStateMachine()
     if surface_rules:
+        from transition_amr_parser.amr_aligner import surface_aligner
         rules = RuleAlignments()
 
     # stats to compute Smatch
@@ -78,68 +78,104 @@ def main():
     num_hits = 0
     num_gold = 0
 
+    # rejection stats
+    rejection_index_count = Counter()
+    rejection_reason_count = Counter()
+
     # random_index = randint(1000)
 
     # loop over all AMRs, return basic alignment
     aligned_penman = []
     for index, amr in enumerate(amrs):
 
-        # if index != random_index:
+        # if index in [543, 1393, 1435, 1615, 1761]:
+         #   continue
+
+        # if index != 543:
         #    continue
 
         # start the machine in align mode
         machine.reset(amr.tokens, gold_amr=amr)
         # optionally start the alignment rules
-        if surface_rules:
-            rules.reset(amr, machine)
+        #if surface_rules:
+        #    rules.reset(amr, machine)
 
         # runs machine until completion
-        while not machine.is_closed:
+        force_exit = False
+        while not machine.is_closed and not force_exit:
 
             if trace:
-                print_and_break(machine, 1)
+                print(machine)
+                set_trace(context=30)
 
-            # valid actions
-            if surface_rules:
-                possible_actions = rules.get_valid_actions()
-            else:
+            try:
+
+                # valid actions
+                #if surface_rules:
+                #    possible_actions = rules.get_valid_actions()
+                #else:
                 possible_actions = machine.get_valid_actions()
 
-            # random choice among those options
-            action = choice(possible_actions)
+                # random choice among those options
+                action = choice(possible_actions)
 
-            # update machine
-            machine.update(action)
+                # update machine
+                machine.update(action)
+
+            except BadAlignModeSample as exception:
+
+                rejection_index_count.update([amr.penman.metadata['id']])
+                rejection_reason_count.update([exception.__str__()])
+
+                if rejection_index_count[amr.penman.metadata['id']] > 5:
+
+                    # exit or trace
+                    force_exit = True
+                    break
+                    # check_gold_alignment(machine, trace=True)
+
+                else:
+
+                    # Alignment failed, re-start machine
+                    # start the machine in align mode
+                    machine.reset(amr.tokens, gold_amr=amr)
+                    # optionally start the alignment rules
+                    # if surface_rules:
+                    #    rules.reset(amr, machine)
 
         # sanity check
-        gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-        dec2gold = {v[0]: k for k, v in gold2dec.items()}
+        if not force_exit:
+            gold2dec = machine.align_tracker.get_flat_map(reverse=True)
+            dec2gold = {v[0]: k for k, v in gold2dec.items()}
 
-        # sanity check: all nodes and edges there
-        missing_nodes = [
-            n for n in machine.gold_amr.nodes if n not in gold2dec
-        ]
-        if missing_nodes and trace_if_error:
-            print_and_break(machine)
+            # sanity check: all nodes and edges there
+            missing_nodes = [
+                n for n in machine.gold_amr.nodes if n not in gold2dec
+            ]
+            if missing_nodes and trace_if_error:
+                print(machine)
+                set_trace(context=30)
 
-        # sanity check: all nodes and edges match
-        edges = [
-            (dec2gold[e[0]], e[1], dec2gold[e[2]])
-            for e in machine.edges if (e[0] in dec2gold and e[2] in dec2gold)
-        ]
-        missing = set(machine.gold_amr.edges) - set(edges)
-        excess = set(edges) - set(machine.gold_amr.edges)
-        if bool(missing) and trace_if_error:
-            print_and_break(machine)
-        elif bool(excess) and trace_if_error:
-            print_and_break(machine)
+            # sanity check: all nodes and edges match
+            edges = [
+                (dec2gold[e[0]], e[1], dec2gold[e[2]])
+                for e in machine.edges if (e[0] in dec2gold and e[2] in dec2gold)
+            ]
+            missing = set(machine.gold_amr.edges) - set(edges)
+            excess = set(edges) - set(machine.gold_amr.edges)
+            if bool(missing) and trace_if_error:
+                print(machine)
+                set_trace(context=30)
+            elif bool(excess) and trace_if_error:
+                print(machine)
+                set_trace(context=30)
 
-        # edges
-        num_tries += len(machine.edges)
-        num_hits += len(machine.edges) - len(missing)
-        num_gold += len(machine.gold_amr.edges)
+            # edges
+            num_tries += len(machine.edges)
+            num_hits += len(machine.edges) - len(missing)
+            num_gold += len(machine.gold_amr.edges)
 
-        aligned_penman.append(machine.get_annotation())
+            aligned_penman.append(machine.get_annotation())
 
     precision = num_hits / num_tries
     recall = num_hits / num_gold
