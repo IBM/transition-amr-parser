@@ -1341,21 +1341,46 @@ class AlignModeTracker():
                 set_trace(context=30)
                 raise Exception()
 
+        # get chilldren names and node count for this graph
+        # TODO: we could reuse the ones from neighborhood
+        edge_count = Counter()
+        child_names = defaultdict(list)
+        parent_names = defaultdict(list)
+        for (s, l, t) in machine.edges:
+            child_names[s].append((l, normalize(machine.nodes[t])))
+            parent_names[t].append((l, normalize(machine.nodes[s])))
+            edge_count.update([(s, t)])
+
         # expand to all possible disambiguations
         expanded_missing_gold_edges = []
         for gold_edge in missing_gold_edges:
             for (cand_s, cand_l, cand_t) in self.goldedges_to_candidates[gold_edge]:
+
+                # avoid having more number of edges between two nodes than in
+                # gold
+                node_key = (cand_t, cand_s) if cand_l.endswith('-of') \
+                    else (cand_s, cand_t)
+                if (
+                    edge_count[node_key] == 
+                    self.num_edges_by_node_pair[(gold_edge[0], gold_edge[2])]
+                ):
+                    continue
+
                 # avoid exiting edges 
                 skip = False
-                for (s, l, t) in machine.edges:
-                    if s == cand_s and cand_l == l and normalize(machine.nodes[cand_t]) == normalize(machine.nodes[t]):
-                        skip = True
-                        break
-                    elif t == cand_t and cand_l == l and normalize(machine.nodes[cand_s]) == normalize(machine.nodes[s]):
-                        skip = True
-                        break
+                if (cand_l, normalize(machine.nodes[cand_t])) in child_names[cand_s]:
+                    # same child name exists
+                    skip = True
+                    break
+                elif (cand_l, normalize(machine.nodes[cand_s])) in child_names[cand_t]:
+                    # same parent name exists
+                    skip = True
+                    break
+
                 if not skip:    
-                    expanded_missing_gold_edges.append((cand_s, cand_l, cand_t))
+                    expanded_missing_gold_edges.append(
+                        (cand_s, cand_l, cand_t)
+                    )
 
         return expanded_missing_gold_edges
 
