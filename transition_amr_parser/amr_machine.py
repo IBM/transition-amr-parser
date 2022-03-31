@@ -794,6 +794,9 @@ class AlignModeTracker():
         # each pending gold edge
         self.goldedges_to_candidates = {}
 
+        self._edges_by_child = defaultdict(list)
+        self._edges_by_parent = defaultdict(list)
+
     def __str__(self):
 
         string = ''
@@ -990,11 +993,19 @@ class AlignModeTracker():
         Update state of aligner given latest state machine state
         '''
 
+        # update neighbourhood auxiliary structures to descrbe decoded graph
+        self._edges_by_child = defaultdict(list)
+        for (source, edge_name, target) in machine.edges:
+            self._edges_by_child[target].append((source, edge_name))
+        self._edges_by_parent = defaultdict(list)
+        for (source, edge_name, target) in machine.edges:
+            self._edges_by_parent[source].append((target, edge_name))
+
         # note that actions predict node labels, not node ids so during partial
         # decoding we may not know which gold node corresponds to which decoded
         # node until a number of edges have been predicted.
 
-        # add nodes created in this update
+        # map added nodes that are not ambiguous
         dec2gold = self.get_flat_map(ambiguous=True)
         for nid, nname in machine.nodes.items():
             if nname not in self.gold_id_map:
@@ -1016,6 +1027,7 @@ class AlignModeTracker():
                     self.disambiguate_pair(nname, nid, [])
 
         # update re-entrancy counts
+        # TODO: move before previous block
         num_dec_parents = Counter()
         for (s, l, t) in machine.edges:
             if all(
@@ -1024,7 +1036,7 @@ class AlignModeTracker():
                 for n in dec2gold[t]
             ):
                 # at least one option should have less number of parents
-                # set_trace(context=30)
+                set_trace(context=30)
                 print()
             num_dec_parents[t] += 1
         self.num_dec_parents = num_dec_parents
@@ -1077,21 +1089,25 @@ class AlignModeTracker():
             if set(gold_ids) == set(old_gnids):
                 # we already have assigned this
                 return
+
             elif set(gold_ids) < set(old_gnids):
-                # more restrictive assignment
+                # more restrictive assignment, we will take it
                 pass
+
             elif bool(intersection):
-                # FIXME: not sure if this activates in invalid casesd that we
-                # are not seeing
+
+                # only partially overlapping
                 # keep the intersection of gold_ids
                 gold_ids = [n for n in gold_ids if n in intersection]
                 if set(gold_ids) == set(old_gnids):
                     # we already have assigned this
+                    # FIXME: isnt this set(gold_ids) < set(old_gnids)?
                     return
 
             else:
 
-                # update conflicts with previous
+                # update does conflict with previous. Normally the invalid move
+                # has happened some actions previous, so here it is too late
                 set_trace(context=30)
                 print()
 
