@@ -1085,9 +1085,13 @@ class AlignModeTracker():
                 # are not seeing
                 # keep the intersection of gold_ids
                 gold_ids = [n for n in gold_ids if n in intersection]
+                if set(gold_ids) == set(old_gnids):
+                    # we already have assigned this
+                    return
 
             else:
-                # this should not be happening
+
+                # update conflicts with previous
                 set_trace(context=30)
                 print()
 
@@ -1137,6 +1141,7 @@ class AlignModeTracker():
             self.gold_id_map[nname][decoded_id] = gold_ids
 
             # apply exlusion principle and remove gold ids from the None group
+            # FIXME: propagate this information to existing neighbours
             self.cleanup_map(nname, gold_ids, assigned_nids)
 
     def sanity_checks(self, nname, decoded_id, gold_ids, assigned_nids, 
@@ -1192,6 +1197,9 @@ class AlignModeTracker():
             self.gold_id_map[nname][None].remove(gold_ids[0])
             if self.gold_id_map[nname][None] == []:      
                 del self.gold_id_map[nname][None]
+
+        # if nname == 'country':
+        #    set_trace(context=30)
         
         # if it is a 1-1 assignment remove from all other assignments. This
         # needs to be done repeteadly as we may generate new unique maps
@@ -1204,9 +1212,12 @@ class AlignModeTracker():
                     # gold id (len == 1)
                     self.gold_id_map[nname][nid2].remove(mapped_gnid)
                     if len(self.gold_id_map[nname][nid2]) == 1:
+                        # we assigned another node, we need to continue
                         assigned_gnids.append(
                             self.gold_id_map[nname][nid2][0]
                         )
+
+                    # if nid2 has ambiguous neighbours, they may be less ambiguous
 
         # remove None if empty 
         if (
