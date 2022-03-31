@@ -19,7 +19,12 @@ def read_amr(file_path, ibm_format=False, tokenize=False, bar=True,
             def bar(x, desc=None): return x
         index = 0
         found_indices = []
-        for line in bar(fid.readlines(), desc='Reading AMR'):
+
+        # read the file as raw lines as a whole
+        lines = list(fid.readlines())
+        num_amr = sum([x.strip() == '' for x in lines])
+        pbar = bar(lines)
+        for line in pbar:
             if line.strip() == '':
 
                 # skip parsing of penman based on index
@@ -38,6 +43,10 @@ def read_amr(file_path, ibm_format=False, tokenize=False, bar=True,
                 else:
                     # from penman
                     amr = AMR.from_penman(' '.join(raw_amr), tokenize=tokenize)
+
+                # update bar
+                pbar.set_description(f'Reading AMRs {index}/{num_amr}')
+
                 # append this AMR and clean line accumulator
                 if generate:
                     yield amr
