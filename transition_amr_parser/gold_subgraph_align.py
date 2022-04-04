@@ -469,12 +469,14 @@ class AlignModeTracker():
                 set_trace(context=30)
                 print()
 
-        # there can be more than one edge betweentow nodes e.g. John hurt
+        # there can be more than one edge between two nodes e.g. John hurt
         # himself
+        # there are also rare cases of two identical children
         self.num_edges_by_node_pair = Counter()
-        self.num_edges_by_node_pair.update(
-            (gs, gt) for gs, _, gt in gold_amr.edges
-        )
+        # self.repeated_edge_names
+        set_trace(context=30)
+        for gs, gl, gt in gold_amr.edges:
+            self.num_edges_by_node_pair.update((gs, gt))
 
         # this will hold decoded edges aligned to gold edges, including
         # ambiguous cases (many aligned ot many)
@@ -973,6 +975,10 @@ class AlignModeTracker():
                 (gold_s_id, gold_e_label, gold_t_id)
             )
 
+            if len(machine.action_history) > 7:
+                print(machine)
+                set_trace(context=30)
+
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
             for nid in gold_to_dec_ids[gold_s_id]:
@@ -1063,6 +1069,7 @@ class AlignModeTracker():
                     edge_count[node_key] ==
                     self.num_edges_by_node_pair[(gold_edge[0], gold_edge[2])]
                 ):
+                    set_trace(context=30)
                     continue
 
                 # avoid exiting edges
@@ -1071,12 +1078,14 @@ class AlignModeTracker():
                     cand_l, normalize(machine.nodes[cand_t])
                 ) in child_names[cand_s]:
                     # same child name exists
+                    set_trace(context=30)
                     skip = True
                     break
                 elif (
                     cand_l, normalize(machine.nodes[cand_s])
                 ) in child_names[cand_t]:
                     # same parent name exists
+                    set_trace(context=30)
                     skip = True
                     break
 
