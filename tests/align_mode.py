@@ -1,8 +1,4 @@
 import sys
-from tqdm import tqdm
-from copy import deepcopy
-import json
-from transition_amr_parser.amr import AMR
 from transition_amr_parser.io import read_amr
 from transition_amr_parser.amr_machine import AMRStateMachine
 from transition_amr_parser.gold_subgraph_align import (
@@ -81,6 +77,7 @@ def main():
     # rejection stats
     rejection_index_count = Counter()
     rejection_reason_count = Counter()
+    amr_size_by_id = dict()
 
     # random_index = randint(1000)
 
@@ -89,7 +86,10 @@ def main():
     for index, amr in enumerate(amrs):
 
         # if index in [543, 1393, 1435, 1615, 1761]:
-         #   continue
+        #   continue
+
+        # if amr.penman.metadata['id'] != 'DF-200-192410-470_9050.3':
+        #    continue
 
         # if index != 543:
         #    continue
@@ -126,8 +126,11 @@ def main():
 
                 rejection_index_count.update([amr.penman.metadata['id']])
                 rejection_reason_count.update([exception.__str__()])
+                if amr.penman.metadata['id'] not in amr_size_by_id:
+                    amr_size_by_id[amr.penman.metadata['id']] = \
+                        len(machine.gold_amr.nodes)
 
-                if rejection_index_count[amr.penman.metadata['id']] > 5:
+                if rejection_index_count[amr.penman.metadata['id']] > 10:
 
                     # exit or trace
                     force_exit = True
