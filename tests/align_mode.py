@@ -1,4 +1,5 @@
 import sys
+import json
 import os
 from transition_amr_parser.io import read_amr
 from transition_amr_parser.amr_machine import AMRStateMachine
@@ -59,7 +60,9 @@ class RuleAlignments():
 
 def main():
 
-    trace = True
+    MAX_REJECTIONS = 10
+
+    trace = False
     trace_if_error = True
     surface_rules = False
 
@@ -77,7 +80,7 @@ def main():
 
     # rejection stats
     rejection_index_count = Counter()
-    rejection_reason_count = Counter()
+    rejection_reason_count = defaultdict(list)
     amr_size_by_id = dict()
 
     # random_index = randint(1000)
@@ -89,8 +92,8 @@ def main():
         # if index in [543, 1393, 1435, 1615, 1761]:
         #   continue
 
-        # if amr.penman.metadata['id'] != 'DF-200-192410-470_9050.3':
-        #    continue
+        # if amr.penman.metadata['id'] != 'DF-200-192453-580_4472.13':
+        #     continue
 
         # if index != 543:
         #    continue
@@ -108,7 +111,7 @@ def main():
             if trace:
                 os.system('clear')
                 print(machine)
-                set_trace(context=30)
+                set_trace()
 
             try:
 
@@ -126,13 +129,16 @@ def main():
 
             except BadAlignModeSample as exception:
 
+                # set_trace(context=30)
                 rejection_index_count.update([amr.penman.metadata['id']])
-                rejection_reason_count.update([exception.__str__()])
+                rejection_reason_count[exception.__str__()].append(
+                    amr.penman.metadata['id']
+                )
                 if amr.penman.metadata['id'] not in amr_size_by_id:
                     amr_size_by_id[amr.penman.metadata['id']] = \
                         len(machine.gold_amr.nodes)
 
-                if rejection_index_count[amr.penman.metadata['id']] > 10:
+                if rejection_index_count[amr.penman.metadata['id']] > MAX_REJECTIONS:
 
                     # exit or trace
                     force_exit = True
@@ -182,6 +188,24 @@ def main():
 
             aligned_penman.append(machine.get_annotation())
 
+    # store data
+    sampling_debug_data = dict(
+        rejection_reason_count=rejection_reason_count,
+        amr_size_by_id= amr_size_by_id
+    )
+    with open('test_align_mode_stats.json', 'w')  as fid:
+        fid.write(json.dumps(sampling_debug_data))
+
+    print('\n'.join([f'{k} {len(set(v))}' for k, v in rejection_reason_count.items()]))
+
+    did_not_complete = [id for id, c in rejection_index_count.items() if c == MAX_REJECTIONS + 1]
+    did_not_complete = sorted(did_not_complete, key=lambda x: amr_size_by_id[x])
+    print(f'Failed {len(did_not_complete)}')
+    print(' '.join(did_not_complete))
+
+    # sorted(rejection_reason_count['Missing Edges'], key=lambda x: amr_size_by_id[x])[:10]
+
+    # save
     precision = num_hits / num_tries
     recall = num_hits / num_gold
     fscore = 2 * (precision * recall) / (precision + recall)
