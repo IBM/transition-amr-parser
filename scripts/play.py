@@ -7,7 +7,10 @@ from ipdb import set_trace
 from numpy.random import choice
 # TAP
 from transition_amr_parser.amr_machine import AMRStateMachine
-from transition_amr_parser.gold_subgraph_align import match_amrs
+from transition_amr_parser.gold_subgraph_align import (
+    match_amrs, 
+    BadAlignModeSample
+)
 from transition_amr_parser.amr import AMR
 
 
@@ -16,6 +19,11 @@ def argument_parsing():
     # Argument hanlding
     parser = argparse.ArgumentParser(
         description='sandbox to play actions of a state machine'
+    )
+    parser.add_argument(
+        '--in-amr',
+        type=str,
+        help='Input AMR (will do random search)'
     )
     parser.add_argument(
         '-i', '--in-state-json',
@@ -56,29 +64,45 @@ def argument_parsing():
     )
     args = parser.parse_args()
 
+    assert bool(args.in_amr) ^ bool(args.in_state_json)
+    if bool(args.in_amr):
+        assert not bool(args.max_step)
+
     return args
 
 
 def main(args):
 
     # get state and start machine
-    state = json.loads(open(args.in_state_json).read())['state']
-    machine = AMRStateMachine.from_config(args.in_state_json)
+    if bool(args.in_state_json):
+
+        # run recorded state sequence until asked to stop (--max-step)
+        state = json.loads(open(args.in_state_json).read())['state']
+        machine = AMRStateMachine.from_config(args.in_state_json)
+        tokens = state['tokens']
+        if 'gold_amr' in state:
+            gold_amr = AMR.from_penman(state['gold_amr'])
+        else:
+            gold_amr = None
+        action_history = state['action_history']
+
+    else:
+
+        # run random search on a gold AMR
+        machine = AMRStateMachine()
+        with open(args.in_amr) as fid:
+            gold_amr = AMR.from_penman(fid.read())
+        tokens = gold_amr.tokens
+        action_history = []
 
     # run machine one or more times
     for i in tqdm(range(args.repeat)):
 
-        if 'gold_amr' in state:
-            # align mode
-            machine.reset(
-                state['tokens'],
-                gold_amr=AMR.from_penman(state['gold_amr'])
-            )
-        else:
-            machine.reset(state['tokens'])
+        # align mode <==> gold_amr is not None
+        machine.reset(tokens, gold_amr=gold_amr)
 
         # play recorder actions fully or until time step args.max_step
-        for action in state['action_history']:
+        for action in action_history:
 
             # stop playing and switch to random sampling
             if (
@@ -108,7 +132,12 @@ def main(args):
                 machine.get_valid_actions()
                 print()
 
-            machine.update(action)
+            try:
+                machine.update(action)
+            except BadAlignModeSample as exception:
+                os.system('clear')
+                print(machine)
+                set_trace(context=args.context)
 
         # continue with random choice of actions
         while not machine.is_closed:
@@ -124,10 +153,17 @@ def main(args):
                 set_trace(context=args.context)
                 machine.get_valid_actions()
                 print()
-            machine.update(action)
+
+            try:
+                machine.update(action)
+            except BadAlignModeSample as exception:
+                os.system('clear')
+                print(machine)
+                set_trace(context=args.context)
+                print()
 
         # align model sanity check
-        if 'gold_amr' in state:
+        if gold_amr is not None:
 
             missing_nodes, missing_edges, excess_edges = match_amrs(machine)
 
@@ -148,7 +184,10 @@ def main(args):
 
         # start a a new machine, but keep a copy for comparison
         old_machine = deepcopy(machine)
-        machine = AMRStateMachine.from_config(args.in_state_json)
+        if args.in_state_json:
+            machine = AMRStateMachine.from_config(args.in_state_json)
+        else:
+            machine = AMRStateMachine.from_config()
 
 
 if __name__ == '__main__':
