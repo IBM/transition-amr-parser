@@ -27,8 +27,8 @@ def match_amrs(machine):
         (dec2gold[e[0]], e[1], dec2gold[e[2]])
         for e in machine.edges
     ]
-    missing = set(machine.gold_amr.edges) - set(machine.edges)
-    excess = set(machine.edges) - set(machine.gold_amr.edges)
+    missing = set(machine.gold_amr.edges) - set(edges)
+    excess = set(edges) - set(machine.gold_amr.edges)
 
     return missing_nodes, missing, excess
 
@@ -1133,10 +1133,10 @@ class AlignModeTracker():
 
                 # avoid having more number of edges between two nodes than in
                 # gold
-                pair_key = (dec_t, dec_s) if dec_l.endswith('-of') \
-                    else (dec_s, dec_t)
+                # pair_key = (dec_t, dec_s) if dec_l.endswith('-of') \
+                #    else (dec_s, dec_t)
                 if (
-                    edge_count[pair_key] ==
+                    edge_count[(dec_s, dec_t)] ==
                     self.num_edges_by_node_pair[(gold_edge[0], gold_edge[2])]
                 ):
                     continue
