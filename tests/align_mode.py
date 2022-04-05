@@ -1,4 +1,5 @@
 import sys
+import os
 from transition_amr_parser.io import read_amr
 from transition_amr_parser.amr_machine import AMRStateMachine
 from transition_amr_parser.gold_subgraph_align import (
@@ -58,7 +59,7 @@ class RuleAlignments():
 
 def main():
 
-    trace = False
+    trace = True
     trace_if_error = True
     surface_rules = False
 
@@ -105,6 +106,7 @@ def main():
         while not machine.is_closed and not force_exit:
 
             if trace:
+                os.system('clear')
                 print(machine)
                 set_trace(context=30)
 

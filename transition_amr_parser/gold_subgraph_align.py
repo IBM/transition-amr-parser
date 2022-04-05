@@ -96,7 +96,8 @@ def debug_align_mode(machine):
         print_and_break(machine)
 
 
-def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids):
+def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids,
+                   twin_nodes):
 
     # loop over gold node is for same nname
     # source gold id given edge key
@@ -144,7 +145,7 @@ def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids):
             if gnid not in ids_by_key[key]:
                 ids_by_key[key].append(gnid)
 
-    # create key value pairs from edges by considering edges that identify nine
+    # create key value pairs from edges by considering edges that identify one
     # or more nodes from the total of gnids
     edge_values = defaultdict(list)
     non_identifying_keys = []
@@ -166,10 +167,19 @@ def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids):
         else:
 
             if len(key_gnids) < len(gnids):
-                # uniquely identifies two or more gold_ids, add it
+                # at least narrows down from the total set of possible
+                # candidates
                 edge_values[key] = sorted(key_gnids)
 
-            if len(key_gnids) > len(gnids):
+            elif (
+                len(key_gnids) == len(gnids)
+                and tuple(gnids) in twin_nodes.values()
+            ):
+                # it does not narrow, but it is the corner case of two
+                # identical children.
+                edge_values[key] = sorted(key_gnids)
+
+            elif len(key_gnids) > len(gnids):
                 # error
                 set_trace(context=30)
                 print()
@@ -200,7 +210,7 @@ def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids):
 
 def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
                                   ids=False, forbid_nodes=None,
-                                  backtrack=None):
+                                  backtrack=None, twin_nodes=None):
     """
     given graph defined by {gold_nodes} and {gold_edges} and node ids
     coresponding to nodes with same label {gnids} return structure that can be
@@ -211,7 +221,9 @@ def generate_matching_gold_hashes(gold_nodes, gold_edges, gnids, max_size=4,
 
     # get unique and non unique edges and from/to where we jump in the latter
     edge_values, non_identifying_keys, hop_ids, new_backtrack = \
-        get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids)
+        get_ids_by_key(
+            gold_nodes, gold_edges, gnids, forbid_nodes, ids, twin_nodes
+        )
 
     # if there are pending ids to be identified expand neighbourhood one
     # hop, indicate not to revisit nodes
@@ -316,7 +328,8 @@ def merge_candidates(new_candidates, candidates):
         return candidates
 
 
-def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
+def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None,
+                          twin_nodes=None):
     #
     # returns gold ids than can be uniquely assigned to node nid:
     # examples [], ['a1'], ['a1', 'a3']
@@ -387,7 +400,7 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None):
 
 
 def get_gold_node_hashes(gold_nodes, gold_edges, ids=False,
-                         max_neigbourhood_size=6):
+                         max_neigbourhood_size=6, twin_nodes=None):
 
     # cluster node ids by node label
     gnode_by_label = defaultdict(list)
@@ -402,14 +415,18 @@ def get_gold_node_hashes(gold_nodes, gold_edges, ids=False,
             rules[gnname] = [gnids[0]]
         else:
 
-            # if normalize(gnname) == 'name': set_trace(context=30)
+            # if normalize(gnname) == 'many': set_trace(context=30)
 
             rules[gnname] = generate_matching_gold_hashes(
                 gold_nodes, gold_edges, gnids, max_size=max_neigbourhood_size,
-                ids=ids
+                ids=ids, twin_nodes=twin_nodes
             )
 
-    # set_trace(context=30)
+            # sanity check, no empty rules
+            if rules[gnname] == {}:
+                set_trace(context=30)
+                pass
+
     return rules
 
 
@@ -448,16 +465,30 @@ class AlignModeTracker():
         }
         self.num_dec_parents = {}
 
+        # there can be more than one edge between two nodes e.g. John hurt
+        # himself
+        # there are also rare cases of two identical children
+        # self.repeated_edge_names
+        self.twin_nodes = defaultdict(list)
+        for gs, gl, gt in gold_amr.edges:
+            self.twin_nodes[(gs, gl, gold_amr.nodes[gt])].append(gt)
+        for k in [k for k, nids in self.twin_nodes.items() if len(nids) > 1]:
+            self.twin_nodes[k] = tuple(sorted(self.twin_nodes[k]))
+        for k in [k for k, nids in self.twin_nodes.items() if len(nids) == 1]:
+            del self.twin_nodes[k]
+
         # a data structure list(dict|list) that can disambiguate a decoded node
         # (assign it to it gold node, give sufficient decoded edges). This will
         # search entire graph neighbourhood
         self.dec_neighbours = get_gold_node_hashes(
-            gold_amr.nodes, gold_amr.edges, max_neigbourhood_size=6
+            gold_amr.nodes, gold_amr.edges, max_neigbourhood_size=6,
+            twin_nodes=self.twin_nodes
         )
         # the same but given gold_ids already alignet to decoded ids. this only
         # needs size 1
         self.gold_neighbours = get_gold_node_hashes(
-            gold_amr.nodes, gold_amr.edges, ids=True
+            gold_amr.nodes, gold_amr.edges, ids=True,
+            twin_nodes=self.twin_nodes
         )
 
         # sanity check all nodes can be disambiguated with current conditions
@@ -473,10 +504,9 @@ class AlignModeTracker():
         # himself
         # there are also rare cases of two identical children
         self.num_edges_by_node_pair = Counter()
-        # self.repeated_edge_names
-        set_trace(context=30)
-        for gs, gl, gt in gold_amr.edges:
-            self.num_edges_by_node_pair.update((gs, gt))
+        self.num_edges_by_node_pair.update(
+            (gs, gt) for gs, _, gt in gold_amr.edges
+        )
 
         # this will hold decoded edges aligned to gold edges, including
         # ambiguous cases (many aligned ot many)
@@ -652,12 +682,26 @@ class AlignModeTracker():
                     self.dec_neighbours[gnname]
                 )
 
+                # for twin nodes any selection will be ok
+                if tuple(sorted(matches)) in self.twin_nodes.values():
+                    if None in pairs:
+                        set_trace(context=30)
+                        matches = pairs[None][0:1]
+
                 # disambiguate by neighbourhood of aligned gold nodes
                 prop_matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
                     self.gold_neighbours[gnname],
                     id_map=self.get_flat_map()
                 )
+
+                # for twin nodes any selection will be ok
+                if tuple(sorted(prop_matches)) in self.twin_nodes.values():
+                    if matches:
+                        prop_matches = matches
+                    elif None in pairs:
+                        set_trace(context=30)
+                        prop_matches = pairs[None][0:1]
 
                 # if len(machine.action_history) > 21:
                 #    print_and_break(machine, 30)
@@ -815,7 +859,7 @@ class AlignModeTracker():
         if gold_ids == []:
             if None in self.gold_id_map[nname]:
                 self.gold_id_map[nname][decoded_id] = \
-                    self.gold_id_map[nname][None]
+                    list(self.gold_id_map[nname][None])
             else:
                 # with no further info assign it all non 1-1-mapped nodes
                 self.gold_id_map[nname][decoded_id] = unassigned_gnids
@@ -975,9 +1019,9 @@ class AlignModeTracker():
                 (gold_s_id, gold_e_label, gold_t_id)
             )
 
-            if len(machine.action_history) > 7:
-                print(machine)
-                set_trace(context=30)
+            # if len(machine.action_history) > 7:
+            #    print(machine)
+            #    set_trace(context=30)
 
             # store potential decodable edges for this gold edge. Note that we
             # can further disambiguate for this given gold edge
@@ -1057,33 +1101,52 @@ class AlignModeTracker():
         # expand to all possible disambiguations
         expanded_missing_gold_edges = []
         for gold_edge in missing_gold_edges:
-            for (
-                cand_s, cand_l, cand_t
-            ) in self.goldedges_to_candidates[gold_edge]:
+            for decoded_edge in self.goldedges_to_candidates[gold_edge]:
+
+                dec_s, dec_l, dec_t = decoded_edge
 
                 # avoid having more number of edges between two nodes than in
                 # gold
-                node_key = (cand_t, cand_s) if cand_l.endswith('-of') \
-                    else (cand_s, cand_t)
+                pair_key = (dec_t, dec_s) if dec_l.endswith('-of') \
+                    else (dec_s, dec_t)
                 if (
-                    edge_count[node_key] ==
+                    edge_count[pair_key] ==
                     self.num_edges_by_node_pair[(gold_edge[0], gold_edge[2])]
                 ):
                     set_trace(context=30)
                     continue
 
-                # avoid exiting edges
+                nname_t = normalize(machine.nodes[dec_t])
+                nname_s = normalize(machine.nodes[dec_s])
+                child_name = (dec_l, nname_t)
+                full_child_name = (gold_edge[0], dec_l, nname_t)
+                parent_name = (dec_l, nname_s)
+                full_parent_name = (nname_s, dec_l, gold_edge[2])
+
+                # avoid existing edges, in some odd cases same edge may appear
+                # multiple times
                 skip = False
                 if (
-                    cand_l, normalize(machine.nodes[cand_t])
-                ) in child_names[cand_s]:
+                    child_name in child_names[dec_s]
+                    and (
+                        full_child_name not in self.twin_nodes
+                        or len(self.twin_nodes[full_child_name])
+                        == len(child_names[dec_s])
+                    )
+                ):
                     # same child name exists
                     set_trace(context=30)
                     skip = True
                     break
+
                 elif (
-                    cand_l, normalize(machine.nodes[cand_s])
-                ) in child_names[cand_t]:
+                    parent_name in child_names[dec_t]
+                    and (
+                        full_parent_name not in self.twin_nodes
+                        or len(self.twin_nodes[full_parent_name])
+                        == len(parent_names[dec_s])
+                    )
+                ):
                     # same parent name exists
                     set_trace(context=30)
                     skip = True
@@ -1091,7 +1154,7 @@ class AlignModeTracker():
 
                 if not skip:
                     expanded_missing_gold_edges.append(
-                        (cand_s, cand_l, cand_t)
+                        (dec_s, dec_l, dec_t)
                     )
 
         return expanded_missing_gold_edges
