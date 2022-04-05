@@ -1151,23 +1151,15 @@ class AlignModeTracker():
                 # avoid existing edges, in some odd cases same edge may appear
                 # multiple times
                 if (
-                    child_name in child_names[dec_s]
-                    and (
-                        full_child_name not in self.twin_nodes
-                        or len(self.twin_nodes[full_child_name])
-                        == len(child_names[dec_s])
-                    )
+                    sum([c == child_name for c in child_names[dec_s]])
+                    == len(self.twin_nodes.get(full_child_name, [None]))
                 ):
                     # same child name exists
                     continue
 
                 elif (
-                    parent_name in child_names[dec_t]
-                    and (
-                        full_parent_name not in self.twin_nodes
-                        or len(self.twin_nodes[full_parent_name])
-                        == len(parent_names[dec_s])
-                    )
+                    sum([c == parent_name for c in parent_names[dec_t]])
+                    == len(self.twin_nodes.get(full_parent_name, [None]))
                 ):
                     # same parent name exists
                     continue
