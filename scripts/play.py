@@ -7,6 +7,7 @@ from ipdb import set_trace
 from numpy.random import choice
 # TAP
 from transition_amr_parser.amr_machine import AMRStateMachine
+from transition_amr_parser.gold_subgraph_align import match_amrs
 from transition_amr_parser.amr import AMR
 
 
@@ -127,31 +128,20 @@ def main(args):
 
         # align model sanity check
         if 'gold_amr' in state:
-            gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-            dec2gold = {v[0]: k for k, v in gold2dec.items()}
 
-            # sanity check: all nodes and edges there
-            missing_nodes = [
-                n for n in machine.gold_amr.nodes if n not in gold2dec
-            ]
+            missing_nodes, missing_edges, excess_edges = match_amrs(machine)
+
             if missing_nodes:
                 os.system('clear')
                 print(machine)
                 set_trace(context=args.context)
                 print()
 
-            # sanity check: all nodes and edges match
-            edges = [
-                (dec2gold[e[0]], e[1], dec2gold[e[2]])
-                for e in machine.edges
-            ]
-            missing = set(machine.gold_amr.edges) - set(edges)
-            excess = set(edges) - set(machine.gold_amr.edges)
-            if bool(missing):
+            if bool(missing_edges):
                 print(machine)
                 set_trace(context=args.context)
                 print()
-            elif bool(excess):
+            elif bool(excess_edges):
                 print(machine)
                 set_trace(context=args.context)
                 print()

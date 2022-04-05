@@ -12,6 +12,27 @@ class BadAlignModeSample(Exception):
     pass
 
 
+def match_amrs(machine):
+
+    gold2dec = machine.align_tracker.get_flat_map(reverse=True)
+    dec2gold = {v[0]: k for k, v in gold2dec.items()}
+
+    # sanity check: all nodes and edges there
+    missing_nodes = [
+        n for n in machine.gold_amr.nodes if n not in gold2dec
+    ]
+
+    # sanity check: all nodes and edges match
+    edges = [
+        (dec2gold[e[0]], e[1], dec2gold[e[2]])
+        for e in machine.edges
+    ]
+    missing = set(machine.gold_amr.edges) - set(machine.edges)
+    excess = set(machine.edges) - set(machine.gold_amr.edges)
+
+    return missing_nodes, missing, excess
+
+
 def check_gold_alignment(machine, trace=False):
 
     # sanity check
@@ -759,6 +780,12 @@ class AlignModeTracker():
                 else:
                     # otherwise add to unassigned nodes
                     self.disambiguate_pair(nname, nid, [])
+
+        # if we found root, set it
+        # This will affect the machine
+        gold_to_dec_ids = self.get_flat_map(reverse=True)
+        if machine.gold_amr.root in gold_to_dec_ids:
+            machine.root = gold_to_dec_ids[machine.gold_amr.root][0]
 
         # update re-entrancy counts
         # TODO: move before previous block
