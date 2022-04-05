@@ -173,6 +173,7 @@ def get_ids_by_key(gold_nodes, gold_edges, gnids, forbid_nodes, ids,
 
             elif (
                 len(key_gnids) == len(gnids)
+                and twin_nodes is not None
                 and tuple(gnids) in twin_nodes.values()
             ):
                 # it does not narrow, but it is the corner case of two
@@ -423,9 +424,9 @@ def get_gold_node_hashes(gold_nodes, gold_edges, ids=False,
             )
 
             # sanity check, no empty rules
-            if rules[gnname] == {}:
-                set_trace(context=30)
-                pass
+            # if rules[gnname] == {}:
+            #    set_trace(context=30)
+            #    pass
 
     return rules
 
@@ -685,7 +686,6 @@ class AlignModeTracker():
                 # for twin nodes any selection will be ok
                 if tuple(sorted(matches)) in self.twin_nodes.values():
                     if None in pairs:
-                        set_trace(context=30)
                         matches = pairs[None][0:1]
 
                 # disambiguate by neighbourhood of aligned gold nodes
@@ -700,7 +700,6 @@ class AlignModeTracker():
                     if matches:
                         prop_matches = matches
                     elif None in pairs:
-                        set_trace(context=30)
                         prop_matches = pairs[None][0:1]
 
                 # if len(machine.action_history) > 21:
@@ -1113,7 +1112,6 @@ class AlignModeTracker():
                     edge_count[pair_key] ==
                     self.num_edges_by_node_pair[(gold_edge[0], gold_edge[2])]
                 ):
-                    set_trace(context=30)
                     continue
 
                 nname_t = normalize(machine.nodes[dec_t])
@@ -1125,7 +1123,6 @@ class AlignModeTracker():
 
                 # avoid existing edges, in some odd cases same edge may appear
                 # multiple times
-                skip = False
                 if (
                     child_name in child_names[dec_s]
                     and (
@@ -1135,9 +1132,7 @@ class AlignModeTracker():
                     )
                 ):
                     # same child name exists
-                    set_trace(context=30)
-                    skip = True
-                    break
+                    continue
 
                 elif (
                     parent_name in child_names[dec_t]
@@ -1148,13 +1143,10 @@ class AlignModeTracker():
                     )
                 ):
                     # same parent name exists
-                    set_trace(context=30)
-                    skip = True
-                    break
+                    continue
 
-                if not skip:
-                    expanded_missing_gold_edges.append(
-                        (dec_s, dec_l, dec_t)
-                    )
+                expanded_missing_gold_edges.append(
+                    (dec_s, dec_l, dec_t)
+                )
 
         return expanded_missing_gold_edges
