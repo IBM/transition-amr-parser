@@ -4,7 +4,7 @@ import os
 from transition_amr_parser.io import read_amr
 from transition_amr_parser.amr_machine import AMRStateMachine
 from transition_amr_parser.gold_subgraph_align import (
-    BadAlignModeSample, check_gold_alignment
+    BadAlignModeSample, check_gold_alignment, match_amrs
 )
 from numpy.random import choice
 from collections import defaultdict, Counter
@@ -63,8 +63,10 @@ def main():
     MAX_REJECTIONS = 10
 
     trace = False
-    trace_if_error = True
+    trace_if_error = False
     surface_rules = False
+    force_exit = False
+    reject_samples = False
 
     # read AMR instantiate state machine and rules
     amrs = read_amr(sys.argv[1], generate=True)
@@ -77,6 +79,7 @@ def main():
     num_tries = 0
     num_hits = 0
     num_gold = 0
+    num_amrs = 0
 
     # rejection stats
     rejection_index_count = Counter()
@@ -89,23 +92,15 @@ def main():
     aligned_penman = []
     for index, amr in enumerate(amrs):
 
-        # if index in [543, 1393, 1435, 1615, 1761]:
-        #   continue
-
-        # if amr.penman.metadata['id'] != 'DF-200-192453-580_4472.13':
-        #     continue
-
-        # if index != 543:
-        #    continue
-
         # start the machine in align mode
-        machine.reset(amr.tokens, gold_amr=amr)
+        machine.reset(
+            amr.tokens, gold_amr=amr, reject_align_samples=reject_samples
+        )
         # optionally start the alignment rules
         #if surface_rules:
         #    rules.reset(amr, machine)
 
         # runs machine until completion
-        force_exit = False
         while not machine.is_closed and not force_exit:
 
             if trace:
@@ -129,7 +124,6 @@ def main():
 
             except BadAlignModeSample as exception:
 
-                # set_trace(context=30)
                 rejection_index_count.update([amr.penman.metadata['id']])
                 rejection_reason_count[exception.__str__()].append(
                     amr.penman.metadata['id']
@@ -149,31 +143,22 @@ def main():
 
                     # Alignment failed, re-start machine
                     # start the machine in align mode
-                    machine.reset(amr.tokens, gold_amr=amr)
+                    machine.reset(
+                        amr.tokens, gold_amr=amr, 
+                        reject_align_samples=reject_samples
+                    )
                     # optionally start the alignment rules
                     # if surface_rules:
                     #    rules.reset(amr, machine)
 
         # sanity check
-        if not force_exit:
-            gold2dec = machine.align_tracker.get_flat_map(reverse=True)
-            dec2gold = {v[0]: k for k, v in gold2dec.items()}
+        if True:
 
-            # sanity check: all nodes and edges there
-            missing_nodes = [
-                n for n in machine.gold_amr.nodes if n not in gold2dec
-            ]
+            missing_nodes, missing, excess = match_amrs(machine) 
+
             if missing_nodes and trace_if_error:
                 print(machine)
                 set_trace(context=30)
-
-            # sanity check: all nodes and edges match
-            edges = [
-                (dec2gold[e[0]], e[1], dec2gold[e[2]])
-                for e in machine.edges if (e[0] in dec2gold and e[2] in dec2gold)
-            ]
-            missing = set(machine.gold_amr.edges) - set(edges)
-            excess = set(edges) - set(machine.gold_amr.edges)
             if bool(missing) and trace_if_error:
                 print(machine)
                 set_trace(context=30)
@@ -185,8 +170,12 @@ def main():
             num_tries += len(machine.edges)
             num_hits += len(machine.edges) - len(missing)
             num_gold += len(machine.gold_amr.edges)
+            num_amrs += 1
 
             aligned_penman.append(machine.get_annotation())
+
+        # restore order
+        force_exit = False
 
     # store data
     sampling_debug_data = dict(

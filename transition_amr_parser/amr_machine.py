@@ -374,11 +374,14 @@ class AMRStateMachine():
         # mapped to canonical actions.')
         return canonical_act_ids
 
-    def reset(self, tokens, gold_amr=None):
+    def reset(self, tokens, gold_amr=None, reject_align_samples=False):
         '''
         Reset state variables and set a new sentence
 
         Use gold_amr for align mode
+
+        reject_align_samples = True raises BadAlignModeSample if sample does
+        not satisfy contraints
         '''
         # state
         self.tokens = list(tokens)
@@ -403,7 +406,10 @@ class AMRStateMachine():
         self.gold_amr = gold_amr
         if gold_amr:
             # this will track the node alignments between
-            self.align_tracker = AlignModeTracker(gold_amr)
+            self.align_tracker = AlignModeTracker(
+                gold_amr,
+                reject_samples=reject_align_samples
+            )
             self.align_tracker.update(self)
 
     @classmethod
@@ -646,7 +652,10 @@ class AMRStateMachine():
 
             if self.gold_amr:
                 # sanity check, we got the exact same AMR
-                check_gold_alignment(self)
+                check_gold_alignment(
+                    self,
+                    reject_samples=self.align_tracker.reject_samples
+                )
 
             self.is_closed = True
 
@@ -783,23 +792,7 @@ class AMRStateMachine():
             # If we read the gold AMR from penman, we can just apply the
             # alignments to it, thus keeping the epidata info intact
             if self.gold_amr.penman:
-                gold2dec = self.align_tracker.get_flat_map()
-                # DEBUG
-                if any(nid not in gold2dec for nid in self.alignments):
-                    # set_trace(context=30)
-                    raise BadAlignModeSample('Missing node')
-                # /DEBUG
-                alignments = {
-                    gold2dec[nid][0]: pos
-                    for nid, pos in self.alignments.items()
-                    if nid in gold2dec
-                }
-                return add_alignments_to_penman(
-                    self.gold_amr.penman,
-                    alignments,
-                    string=True
-                )
-
+                return self.align_tracker.add_alignments_to_penman(self)
             else:
                 node_map = self.align_tracker.get_flat_map()
                 return self.get_aligned_amr().to_penman(node_map=node_map)

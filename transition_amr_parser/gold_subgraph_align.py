@@ -2,7 +2,7 @@ import os
 from collections import defaultdict, Counter
 
 from transition_amr_parser.clbar import yellow_font, green_font
-from transition_amr_parser.amr import normalize
+from transition_amr_parser.amr import normalize, add_alignments_to_penman
 from ipdb import set_trace
 
 
@@ -26,6 +26,7 @@ def match_amrs(machine):
     edges = [
         (dec2gold[e[0]], e[1], dec2gold[e[2]])
         for e in machine.edges
+        if e[0] in dec2gold and e[2] in dec2gold
     ]
     missing = set(machine.gold_amr.edges) - set(edges)
     excess = set(edges) - set(machine.gold_amr.edges)
@@ -33,7 +34,7 @@ def match_amrs(machine):
     return missing_nodes, missing, excess
 
 
-def check_gold_alignment(machine, trace=False):
+def check_gold_alignment(machine, trace=False, reject_samples=False):
 
     # sanity check
     gold2dec = machine.align_tracker.get_flat_map(reverse=True)
@@ -47,7 +48,7 @@ def check_gold_alignment(machine, trace=False):
         if trace:
             print(machine)
             set_trace(context=30)
-        else:
+        elif reject_samples:
             raise BadAlignModeSample('Missing Nodes')
 
     # sanity check: all nodes and edges match
@@ -65,17 +66,14 @@ def check_gold_alignment(machine, trace=False):
             if trace:
                 print(machine)
                 set_trace(context=30)
-            else:
+            elif reject_samples:
                 raise BadAlignModeSample('Missing Edges')
-        set_trace(context=30)
     elif bool(excess):
         if trace:
             print(machine)
             set_trace(context=30)
-        else:
+        elif reject_samples:
             raise BadAlignModeSample('Excess Edges')
-        print(machine)
-        set_trace(context=30)
 
 
 def print_and_break(machine, context=1):
@@ -321,7 +319,7 @@ def get_edge_keys(nodes, edges, nid, id_map=None):
     return key_nids
 
 
-def merge_candidates(new_candidates, candidates):
+def merge_candidates(new_candidates, candidates, reject_samples):
 
     if new_candidates == []:
         # not enough information to discrimnate further e.g. edges
@@ -339,8 +337,11 @@ def merge_candidates(new_candidates, candidates):
     elif len(new_candidates) == len(candidates):
         # equaly restrictive, intersect
         merge_cand = sorted(set(new_candidates) & set(candidates))
-        if not merge_cand:
+        if not merge_cand and reject_samples:
             raise BadAlignModeSample('Conflicting constrains for size=1')
+        else:
+            # keep the old
+            return candidates
         # assert merge_cand, "Algorihm implementation error: There"\
         #    " can not be conflicting disambiguations"
         return merge_cand
@@ -351,7 +352,7 @@ def merge_candidates(new_candidates, candidates):
 
 
 def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None,
-                          twin_nodes=None):
+                          twin_nodes=None, reject_samples=False):
     #
     # returns gold ids than can be uniquely assigned to node nid:
     # examples [], ['a1'], ['a1', 'a3']
@@ -390,7 +391,9 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None,
                 new_candidates.append(edge_value)
 
         # apply merging criteria
-        candidates = merge_candidates(new_candidates, candidates)
+        candidates = merge_candidates(
+            new_candidates, candidates, reject_samples
+        )
 
     # if we already found an exact match, no need to progress.
     # also, for node id mode, we only need size 1 neighborhood
@@ -410,11 +413,15 @@ def get_matching_gold_ids(nodes, edges, nid, edge_values, id_map=None,
 
             if isinstance(edge_value, dict):
                 # if we hit neighbouthood > 1, process that one
-                new_candidates = \
-                    get_matching_gold_ids(nodes, edges, knid, edge_value)
+                new_candidates = get_matching_gold_ids(
+                    nodes, edges, knid, edge_value,
+                    reject_samples=reject_samples
+                )
 
                 # apply merging criteria
-                candidates = merge_candidates(new_candidates, candidates)
+                candidates = merge_candidates(
+                    new_candidates, candidates, reject_samples
+                )
 
                 tree_keys.append(key)
 
@@ -457,9 +464,12 @@ class AlignModeTracker():
     Tracks alignment of decoded AMR in align-mode to the corresponding gold AMR
     '''
 
-    def __init__(self, gold_amr):
+    def __init__(self, gold_amr, reject_samples=False):
 
         self.gold_amr = gold_amr
+
+        # If set raise BadAlignModeSample if a conflict is found
+        self.reject_samples = reject_samples
 
         # assign gold node ids to decoded node ids based on node label
         gnode_by_label = defaultdict(list)
@@ -701,7 +711,8 @@ class AlignModeTracker():
                 # disambiguate by neighbourhood of decoded nodes
                 matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
-                    self.dec_neighbours[gnname]
+                    self.dec_neighbours[gnname],
+                    reject_samples=self.reject_samples
                 )
 
                 # for twin nodes any selection will be ok
@@ -713,7 +724,8 @@ class AlignModeTracker():
                 prop_matches = get_matching_gold_ids(
                     machine.nodes, machine.edges, nid,
                     self.gold_neighbours[gnname],
-                    id_map=self.get_flat_map()
+                    id_map=self.get_flat_map(),
+                    reject_samples=self.reject_samples
                 )
 
                 # for twin nodes any selection will be ok
@@ -795,9 +807,10 @@ class AlignModeTracker():
                 n != self.gold_amr.root
                 and num_dec_parents[t] == self.num_gold_parents[n]
                 for n in dec2gold[t]
-            ):
+            ) and self.reject_samples:
                 # at least one option should have less number of parents
-                raise BadAlignModeSample('Invalid re-entrancy counts')
+               raise BadAlignModeSample('Invalid re-entrancy counts')
+
             num_dec_parents[t] += 1
         self.num_dec_parents = num_dec_parents
 
@@ -843,13 +856,19 @@ class AlignModeTracker():
                 if set(gold_ids) == set(old_gnids):
                     # we already have assigned this
                     # FIXME: isnt this set(gold_ids) < set(old_gnids)?
+                    # just ignore this call
                     return
 
-            else:
+            elif self.reject_samples:
 
                 # update does conflict with previous. Normally the invalid move
                 # has happened some actions previous, so here it is too late
                 raise BadAlignModeSample('Conflicting constraints')
+
+            else:
+
+                # just ignore this call
+                return
 
         # get lists of decoded ids and gold ids that are already 1-1 mapped
         assigned_nids = []
@@ -874,7 +893,11 @@ class AlignModeTracker():
         if gold_ids:
             gold_ids = [n for n in gold_ids if n not in assigned_gnids]
             if not bool(gold_ids):
-                raise BadAlignModeSample('gold_id already assigned')
+                if self.reject_samples:
+                    raise BadAlignModeSample('gold_id already assigned')
+                else:
+                    # just ignore this call
+                    return
 
         self.sanity_checks(
             nname, decoded_id, gold_ids, assigned_nids, assigned_gnids
@@ -1169,3 +1192,27 @@ class AlignModeTracker():
                 expanded_missing_gold_edges.append((dec_s, dec_l, dec_t))
 
         return expanded_missing_gold_edges
+
+    def add_alignments_to_penman(self, machine):
+
+        gold2dec = self.get_flat_map()
+
+        # This info is checked at close, so no need to raise here
+        # if (
+        #    any(nid not in gold2dec for nid in machine.alignments)
+        #    and self.reject_samples
+        # ):
+        #    # set_trace(context=30)
+        #    raise BadAlignModeSample('Missing node')
+
+        alignments = {
+            gold2dec[nid][0]: pos
+            for nid, pos in machine.alignments.items()
+            if nid in gold2dec
+        }
+
+        return add_alignments_to_penman(
+            self.gold_amr.penman,
+            alignments,
+            string=True
+        )
