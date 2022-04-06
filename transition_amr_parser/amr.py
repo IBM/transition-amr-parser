@@ -24,6 +24,10 @@ from penman.layout import Push
 from penman.graph import Graph, Edge, Attribute
 from penman import surface
 from ipdb import set_trace
+from transition_amr_parser.clbar import yellow_font
+
+
+alignment_regex = re.compile('(-?[0-9]+)-(-?[0-9]+)')
 
 
 def normalize(token):
@@ -72,7 +76,7 @@ class AMR():
         # do the cleaning when necessary (e.g. build the AMR graph from model
         # output, which might not be valid)
         # if clean:
-            # cleaning is needed for oracle for AMR 3.0 training data
+        # cleaning is needed for oracle for AMR 3.0 training data
         #    self.clean_amr()
         # if connect:
         #    self.connect_graph()
@@ -91,7 +95,9 @@ class AMR():
             else:
                 # heuristic to find a root if missing
                 # simple criteria, head with more children is the root
-                self.root= sorted(heads, key=lambda n: len(self.children(n)))[-1]
+                self.root = sorted(
+                    heads, key=lambda n: len(self.children(n))
+                )[-1]
 
         if len(heads) > 1:
             # add rel edges from detached subgraphs to the root
@@ -324,6 +330,8 @@ class AMR():
                 if value:
                     metadata[separator].append(value)
 
+        graph_id = metadata['id'] if 'id' in metadata else None
+
         # extract graph from meta-data
         nodes = {}
         alignments = {}
@@ -445,8 +453,6 @@ class AMR():
                 id_map[nid] = new_id
 
         # constants are sorted by full
-
-
         return id_map
 
     def remap_ids(self, id_map):
@@ -762,7 +768,8 @@ def get_simple_graph(graph):
 
     # Add constants both to node map and edges, use position in attribute as id
     # sort attributes by target for consistency in assignment
-    attributes = sorted(graph.attributes(),
+    attributes = sorted(
+        graph.attributes(),
         key=lambda x: (
             x.source, x.role, x.target.replace('"', '')
         )
@@ -801,7 +808,6 @@ def get_node_id(nids, name, node):
     nids[nid] = node
 
     return nid
-
 
 
 def legacy_graph_printer(metadata, nodes, root, edges):
