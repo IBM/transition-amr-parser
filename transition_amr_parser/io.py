@@ -5,64 +5,112 @@ import xml.etree.ElementTree as ET
 from tqdm import tqdm
 from collections import Counter
 from transition_amr_parser.amr import AMR
+from ipdb import set_trace
 
 
-def read_amr(file_path, ibm_format=False, tokenize=False, bar=True,
-             generate=False, indices=None):
+def read_amr(file_path, ibm_format=False, generate=False):
+    if generate:
+        # yields each AMr, faster but non sequential
+        return amr_generator(file_path, ibm_format=ibm_format)
+    else:
+        return amr_iterator(file_path, ibm_format=ibm_format)
 
-    with open(file_path) as fid:
-        raw_amr = []
-        raw_amrs = []
-        if bar:
-            bar = tqdm
+
+def amr_iterator(file_path, ibm_format=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
+
+    (tokenize is deprecated)
+    '''
+
+    amrs = []
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
+
+        if ibm_format:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            amrs.append(AMR.from_metadata(raw_amr))
         else:
-            def bar(x, desc=None): return x
-        index = 0
-        found_indices = []
+            # from penman
+            amrs.append(AMR.from_penman(raw_amr))
 
-        # read the file as raw lines as a whole
-        lines = list(fid.readlines())
-        num_amr = sum([x.strip() == '' for x in lines])
-        pbar = bar(lines)
-        for line in pbar:
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
+
+    return amrs
+
+
+def amr_generator(file_path, ibm_format=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
+
+    (tokenize is deprecated)
+    '''
+
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
+
+        if ibm_format:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            yield AMR.from_metadata(raw_amr)
+        else:
+            # From penman
+            yield AMR.from_penman(raw_amr)
+
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
+
+
+def generate_blocks(file_path, bar=True, desc=None):
+    '''
+    Reads text file, returns chunks separated by empty line
+    '''
+
+    # to measure progress with a generator get the size first
+    if bar:
+        with open(file_path) as fid:
+            num_blocks = len([x for x in fid])
+
+    # display a progress bar
+    def pbar(x):
+        if bar:
+            return tqdm(x, desc=desc, total=num_blocks)
+        else:
+            return x
+
+    # read blocks
+    with open(file_path) as fid:
+        block = ''
+        for line in pbar(fid):
             if line.strip() == '':
-
-                # skip parsing of penman based on index
-                if indices is not None and index not in indices:
-                    index += 1
-                    raw_amr = []
-                    continue
-                else:
-                    index += 1
-
-                found_indices.append(index)
-
-                if ibm_format:
-                    # from jamr + IBM metadata (::node, ::edge etc)
-                    amr = AMR.from_metadata(raw_amr)
-                else:
-                    # from penman
-                    amr = AMR.from_penman(' '.join(raw_amr), tokenize=tokenize)
-
-                # update bar
-                pbar.set_description(f'Reading AMRs {index}/{num_amr}')
-
-                # append this AMR and clean line accumulator
-                if generate:
-                    yield amr
-                else:
-                    raw_amrs.append(amr)
-                raw_amr = []
-                if indices is not None and len(found_indices) == len(indices):
-                    break
-
+                yield block
+                block = ''
             else:
+                block += line
 
-                # line accumuator
-                raw_amr.append(line)
 
-    if not generate:
-        return raw_amrs
+def read_blocks(file_path, return_tqdm=True):
+    '''
+    Reads text file, returns chunks separated by empty line
+    '''
+
+    # read blocks
+    with open(file_path) as fid:
+        block = ''
+        blocks = []
+        for line in fid:
+            if line.strip() == '':
+                blocks.append(block)
+                block = ''
+            else:
+                block += line
+
+    if return_tqdm:
+        return tqdm(blocks)
+    else:
+        return tqdm(blocks)
 
 
 def read_frame(xml_file):
