@@ -1148,24 +1148,24 @@ class AlignModeTracker():
                 parent_name = (dec_l, nname_s)
                 full_parent_name = (nname_s, dec_l, gold_edge[2])
 
+                num_child = sum([c == child_name for c in child_names[dec_s]])
+                num_parent = sum([c == parent_name for c in parent_names[dec_t]])
+
                 # avoid existing edges, in some odd cases same edge may appear
                 # multiple times
                 if (
-                    sum([c == child_name for c in child_names[dec_s]])
+                (
+                    num_child > 0 and
+                    num_child
                     == len(self.twin_nodes.get(full_child_name, [None]))
-                ):
-                    # same child name exists
-                    continue
-
-                elif (
-                    sum([c == parent_name for c in parent_names[dec_t]])
+                ) and (
+                    num_parent > 0 and
+                    num_parent
                     == len(self.twin_nodes.get(full_parent_name, [None]))
-                ):
-                    # same parent name exists
+                )):
+                    # this edge already exists both as a child and a parent
                     continue
 
-                expanded_missing_gold_edges.append(
-                    (dec_s, dec_l, dec_t)
-                )
+                expanded_missing_gold_edges.append((dec_s, dec_l, dec_t))
 
         return expanded_missing_gold_edges
