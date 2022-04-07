@@ -16,9 +16,9 @@ from transition_amr_parser.io import (
     write_tokenized_sentences,
 )
 from transition_amr_parser.gold_subgraph_align import (
-    AlignModeTracker, BadAlignModeSample, check_gold_alignment
+    AlignModeTracker, check_gold_alignment
 )
-from transition_amr_parser.amr import add_alignments_to_penman, normalize
+from transition_amr_parser.amr import normalize
 # TODO: Remove this dependency
 import penman
 
@@ -305,7 +305,10 @@ class AMROracle():
 class AMRStateMachine():
 
     def __init__(self, reduce_nodes=None, absolute_stack_pos=True,
-                 use_copy=True):
+                 use_copy=True, debug=False):
+
+        # debug flag
+        self.debug = debug
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
@@ -482,16 +485,8 @@ class AMRStateMachine():
         string += '\n\n'
 
         if self.edges:
-            try:
-                # TODO: remove debug code.
-                # This can die with cicles saying its a disconnected graph
-                amr_str = self.get_amr().to_penman(node_map=node_map)
-            except:
-                cosa = self.get_amr()
-                set_trace(context=30)
-                cosa.to_penman()
-                cosa.to_penman(node_map=node_map)
-                print()
+            # This can die with cicles saying its a disconnected graph
+            amr_str = self.get_amr().to_penman(node_map=node_map)
         else:
             # invalid AMR
             amr_str = '\n'.join(
@@ -578,7 +573,15 @@ class AMRStateMachine():
 
     def get_valid_actions(self, max_1root=True):
 
+        # debug
+        if self.debug:
+            os.system('clear')
+            print(self)
+            set_trace()
+            print()
+
         if self.gold_amr:
+
             # align mode (we know the AMR)
             return self._get_valid_align_actions()
 
@@ -782,22 +785,43 @@ class AMRStateMachine():
         return AMR(self.tokens, self.nodes, self.edges, self.root,
                    alignments=self.alignments, clean=True, connect=True)
 
-    def get_annotation(self, node_map=None):
+    def get_annotation(self, node_map=None, jamr=True):
+
+        # TODO: deprecate JAMR
         if self.gold_amr:
 
-            # DEBUG
-            # debug_align_mode(self)
+            # FIXME: deprecate JAMR
+            if jamr:
+                amr = self.get_aligned_amr()
+                node_map = self.align_tracker.get_flat_map(no_list=True)
+                amr.remap_ids(node_map)
+                metadata = amr.get_jamr_metadata(penman=True)
+            else:
+                metadata = {}
 
             # Align mode
             # If we read the gold AMR from penman, we can just apply the
             # alignments to it, thus keeping the epidata info intact
             if self.gold_amr.penman:
+
+                if jamr:
+                    # FIXME: deprecate JAMR
+                    # FIXME: Avoid appending to the original read class.
+                    self.gold_amr.penman.metadata.update(metadata)
+
                 return self.align_tracker.add_alignments_to_penman(self)
+
             else:
+
+                # Add metadata containing JAMR notation
                 node_map = self.align_tracker.get_flat_map()
-                return self.get_aligned_amr().to_penman(node_map=node_map)
+                return self.get_aligned_amr().to_penman(
+                    node_map=node_map,
+                    metadata=metadata
+                )
+
         else:
-            return self.get_amr().to_jamr()
+            return self.get_amr().to_penman()
 
 
 def get_ngram(sequence, order):

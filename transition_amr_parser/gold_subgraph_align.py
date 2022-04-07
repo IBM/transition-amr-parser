@@ -615,7 +615,7 @@ class AlignModeTracker():
 
         return id_neighbours
 
-    def get_flat_map(self, reverse=False, ambiguous=False):
+    def get_flat_map(self, reverse=False, ambiguous=False, no_list=False):
         '''
         Get a flat map from gold_id_map, optionally including ambiguous pairs
         '''
@@ -630,6 +630,11 @@ class AlignModeTracker():
                             dec2gold[gnid].append(nid)
                     else:
                         dec2gold[nid] = gnids
+
+        # cast into single item, if possible
+        if no_list:
+            assert max(map(len, dec2gold.values())) == 1
+            dec2gold = {k: v[0] for k, v in dec2gold.items()}
 
         return dec2gold
 

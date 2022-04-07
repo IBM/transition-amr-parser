@@ -8,7 +8,7 @@ from numpy.random import choice
 # TAP
 from transition_amr_parser.amr_machine import AMRStateMachine
 from transition_amr_parser.gold_subgraph_align import (
-    match_amrs, 
+    match_amrs,
     BadAlignModeSample
 )
 from transition_amr_parser.amr import AMR

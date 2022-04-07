@@ -300,6 +300,17 @@ class AMR():
             sentence = graph.metadata['snt']
         else:
             sentence = None
+
+        # wipe out JAMR notation from metadata since it can become inconsistent
+        # also remove unsupported "alignments" field
+        delete_keys = []
+        for key, data in graph.metadata.items():
+            for okey in ['node', 'edge', 'root', 'short', 'alignments']:
+                if key.startswith(okey):
+                    delete_keys.append(key)
+        for key in delete_keys:
+            del graph.metadata[key]
+
         return cls(tokens, nodes, edges, graph.top, penman=graph,
                    alignments=alignments, sentence=sentence, clean=True,
                    connect=False, id=graph_id)
@@ -379,39 +390,14 @@ class AMR():
                    alignments=alignments, sentence=sentence, clean=True,
                    connect=False, id=graph_id)
 
-    def get_metadata(self):
+    def get_jamr_metadata(self, penman=False):
         """
         Returns graph information in the meta-data
         """
-        assert self.root is not None, "Graph must be complete"
-        output = ''
-        output += '# ::tok ' + (' '.join(self.tokens)) + '\n'
-        for n in self.nodes:
-            alignment = ''
-            if n in self.alignments and self.alignments[n] is not None:
-                if type(self.alignments[n]) == int:
-                    start = self.alignments[n]
-                    end = self.alignments[n] + 1
-                    alignment = f'\t{start}-{end}'
-                else:
-                    alignments_in_order = sorted(list(self.alignments[n]))
-                    start = alignments_in_order[0]
-                    end = alignments_in_order[-1] + 1
-                    alignment = f'\t{start}-{end}'
-
-            nodes = self.nodes[n] if n in self.nodes else "None"
-            output += f'# ::node\t{n}\t{nodes}' + alignment + '\n'
-        # root
-        roots = self.nodes[self.root] if self.root in self.nodes else "None"
-        output += f'# ::root\t{self.root}\t{roots}\n'
-        # edges
-        for s, r, t in self.edges:
-            r = r.replace(':', '')
-            edges = self.nodes[s] if s in self.nodes else "None"
-            nodes = self.nodes[t] if t in self.nodes else "None"
-            output += f'# ::edge\t{edges}\t{r}\t' \
-                      f'{nodes}\t{s}\t{t}\t\n'
-        return output
+        return get_jamr_metadata(
+            self.tokens, self.nodes, self.edges, self.root, self.alignments,
+            penman=penman
+        )
 
     def __str__(self):
 
@@ -577,7 +563,7 @@ class AMR():
         self.nodes = nodes
 
     def to_penman(self, isi=True, node_filter=None, node_map=None,
-                  is_constant=None):
+                  is_constant=None, metadata=None):
 
         # make a copy to avoid modifying
         amr = deepcopy(self)
@@ -595,7 +581,8 @@ class AMR():
             is_constant = [node_map[n] for n in is_constant]
 
         # metadata
-        metadata = {}
+        if metadata is None:
+            metadata = {}
         if amr.sentence:
             metadata['snt'] = amr.sentence
         if amr.tokens:
@@ -628,7 +615,7 @@ class AMR():
     def to_jamr(self):
         """ FIXME: do not use """
         return legacy_graph_printer(
-            self.get_metadata(), self.nodes, self.root, self.edges
+            self.get_jamr_metadata(), self.nodes, self.root, self.edges
         )
 
     def parents(self, node_id):
@@ -636,6 +623,60 @@ class AMR():
 
     def children(self, node_id):
         return self.edges_by_parent.get(node_id, [])
+
+
+def get_jamr_metadata(tokens, nodes, edges, root, alignments, penman=False):
+    """
+    Returns graph information in the meta-data
+
+    tokens      list(str)
+    nodes       dict(str/int: str)
+    edges       list(tuple)
+    root        str/int
+    alignments  dict(str/int: str)
+    """
+    assert root is not None, "Graph must be complete"
+    output = ''
+    output += '# ::tok ' + (' '.join(tokens)) + '\n'
+    for n in nodes:
+        alignment = ''
+        if n in alignments and alignments[n] is not None:
+            if type(alignments[n]) == int:
+                start = alignments[n]
+                end = alignments[n] + 1
+                alignment = f'\t{start}-{end}'
+            else:
+                alignments_in_order = sorted(list(alignments[n]))
+                start = alignments_in_order[0]
+                end = alignments_in_order[-1] + 1
+                alignment = f'\t{start}-{end}'
+
+        nodes_str = nodes[n] if n in nodes else "None"
+        output += f'# ::node\t{n}\t{nodes_str}' + alignment + '\n'
+    # root
+    roots = nodes[root] if root in nodes else "None"
+    output += f'# ::root\t{root}\t{roots}\n'
+    # edges
+    for s, r, t in edges:
+        r = r.replace(':', '')
+        edges_str = nodes[s] if s in nodes else "None"
+        nodes_str = nodes[t] if t in nodes else "None"
+        output += f'# ::edge\t{edges_str}\t{r}\t' \
+                  f'{nodes_str}\t{s}\t{t}\t\n'
+
+    # format in a way that can be added to the penman class metadata
+    if penman:
+        new_output = {}
+        for item in output.split('\n'):
+            pieces = item.replace('# ::', '').split(' ')
+            if pieces == ['']:
+                continue
+            key = pieces[0]
+            rest = ' '.join(pieces[1:])
+            new_output[key] = rest
+        output = new_output
+
+    return output
 
 
 def add_alignments_to_penman(g, alignments, string=False, strict=True):
