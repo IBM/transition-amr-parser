@@ -11,7 +11,9 @@ DATA*
 EXP*
 checkpoints*
 amr_corpus*
+*.orig
 *.zip
+*.json
 #!EXPR
 */gigaword_ref.txt
 file.amr
@@ -69,3 +71,4 @@ jbsub_logs/
 .vim/
 ctags
 *.swp
+ctags

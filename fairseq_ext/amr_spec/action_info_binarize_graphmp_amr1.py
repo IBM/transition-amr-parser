@@ -7,7 +7,7 @@ from collections import Counter
 import torch
 import numpy as np
 
-from transition_amr_parser.o8_state_machine import AMRStateMachine
+from transition_amr_parser.action_pointer.o8_state_machine import AMRStateMachine
 from .action_info_graphmp_amr1 import get_actions_states
 from ..tokenizer import tokenize_line_tab
 from ..binarize import make_builder    # TODO move this to data folder

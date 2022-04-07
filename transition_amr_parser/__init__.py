@@ -1,5 +1,9 @@
-# import sys
-# import os
-# root_path = os.path.dirname(os.path.realpath(f'{__file__}/../'))
-# ENTITY_RULES = f'{root_path}/data/entity_rules.json'
-# from transition_amr_parser.amr_parser import AMRParser
+import sys
+import ipdb
+import traceback
+
+def debughook(etype, value, tb):
+    traceback.print_exception(etype, value, tb)
+    print() 
+    ipdb.pm() # post-mortem debugger
+sys.excepthook = debughook

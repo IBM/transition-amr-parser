@@ -58,6 +58,7 @@ from fairseq_ext.utils_import import import_user_module
 from fairseq_ext import options_train as options
 from fairseq_ext.extract_bart.composite_embeddings import CompositeEmbeddingBART
 from fairseq_ext.extract_bart.mapavg_embeddings import MapAvgEmbeddingBART, transform_action_symbol
+from ipdb import set_trace
 
 
 logging.basicConfig(

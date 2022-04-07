@@ -23,54 +23,6 @@ def convert_format(amr):
     return tokens, nodes, edges, alignments
 
 
-def fix_alignments(tokens, nodes, edges, alignments):
-
-    # Fix alignments
-    aligned_token_by_node = {}
-    for token_pos, node_ids in enumerate(alignments):
-        for node_id in node_ids:
-            aligned_token_by_node[node_id] = token_pos
-
-    edge_by_child = defaultdict(list)
-    for (parent, label, child) in edges:
-        edge_by_child[child].append((label, parent))
-
-    unaligned_node_ids = \
-        set(range(len(nodes))) - set(aligned_token_by_node.keys())
-    for node_id in list(unaligned_node_ids):
-
-        # Try matching surface symbols
-        norm_node = nodes[node_id].replace('"', '')
-        if norm_node in tokens:
-            aligned_token_by_node[node_id] = tokens.index(norm_node)
-            continue
-
-        # Try inheriting alignment from children. Pick alignments to last
-        # token
-        # seek among all parents for some alignment
-        token_alignment = []
-        parent_ids = []
-        node_id2 = node_id
-        while not token_alignment:
-            parent_ids += [x[1] for x in edge_by_child.get(node_id2, [])]
-            token_alignment = [
-                aligned_token_by_node[n] for n in parent_ids if n in parent_ids
-            ]
-            if parent_ids == []:
-                break
-            node_id2 = parent_ids.pop()
-        # if one or more found, pick last of alignments
-        if token_alignment:
-            aligned_token_by_node[node_id] = max(token_alignment)
-            continue
-
-        # Try inheriting alignment from first parent
-        import ipdb; ipdb.set_trace(context=30)
-        print()
-
-    return aligned_token_by_node
-
-
 def get_paths_to_root(surface_aligned_nodes, node_ids, edges):
 
     edge_by_child = defaultdict(list)

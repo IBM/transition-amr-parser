@@ -9,6 +9,9 @@ import math
 from copy import deepcopy
 import json
 import os
+import re
+from ipdb import set_trace
+from collections import defaultdict, Counter
 
 import torch
 from packaging import version
@@ -16,7 +19,7 @@ from packaging import version
 from fairseq import search, utils
 from fairseq.models import FairseqIncrementalDecoder
 
-from transition_amr_parser.amr_machine import AMRStateMachine
+from transition_amr_parser.amr_machine import AMRStateMachine, normalize
 from fairseq_ext.utils import join_action_pointer
 
 
@@ -226,7 +229,14 @@ class SequenceGenerator(object):
             # length should be bsz * beam_size
             for i in new_order:
                 sm = AMRStateMachine(**self.machine_config)
-                sm.reset(tokens=sample['src_sents'][i])
+                if 'gold_amr' in sample:
+                    # align mode
+                    sm.reset(tokens=sample['src_sents'][i],
+                             gold_amr=sample['gold_amr'][i])
+                else:
+                    # normal mode
+                    sm.reset(tokens=sample['src_sents'][i])
+
                 amr_state_machines.append(sm)
 
             canonical_act_ids = amr_state_machines[0].canonical_action_to_dict(self.tgt_dict)
@@ -299,7 +309,7 @@ class SequenceGenerator(object):
 
             return False
 
-        def finalize_hypos(step, bbsz_idx, eos_scores, unfinalized_scores=None):
+        def finalize_hypos(step, bbsz_idx, eos_scores, state_machines, unfinalized_scores=None):
             """
             Finalize the given hypotheses at this step, while keeping the total
             number of finalized hypotheses per sentence <= beam_size.
@@ -370,7 +380,7 @@ class SequenceGenerator(object):
                 if self.match_source_len and step > src_lengths[unfin_idx]:  # TODO should this be "sent"?
                     score = -math.inf
 
-                def get_hypo():
+                def get_hypo(state_machine):
 
                     if attn_clone is not None:
                         # remove padding tokens from attn scores
@@ -401,17 +411,18 @@ class SequenceGenerator(object):
                         'attention_tgt': hypo_attn_tgt,
                         'alignment_tgt': alignment_tgt,
                         'pointer_tgt': tgt_pointers_clone[i],
-                        'pointer_scores': scores_tgt_pointers_clone[i]
+                        'pointer_scores': scores_tgt_pointers_clone[i],
+                        'state_machine': state_machine
                     }
                     # ===========================================================
 
                 if len(finalized[sent]) < beam_size:
-                    finalized[sent].append(get_hypo())
+                    finalized[sent].append(get_hypo(state_machines[idx]))
                 elif not self.stop_early and score > worst_finalized[sent]['score']:
                     # replace worst hypo for this sentence with new/better one
                     worst_idx = worst_finalized[sent]['idx']
                     if worst_idx is not None:
-                        finalized[sent][worst_idx] = get_hypo()
+                        finalized[sent][worst_idx] = get_hypo(state_machines[idx])
 
                     # find new worst finalized hypo for this sentence
                     idx, s = min(enumerate(finalized[sent]), key=lambda r: r[1]['score'])
@@ -486,9 +497,12 @@ class SequenceGenerator(object):
             # ==========> bug: self.tgt_dict is somehow changed with an additional token '<<unk>>' at the end
 
             if amr_state_machines is not None:
+
+                constrain_pointer = defaultdict(lambda: defaultdict(list))
                 for i, j in enumerate(valid_bbsz_idx):
                     sm = amr_state_machines[j]
                     act_allowed = sm.get_valid_actions()
+
                     # use predicate rules to further restrict the action space for PRED actions
                     pred_allowed = None
                     if use_pred_rules:
@@ -496,16 +510,86 @@ class SequenceGenerator(object):
                         # TODO update below (currently not used)
                         #      we use "NODE" keyword instead of "PRED"
                         if 'PRED' in act_allowed:
+                            raise NotImplementedError()
                             src_token = sm.get_current_token()
                             if src_token in self.pred_rules:
                                 act_allowed.remove('PRED')
                                 pred_allowed = list(self.pred_rules[src_token].keys())
 
-                    vocab_ids_allowed = set().union(*[set(canonical_act_ids[act]) for act in act_allowed])
+                    # get valid actions
+                    # TODO: Move out of fairseq code into own function
+                    vocab_ids_allowed = set()
+                    for act in act_allowed:
+                        if act == 'CLOSE':
+                            vocab_ids_allowed.add(self.tgt_dict.index('</s>'))
+                        elif act in canonical_act_ids:
+                            vocab_ids_allowed |= set(canonical_act_ids[act])
+                        elif re.match(r'>[LR]A\(([0-9]+),([^)]+)\)', act):
+                            arc, index, label = re.match(r'>([LR]A)\(([0-9]+),([^)]+)\)', act).groups()
+                            new_act = f'>{arc}({label})'
+                            vocab_ids_allowed.add(self.tgt_dict.index(new_act))
+                            constrain_pointer[j.item()][int(index)].append(new_act)
+                        else:
+                            # non canonincal actions (explicit node names)
+                            vocab_ids_allowed.add(self.tgt_dict.index(act))
+
+                    # in align mode
+                    # there can not be any <unk>
+                    # if a node name is not in the vocabulary, we need to force
+                    # a COPY at least on the last time that it is possible,
+                    # taking into account that there may be more than one token
+                    if (
+                        sm.gold_amr is not None
+                        and sm.get_current_token() is not None
+                    ):
+
+                        # forced COPY
+                        # count the number of times each token appears
+                        future_token_nname_counts = Counter([
+                            normalize(t)
+                            for t in sm.tokens[sm.tok_cursor+1:]
+                        ])
+
+                        # count the number of times each node not in vocabulary
+                        # appears
+                        missing_unk_nodes = Counter()
+                        unk_idx = self.tgt_dict.index('<unk>')
+                        for nname in sm.align_tracker.get_missing_nnames(repeat=True):
+                            nname = normalize(nname)
+                            if self.tgt_dict.index(nname) == unk_idx:
+                                missing_unk_nodes.update([nname])
+
+                        # if token under cursor matches a node not in
+                        # vocabulary and we have not enough future tokens of
+                        # this type to produce all missing nodes, we have no
+                        # option but to COPY
+                        nname = normalize(sm.get_current_token())
+                        if (
+                            nname in missing_unk_nodes
+                            and future_token_nname_counts[nname]
+                                < missing_unk_nodes[nname]
+                        ):
+                            copy_idx = self.tgt_dict.index('COPY')
+                            assert copy_idx in vocab_ids_allowed, \
+                                'align mode needs all nodes to be in ' \
+                                'the vocabulary or predictable by COPY.' \
+                                ' This should not be happening.'
+                            vocab_ids_allowed = {copy_idx}
+
+                        # in align mode, there can not be <unk>
+                        unk_set = set([self.tgt_dict.index('<unk>')])
+                        unk_actions_str = ' '.join(act_allowed)
+                        if not bool(vocab_ids_allowed -  unk_set):
+                            set_trace(context=30)
+                        assert bool(vocab_ids_allowed -  unk_set), \
+                            f'all of "{unk_actions_str}" are <unk>: you can' \
+                            ' not use align mode enforcing actions not in ' \
+                            'the vocabulary'
 
                     # TODO update below
                     # use predicate rules to further restrict the action space for PRED actions
                     if pred_allowed is not None:
+                        raise NotImplementedError()
                         pred_ids_allowed = set(self.tgt_dict.index(f'PRED({sym})') for sym in pred_allowed)
                         vocab_ids_allowed = vocab_ids_allowed.union(pred_ids_allowed)
 
@@ -618,6 +702,7 @@ class SequenceGenerator(object):
                             tgt_actions_nodemask[i, 1:] = tgt_actions_nodemask.new(actions_nodemask)
                         else:
                             tgt_actions_nodemask[i, :-1] = tgt_actions_nodemask.new(actions_nodemask)
+
                 else:
                     if self.shift_pointer_value:
                         # only mask out the current action, and the first position, which is the eos (</s>) token
@@ -633,6 +718,22 @@ class SequenceGenerator(object):
             pointer_probs = avg_attn_tgt_scores.clone()
             pointer_probs[~tgt_actions_nodemask] = 0
 
+            if constrain_pointer:
+                # if you have more than action that requires pointer,
+                # add masks, but also forbid the labels of the non chosen
+                # NOTE: We need to shitf index by 1, see below
+                bsize, seqlen = pointer_probs.shape
+                for j in range(bsize):
+                    if not bool(constrain_pointer[j]):
+                        continue
+                    num_valid = len([1 for x in constrain_pointer[j].values() if x])
+                    for i in range(seqlen - 1):
+                        if constrain_pointer[j][i]:
+                            pointer_probs[j, i+1] =  1 / num_valid
+                        else:
+                            pointer_probs[j, i+1] = 0
+
+            # TODO: most probable pointing determines valid label choice
             pointer_max, pointer_argmax = pointer_probs.max(dim=1)
             """
             NOTE the pointer distribution is from the target input side self-attention, which is shifted to the right
@@ -659,17 +760,45 @@ class SequenceGenerator(object):
                 tgt_pointers_valid[tgt_actions_nodemask_any] = pointer_argmax[tgt_actions_nodemask_any]
                 tgt_pointers[valid_bbsz_mask, step + 1] = tgt_pointers_valid
 
+
             # 3) use the pointer log probs to modify the next ARC ('LA', 'RA', 'LA(root)') actions scores
             # for rows with valid pointer value, modify the arc action scores;
             # for rows with no valid pointer value, set the arc action scores to -inf to block
             if modify_arcact_score:
                 # NOTE for either we use '>LA(root)' or not in our oracle for handling root node
+
                 arc_action_ids = list(set().union(*[canonical_act_ids[act] for act in ['>LA', '>RA', '>LA(root)']
                                                     if act in canonical_act_ids]))
                 lprobs_arcs = lprobs[:, arc_action_ids]
                 lprobs_arcs[tgt_actions_nodemask_any, :] += coef * pointer_max[tgt_actions_nodemask_any].unsqueeze(1)
                 lprobs_arcs[~tgt_actions_nodemask_any, :] = -math.inf
                 lprobs[:, arc_action_ids] = lprobs_arcs
+
+                if constrain_pointer:
+                    # If pointer is constrained, we need to also constrain arc
+                    # labels consistently. Since we selected already an action
+                    # history position per sentence, this tells use which are
+                    # actions to restrict to
+                    for j, idx_act in constrain_pointer.items():
+                        if not bool(constrain_pointer[j]):
+                            continue
+                        save_action_lprobs = []
+                        for action in constrain_pointer[j][pointer_argmax[j].item()]:
+                            idx = self.tgt_dict.index(action)
+                            save_action_lprobs.append((idx, lprobs[j, idx].item()))
+                        # all other actions are forbidden
+                        lprobs[j, :] = -math.inf
+                        for idx, lprob in save_action_lprobs:
+                            lprobs[j, idx] = lprob
+
+                        # model may have assigned -inf to forced action, set to prob 1
+                        if (lprobs[j, :] == -math.inf).all():
+                            # FIXME: Add a warning for this
+                            lprobs[j, idx] = 0.0
+
+                        #assert (lprobs[j, :] != -math.inf).any(), \
+                        #    "Alignment error, one force arc must have p>0"
+
 
             # ====================================================
 
@@ -762,7 +891,7 @@ class SequenceGenerator(object):
                     descending=True,
                     out=(eos_scores, eos_bbsz_idx),
                 )
-                num_remaining_sent -= len(finalize_hypos(step, eos_bbsz_idx, eos_scores))
+                num_remaining_sent -= len(finalize_hypos(step, eos_bbsz_idx, eos_scores, amr_state_machines))
                 #assert num_remaining_sent == 0
                 # stop the loop here
                 break
@@ -800,7 +929,7 @@ class SequenceGenerator(object):
                     # options but we haven't reached beam_size --> force quit for this sentence
                     cand_scores[:, :beam_size][eos_mask[:, :beam_size]] = -math.inf
                     # ==================================================
-                    finalized_sents = finalize_hypos(step, eos_bbsz_idx, eos_scores, cand_scores)
+                    finalized_sents = finalize_hypos(step, eos_bbsz_idx, eos_scores, amr_state_machines, cand_scores)
                     num_remaining_sent -= len(finalized_sents)
 
             assert num_remaining_sent >= 0
@@ -897,8 +1026,17 @@ class SequenceGenerator(object):
             # candidate space size
 
             valid_bbsz_mask = active_mask_selected.lt(cand_size)    # size (bsz, beam_size)
-            assert valid_bbsz_mask.any(
-                dim=1).all(), 'there must be remaining valid candidates for each sentence in batch'
+            if not valid_bbsz_mask.any(dim=1).all():
+                if any(bool(m.gold_amr) for m in amr_state_machines):
+                    all_valid_actions = ' '.join([a for m in amr_state_machines for a in m.get_valid_actions()])
+                    set_trace(context=30)
+                    raise Exception(
+                        'there must be remaining valid candidates for each sentence in batch\n'
+                        'Maybe trying to align a node name not in vocabulary?, \n'
+                        f'check: {all_valid_actions}'
+                    )
+                else:
+                    raise Exception('there must be remaining valid candidates for each sentence in batch')
             valid_bbsz_mask = valid_bbsz_mask.view(-1)    # size (bsz x beam_size,)
             valid_bbsz_idx = valid_bbsz_mask.nonzero().squeeze(-1)    # size (valid_bbsz_num,)
 
@@ -956,6 +1094,7 @@ class SequenceGenerator(object):
                     if not is_valid:
                         continue
                     # eos changed to CLOSE action (although NOTE currently this will never be eos at this step)
+                    # FIXME: This is state machine specific, we need to remove it
                     act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
                     sm.update(join_action_pointer(act, act_pos.item()))
                     # sm.update(act)

@@ -9,8 +9,14 @@ from difflib import get_close_matches
 from functools import wraps
 # pip install penman spacy ipdb numpy
 import numpy as np
-import spacy
-from spacy.tokens.doc import Doc
+try:
+    # version?
+    import spacy
+    from spacy.tokens.doc import Doc
+except ImportError as e:
+    print('\nThe simple AMR aligner needs Spacy\n')
+    raise e
+
 # pip install matplotlib
 from transition_amr_parser.plots import plot_graph
 from transition_amr_parser.io import read_amr2, clbar, write_neural_alignments
@@ -392,8 +398,6 @@ class AMRAligner():
         alignment_posterior = joint / node_marginal
 
         if np.isnan(alignment_posterior).any():
-            raise Exception('Divide by zero in alignment posterior')
-
         return alignment_posterior, node_marginal
 
     def align_from_posterior(self, amr, cache_key=None):
@@ -458,8 +462,7 @@ class AMRAligner():
                 else:
                     node_preds.append((token_pos, token_name, None, None))
             if no_nodes_left:
-                # missing alignments
-                set_trace(context=30)
+                raise Exception('missing alignments')
                 break
 
             inverse_rank += 1
@@ -477,7 +480,7 @@ class AMRAligner():
                     del missing_nodes[node]
 
         if any(n not in final_node2token for n in amr.nodes.keys()):
-            set_trace(context=30)
+            raise Exception()
 
         return final_node2token
 
@@ -604,7 +607,6 @@ class AMRAligner():
             ], norm=norm)
 
     def print_posterior(self, amr, cache_key=None, node_name=None):
-        set_trace(context=30)
         al_post, _ = self.get_alignment_posterior(amr, cache_key=cache_key)
         # This assumes IBM-model-1 posterior (same name same probabilities)
         index = None
@@ -835,8 +837,7 @@ def graph_vicinity_aligner(amr, nodeid2token, unaligned_node_ids):
                 continue
             else:
                 # If no alignments, we have a problem
-                set_trace(context=30)
-                print()
+                raise Exception()
 
         if not is_parent:
             pos = sorted(aligned_relatives, key=itemgetter(1))[-1][1]
@@ -1132,7 +1133,10 @@ def align_and_score(amrs, original_tokens, indices, amr_aligner, compare):
     if compare:
         clbar(alignment_match_counts.most_common(50), ylim=(0, 0.1), norm=True)
 
-    return final_amrs, final_joint
+    if out_aligned_amr:
+        with open(out_aligned_amr, 'w') as fid:
+            for amr in final_amrs:
+                fid.write(f'{amr.__str__()}\n\n')
 
 
 def stats(amr_aligner):
@@ -1155,7 +1159,6 @@ def stats(amr_aligner):
             if nodes[node] > 0
         ]
 
-    set_trace(context=30)
     clbar(sorted(token_prior.items(), key=lambda x: x[1])[-30:])
     print()
 
@@ -1186,9 +1189,9 @@ def main(args):
 
     # files
     if args.in_amr:
-        amrs = read_amr2(args.in_amr, tokenize=args.tokenize)
+        amrs = read_amr(args.in_amr, tokenize=args.tokenize)
     else:
-        amrs = read_amr2(args.in_aligned_amr, ibm_format=True,
+        amrs = read_amr(args.in_aligned_amr, ibm_format=True,
                          tokenize=args.tokenize)
     # normalize tokens for matching purposes, but keep the original for writing
     original_tokens = []

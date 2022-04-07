@@ -1,11 +1,9 @@
 import re
 import json
-from collections import Counter, defaultdict
 import subprocess
-import ast
 import xml.etree.ElementTree as ET
-import penman
 from tqdm import tqdm
+<<<<<<< HEAD
 from penman.layout import Push
 import shutil
 import numpy as np
@@ -221,12 +219,22 @@ def clbar(
         else:
             print(f'{x:<{width}} {bar} {y}')
     print()
+=======
+from collections import Counter
+from transition_amr_parser.amr import AMR
+from ipdb import set_trace
+>>>>>>> origin/v0.5.1/add-align-mode
 
 
-def yellow_font(string):
-    return "\033[93m%s\033[0m" % string
+def read_amr(file_path, ibm_format=False, generate=False):
+    if generate:
+        # yields each AMr, faster but non sequential
+        return amr_generator(file_path, ibm_format=ibm_format)
+    else:
+        return amr_iterator(file_path, ibm_format=ibm_format)
 
 
+<<<<<<< HEAD
 def protected_tokenizer(sentence_string, simple=False):
 
     if simple:
@@ -322,57 +330,61 @@ def jamr_like_tokenizer(sentence_string, sep_re):
                 positions.append((start + start2, start + end2))
 
     return tokens, positions
+=======
+def amr_iterator(file_path, ibm_format=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
+>>>>>>> origin/v0.5.1/add-align-mode
+
+    (tokenize is deprecated)
+    '''
+
+    amrs = []
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
+
+        if ibm_format:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            amrs.append(AMR.from_metadata(raw_amr))
+        else:
+            # from penman
+            amrs.append(AMR.from_penman(raw_amr))
+
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
+
+    return amrs
 
 
-def simple_tokenizer(sentence_string, separator_re):
+def amr_generator(file_path, ibm_format=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
 
-    tokens = []
-    positions = []
-    start = 0
-    for point in separator_re.finditer(sentence_string):
+    (tokenize is deprecated)
+    '''
 
-        end = point.start()
-        token = sentence_string[start:end]
-        separator = sentence_string[end:point.end()]
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
 
-        # Add token if not empty
-        if token.strip():
-            tokens.append(token)
-            positions.append((start, end))
+        if ibm_format:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            yield AMR.from_metadata(raw_amr)
+        else:
+            # From penman
+            yield AMR.from_penman(raw_amr)
 
-        # Add separator
-        if separator.strip():
-            tokens.append(separator)
-            positions.append((end, point.end()))
-
-        # move cursor
-        start = point.end()
-
-    # Termination
-    end = len(sentence_string)
-    if start < end:
-        token = sentence_string[start:end]
-        if token.strip():
-            tokens.append(token)
-            positions.append((start, end))
-
-    return tokens, positions
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
 
 
-def get_amr(sentences, penmans):
-    graph = penman.decode(penmans)
-    nodes, edges = get_simple_graph(graph)
-    # get tokens
-    # TODO: penman module should read this as well
-    tokens = sentences.split()
-    return AMR(tokens, nodes, edges, penman=graph)
+def generate_blocks(file_path, bar=True, desc=None):
+    '''
+    Reads text file, returns chunks separated by empty line
+    '''
 
-
-def get_simple_graph(graph):
-    """
-    Get simple nodes/edges representation from penman class
-    """
-
+<<<<<<< HEAD
     # get map of node variables to node names (this excludes constants)
     name_to_node = {x.source: x.target for x in graph.instances()}
 
@@ -692,24 +704,29 @@ class AMR():
             for n in potential_roots:
                 if self.nodes[n] == 'multi-sentence' or n == assigned_root:
                     self.root = n
+=======
+    # to measure progress with a generator get the size first
+    if bar:
+        with open(file_path) as fid:
+            num_blocks = len([x for x in fid])
+
+    # display a progress bar
+    def pbar(x):
+        if bar:
+            return tqdm(x, desc=desc, total=num_blocks)
+>>>>>>> origin/v0.5.1/add-align-mode
         else:
-            self.root = max(self.nodes.keys(),
-                            key=lambda x: len([e for e in self.edges if e[0] == x])
-                            - len([e for e in self.edges if e[2] == x]))
+            return x
 
-        # ===== connect graph
-        # find disconnected nodes: only those disconnected roots of subgraphs
-        disconnected = []
-
-        for n in self.nodes:
-            if self.root in ascendants[n]:
-                # any node reachable by the root -> not disconnected
-                continue
-
-            if len(ascendants[n]) == 1:
-                # only ascendant is itself, i.e. no parent
-                disconnected.append(n)
+    # read blocks
+    with open(file_path) as fid:
+        block = ''
+        for line in pbar(fid):
+            if line.strip() == '':
+                yield block
+                block = ''
             else:
+<<<<<<< HEAD
                 for p in ascendants[n]:
                     if p not in descendents[n]:
                         # there is any parent that is not in a cycle -> don't add (not a root of any subgraph)
@@ -929,6 +946,31 @@ def read_amr2(file_path, ibm_format=False, tokenize=False):
                 raw_amr.append(line)
 
     return raw_amrs
+=======
+                block += line
+
+
+def read_blocks(file_path, return_tqdm=True):
+    '''
+    Reads text file, returns chunks separated by empty line
+    '''
+
+    # read blocks
+    with open(file_path) as fid:
+        block = ''
+        blocks = []
+        for line in fid:
+            if line.strip() == '':
+                blocks.append(block)
+                block = ''
+            else:
+                block += line
+
+    if return_tqdm:
+        return tqdm(blocks)
+    else:
+        return tqdm(blocks)
+>>>>>>> origin/v0.5.1/add-align-mode
 
 
 def read_frame(xml_file):
@@ -1011,69 +1053,6 @@ def read_config_variables(config_path):
         config_env_vars[key] = value
 
     return config_env_vars
-
-
-def read_action_scores(file_path):
-    """
-    Reads scores to judge the optimality of an action set, comprise
-
-    sentence id (position in the original corpus)       1 int
-    unormalized scores                                  3 int
-    sequence normalized score e.g. smatch               1 float
-    action sequence length                              1 int
-    saved because of {score, length, None (original)}   1 str
-    action sequence (tab separated)                     1 str (tab separated)
-
-    TODO: Probability
-    """
-    action_scores = []
-    with open(file_path) as fid:
-        for line in fid:
-            line = line.strip()
-            items = list(map(int, line.split()[:4]))
-            items.append(float(line.split()[4]))
-            items.append(int(line.split()[5]))
-            items.append(
-                None if line.split()[6] == 'None' else line.split()[6]
-            )
-            if line.split()[7][0] == '[':
-                # backwards compatibility fix
-                items.append(ast.literal_eval(" ".join(line.split()[7:])))
-            else:
-                items.append(line.split()[7:])
-            action_scores.append(items)
-
-    return action_scores
-
-
-def write_action_scores(file_path, action_scores):
-    """
-    Writes scores to judge the optimality of an action set, comprise
-
-    sentence id (position in the original corpus)       1 int
-    unormalized scores                                  3 int
-    sequence normalized score e.g. smatch               1 float
-    action sequence length                              1 int
-    saved because of {score, length, None (original)}   1 str
-    action sequence (tab separated)                     1 str (tab separated)
-
-    TODO: Probability
-    """
-
-    with open(file_path, 'w') as fid:
-        for items in action_scores:
-            sid = items[0]
-            score = items[1:4]
-            smatch = items[4]
-            length = items[5]
-            reason = items[6]
-            actions = items[7]
-            if actions is not None:
-                actions = '\t'.join(actions)
-            fid.write(
-                f'{sid} {score[0]} {score[1]} {score[2]} {smatch} {length}'
-                f' {reason} {actions}\n'
-            )
 
 
 def read_rule_stats(rule_stats_json):

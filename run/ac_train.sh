@@ -173,7 +173,7 @@ else
                 --tgt-input-src-backprop $tgt_input_src_backprop \
                 --tgt-input-src-combine $tgt_input_src_combine \
                 \
-                --max-epoch $max_epoch \
+                --max-epoch $MAX_EPOCH \
                 --arch $arch \
                 --optimizer adam \
                 --adam-betas '(0.9,0.98)' \
@@ -189,7 +189,7 @@ else
                 --criterion ${criterion:-label_smoothed_cross_entropy_pointer} \
                 --label-smoothing 0.01 \
                 --loss-coef $loss_coef \
-                --keep-last-epochs $(( $max_epoch - $eval_init_epoch + 1 )) \
+                --keep-last-epochs $(( $MAX_EPOCH - $EVAL_INIT_EPOCH + 1 )) \
                 --max-tokens $max_tokens \
                 --update-freq $update_freq \
                 --log-format json \

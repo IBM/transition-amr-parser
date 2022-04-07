@@ -29,7 +29,7 @@ def check_cuda_torch_binary_vs_bare_metal():
 if __name__ == '__main__':
 
     # Pytorch and CUDA
-    sucess = True
+    passed = True
     print()
     print(f'pytorch {torch.__version__}')
     if torch.cuda.is_available():
@@ -62,27 +62,27 @@ if __name__ == '__main__':
     try:
         import torch_scatter
         print("pytorch-scatter installed")
-    except ImportError as e:    
-        print("\033[93mpytorch-scatter not installed\033[0m")
-        sucess = False
+    except ImportError:
+        print("pytorch-scatter not installed")
+        passed = False
 
     try:
         import torch_scatter.scatter_cuda
         print("torch_scatter.scatter_cuda works")
-    except ImportError as e:    
-        print("\033[93mmaybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies\033[0m")
-        sucess = False
+    except ImportError:
+        print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
+        passed = False
 
     # fairseq
     try:
         import fairseq
-        print("fairseq installed")
-    except ImportError as e:    
-        print("\033[93mfairseq installation failed\033[0m")
-        sucess = False
+        print("fairseq works")
+    except ImportError:
+        print("fairseq installation failed")
+        passed = False
 
     # If we get here we passed
-    if sucess:
+    if passed:
         print(f'[\033[92mOK\033[0m] correctly installed\n')
     else:
-        print(f'[\033[91mFAILED\033[0m] some modules missing\n')
+        print(f'[\033[91mFAILED\033[0m] installing\n')

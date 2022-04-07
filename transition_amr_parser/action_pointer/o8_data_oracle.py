@@ -6,7 +6,7 @@ import re
 from tqdm import tqdm
 
 from transition_amr_parser.io import read_propbank, read_amr, write_tokenized_sentences
-from transition_amr_parser.o8_state_machine import (
+from transition_amr_parser.action_pointer.o8_state_machine import (
     AMRStateMachine,
     get_spacy_lemmatizer
 )
