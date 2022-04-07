@@ -24,9 +24,12 @@ class AMRStringHelper(object):
     @staticmethod
     def nodes(amr, alignments):
         output = []
-        for node_id, a in alignments.items():
-            name = amr.nodes[node_id]
-            output.append('# ::node\t{}\t{}\t{}-{}'.format(node_id, name, a[0], a[-1] + 1))
+        for node_id, name in sorted(amr.nodes.items(), key=lambda x: x[0]):
+            if node_id in alignments:
+                a = alignments[node_id]
+                output.append('# ::node\t{}\t{}\t{}-{}'.format(node_id, name, a[0], a[-1] + 1))
+            else:
+                output.append('# ::node\t{}\t{}\t'.format(node_id, name))
         return output
 
     @staticmethod
@@ -91,6 +94,16 @@ def amr_to_string(amr, alignments=None):
     alignments = amr.alignments
 
     body = ''
+
+    try:
+        if hasattr(amr, 'id'):
+            body += '# ::id {}\n'.format(amr.id)
+        else:
+            body += '# ::id {}\n'.format(amr.penman.metadata['id'])
+
+    except:
+        pass
+
     body += AMRStringHelper.tok(amr) + '\n'
     if len(amr.nodes) > 0:
         body += AMRStringHelper.alignments(amr, alignments) + '\n'
