@@ -19,9 +19,9 @@ except ImportError as e:
 
 # pip install matplotlib
 from transition_amr_parser.plots import plot_graph
-from transition_amr_parser.io import read_amr2, clbar, write_neural_alignments
-# from transition_amr_parser.utils import Propbank
-#
+from transition_amr_parser.io import read_amr2, write_neural_alignments
+from transition_amr_parser.clbar import clbar
+# for debugging
 from ipdb import set_trace
 # import warnings
 # warnings.filterwarnings('error')
@@ -386,45 +386,57 @@ class AMRAligner():
         # shape = (len(amr.tokens), len(amr.nodes))
         joint = prob_node_by_token_sent * prob_token[:, None]
 
-        # node marginal by marginalizing tokens
+        # node prior by marginalizing tokens
         # p(y_j | x) = sum_{t_pos} p(y_j | x_{t_pos}) p(t_pos | x)
         # shape = (len(amr.nodes))
-        node_marginal = joint.sum(axis=0, keepdims=True)
-        # hard zeros may make node_likelihood and prior cancel out
-        node_marginal[node_marginal == 0] = 1e-8
+        node_likelihood = joint.sum(axis=0, keepdims=True)
 
-        # Bayes rule to get posterior
+        # hard zeros may make node_likelihood and prior cancel out
+        node_likelihood[node_likelihood == 0] = 1e-8
+
+        # Bayes rule
         # p(a_j = t_pos | y_j, x)
-        alignment_posterior = joint / node_marginal
+        alignment_posterior = joint / node_likelihood
 
         if np.isnan(alignment_posterior).any():
-        return alignment_posterior, node_marginal
+            raise Exception()
 
-    def align_from_posterior(self, amr, cache_key=None):
+        return alignment_posterior, node_likelihood
+
+    def align_from_posterior(self, amr, cache_key=None, alpha=0.1):
+        """
+        Here alpha is used to make a probability distribution sparse by
+        limiting the maximum allowed relative decay between sorted
+        probabilities
+        """
 
         # get the alignment posterior
         # shape = (len(amr.tokens), len(amr.nodes))
-        # p(a_j = : | y_j = node_id) = align_posterior[:, node_id]
-        align_posterior, loglik = self.get_alignment_posterior(amr, cache_key)
+        # p(a_j = : | y_j = node_id) = alignment_posterior[:, node_id]
+        alignment_posterior, loglik = \
+            self.get_alignment_posterior(amr, cache_key)
 
-        # apply alignment constraints
-        align_posterior = constrain_posterior(amr, align_posterior)
-
-        # get hard alignments from posterior
-        node2token = defaultdict(list)
+        # derive multiple hard alignments from it
+        final_node2token = defaultdict(list)
         for node_pos, (node_id, node_name) in enumerate(amr.nodes.items()):
-            probs = align_posterior[:, node_pos]
-            token_pos = probs.argmax()
-            node2token[node_id].append(
-                (token_pos, amr.tokens[token_pos], probs[token_pos])
-            )
+            probs = alignment_posterior[:, node_pos]
+            # set low probabilities to zero based on maximum allowed relative
+            # decay among sorted probabilities (alpha)
+            indices = get_sparse_prob_indices(probs, alpha)
+            # store non-zero probabilities as alignments
+            for token_pos, p in enumerate(alignment_posterior[:, node_pos]):
+                if token_pos in indices:
+                    final_node2token[node_id].append(
+                        (token_pos, amr.tokens[token_pos], p)
+                    )
 
-        return node2token, align_posterior, loglik
+        return final_node2token, alignment_posterior
 
     def align_from_likelihood(self, amr, cache_key=None):
 
-        prob_node_by_token_sent = self.get_alignment_likelihood(
-            amr, cache_key=cache_key, no_norm=True)
+        prob_node_by_token_sent = \
+            self.get_alignment_likelihood(amr, cache_key=cache_key,
+                                          no_norm=True)
 
         final_node2token = defaultdict(list)
         missing_nodes = defaultdict(list)
@@ -497,41 +509,6 @@ class AMRAligner():
         node2token, align_posterior, likelihood = self.align_from_posterior(
             amr, cache_key=cache_key
         )
-
-#         # some alignments are unreliable, ignore them when doing disambiguation
-#         unaligned_node_ids = [
-#             node_id
-#             for node_id, node_name in amr.nodes.items()
-#             if node_name in self.ignore_nodes
-#             or any(reg.match(node_name) for reg in self.ignore_node_regex)
-#         ]
-#         # disambiguate alignments by greedily minimizing aligned token distance
-#         # between neigbouring nodes. Do not use certain nodes for this as it
-#         # can be missleading
-#         node2token_fixes = graph_vicinity_resolver(
-#             amr,
-#             node2token,
-#             ignore_relative_ids=unaligned_node_ids
-#         )
-#         node2token.update(node2token_fixes)
-#
-#         # some nodes are unaligned and then aligned to last child of first
-#         # parent
-#         graph_fixes, unaligned_node_ids2 = graph_vicinity_aligner(
-#             amr, node2token, unaligned_node_ids
-#         )
-#         node2token.update(graph_fixes)
-#
-#         # format alignments to meet e.g. stack-Transformer needs
-#         if aformat == 'stack':
-#
-#             node2token = self.format_alignments_for_stack(
-#                 amr, node2token, unaligned_node_ids,
-#             )
-#
-#         else:
-#             # experimental format
-#             pass
 
         # consolidate all alignments together
         # TODO: Printer should admit a list of alignments
@@ -1023,10 +1000,8 @@ def visual_eval(amr_aligner, indices, amrs, compare, aformat):
     for index in indices:
 
         amr = amrs[index]
-
-        # align
-        final_node2token, _ = \
-            amr_aligner.align(amr, aformat=aformat, cache_key=index)
+        final_node2token = amr_aligner.align(amr, cache_key=index,
+                                             aformat=aformat)
 
         # if any(nid not in final_node2token for nid in amr.nodes):
         #    final_node2token[nid] = None
@@ -1328,6 +1303,11 @@ def argument_parser():
         help="Prior strength of rules (interpreted as pseudocounts)",
         type=float,
         default=100
+    )
+    parser.add_argument(
+        "--force-align-ner",
+        help="(<tag> :name name :opx <token>) allways aligned to token",
+        action='store_true'
     )
     parser.add_argument(
         "--visual-eval",

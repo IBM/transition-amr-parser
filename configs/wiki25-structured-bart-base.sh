@@ -314,11 +314,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
 ###############################################################
 
 # Smatch evaluation with wiki
-<<<<<<< HEAD:configs/wiki25-structured-bart-base.sh
 LINKER_CACHE_PATH=""
-=======
-LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
->>>>>>> origin/v0.5.1/add-align-mode:configs/wiki25.sh
 
 ###############################################################
 # TESTS 

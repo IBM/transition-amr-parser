@@ -29,6 +29,11 @@ if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
     echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
     exit 1
 fi
+# linking cache not empty but folder does not exist
+if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
+    echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
+    exit 1
+fi    
 
 # This will store the final model
 mkdir -p ${MODEL_FOLDER}-seed${seed}

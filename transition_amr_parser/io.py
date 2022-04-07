@@ -3,10 +3,12 @@ import json
 import subprocess
 import xml.etree.ElementTree as ET
 from tqdm import tqdm
-<<<<<<< HEAD
 from penman.layout import Push
 import shutil
 import numpy as np
+from collections import Counter
+from transition_amr_parser.amr import AMR
+from ipdb import set_trace
 
 
 def write_neural_alignments(out_alignment_probs, aligned_amrs, joints):
@@ -113,119 +115,6 @@ def read_neural_alignments(alignments_file):
     return alignments
 
 
-def clbar(
-    xy=None,  # list of (x, y) tuples or Counter
-    x=None,
-    y=None,
-    ylim=(None, None),
-    ncol=None,    # Max number of lines for display (defauly window size)
-    # show only top and bottom values
-    topx=None,
-    botx=None,
-    topy=None,
-    boty=None,
-    # normalize to sum to 1
-    norm=False,
-    xfilter=None,  # f(x) returns bool to not skip this example in display
-    yform=None     # Function receiveing single y value returns string
-):
-    """Print data structure in command line"""
-    # Sanity checks
-    if x is None and y is None:
-        if isinstance(xy, np.ndarray):
-            labels = [f'{i}' for i in range(xy.shape[0])]
-            xy = list(zip(labels, list(xy)))
-        elif isinstance(xy, Counter):
-            xy = [(str(x), y) for x, y in xy.items()]
-        else:
-            assert isinstance(xy, list), "Expected list of tuples"
-            assert isinstance(xy[0], tuple), "Expected list of tuples"
-    else:
-        assert x is not None and y is not None
-        assert isinstance(x, list)
-        assert isinstance(y, list) or isinstance(y, np.ndarray)
-        assert len(x) == len(list(y))
-        xy = list(zip(x, y))
-
-    # normalize
-    if norm:
-        z = sum([x[1] for x in xy])
-        xy = [(k, v / z) for k, v in xy]
-    # show only top x
-    if topx is not None:
-        xy = sorted(xy, key=lambda x: float(x[0]))[-topx:]
-    if botx is not None:
-        xy = sorted(xy, key=lambda x: float(x[0]))[:botx]
-    if boty is not None:
-        xy = sorted(xy, key=lambda x: x[1])[:boty]
-    if topy is not None:
-        xy = sorted(xy, key=lambda x: x[1])[-topy:]
-    # print list of tuples
-    # determine variables to fit data to command line
-    x_data, y_data = zip(*xy)
-    width = max([len(x) if x is not None else len('None') for x in x_data])
-    number_width = max([len(f'{y}') for y in y_data])
-    # max and min values
-    if ylim[1] is not None:
-        max_y_data = ylim[1]
-    else:
-        max_y_data = max(y_data)
-    if ylim[0] is not None:
-        min_y_data = ylim[0]
-    else:
-        min_y_data = min(y_data)
-    # determine scaling factor from screen size
-    data_range = max_y_data - min_y_data
-    if ncol is None:
-        ncol, _ = shutil.get_terminal_size((80, 20))
-    max_size = ncol - width - number_width - 3
-    scale = max_size / data_range
-    # plot
-    print()
-    blank = ' '
-    if yform:
-        min_y_data_str = yform(min_y_data)
-        print(f'{blank:<{width}}{min_y_data_str}')
-    else:
-        print(f'{blank:<{width}}{min_y_data}')
-    for (x, y) in xy:
-
-        # Filter example by x
-        if xfilter and not xfilter(x):
-            continue
-
-        if y > max_y_data:
-            # cropped bars
-            num_col = int((ylim[1] - min_y_data) * scale)
-            if num_col == 0:
-                bar = ''
-            else:
-                half_width = (num_col // 2)
-                if num_col % 2:
-                    bar = '\u25A0' * (half_width - 1)
-                    bar += '//'
-                    bar += '\u25A0' * (half_width - 1)
-                else:
-                    bar = '\u25A0' * half_width
-                    bar += '//'
-                    bar += '\u25A0' * (half_width - 1)
-        else:
-            bar = '\u25A0' * int((y - min_y_data) * scale)
-        if x is None:
-            x = 'None'
-        if yform:
-            y = yform(y)
-            print(f'{x:<{width}} {bar} {y}')
-        else:
-            print(f'{x:<{width}} {bar} {y}')
-    print()
-=======
-from collections import Counter
-from transition_amr_parser.amr import AMR
-from ipdb import set_trace
->>>>>>> origin/v0.5.1/add-align-mode
-
-
 def read_amr(file_path, ibm_format=False, generate=False):
     if generate:
         # yields each AMr, faster but non sequential
@@ -234,7 +123,53 @@ def read_amr(file_path, ibm_format=False, generate=False):
         return amr_iterator(file_path, ibm_format=ibm_format)
 
 
-<<<<<<< HEAD
+def amr_iterator(file_path, ibm_format=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
+
+    (tokenize is deprecated)
+    '''
+
+    amrs = []
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
+
+        if ibm_format:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            amrs.append(AMR.from_metadata(raw_amr))
+        else:
+            # from penman
+            amrs.append(AMR.from_penman(raw_amr))
+
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
+
+    return amrs
+
+
+def amr_generator(file_path, ibm_format=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
+
+    (tokenize is deprecated)
+    '''
+
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
+
+        if ibm_format:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            yield AMR.from_metadata(raw_amr)
+        else:
+            # From penman
+            yield AMR.from_penman(raw_amr)
+
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
+
+
 def protected_tokenizer(sentence_string, simple=False):
 
     if simple:
@@ -330,53 +265,6 @@ def jamr_like_tokenizer(sentence_string, sep_re):
                 positions.append((start + start2, start + end2))
 
     return tokens, positions
-=======
-def amr_iterator(file_path, ibm_format=False):
-    '''
-    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
->>>>>>> origin/v0.5.1/add-align-mode
-
-    (tokenize is deprecated)
-    '''
-
-    amrs = []
-    # loop over blocks separated by whitespace
-    tqdm_iterator = read_blocks(file_path)
-    num_amr = len(tqdm_iterator)
-    for index, raw_amr in enumerate(tqdm_iterator):
-
-        if ibm_format:
-            # From JAMR plus IBMs alignment format (DEPRECATED)
-            amrs.append(AMR.from_metadata(raw_amr))
-        else:
-            # from penman
-            amrs.append(AMR.from_penman(raw_amr))
-
-        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
-
-    return amrs
-
-
-def amr_generator(file_path, ibm_format=False):
-    '''
-    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
-
-    (tokenize is deprecated)
-    '''
-
-    # loop over blocks separated by whitespace
-    tqdm_iterator = read_blocks(file_path)
-    num_amr = len(tqdm_iterator)
-    for index, raw_amr in enumerate(tqdm_iterator):
-
-        if ibm_format:
-            # From JAMR plus IBMs alignment format (DEPRECATED)
-            yield AMR.from_metadata(raw_amr)
-        else:
-            # From penman
-            yield AMR.from_penman(raw_amr)
-
-        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
 
 
 def generate_blocks(file_path, bar=True, desc=None):
@@ -384,327 +272,6 @@ def generate_blocks(file_path, bar=True, desc=None):
     Reads text file, returns chunks separated by empty line
     '''
 
-<<<<<<< HEAD
-    # get map of node variables to node names (this excludes constants)
-    name_to_node = {x.source: x.target for x in graph.instances()}
-
-    # Get all edges (excludes constants)
-    edges = []
-    for x in graph.edges():
-        assert x.target in name_to_node
-        edge_epidata = graph.epidata[(x.source, x.role, x.target)]
-        if (
-            edge_epidata
-            and isinstance(edge_epidata[0], Push)
-            and edge_epidata[0].variable == x.source
-        ):
-            # reversed edge
-            edges.append((x.target, f'{x.role}-of', x.source))
-        else:
-            edges.append((x.source, x.role, x.target))
-
-    # Add constants both to node map and edges, use position in attribute as id
-    for index, att in enumerate(graph.attributes()):
-        # needs to be a string
-        index = str(index)
-        assert index not in name_to_node
-        name_to_node[index] = att.target
-        edge_epidata = graph.epidata[(att.source, att.role, att.target)]
-        if (
-            edge_epidata
-            and isinstance(edge_epidata[0], Push)
-            and edge_epidata[0].variable == x.source
-        ):
-            # reversed edge
-            raise Exception()
-            edges.append((index, f'{att.role}-of', att.source))
-        else:
-            edges.append((att.source, att.role, index))
-
-    # print(penman.encode(graph))
-    return name_to_node, edges
-
-
-def legacy_graph_printer(metadata, nodes, root, edges):
-
-    # These symbols can not be used directly for node names
-    must_scape_symbols = [':', '/', '(', ')']
-
-    # start from meta-data
-    output = metadata
-
-    # identify nodes that should be quoted
-    # find leaf nodes
-    non_leaf_ids = set()
-    # FIXME: Removed for now to avoid not detecxtting constants with children
-    # (which should not happen anyway)
-    # for (src, label, trg) in edges:
-    #     if not label.endswith('-of'):
-    #        non_leaf_ids.add(src)
-    leaf_ids = set(nodes.keys()) - non_leaf_ids
-    # Find leaf nodes at end of :op or numeric ones
-    quoted_nodes = []
-    for (src, label, trg) in edges:
-        if trg not in leaf_ids:
-            continue
-        if (
-            nodes[src] == 'name'
-            and re.match(r':op[0-9]+', label.split('-')[0])
-        ):
-            # NE Elements
-            quoted_nodes.append(trg)
-        elif any(s in nodes[trg] for s in must_scape_symbols):
-            # Special symbols
-            quoted_nodes.append(trg)
-    # Add quotes to those
-    for nid in quoted_nodes:
-        if '"' not in nodes[nid]:
-            nodes[nid] = f'"{nodes[nid]}"'
-
-    # Determine short name for variables
-    new_ids = {}
-    for n in nodes:
-        new_id = nodes[n][0] if nodes[n] else 'x'
-        if new_id.isalpha() and new_id.islower():
-            if new_id in new_ids.values():
-                j = 2
-                while f'{new_id}{j}' in new_ids.values():
-                    j += 1
-                new_id = f'{new_id}{j}'
-        else:
-            j = 0
-            while f'x{j}' in new_ids.values():
-                j += 1
-            new_id = f'x{j}'
-        new_ids[n] = new_id
-    depth = 1
-    out_nodes = {root}
-    completed = set()
-
-    # if 0 in nodes and nodes[0] == 'expressive':
-    #     breakpoint()
-
-    # Iteratively replace wildcards in this string to create penman notation
-    amr_string = f'[[{root}]]'
-    while '[[' in amr_string:
-        tab = '      '*depth
-        for n in out_nodes.copy():
-            id = new_ids[n] if n in new_ids else 'r91'
-            concept = nodes[n] if n in new_ids and nodes[n] else 'None'
-            out_edges = sorted([e for e in edges if e[0] == n],
-                               key=lambda x: x[1])
-            targets = set(t for s, r, t in out_edges)
-            out_edges = [f'{r} [[{t}]]' for s, r, t in out_edges]
-            children = f'\n{tab}'.join(out_edges)
-            if children:
-                children = f'\n{tab}'+children
-            if n not in completed:
-                if (
-                    concept[0].isalpha()
-                    and concept not in [
-                        'imperative', 'expressive', 'interrogative'
-                    ]
-                    # TODO: Exception :era AD
-                    and concept != 'AD'
-                ) or targets or (
-                    # NOTE corner case: no child nodes, no parents either -> just a single node (otherwise the graph
-                    #                   will not be connected)
-                    concept in ['imperative', 'expressive', 'interrogative', 'AD']
-                    and len(nodes) == 1        # TODO handle the corner case better
-                ):
-                    amr_string = amr_string.replace(
-                        f'[[{n}]]', f'({id} / {concept}{children})', 1)
-                else:
-                    amr_string = amr_string.replace(f'[[{n}]]', f'{concept}')
-                    # TODO does this affect Smatch? Yes it does affect Smatch...
-                    # amr_string = amr_string.replace(
-                    #     f'[[{n}]]', f'({id} / {concept}{children})', 1)
-                completed.add(n)
-            amr_string = amr_string.replace(f'[[{n}]]', f'{id}')
-            out_nodes.remove(n)
-            out_nodes.update(targets)
-        depth += 1
-
-    # sanity checks
-    if len(completed) < len(out_nodes):
-        raise Exception("Tried to print an uncompleted AMR")
-    if (
-        amr_string.startswith('"')
-        or amr_string[0].isdigit()
-        or amr_string[0] in ['-', '+']
-    ):
-        amr_string = '(x / '+amr_string+')'
-    if not amr_string.startswith('('):
-        amr_string = '('+amr_string+')'
-    if len(nodes) == 0:
-        amr_string = '(a / amr-empty)'
-
-    output += amr_string + '\n\n'
-
-    return output
-
-
-default_rel = ':rel'
-
-
-def validate_alignments(amr):
-    assert amr.alignments is not None, "JAMR notation expects amr.alignments"
-    assert amr.tokens, "JAMR notation expects amr.tokens"
-    # indices = [y for x in filter(None, amr.alignments.values()) for y in x]
-    # assert max(indices) < len(amr.tokens) and min(indices) >= 0, \
-    #    "Invalid token range"
-
-
-class AMR():
-
-    def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, clean=True, connect=False):
-
-        # make graph un editable
-        self.tokens = tokens
-        self.nodes = nodes
-        self.edges = edges
-        self.penman = penman
-        self.alignments = alignments
-
-        # edges by parent
-        self.edges_by_parent = defaultdict(list)
-        for (source, edge_name, target) in edges:
-            self.edges_by_parent[source].append((target, edge_name))
-
-        # edges by child
-        self.edges_by_child = defaultdict(list)
-        for (source, edge_name, target) in edges:
-            self.edges_by_child[target].append((source, edge_name))
-
-        # root
-        self.root = root
-
-        # do the cleaning when necessary (e.g. build the AMR graph from model
-        # output, which might not be valid)
-        # cleaning is needed for oracle for AMR 3.0 training data
-        # if clean:
-        #    self.clean_amr()
-        if connect:
-            self.connect_graph()
-
-    def clean_amr(self):
-        # empty graph
-        if not self.nodes:
-            # breakpoint()
-            # randomly add a single node
-            for tok in self.tokens:
-                if tok not in ['(', ')', ':', '"', "'", '/', '\\', '.', '?', '!', ',', ';']:
-                    self.nodes[0] = tok
-                    break
-            if not self.nodes:
-                self.nodes[0] = 'amr-empty'
-
-            self.root = 0
-
-        # clean concepts
-        for n in self.nodes:
-            if self.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
-                self.nodes[n] = 'PUNCT'
-            if self.nodes[n].startswith('"') and self.nodes[n].endswith('"'):
-                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
-            if not (self.nodes[n].startswith('"') and self.nodes[n].endswith('"')):
-                for ch in ['/', ':', '(', ')', '\\']:
-                    if ch in self.nodes[n]:
-                        self.nodes[n] = self.nodes[n].replace(ch, '-')
-            if not self.nodes[n]:
-                self.nodes[n] = 'None'
-            if ',' in self.nodes[n]:
-                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
-            if not self.nodes[n][0].isalpha() and not self.nodes[n][0].isdigit(
-            ) and not self.nodes[n][0] in ['-', '+']:
-                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
-
-        # clean edges
-        for j, e in enumerate(self.edges):
-            s, r, t = e
-            if not r.startswith(':'):
-                r = ':' + r
-            e = (s, r, t)
-            self.edges[j] = e
-
-        # handle missing nodes (this shouldn't happen but a bad sequence of
-        # actions can produce it)
-        for s, r, t in self.edges:
-            if s not in self.nodes:
-                # breakpoint()
-                self.nodes[s] = '<NA>'
-            if t not in self.nodes:
-                # breakpoint()
-                self.nodes[t] = '<NA>'
-
-    def connect_graph(self):
-        assigned_root = None
-
-        # ========== this deals with the special structure where a dummy root node is marked with id -1,
-        # i.e. self.nodes[-1] = 'root' (legacy; should not be the case for oracle 10)
-        # here we remove the dummy root node to have a uniform representation of the graph attributes
-        root_edges = []
-        if -1 in self.nodes:
-            del self.nodes[-1]
-
-        for s, r, t in self.edges:
-            if s == -1 and r == "root":
-                assigned_root = t
-            if s == -1 or t == -1:
-                root_edges.append((s, r, t))
-        for e in root_edges:
-            self.edges.remove(e)
-        # ==============================================================================================
-
-        assert self.nodes, 'the graph should not be empty'
-
-        assigned_root = self.root
-
-        # ===== find all the descendants for each node
-        descendents = {n: {n} for n in self.nodes}
-
-        for x, r, y in self.edges:
-            descendents[x].update(descendents[y])
-            for n in descendents:
-                if x in descendents[n]:
-                    descendents[n].update(descendents[x])
-
-        # all the ascendants for each node (including the node itself)
-        ascendants = {n: {n} for n in self.nodes}
-        for p, ds in descendents.items():
-            for x in ds:
-                ascendants[x].add(p)
-
-        # ===== remove nodes that should not be potential root
-        # - nodes with a parent (OR any ascendant)  && the parent/ascendant is not a descendant of the node
-        #   (cycling case, not strictly a DAG, but this appears in AMR)
-        # - nodes with no children
-
-        potential_roots = [n for n in self.nodes]
-
-        for n in potential_roots.copy():
-            for p, ds in descendents.items():
-                if n in ds and p not in descendents[n]:
-                    potential_roots.remove(n)
-                    break
-            else:
-                # above case not found
-                if len(descendents[n]) == 1:
-                    # only one descendent is itself, i.e. no children
-                    potential_roots.remove(n)
-
-        # ===== assign root (give priority to "multi-sentence" (although it could be non-root) or assigned_root)
-        if potential_roots:
-            # # pick the root with most descendents
-            # potential_roots_nds = [len(descendents[r]) for r in potential_roots]
-            # self.root = max(zip(potential_roots, potential_roots_nds), key=lambda x: x[1])[0]
-            # # pick the root with bias towards earlier nodes
-            self.root = potential_roots[0]
-            for n in potential_roots:
-                if self.nodes[n] == 'multi-sentence' or n == assigned_root:
-                    self.root = n
-=======
     # to measure progress with a generator get the size first
     if bar:
         with open(file_path) as fid:
@@ -714,7 +281,6 @@ class AMR():
     def pbar(x):
         if bar:
             return tqdm(x, desc=desc, total=num_blocks)
->>>>>>> origin/v0.5.1/add-align-mode
         else:
             return x
 
@@ -726,194 +292,29 @@ class AMR():
                 yield block
                 block = ''
             else:
-<<<<<<< HEAD
-                for p in ascendants[n]:
-                    if p not in descendents[n]:
-                        # there is any parent that is not in a cycle -> don't add (not a root of any subgraph)
-                        break
-                else:
-                    # all the parents are current node's children: cycle -> only add if no node in cycle already added
-                    if not any([m in ascendants[n] for m in disconnected]):
-                        disconnected.append(n)
+                block += line
 
-        if len(disconnected) > 0:
-            for n in disconnected:
-                self.edges.append((self.root, default_rel, n))
 
-        # debug for amr2.0 training data
-        # if 'From among them' in ' '.join(self.tokens):
-        #     breakpoint()
+def read_blocks(file_path, return_tqdm=True):
+    '''
+    Reads text file, returns chunks separated by empty line
+    '''
 
-    # TODO: Deprecate tokenize. Avoid implicit tokenization.
+    # read blocks
+    with open(file_path) as fid:
+        block = ''
+        blocks = []
+        for line in fid:
+            if line.strip() == '':
+                blocks.append(block)
+                block = ''
+            else:
+                block += line
 
-    @classmethod
-    def from_penman(cls, penman_text, tokenize=False):
-        """
-        Read AMR from penman notation (will ignore graph data in metadata)
-        """
-        graph = penman.decode(penman_text)
-        nodes, edges = get_simple_graph(graph)
-        if tokenize:
-            assert 'snt' in graph.metadata, "AMR must contain field ::snt"
-            # FIXME: This is a rather simpler tokenizer
-            tokens, _ = protected_tokenizer(graph.metadata['snt'])
-        else:
-            assert 'tok' in graph.metadata, "AMR must contain field ::tok"
-            tokens = graph.metadata['tok'].split()
-        return cls(tokens, nodes, edges, graph.top, penman=graph, clean=True, connect=False)
-
-    @classmethod
-    def from_metadata(cls, penman_text, tokenize=False):
-        """Read AMR from metadata (IBM style)"""
-
-        # Read metadata from penman
-        field_key = re.compile(f'::[A-Za-z]+')
-        metadata = defaultdict(list)
-        separator = None
-        root = None
-        for line in penman_text:
-            if line.startswith('#'):
-                line = line[2:].strip()
-                start = 0
-                for point in field_key.finditer(line):
-                    end = point.start()
-                    value = line[start:end]
-                    if value:
-                        metadata[separator].append(value)
-                    separator = line[end:point.end()][2:]
-                    start = point.end()
-                value = line[start:]
-                if value:
-                    metadata[separator].append(value)
-
-        if tokenize:
-            assert 'snt' in metadata, "AMR must contain field ::snt"
-            tokens, _ = protected_tokenizer(metadata['snt'])
-        elif 'tok' in metadata:
-            assert 'tok' in metadata, "AMR must contain field ::tok"
-            assert len(metadata['tok']) == 1
-            tokens = metadata['tok'][0].split()
-        else:
-            tokens = []
-
-        nodes = {}
-        alignments = {}
-        edges = []
-        amr_id = None
-
-        for key, value in metadata.items():
-            if key == 'edge':
-                for items in value:
-                    items = items.split('\t')
-                    if len(items) == 6:
-                        _, _, label, _, src, tgt = items
-                        edges.append((src, f':{label}', tgt))
-            elif key == 'node':
-                for items in value:
-                    items = items.split('\t')
-                    if len(items) > 3:
-                        _, node_id, node_name, alignment_str = items
-                        start, end = alignment_str.split('-')
-                        indices = list(range(int(start), int(end)))
-                        alignments[node_id] = indices
-                    else:
-                        _, node_id, node_name = items
-                        alignments[node_id] = None
-                    nodes[node_id] = node_name
-            elif key == 'root':
-                root = value[0].split('\t')[1]
-            elif key == 'id':
-                amr_id = value[0].strip()
-
-        amr = cls(tokens, nodes, edges, root, penman=None,
-                  alignments=alignments, clean=True, connect=False)
-
-        if amr_id is not None:
-            amr.id = amr_id
-
-        return amr
-
-    def get_metadata(self):
-        """
-        Returns graph information in the meta-data
-        """
-        assert self.root is not None, "Graph must be complete"
-        output = ''
-        output += '# ::tok ' + (' '.join(self.tokens)) + '\n'
-        for n in self.nodes:
-            alignment = ''
-            if n in self.alignments and self.alignments[n] is not None:
-                if type(self.alignments[n]) == int:
-                    start = self.alignments[n]
-                    end = self.alignments[n] + 1
-                    alignment = f'\t{start}-{end}'
-                else:
-                    alignments_in_order = sorted(list(self.alignments[n]))
-                    start = alignments_in_order[0]
-                    end = alignments_in_order[-1] + 1
-                    alignment = f'\t{start}-{end}'
-
-            nodes = self.nodes[n] if n in self.nodes else "None"
-            output += f'# ::node\t{n}\t{nodes}' + alignment + '\n'
-        # root
-        roots = self.nodes[self.root] if self.root in self.nodes else "None"
-        output += f'# ::root\t{self.root}\t{roots}\n'
-        # edges
-        for s, r, t in self.edges:
-            r = r.replace(':', '')
-            edges = self.nodes[s] if s in self.nodes else "None"
-            nodes = self.nodes[t] if t in self.nodes else "None"
-            output += f'# ::edge\t{edges}\t{r}\t' \
-                      f'{nodes}\t{s}\t{t}\t\n'
-        return output
-
-    def to_jamr(self):
-        validate_alignments(self)
-        return legacy_graph_printer(self.get_metadata(), self.nodes,
-                                    self.root, self.edges)
-
-    def to_penman(self):
-        assert self.penman
-        return ' '.join(self.tokens) + '\n\n' + penman.encode(self.penman)
-
-    def __str__(self):
-        # TODO: Deprecate in favour of to_penman
-        return self.to_jamr()
-
-    def parents(self, node_id):
-        return self.edges_by_child.get(node_id, [])
-
-    def children(self, node_id):
-        return self.edges_by_parent.get(node_id, [])
-
-    def toJAMRString(self):
-        """
-        FIXME: Just modifies ::node line with respect to the original
-        """
-        output = penman.encode(self.penman)
-        # Try first to just modify existing JAMR annotation
-        new_lines = []
-        modified = False
-        for line in output.split('\n'):
-            if line.startswith('# ::node'):
-                modified = True
-                items = line.split('\t')
-                node_id = items[1]
-                start = min(self.alignments[node_id])
-                dend = max(self.alignments[node_id]) + 1
-                if len(items) == 4:
-                    items[-1] = f'{start}-{dend}'
-                elif len(items) == 3:
-                    items.append(f'{start}-{dend}')
-                else:
-                    raise Exception()
-                line = '\t'.join(items)
-            new_lines.append(line)
-        # if not we write it ourselves
-        if not modified:
-            set_trace(context=30)
-            print()
-        return ('\n'.join(new_lines)) + '\n'
+    if return_tqdm:
+        return tqdm(blocks)
+    else:
+        return tqdm(blocks)
 
 
 def read_amr2(file_path, ibm_format=False, tokenize=False):
@@ -946,31 +347,6 @@ def read_amr2(file_path, ibm_format=False, tokenize=False):
                 raw_amr.append(line)
 
     return raw_amrs
-=======
-                block += line
-
-
-def read_blocks(file_path, return_tqdm=True):
-    '''
-    Reads text file, returns chunks separated by empty line
-    '''
-
-    # read blocks
-    with open(file_path) as fid:
-        block = ''
-        blocks = []
-        for line in fid:
-            if line.strip() == '':
-                blocks.append(block)
-                block = ''
-            else:
-                block += line
-
-    if return_tqdm:
-        return tqdm(blocks)
-    else:
-        return tqdm(blocks)
->>>>>>> origin/v0.5.1/add-align-mode
 
 
 def read_frame(xml_file):

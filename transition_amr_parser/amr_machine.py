@@ -117,7 +117,6 @@ def graph_vicinity_align(gold_amr):
     return gold_amr, unaligned_nodes_original
 
 
-<<<<<<< HEAD
 def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     # this contains p(node, token_pos | tokens)
     node_token_joint = alignment_probs['p_node_and_token']
@@ -171,16 +170,6 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     return gold_amr, align_info
 
 
-def normalize(token):
-    """
-    Normalize token or node
-    """
-    if token == '"':
-        return token
-    else:
-        return token.replace('"', '')
-
-
 class AMROracle():
 
     def __init__(
@@ -191,12 +180,6 @@ class AMROracle():
         alignment_sampling_temperature=1.0,  # temperature if sampling
         force_align_ner=False                # align NER parents to first child
     ):
-=======
-class AMROracle():
-
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
-                 use_copy=True):
->>>>>>> origin/v0.5.1/add-align-mode
 
         # Remove nodes that have all their edges created
         self.reduce_nodes = reduce_nodes
@@ -266,12 +249,7 @@ class AMROracle():
             new_edges_for_node = []
             for (_, idx) in edges:
                 new_edges_for_node.append(
-<<<<<<< HEAD
-                    self.pend_edges_by_node[node_id][idx]
-                )
-=======
-                    self.pend_edges_by_node[node_id][idx])
->>>>>>> origin/v0.5.1/add-align-mode
+                self.pend_edges_by_node[node_id][idx])
             self.pend_edges_by_node[node_id] = new_edges_for_node
 
         # Will store gold_amr.nodes.keys() and edges as we predict them
@@ -395,14 +373,8 @@ class AMROracle():
             target_node = normalize(self.gold_amr.nodes[nid])
 
             if (
-<<<<<<< HEAD
-                self.use_copy
-                and normalize(machine.tokens[machine.tok_cursor])
-                    == target_node
-=======
                 self.use_copy and
                 normalize(machine.tokens[machine.tok_cursor]) == target_node
->>>>>>> origin/v0.5.1/add-align-mode
             ):
                 # COPY
                 return [('COPY', nid)], [1.0]
@@ -419,16 +391,11 @@ class AMROracle():
 
 class AMRStateMachine():
 
-<<<<<<< HEAD
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
-                 use_copy=True):
-=======
     def __init__(self, reduce_nodes=None, absolute_stack_pos=True,
                  use_copy=True, debug=False):
 
         # debug flag
         self.debug = debug
->>>>>>> origin/v0.5.1/add-align-mode
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
@@ -450,16 +417,10 @@ class AMRStateMachine():
             'SHIFT',   # Move cursor
             'COPY',    # Copy word under cursor to node (add node to stack)
             'ROOT',    # Label node as root
-<<<<<<< HEAD
-            '>LA',     # Arc from node under cursor (<label>, <to position>)
-                       # (to be different from LA the city)
-            '>RA',     # Arc to node under cursor (<label>, <from position>)
-=======
             # Arc from node under cursor (<label>, <to position>) (to be
             # different from LA the city)
             '>LA',
             '>RA',      # Arc to node under cursor (<label>, <from position>)
->>>>>>> origin/v0.5.1/add-align-mode
             'CLOSE',   # Close machine
             # ...      # create node with ... as name (add node to stack)
             'NODE'     # other node names
@@ -498,18 +459,9 @@ class AMRStateMachine():
             if cano_act in self.base_action_vocabulary:
                 vocab_act_count += 1
                 canonical_act_ids.setdefault(cano_act, []).append(i)
-<<<<<<< HEAD
-        return canonical_act_ids
-
-    def reset(self, tokens):
-=======
-        # print for debugging
-        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary
-        # mapped to canonical actions.')
         return canonical_act_ids
 
     def reset(self, tokens, gold_amr=None, reject_align_samples=False):
->>>>>>> origin/v0.5.1/add-align-mode
         '''
         Reset state variables and set a new sentence
 
@@ -723,16 +675,6 @@ class AMRStateMachine():
             valid_base_actions.append('SHIFT')
             valid_base_actions.extend(gen_node_actions)
 
-<<<<<<< HEAD
-        if self.action_history and \
-                self.get_base_action(self.action_history[-1]) \
-                in (gen_node_actions + ['ROOT', '>LA', '>RA']):
-            valid_base_actions.extend(['>LA', '>RA'])
-
-        if self.action_history and \
-                self.get_base_action(self.action_history[-1]) \
-                in gen_node_actions:
-=======
         if (
             self.action_history
             and self.get_base_action(self.action_history[-1]) in (
@@ -746,7 +688,6 @@ class AMRStateMachine():
             and self.get_base_action(self.action_history[-1])
                 in gen_node_actions
         ):
->>>>>>> origin/v0.5.1/add-align-mode
             if max_1root:
                 # force to have at most 1 root (but it can always be with no
                 # root)
@@ -1125,12 +1066,8 @@ def peel_pointer(action, pad=-1):
     if arc_regex.match(action):
         # LA(pos,label) or RA(pos,label)
         action, properties = action.split('(')
-<<<<<<< HEAD
         # remove the ')' at last position
         properties = properties[:-1]
-=======
-        properties = properties[:-1]    # remove the ')' at last position
->>>>>>> origin/v0.5.1/add-align-mode
         # split to pointer value and label
         properties = properties.split(',')
         pos = int(properties[0].strip())
@@ -1143,19 +1080,10 @@ def peel_pointer(action, pad=-1):
 
 
 class StatsForVocab:
-<<<<<<< HEAD
     """
     Collate stats for predicate node names with their frequency, and list of
     all the other action symbols. For arc actions, pointers values are
     stripped. The results stats (from training data) are going to decide which
-    node names (the frequent ones) to be added to the vocabulary used in the
-    model.
-=======
->>>>>>> origin/v0.5.1/add-align-mode
-    """
-    Collate stats for predicate node names with their frequency, and list of
-    all the other action symbols.  For arc actions, pointers values are
-    stripped.  The results stats (from training data) are going to decide which
     node names (the frequent ones) to be added to the vocabulary used in the
     model.
     """
@@ -1249,7 +1177,6 @@ class StatsForVocab:
 def oracle(args):
 
     # Read AMR
-<<<<<<< HEAD
     amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
     amrs = read_amr2(amr_file, ibm_format=not args.no_jamr,
                      tokenize=args.no_jamr)
@@ -1264,9 +1191,6 @@ def oracle(args):
         assert len(corpus_align_probs) == len(amrs)
     else:
         corpus_align_probs = None
-=======
-    amrs = read_amr(args.in_aligned_amr, ibm_format=True)
->>>>>>> origin/v0.5.1/add-align-mode
 
     # broken annotations that we ignore in stats
     # 'DATA/AMR2.0/aligned/cofill/train.txt'
@@ -1275,15 +1199,10 @@ def oracle(args):
         17055,  # (3, ':mod', 7), (3, ':mod', 7)
         27076,  # '0.0.2.1.0.0' is on ::edges but not ::nodes
         # for AMR 3.0 data: DATA/AMR3.0/aligned/cofill/train.txt
-<<<<<<< HEAD
-        9296,   # self-loop: "# ::edge vote-01 condition vote-01 0.0.2 0.0.2",
-                # "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
-=======
         # self-loop:
         # "# ::edge vote-01 condition vote-01 0.0.2 0.0.2",
         # "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
         9296,
->>>>>>> origin/v0.5.1/add-align-mode
     ]
     # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list
     # and used for both oracles, since: this would NOT change the oracle

@@ -1,6 +1,5 @@
 set -o errexit 
 set -o pipefail
-<<<<<<< HEAD
 if [ -z $1 ];then 
 
     # Standard mini-test with wiki25
@@ -36,15 +35,3 @@ if [ -f "${MODEL_FOLDER}-seed42/beam10/valid_${DECODING_CHECKPOINT}.wiki.smatch"
 else
     printf "\n[\033[91mFAILED\033[0m] $0\n"
 fi
-=======
-set -o nounset 
-
-# Delete previous runs is exist
-rm -Rf DATA/wiki25/*
-
-# simulate completed corpora extraction and alignment
-bash tests/create_wiki25_mockup.sh
-
-# Run local test
-bash run/lsf/run_experiment.sh configs/wiki25.sh  
->>>>>>> origin/v0.5.1/add-align-mode

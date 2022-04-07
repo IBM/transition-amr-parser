@@ -11,7 +11,7 @@ import argparse
 from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
-from transition_amr_parser.io import clbar
+from transition_amr_parser.clbar import clbar
 from ipdb import set_trace
 
 
@@ -168,11 +168,7 @@ def read_results(seed_folder, eval_metric, target_epochs, warnings=True):
     missing_epochs = sorted(missing_epochs, reverse=True)
 
     # Warn about faulty scores
-<<<<<<< HEAD
     if faulty_scores and warnings:
-=======
-    if faulty_scores:
->>>>>>> origin/v0.5.1/add-align-mode
         print(f'\033[93mWARNING: empty {eval_metric} file(s)\033[0m')
         for faulty in faulty_scores:
             print(faulty)
@@ -222,30 +218,18 @@ def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
             return (
                 f"\033[93m{delta}/{len(target_epochs)}\033[0m",
                 f"{seed_folder}"
-<<<<<<< HEAD
             ), False
-=======
-            )
->>>>>>> origin/v0.5.1/add-align-mode
         else:
             return (
                 f"{delta}/{len(target_epochs)}",
                 f"{seed_folder}"
-<<<<<<< HEAD
             ), False
-=======
-            )
->>>>>>> origin/v0.5.1/add-align-mode
 
     else:
         return (
             f"\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m",
             f"{seed_folder}"
-<<<<<<< HEAD
         ), True
-=======
-        )
->>>>>>> origin/v0.5.1/add-align-mode
 
 
 def get_corrupted_checkpoints(seed_folder):
@@ -269,11 +253,7 @@ def get_corrupted_checkpoints(seed_folder):
         return []
 
 
-<<<<<<< HEAD
 def print_status(config_env_vars, seed, do_clear=False, warnings=True):
-=======
-def print_status(config_env_vars, seed, do_clear=False):
->>>>>>> origin/v0.5.1/add-align-mode
 
     # Inform about completed stages
     # pre-training ones
@@ -308,7 +288,6 @@ def print_status(config_env_vars, seed, do_clear=False):
 
         # find checkpoints with suspiciously smaller sizes
         corrupted_checkpoints.extend(get_corrupted_checkpoints(seed_folder))
-<<<<<<< HEAD
 
         # all checkpoints evaluated
         line, is_done = check_checkpoint_evaluation(
@@ -320,16 +299,6 @@ def print_status(config_env_vars, seed, do_clear=False):
         status_lines.extend(
             check_model_training(seed_folder, max_epoch, is_done)
         )
-=======
-
-        # all checkpoints trained
-        status_lines.extend(check_model_training(seed_folder, max_epoch))
-
-        # all checkpoints evaluated
-        status_lines.append(check_checkpoint_evaluation(
-            config_env_vars, seed, seed_folder
-        ))
->>>>>>> origin/v0.5.1/add-align-mode
 
         # Final model and results
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
@@ -375,11 +344,7 @@ def print_status(config_env_vars, seed, do_clear=False):
     # print
     if do_clear:
         os.system('clear')
-<<<<<<< HEAD
     if corrupted_checkpoints and warnings:
-=======
-    if corrupted_checkpoints:
->>>>>>> origin/v0.5.1/add-align-mode
         print()
         print(f"\033[91mWARNING: Small checkpoints, corrupted?\033[0m")
         for ch in corrupted_checkpoints:
@@ -949,24 +914,14 @@ def final_remove(seed, config_env_vars):
         not os.path.islink(target_best)
         or not os.path.isfile(os.path.realpath(target_best))
     ):
-<<<<<<< HEAD
         print(f'Can not --final-remove, missing {target_best}')
         return
-=======
-        print('Can not --final-remove, missing {target_best}')
-        exit(1)
->>>>>>> origin/v0.5.1/add-align-mode
     else:
         best_metric_checkpoint = os.path.realpath(target_best)
         best_metric_checkpoint_link = target_best
     if not os.path.isfile(os.path.realpath(dec_checkpoint)):
-<<<<<<< HEAD
         print('Can not --final-remove, missing {dec_checkpoint}')
         return
-=======
-        print(f'Can not --final-remove, missing {dec_checkpoint}')
-        exit(1)
->>>>>>> origin/v0.5.1/add-align-mode
     else:
         dec_checkpoint = os.path.realpath(dec_checkpoint)
 

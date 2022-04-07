@@ -63,14 +63,14 @@ if __name__ == '__main__':
         import torch_scatter
         print("pytorch-scatter installed")
     except ImportError:
-        print("pytorch-scatter not installed")
+        print("\033[93mpytorch-scatter not installed\033[0m")
         passed = False
 
     try:
         import torch_scatter.scatter_cuda
         print("torch_scatter.scatter_cuda works")
     except ImportError:
-        print("maybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies")
+        print("\033[93mmaybe LD_LIBRARY_PATH unconfigured?, import torch_scatter.scatter_cuda dies\033[0m")
         passed = False
 
     # fairseq
@@ -78,11 +78,11 @@ if __name__ == '__main__':
         import fairseq
         print("fairseq works")
     except ImportError:
-        print("fairseq installation failed")
+        print("\033[93mfairseq installation failed\033[0m")
         passed = False
 
     # If we get here we passed
     if passed:
         print(f'[\033[92mOK\033[0m] correctly installed\n')
     else:
-        print(f'[\033[91mFAILED\033[0m] installing\n')
+        print(f'[\033[91mFAILED\033[0m] some modules missing\n')
