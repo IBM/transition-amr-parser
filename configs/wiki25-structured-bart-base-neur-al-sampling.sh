@@ -59,9 +59,9 @@ WIKI_TEST=""
 
 # Number of alignment samples used
 NUM_ALIGNMENT_SAMPLES=5
+ALIGNMENT_FLAGS="--sample-alignments $NUM_ALIGNMENT_SAMPLES --rescale-align"
 # Use importance weighted
-IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-weighted-align --importance-weighted-temp 1 --alignment-sampling-temp 1"
-RESCALE_ALIGN="--rescale-align"
+IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
 # oracle action sequences
 ORACLE_TAG=o10_act-states-${NUM_ALIGNMENT_SAMPLES}sample_a

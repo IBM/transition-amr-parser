@@ -10,6 +10,8 @@ install_requires = [
     'fairseq==0.10.2',
     'packaging',
     'requests',
+    # for data (ELMO embeddings)
+    'h5py',
     # for scoring
     'penman',
     'smatch==1.0.4',

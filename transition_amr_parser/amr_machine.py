@@ -11,12 +11,12 @@ from tqdm import tqdm
 import numpy as np
 from transition_amr_parser.io import (
     AMR,
-    read_amr,
+    read_amr2,
     read_tokenized_sentences,
     write_tokenized_sentences,
     read_neural_alignments
 )
-from transition_amr_parser.amr_aligner import get_ner_ids
+# from transition_amr_parser.amr_aligner import get_ner_ids
 from transition_amr_parser.gold_subgraph_align import (
     AlignModeTracker, check_gold_alignment
 )
@@ -148,8 +148,10 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     # for idx, node_id in enumerate(alignment_probs['node_short_id']):
     align_info = dict(node_idx=[], token_idx=[], p=[])
 
-    # This is because numpy casts as float64 anyway. See: https://github.com/numpy/numpy/issues/8317
-    token_posterior2 = token_posterior2.astype(np.float64) / token_posterior2.astype(np.float64).sum(-1, keepdims=True)
+    # This is because numpy casts as float64 anyway. See:
+    # https://github.com/numpy/numpy/issues/8317
+    token_posterior2 = token_posterior2.astype(np.float64) \
+        / token_posterior2.astype(np.float64).sum(-1, keepdims=True)
     for idx, node_id in enumerate(gold_amr.alignments.keys()):
         alignment = np.random.multinomial(1, token_posterior2[idx, :]).argmax()
         gold_amr.alignments[node_id] = [alignment]
@@ -204,6 +206,7 @@ class AMROracle():
         self.gold_amr, self.unaligned_nodes = graph_vicinity_align(gold_amr)
 
         if self.force_align_ner:
+            raise NotImplementedError()
             # align parents in NERs to first child
             for ner in get_ner_ids(gold_amr):
                 child_id = ner['children_ids'][0][0]
@@ -249,7 +252,8 @@ class AMROracle():
             new_edges_for_node = []
             for (_, idx) in edges:
                 new_edges_for_node.append(
-                self.pend_edges_by_node[node_id][idx])
+                    self.pend_edges_by_node[node_id][idx]
+                )
             self.pend_edges_by_node[node_id] = new_edges_for_node
 
         # Will store gold_amr.nodes.keys() and edges as we predict them
@@ -504,7 +508,8 @@ class AMRStateMachine():
         with open(config_path) as fid:
             config = json.loads(fid.read())
         # remove state
-        del config['state']
+        if 'state' in config:
+            del config['state']
         return cls(**config)
 
     def save(self, config_path, state=False):
@@ -900,6 +905,9 @@ class AMRStateMachine():
                     node_map=node_map,
                     metadata=metadata
                 )
+
+        elif jamr:
+            return self.get_amr().to_jamr()
 
         else:
             return self.get_amr().to_penman()

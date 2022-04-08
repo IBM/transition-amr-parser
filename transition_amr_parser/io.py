@@ -318,6 +318,10 @@ def read_blocks(file_path, return_tqdm=True):
 
 
 def read_amr2(file_path, ibm_format=False, tokenize=False):
+
+    # FIXME: WIP purge old read_amr
+    return read_amr(file_path, ibm_format=ibm_format, generate=False)
+
     with open(file_path) as fid:
         raw_amr = []
         raw_amrs = []

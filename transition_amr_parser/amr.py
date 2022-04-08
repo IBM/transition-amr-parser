@@ -879,9 +879,13 @@ def legacy_graph_printer(metadata, nodes, root, edges):
         ):
             # NE Elements
             quoted_nodes.append(trg)
-        elif any(s in nodes[trg] for s in must_scape_symbols):
+
+    # scape all node names with must-scape symbols
+    for nid, nname in nodes.items():
+        if any(s in nname for s in must_scape_symbols):
             # Special symbols
-            quoted_nodes.append(trg)
+            quoted_nodes.append(nid)
+
     # Add quotes to those
     for nid in quoted_nodes:
         if '"' not in nodes[nid]:

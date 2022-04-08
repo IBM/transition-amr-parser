@@ -45,9 +45,9 @@ To install clone and pip install
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
-git checkout <branch>    # for e.g. action-pointer, ignore for current version
-. set_environment.sh     # see above
-pip install .            # use --editable if to modify code
+git checkout <branch>     # for e.g. action-pointer, ignore for current version
+. set_environment.sh      # see above
+pip install --editable .  
 pip install torch-scatter==1.3.2
 ```
 
