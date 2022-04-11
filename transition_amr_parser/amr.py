@@ -92,7 +92,9 @@ class AMR():
                     if 'multi-sentence' == self.nodes[nid]:
                         self.root = nid
                         break
-            else:
+            elif heads:
+                # FIXME: this need for an if signals degenerate cases not being
+                # captured
                 # heuristic to find a root if missing
                 # simple criteria, head with more children is the root
                 self.root = sorted(
@@ -101,7 +103,9 @@ class AMR():
 
         if len(heads) > 1:
             # add rel edges from detached subgraphs to the root
-            heads.remove(self.root)
+            if self.root in heads:
+                # FIXME: this should not be happening
+                heads.remove(self.root)
             for n in heads:
                 self.edges.append((self.root, AMR.default_rel, n))
 
@@ -635,7 +639,6 @@ def get_jamr_metadata(tokens, nodes, edges, root, alignments, penman=False):
     root        str/int
     alignments  dict(str/int: str)
     """
-    assert root is not None, "Graph must be complete"
     output = ''
     output += '# ::tok ' + (' '.join(tokens)) + '\n'
     for n in nodes:
@@ -654,8 +657,11 @@ def get_jamr_metadata(tokens, nodes, edges, root, alignments, penman=False):
         nodes_str = nodes[n] if n in nodes else "None"
         output += f'# ::node\t{n}\t{nodes_str}' + alignment + '\n'
     # root
-    roots = nodes[root] if root in nodes else "None"
-    output += f'# ::root\t{root}\t{roots}\n'
+    if root is not None:
+        # FIXME: This is allowed to complete the printing, but this graph is
+        # already invalid.
+        roots = nodes[root] if root in nodes else "None"
+        output += f'# ::root\t{root}\t{roots}\n'
     # edges
     for s, r, t in edges:
         r = r.replace(':', '')
@@ -855,6 +861,10 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     '''
     Legacy printer from stack-LSTM, stack-Transformer and action-pointer
     '''
+
+    if root is None:
+        # FIXME: This is to catch the if root is None: of get_jamr_metadata
+        return '(a / amr-empty)\n\n'
 
     # These symbols can not be used directly for nodes
     must_scape_symbols = [':', '/', '(', ')']
