@@ -380,8 +380,8 @@ class AMRParser:
         assert self.args.nbest == 1, 'Currently we only support outputing the top predictions'
 
         # FIXME: Temporary sanity check
-        if not all(s.tokens == h[0]['state_machine'].tokens for s, h in zip(sample['gold_amr'], hypos)):
-            set_trace(context=30)
+        # if not all(s.tokens == h[0]['state_machine'].tokens for s, h in zip(sample['gold_amr'], hypos)):
+        #    set_trace(context=30)
 
         predictions = []
         #print("sample: ", sample)
