@@ -239,8 +239,17 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         assert args.target_lang == 'actions', 'target extension must be "actions"'
         args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
         args.target_lang_pos = 'actions_pos'
-        src_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.source_lang)))
-        tgt_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.target_lang_nopos)))
+
+        # FIXME: This is still not robust
+        if bool(args.save_dir):
+            # standalone mode
+            dict_path = args.save_dir
+        else:
+            # training mode
+            dict_path = paths[0]
+
+        src_dict = cls.load_dictionary(os.path.join(dict_path, 'dict.{}.txt'.format(args.source_lang)))
+        tgt_dict = cls.load_dictionary(os.path.join(dict_path, 'dict.{}.txt'.format(args.target_lang_nopos)))
         # TODO target dictionary 'actions_nopos' is hard coded now; change it later
         assert src_dict.pad() == tgt_dict.pad()
         assert src_dict.eos() == tgt_dict.eos()
