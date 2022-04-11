@@ -169,6 +169,7 @@ def read_results(seed_folder, eval_metric, target_epochs, warnings=True):
 
     # Warn about faulty scores
     if faulty_scores and warnings:
+        set_trace(context=30)
         print(f'\033[93mWARNING: empty {eval_metric} file(s)\033[0m')
         for faulty in faulty_scores:
             print(faulty)
@@ -522,11 +523,7 @@ def average_results(results, fields, average_fields, ignore_fields,
             if field in average_fields:
                 samples = [r[field] for r in sresults if r[field] is not None]
                 if samples:
-                    try:
-                        average_result[field] = np.mean(samples)
-                    except:
-                        set_trace(context=30)
-                        print()
+                    average_result[field] = np.mean(samples)
                     # Add standard deviation
                     average_result[f'{field}-std'] = np.std(samples)
                 else:
@@ -816,13 +813,22 @@ def ordered_exit(signum, frame):
 def link_remove(args, seed, config_env_vars, checkpoints=None,
                 target_epochs=None):
 
+    # in script usage mode we cant have stdout
+    warnings = True
+    if (
+        bool(args.list_checkpoints_ready_to_eval) or
+        bool(args.list_checkpoints_to_eval)
+    ):
+        warnings = False
+
     # List checkpoints that need to be evaluated to complete training. If
     # ready=True list only those checkpoints that exist already
     if checkpoints is None:
         checkpoints, target_epochs, _ = get_checkpoints_to_eval(
             config_env_vars,
             seed,
-            ready=bool(args.list_checkpoints_ready_to_eval)
+            ready=bool(args.list_checkpoints_ready_to_eval),
+            warnings=warnings
         )
 
     # get checkpoints that still need to be created, those scored and those
@@ -866,7 +872,8 @@ def wait_checkpoint_ready_to_eval(args):
                 get_checkpoints_to_eval(
                     config_env_vars,
                     seed,
-                    ready=True
+                    ready=True,
+                    warnings=False
                  )
 
             # sanity check: we did not delete checkpoints without testing them
@@ -992,7 +999,7 @@ def main(args):
         # ready=True list only those checkpoints that exist already
         assert args.seed, "Requires --seed"
         config_env_vars = read_config_variables(args.config)
-        checkpoints, targEt_epochs, _ = get_checkpoints_to_eval(
+        checkpoints, target_epochs, _ = get_checkpoints_to_eval(
             config_env_vars,
             args.seed,
             ready=bool(args.list_checkpoints_ready_to_eval),
