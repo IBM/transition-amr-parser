@@ -11,20 +11,28 @@ from datetime import timedelta
 from ipdb import set_trace
 from tqdm import tqdm
 import torch
-from fairseq import checkpoint_utils, utils, progress_bar
+from fairseq import checkpoint_utils, utils
 from fairseq.tokenizer import tokenize_line
 from fairseq.models.bart import BARTModel
 
-from fairseq_ext import options    # this is key to recognizing the customized arguments
-from fairseq_ext.extract_bart.sentence_encoding import SentenceEncodingBART #new
-from fairseq_ext.extract_bart.binarize_encodings import get_scatter_indices #new
+from fairseq_ext import options
+from fairseq_ext.extract_bart.sentence_encoding import SentenceEncodingBART
+from fairseq_ext.extract_bart.binarize_encodings import get_scatter_indices
 from fairseq_ext.data.amr_action_pointer_dataset import collate
-# OR (same results) from fairseq_ext.data.amr_action_pointer_graphmp_dataset import collate
-from transition_amr_parser.amr_machine import AMRStateMachine
-#from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
-from transition_amr_parser.io import read_config_variables, read_tokenized_sentences, read_amr
-from fairseq_ext.utils import post_process_action_pointer_prediction, post_process_action_pointer_prediction_bartsv, clean_pointer_arcs
+from transition_amr_parser.io import (
+    read_config_variables,
+    read_tokenized_sentences,
+    read_amr
+)
+from fairseq_ext.utils import (
+    post_process_action_pointer_prediction,
+    post_process_action_pointer_prediction_bartsv,
+    clean_pointer_arcs
+)
 from fairseq_ext.utils_import import import_user_module
+from transition_amr_parser.io import protected_tokenizer
+from transition_amr_parser.amr import normalize
+
 
 def argument_parsing():
 
@@ -41,6 +49,11 @@ def argument_parsing():
         '--in-amr',
         type=str,
         help='AMR in Penman format to align'
+    )
+    parser.add_argument(
+        '--tokenize',
+        action='store_true',
+        help='Tokenize with a jamr-like tokenizer input sentences or AMR'
     )
     parser.add_argument(
         '--service',
@@ -65,7 +78,7 @@ def argument_parsing():
     )
     parser.add_argument(
         '--roberta-cache-path',
-	type=str,
+        type=str,
         help='Path to the pretrained BART LM'
     )
     parser.add_argument(
@@ -140,7 +153,8 @@ def load_models_and_task(args, use_cuda, task=None):
 
 def load_args_from_config(config_path):
     """Load args from bash configuration scripts"""
-    # TODO there might be better ways; e.g. source the bash script in python and use $BERT_LAYERS directly
+    # TODO there might be better ways; e.g. source the bash script in python
+    # and use $BERT_LAYERS directly
     config_dict = {}
     with open(config_path, 'r') as f:
         for line in f:
@@ -148,7 +162,8 @@ def load_args_from_config(config_path):
                 if not line.startswith('#') and '=' in line:
                     kv = line.strip().split('#')[0].strip().split('=')
                     assert len(kv) == 2
-                    config_dict[kv[0]] = kv[1].replace('"', '')    # remove the " in bach args
+                    # remove the " in bach args
+                    config_dict[kv[0]] = kv[1].replace('"', '')
     return config_dict
 
 
@@ -312,8 +327,12 @@ class AMRParser:
     def get_bart_features(self, sentences):
         bart_data = []
         for sent in sentences:
-            wordpieces_roberta, word2piece = self.embeddings.encode_sentence(sent)
-            wordpieces_scattered_indices = get_scatter_indices(word2piece,reverse=True)
+            wordpieces_roberta, word2piece = \
+                self.embeddings.encode_sentence(sent)
+            wordpieces_scattered_indices = get_scatter_indices(
+                word2piece,
+                reverse=True
+            )
             bart_data.append((
                 copy.deepcopy(wordpieces_roberta),
                 copy.deepcopy(wordpieces_scattered_indices)
@@ -489,6 +508,32 @@ def breakpoint_inspector(machine):
     set_trace()
 
 
+def sanity_check_vocabulary_for_alignment(tokens, gold_amrs, tgt_dict):
+
+    for index, amr in enumerate(gold_amrs):
+        # if its not in output vocabulary or it can not be copied
+        for nname in amr.nodes.values():
+            nname = normalize(nname)
+            if (
+                tgt_dict.index(nname) == tgt_dict.unk()
+                and nname not in tokens[index]
+            ):
+                raise Exception(
+                    f'{amr}Has node {nname}, not in vocabulary'
+                )
+
+        # if an action with this name is missing
+        for (_, edge_label, _)in amr.nodes.values():
+            if tgt_dict.index(f'>LA{edge_label}') == tgt_dict.unk():
+                raise Exception(
+                    f'{amr}Has left-arc for edge {edge_label}, in vocabulary'
+                )
+            elif tgt_dict.index(f'>RA{edge_label}') == tgt_dict.unk():
+                raise Exception(
+                    f'{amr}Has right-arc for edge {edge_label}, in vocabulary'
+                )
+
+
 def main():
 
     # argument handling
@@ -524,8 +569,15 @@ def main():
             os.system('clear')
             if not sentence.strip():
                 continue
+
+            if args.tokenize:
+                # jamr-like tokenization
+                tokens = [protected_tokenizer(sentence)[0]]
+            else:
+                tokens = [sentence.split()],
+
             result = parser.parse_sentences(
-                [sentence.split()],
+                tokens,
                 batch_size=args.batch_size,
                 roberta_batch_size=args.roberta_batch_size,
             )
@@ -538,12 +590,32 @@ def main():
 
         if args.in_amr:
             gold_amrs = read_amr(args.in_amr)
-            tokenized_sentences = [amr.tokens for amr in gold_amrs]
+            if args.tokenize:
+                # jamr-like tokenization
+                assert all(amr.sentence is not None for amr in gold_amrs)
+                tokenized_sentences = [
+                    protected_tokenizer(amr.sentence)[0]
+                    for amr in gold_amrs
+                ]
+            else:
+                tokenized_sentences = [amr.tokens for amr in gold_amrs]
+
+            # sanity check all node names in vocabulary
+            sanity_check_vocabulary_for_alignment(
+                tokenized_sentences, gold_amrs, parser.tgt_dict
+            )
+
         else:
             gold_amrs = None
             tokenized_sentences = read_tokenized_sentences(
                 args.in_tokenized_sentences
             )
+            if args.tokenize:
+                # jamr-like tokenization
+                tokenized_sentences = [
+                    protected_tokenizer(sentence)[0]
+                    for sentence in tokenized_sentences
+                ]
 
         # Parse sentences
         result = parser.parse_sentences(
