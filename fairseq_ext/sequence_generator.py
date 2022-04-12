@@ -579,12 +579,9 @@ class SequenceGenerator(object):
                         # in align mode, there can not be <unk>
                         unk_set = set([self.tgt_dict.index('<unk>')])
                         unk_actions_str = ' '.join(act_allowed)
-                        if not bool(vocab_ids_allowed -  unk_set):
-                            set_trace(context=30)
                         assert bool(vocab_ids_allowed -  unk_set), \
-                            f'all of "{unk_actions_str}" are <unk>: you can' \
-                            ' not use align mode enforcing actions not in ' \
-                            'the vocabulary'
+                            f'action(s) "{unk_actions_str}" not in vocabulary' \
+                            ' align mode needs all actions in vocabualry'
 
                     # TODO update below
                     # use predicate rules to further restrict the action space for PRED actions
@@ -1027,14 +1024,17 @@ class SequenceGenerator(object):
 
             valid_bbsz_mask = active_mask_selected.lt(cand_size)    # size (bsz, beam_size)
             if not valid_bbsz_mask.any(dim=1).all():
+                # if we are in align model, locate the first infringing machine
                 if any(bool(m.gold_amr) for m in amr_state_machines):
-                    all_valid_actions = ' '.join([a for m in amr_state_machines for a in m.get_valid_actions()])
-                    set_trace(context=30)
-                    raise Exception(
-                        'there must be remaining valid candidates for each sentence in batch\n'
-                        'Maybe trying to align a node name not in vocabulary?, \n'
-                        f'check: {all_valid_actions}'
-                    )
+                    for i, m in enumerate(amr_state_machines):
+                        if not valid_bbsz_mask[i].item():
+                            all_valid_actions = m.get_valid_actions()
+                            raise Exception(
+                                'there must be remaining valid candidates '
+                                'for each sentence in batch.' 'Maybe trying to'
+                                ' align a node name not in vocabulary?, \n'
+                                f'check: {all_valid_actions}'
+                            )
                 else:
                     raise Exception('there must be remaining valid candidates for each sentence in batch')
             valid_bbsz_mask = valid_bbsz_mask.view(-1)    # size (bsz x beam_size,)
