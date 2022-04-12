@@ -523,14 +523,13 @@ def sanity_check_vocabulary_for_alignment(tokens, gold_amrs, tgt_dict):
                 )
 
         # if an action with this name is missing
-        for (_, edge_label, _)in amr.nodes.values():
-            if tgt_dict.index(f'>LA{edge_label}') == tgt_dict.unk():
+        for (_, edge_label, _) in amr.edges:
+            if (
+                tgt_dict.index(f'>LA({edge_label})') == tgt_dict.unk()
+                and tgt_dict.index(f'>RA({edge_label})') == tgt_dict.unk()
+            ):
                 raise Exception(
                     f'{amr}Has left-arc for edge {edge_label}, in vocabulary'
-                )
-            elif tgt_dict.index(f'>RA{edge_label}') == tgt_dict.unk():
-                raise Exception(
-                    f'{amr}Has right-arc for edge {edge_label}, in vocabulary'
                 )
 
 
