@@ -241,7 +241,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         args.target_lang_pos = 'actions_pos'
 
         # FIXME: This is still not robust
-        if bool(args.save_dir):
+        if hasattr(args, 'save_dir'):
             # standalone mode
             dict_path = args.save_dir
         else:
