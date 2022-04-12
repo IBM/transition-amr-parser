@@ -349,7 +349,7 @@ def read_blocks(file_path, return_tqdm=True):
     if return_tqdm:
         return tqdm(blocks)
     else:
-        return tqdm(blocks)
+        return blocks
 
 
 def read_amr2(file_path, ibm_format=False, tokenize=False):
