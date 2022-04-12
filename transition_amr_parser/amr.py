@@ -51,9 +51,9 @@ class AMR():
                  alignments=None, sentence=None, clean=True, connect=False,
                  id=None):
 
-        # make graph un editable
-        self.sentence = str(sentence)
-        self.tokens = list(tokens)
+        # make graph uneditable
+        self.sentence = str(sentence) if sentence is not None else None
+        self.tokens = list(tokens) if tokens is not None else None
         self.nodes = dict(nodes)
         self.edges = list(edges)
         self.penman = penman
