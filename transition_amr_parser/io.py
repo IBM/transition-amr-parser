@@ -267,6 +267,41 @@ def jamr_like_tokenizer(sentence_string, sep_re):
     return tokens, positions
 
 
+def simple_tokenizer(sentence_string, separator_re):
+
+    tokens = []
+    positions = []
+    start = 0
+    for point in separator_re.finditer(sentence_string):
+
+        end = point.start()
+        token = sentence_string[start:end]
+        separator = sentence_string[end:point.end()]
+
+        # Add token if not empty
+        if token.strip():
+            tokens.append(token)
+            positions.append((start, end))
+
+        # Add separator
+        if separator.strip():
+            tokens.append(separator)
+            positions.append((end, point.end()))
+
+        # move cursor
+        start = point.end()
+
+    # Termination
+    end = len(sentence_string)
+    if start < end:
+        token = sentence_string[start:end]
+        if token.strip():
+            tokens.append(token)
+            positions.append((start, end))
+
+    return tokens, positions
+
+
 def generate_blocks(file_path, bar=True, desc=None):
     '''
     Reads text file, returns chunks separated by empty line
