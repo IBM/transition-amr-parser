@@ -93,7 +93,12 @@ def argument_parser():
     )
     parser.add_argument(
         "--final-remove",
-        help="Remove all but final checkpoint, also features",
+        help="Remove all but final checkpoint",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--remove-features",
+        help="Remove features",
         action='store_true'
     )
     parser.add_argument(
@@ -169,7 +174,6 @@ def read_results(seed_folder, eval_metric, target_epochs, warnings=True):
 
     # Warn about faulty scores
     if faulty_scores and warnings:
-        set_trace(context=30)
         print(f'\033[93mWARNING: empty {eval_metric} file(s)\033[0m')
         for faulty in faulty_scores:
             print(faulty)
@@ -917,15 +921,20 @@ def final_remove(seed, config_env_vars):
     target_best = f'{seed_folder}/checkpoint_{eval_metric}_best1.pt'
 
     # check the final models exist
-    if (
-        not os.path.islink(target_best)
-        or not os.path.isfile(os.path.realpath(target_best))
-    ):
-        print(f'Can not --final-remove, missing {target_best}')
-        return
-    else:
-        best_metric_checkpoint = os.path.realpath(target_best)
-        best_metric_checkpoint_link = target_best
+    # if (
+    #     not os.path.islink(target_best)
+    #     or not os.path.isfile(os.path.realpath(target_best))
+    # ):
+    #     print(f'Can not --final-remove, missing {target_best}')
+    #     return
+    # else:
+    #     best_metric_checkpoint = os.path.realpath(target_best)
+    #     best_metric_checkpoint_link = target_best
+
+    do_not_remove = [
+        dec_checkpoint, # best_metric_checkpoint, best_metric_checkpoint_link
+    ]
+
     if not os.path.isfile(os.path.realpath(dec_checkpoint)):
         print('Can not --final-remove, missing {dec_checkpoint}')
         return
@@ -935,13 +944,13 @@ def final_remove(seed, config_env_vars):
     # remove all other checkpoints
     for checkpoint in glob(f'{seed_folder}/*.pt'):
         if (
-            os.path.realpath(checkpoint) not in [
-                dec_checkpoint, best_metric_checkpoint,
-                best_metric_checkpoint_link
-            ]
+            os.path.realpath(checkpoint) not in do_not_remove
         ):
             print(f'rm {checkpoint}')
             os.remove(checkpoint)
+
+
+def remove_features(config_env_vars):
 
     # also remove features
     feature_folder = config_env_vars['DATA_FOLDER']
@@ -977,6 +986,12 @@ def main(args):
         for seed in seeds:
             link_remove(args, seed, config_env_vars)
             final_remove(seed, config_env_vars)
+
+    elif args.remove_features:
+
+        assert args.config, "Needs config"
+
+        remove_features(read_config_variables(args.config))
 
     elif args.results or args.long_results:
 
