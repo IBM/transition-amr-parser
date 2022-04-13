@@ -241,7 +241,7 @@ class AMRParser:
         '''
         Initialize model from checkpoint
         '''
-        # ===== load default args: some are dummy =====
+        # load default args: some are dummy
         parser = options.get_interactive_generation_parser()
         default_args = cls.default_args(checkpoint, fp16=fp16)    # model path set here
         args = options.parse_args_and_arch(parser, input_args=default_args)
@@ -255,14 +255,14 @@ class AMRParser:
         print(args)
         # breakpoint()
 
-        # ===== load model (ensemble), further model args, and the fairseq task =====
+        # load model (ensemble), further model args, and the fairseq task
         if dict_dir is not None:
             args.model_overrides = f'{{"data": "{dict_dir}"}}'
             # otherwise, the default dict folder is read from the model args
         use_cuda = torch.cuda.is_available() and not args.cpu
         models, model_args, task = load_models_and_task(args, use_cuda, task=None)
 
-        # ===== load pretrained Roberta model for source embeddings =====
+        # load pretrained Roberta model for source embeddings
         if model_args.pretrained_embed_dim == 768:
             pretrained_embed = 'bart.base'
         elif model_args.pretrained_embed_dim == 1024:

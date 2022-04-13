@@ -56,6 +56,14 @@ else
     exit 1
 fi
 
+# we may have to re-compute features
+if [[ (-f $DATA_FOLDER/.done) && (-f $EMB_FOLDER/.done) ]]; then
+    echo "Using $DATA_FOLDER/"
+else
+    echo "Re-computing features, may take a while"
+    bash run/ab_preprocess.sh $config
+fi
+
 RESULTS_FOLDER=$(dirname $first_path)/beam${beam_size}
 # Generate results_prefix name if not provided
 if [ "$results_prefix" == "" ];then
