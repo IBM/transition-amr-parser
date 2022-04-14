@@ -40,6 +40,51 @@ def normalize(token):
         return token.replace('"', '')
 
 
+def create_valid_amr(tokens, nodes, edges, root, alignments):
+
+    # edges by parent
+    parents = defaultdict(list)
+    for (source, edge_name, target) in edges:
+        parents[source].append((target, edge_name))
+
+    # edges by child
+    children = defaultdict(list)
+    for (source, edge_name, target) in edges:
+        children[target].append((source, edge_name))
+
+    # locate all heads of the entire graph (there should be only one)
+    heads = [n for n in nodes if len(parents[n]) == 0]
+
+    # heuristics to find the root
+    if root is None:
+        if len(heads) == 1:
+            root = heads[0]
+        elif 'multi-sentence' in nodes.values():
+            for nid in heads:
+                if 'multi-sentence' == nodes[nid]:
+                    root = nid
+                    break
+        elif heads:
+            # FIXME: this need for an if signals degenerate cases not being
+            # captured
+            # heuristic to find a root if missing
+            # simple criteria, head with more children is the root
+            root = sorted(
+                heads, key=lambda n: len(children[n])
+            )[-1]
+
+    # heuristics join disconnected graphs
+    if len(heads) > 1:
+        # add rel edges from detached subgraphs to the root
+        if root in heads:
+            # FIXME: this should not be happening
+            heads.remove(root)
+        for n in heads:
+            edges.append((root, AMR.default_rel, n))
+
+    return tokens, nodes, edges, root, alignments
+
+
 class AMR():
 
     # relation used for detached subgraph
@@ -48,8 +93,7 @@ class AMR():
     reserved_amr_chars = [':', '/', '(', ')']
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, sentence=None, clean=True, connect=False,
-                 id=None):
+                 alignments=None, sentence=None, id=None):
 
         # make graph uneditable
         self.sentence = str(sentence) if sentence is not None else None
@@ -60,225 +104,55 @@ class AMR():
         self.alignments = dict(alignments) if alignments else None
         self.id = id
 
-        # edges by parent
-        self.edges_by_parent = defaultdict(list)
-        for (source, edge_name, target) in edges:
-            self.edges_by_parent[source].append((target, edge_name))
-
-        # edges by child
-        self.edges_by_child = defaultdict(list)
-        for (source, edge_name, target) in edges:
-            self.edges_by_child[target].append((source, edge_name))
+        # precompute results for parents() and children()
+        self._cache_key = None
+        self.cache_graph()
 
         # root
         self.root = root
 
-        # do the cleaning when necessary (e.g. build the AMR graph from model
-        # output, which might not be valid)
-        # if clean:
-        # cleaning is needed for oracle for AMR 3.0 training data
-        #    self.clean_amr()
-        # if connect:
-        #    self.connect_graph()
+    def cache_graph(self):
+        '''
+        Precompute edges indexed by parent or child
+        '''
 
-        # locate all heads of the entire graph (there should be only one)
-        heads = [n for n in self.nodes if len(self.parents(n)) == 0]
-        # heuristics to find the root
-        if self.root is None:
-            if len(heads) == 1:
-                self.root = heads[0]
-            elif 'multi-sentence' in self.nodes.values():
-                for nid in heads:
-                    if 'multi-sentence' == self.nodes[nid]:
-                        self.root = nid
-                        break
-            elif heads:
-                # FIXME: this need for an if signals degenerate cases not being
-                # captured
-                # heuristic to find a root if missing
-                # simple criteria, head with more children is the root
-                self.root = sorted(
-                    heads, key=lambda n: len(self.children(n))
-                )[-1]
+        # If the cache has not changed, no need to recompute
+        if self._cache_key == tuple(self.edges):
+            return
 
-        if len(heads) > 1:
-            # add rel edges from detached subgraphs to the root
-            if self.root in heads:
-                # FIXME: this should not be happening
-                heads.remove(self.root)
-            for n in heads:
-                self.edges.append((self.root, AMR.default_rel, n))
-
-        # redo edges
         # edges by parent
-        self.edges_by_parent = defaultdict(list)
+        self._edges_by_parent = defaultdict(list)
         for (source, edge_name, target) in self.edges:
-            self.edges_by_parent[source].append((target, edge_name))
+            self._edges_by_parent[source].append((target, edge_name))
+        # sort alphabetically by edge i.e. ARG1 before ARG2
+        # TODO: double check if this needed
+        _edges_by_parent2 = {}
+        for parent, children in self._edges_by_parent.items():
+            _edges_by_parent2[parent] = \
+                sorted(children, key=lambda c: c[1])[::-1]
+        self._edges_by_parent = _edges_by_parent2
 
         # edges by child
-        self.edges_by_child = defaultdict(list)
+        self._edges_by_child = defaultdict(list)
         for (source, edge_name, target) in self.edges:
-            self.edges_by_child[target].append((source, edge_name))
+            self._edges_by_child[target].append((source, edge_name))
 
-    def clean_amr(self):
-        # empty graph
-        if not self.nodes:
-            # breakpoint()
-            # randomly add a single node
-            for tok in self.tokens:
-                if tok not in [
-                    '(', ')', ':', '"', "'", '/', '\\', '.', '?', '!', ',', ';'
-                ]:
-                    self.nodes[0] = tok
-                    break
-            if not self.nodes:
-                self.nodes[0] = 'amr-empty'
+        # store a key to know when to recompute
+        self._cache_key == tuple(self.edges)
 
-            self.root = 0
-
-        # clean concepts
-        for n in self.nodes:
-            if self.nodes[n] in ['.', '?', '!', ',', ';', '"', "'"]:
-                self.nodes[n] = 'PUNCT'
-            if self.nodes[n].startswith('"') and self.nodes[n].endswith('"'):
-                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
-            if not (
-                self.nodes[n].startswith('"') and self.nodes[n].endswith('"')
-            ):
-                for ch in ['/', ':', '(', ')', '\\']:
-                    if ch in self.nodes[n]:
-                        self.nodes[n] = self.nodes[n].replace(ch, '-')
-            if not self.nodes[n]:
-                self.nodes[n] = 'None'
-            if ',' in self.nodes[n]:
-                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
-            if not self.nodes[n][0].isalpha() and not self.nodes[n][0].isdigit(
-            ) and not self.nodes[n][0] in ['-', '+']:
-                self.nodes[n] = '"' + self.nodes[n].replace('"', '') + '"'
-
-        # clean edges
-        for j, e in enumerate(self.edges):
-            s, r, t = e
-            if not r.startswith(':'):
-                r = ':' + r
-            e = (s, r, t)
-            self.edges[j] = e
-
-        # handle missing nodes (this shouldn't happen but a bad sequence of
-        # actions can produce it)
-        for s, r, t in self.edges:
-            if s not in self.nodes:
-                # breakpoint()
-                self.nodes[s] = 'NA'
-            if t not in self.nodes:
-                # breakpoint()
-                self.nodes[t] = 'NA'
-
-    def connect_graph(self):
-        assigned_root = None
-
-        # this deals with the special structure where a dummy root node is
-        # marked with id -1, i.e. self.nodes[-1] = 'root' (legacy; should not
-        # be the case for oracle 10) here we remove the dummy root node to have
-        # a uniform representation of the graph attributes
-        root_edges = []
-        if -1 in self.nodes:
-            del self.nodes[-1]
-
-        for s, r, t in self.edges:
-            if s == -1 and r == "root":
-                assigned_root = t
-            if s == -1 or t == -1:
-                root_edges.append((s, r, t))
-        for e in root_edges:
-            self.edges.remove(e)
-        #
-
-        assert self.nodes, 'the graph should not be empty'
-
-        assigned_root = self.root
-
-        # find all the descendants for each node
-        descendents = {n: {n} for n in self.nodes}
-
-        for x, r, y in self.edges:
-            descendents[x].update(descendents[y])
-            for n in descendents:
-                if x in descendents[n]:
-                    descendents[n].update(descendents[x])
-
-        # all the ascendants for each node (including the node itself)
-        ascendants = {n: {n} for n in self.nodes}
-        for p, ds in descendents.items():
-            for x in ds:
-                ascendants[x].add(p)
-
-        # remove nodes that should not be potential root
-        # - nodes with a parent (OR any ascendant)  && the parent/ascendant is
-        #   not a descendant of the node (cycling case, not strictly a DAG, but
-        #   this appears in AMR)
-        # - nodes with no children
-
-        potential_roots = [n for n in self.nodes]
-
-        for n in potential_roots.copy():
-            for p, ds in descendents.items():
-                if n in ds and p not in descendents[n]:
-                    potential_roots.remove(n)
-                    break
-            else:
-                # above case not found
-                if len(descendents[n]) == 1:
-                    # only one descendent is itself, i.e. no children
-                    potential_roots.remove(n)
-
-        # assign root (give priority to "multi-sentence" (although it could be
-        # non-root) or assigned_root)
-        if potential_roots:
-            # # pick the root with most descendents
-            # potential_roots_nds = [len(descendents[r]) for r in
-            # potential_roots]
-            # self.root = max(zip(potential_roots, potential_roots_nds),
-            # key=lambda x: x[1])[0]
-            # # pick the root with bias towards earlier nodes
-            self.root = potential_roots[0]
-            for n in potential_roots:
-                if self.nodes[n] == 'multi-sentence' or n == assigned_root:
-                    self.root = n
+    def parents(self, node_id, edges=True):
+        self.cache_graph()
+        arcs = self._edges_by_child.get(node_id, [])
+        if edges:
+            return arcs
         else:
-            self.root = max(
-                self.nodes.keys(),
-                key=lambda x: len([e for e in self.edges if e[0] == x])
-                - len([e for e in self.edges if e[2] == x])
-            )
+            return [a[0] for a in arcs]
 
-        # connect graph
-        # find disconnected nodes: only those disconnected roots of subgraphs
-        disconnected = []
-
-        for n in self.nodes:
-            if self.root in ascendants[n]:
-                # any node reachable by the root -> not disconnected
-                continue
-
-            if len(ascendants[n]) == 1:
-                # only ascendant is itself, i.e. no parent
-                disconnected.append(n)
-            else:
-                for p in ascendants[n]:
-                    if p not in descendents[n]:
-                        # there is any parent that is not in a cycle -> don't
-                        # add (not a root of any subgraph)
-                        break
-                else:
-                    # all the parents are current node's children: cycle ->
-                    # only add if no node in cycle already added
-                    if not any([m in ascendants[n] for m in disconnected]):
-                        disconnected.append(n)
-
-        if len(disconnected) > 0:
-            for n in disconnected:
-                self.edges.append((self.root, AMR.default_rel, n))
+    def children(self, node_id, edges=True):
+        self.cache_graph()
+        arcs = self._edges_by_parent.get(node_id, [])
+        if edges:
+            return arcs
 
     @classmethod
     def from_penman(cls, penman_text, tokenize=False):
@@ -316,8 +190,7 @@ class AMR():
             del graph.metadata[key]
 
         return cls(tokens, nodes, edges, graph.top, penman=graph,
-                   alignments=alignments, sentence=sentence, clean=True,
-                   connect=False, id=graph_id)
+                   alignments=alignments, sentence=sentence, id=graph_id)
 
     @classmethod
     def from_metadata(cls, penman_text):
@@ -391,8 +264,7 @@ class AMR():
         edges = new_edges
 
         return cls(tokens, nodes, edges, root, penman=None,
-                   alignments=alignments, sentence=sentence, clean=True,
-                   connect=False, id=graph_id)
+                   alignments=alignments, sentence=sentence, id=graph_id)
 
     def get_jamr_metadata(self, penman=False):
         """
@@ -621,12 +493,6 @@ class AMR():
         return legacy_graph_printer(
             self.get_jamr_metadata(), self.nodes, self.root, self.edges
         )
-
-    def parents(self, node_id):
-        return self.edges_by_child.get(node_id, [])
-
-    def children(self, node_id):
-        return self.edges_by_parent.get(node_id, [])
 
 
 def get_jamr_metadata(tokens, nodes, edges, root, alignments, penman=False):
