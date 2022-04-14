@@ -588,7 +588,11 @@ class Dataset(object):
 
 
 def batchify(items, cuda=False, train=False):
-    device = torch.cuda.current_device() if cuda else None
+
+    if cuda and torch.cuda.is_available():
+        device = torch.cuda.current_device()
+    else:
+        device = None
 
     dtypes = {
         'text_tokens': torch.long,
@@ -1585,7 +1589,7 @@ def main(args):
     if args.load is not None:
         load_checkpoint(args.load, net, opt)
 
-    if args.cuda:
+    if args.cuda and torch.cuda.is_available():
         net.cuda()
 
     # ALTERNATIVE to training. Will exit if triggered.
