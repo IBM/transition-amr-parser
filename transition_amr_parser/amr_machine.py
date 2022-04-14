@@ -20,7 +20,7 @@ from transition_amr_parser.io import (
 from transition_amr_parser.gold_subgraph_align import (
     AlignModeTracker, check_gold_alignment
 )
-from transition_amr_parser.amr import normalize
+from transition_amr_parser.amr import normalize, create_valid_amr
 # TODO: Remove this dependency
 import penman
 from transition_amr_parser.clbar import (
@@ -844,32 +844,28 @@ class AMRStateMachine():
         if self.gold_amr:
             self.align_tracker.update(self)
 
-        # Action for each time-step
-        self.action_history.append(action)
+        # in align mode we can not predict ROOT in situ, but its determined
+        # from alignments when available
+        if self.gold_amr and self.root is None:
 
-    def get_amr(self):
-        return AMR(self.tokens, self.nodes, self.edges, self.root,
-                   alignments=self.alignments, clean=True, connect=True)
+            # map from decoded nodes to gold nodes
+            gold2dec = self.align_tracker.get_flat_map(reverse=True)
 
-    def get_aligned_amr(self):
-
-        # special handling for align mode
-        # TODO: Just alter self.gold_amr.penman alignments for max
-        # compatibility
-
-        # map from decoded nodes to gold nodes
-        gold2dec = self.align_tracker.get_flat_map(reverse=True)
-
-        if self.root is None:
-            # FIXME: This is because ROOT is predicted in-situ and can not
-            # be used in align mode (we do not allways know root in-situ)
-            # this should be fixable with non in-situ root
             if self.gold_amr.root in gold2dec:
                 # this will not work for partial AMRs
                 self.root = gold2dec[self.gold_amr.root]
 
-        return AMR(self.tokens, self.nodes, self.edges, self.root,
-                   alignments=self.alignments, clean=True, connect=True)
+        # Action for each time-step
+        self.action_history.append(action)
+
+    def get_amr(self):
+
+        # ensure AMR is valid
+        tokens, nodes, edges, root, alignments = create_valid_amr(
+            self.tokens, self.nodes, self.edges, self.root, self.alignments
+        )
+
+        return AMR(tokens, nodes, edges, root, alignments=alignments)
 
     def get_annotation(self, node_map=None, jamr=True):
 
@@ -878,7 +874,7 @@ class AMRStateMachine():
 
             # FIXME: deprecate JAMR
             if jamr:
-                amr = self.get_aligned_amr()
+                amr = self.get_amr()
                 node_map = self.align_tracker.get_flat_map(no_list=True)
                 amr.remap_ids(node_map)
                 metadata = amr.get_jamr_metadata(penman=True)
@@ -901,7 +897,7 @@ class AMRStateMachine():
 
                 # Add metadata containing JAMR notation
                 node_map = self.align_tracker.get_flat_map()
-                return self.get_aligned_amr().to_penman(
+                return self.get_amr().to_penman(
                     node_map=node_map,
                     metadata=metadata
                 )
