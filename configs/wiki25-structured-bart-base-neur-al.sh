@@ -57,6 +57,11 @@ WIKI_TEST=""
 # ORACLE
 ##############################################################################
 
+# Number of alignment samples used
+ALIGNMENT_FLAGS=""
+# Use importance weighted
+IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
+
 # oracle action sequences
 ORACLE_TAG=o10_act-states
 
