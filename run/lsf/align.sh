@@ -40,18 +40,16 @@ for split in $split_files;do
 
     echo "bash run/align.sh $checkpoint $split ${split}.amr"
 
-    exit
-
     if [ ! -f "${split}.amr" ];then
 
         jbsub -cores 1+1 -mem 50g -q x86_6h -require v100 \
-              -name $(basename $split) \
-              -out $(dirname $split)%J.stdout \
-              -err $(dirname $split)/%J.stderr \
+              -name $(basename $split)-$$ \
+              -out ${splits_folder}/align-%J-$$.stdout \
+              -err ${splits_folder}/align-%J-$$.stderr \
               /bin/bash run/align.sh $checkpoint $split ${split}.amr
     
     fi
 
     exit
-
+    
 done

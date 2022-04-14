@@ -743,6 +743,7 @@ class AMRStateMachine():
                 # sanity check, we got the exact same AMR
                 check_gold_alignment(
                     self,
+                    trace=False,
                     reject_samples=self.align_tracker.reject_samples
                 )
 
@@ -871,7 +872,7 @@ class AMRStateMachine():
         return AMR(self.tokens, self.nodes, self.edges, self.root,
                    alignments=self.alignments, clean=True, connect=True)
 
-    def get_annotation(self, node_map=None, jamr=True):
+    def get_annotation(self, node_map=None, jamr=False):
 
         # TODO: deprecate JAMR
         if self.gold_amr:

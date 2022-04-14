@@ -144,7 +144,7 @@ def main():
                     # Alignment failed, re-start machine
                     # start the machine in align mode
                     machine.reset(
-                        amr.tokens, gold_amr=amr, 
+                        amr.tokens, gold_amr=amr,
                         reject_align_samples=reject_samples
                     )
                     # optionally start the alignment rules
@@ -154,7 +154,7 @@ def main():
         # sanity check
         if True:
 
-            missing_nodes, missing, excess = match_amrs(machine) 
+            missing_nodes, missing, excess = match_amrs(machine)
 
             if missing_nodes and trace_if_error:
                 print(machine)

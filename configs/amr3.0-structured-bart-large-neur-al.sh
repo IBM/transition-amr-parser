@@ -9,6 +9,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# this will be name of the model folder
+config_name=amr2.0-structured-bart-large-neur-al
+
 ##############################################################################
 # DATA
 ##############################################################################
@@ -157,6 +160,7 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 SEEDS="42 43 44"
+SEEDS="42"
 MAX_EPOCH=120
 EVAL_INIT_EPOCH=71
 time_max_between_epochs=30
@@ -318,7 +322,7 @@ model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
+MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 
 ###############################################################
 # ENTITY LINKING

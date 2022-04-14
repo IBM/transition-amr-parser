@@ -10,4 +10,4 @@ in_amr=$2
 out_amr=$3
 set -o nounset
 
-amr-parse --in-checkpoint $checkpoint --in-amr $in_amr --out-amr $out_amr
+amr-parse --in-checkpoint $checkpoint --in-amr $in_amr --out-amr $out_amr --batch-size 512 --roberta-batch-size 512

@@ -625,7 +625,7 @@ def main():
         )
 
         with open(args.out_amr, 'w') as fid:
-            fid.write(''.join(result[0]))
+            fid.write('\n'.join(result[0]))
 
 
 if __name__ == '__main__':
