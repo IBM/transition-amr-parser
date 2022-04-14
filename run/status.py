@@ -668,9 +668,19 @@ def get_experiment_configs(models_folder, configs, set_seed):
 
     else:
 
+        model_folders = glob(f'{models_folder}/*/*')
+
         # from DATA folder
-        for model_folder in glob(f'{models_folder}/*/*'):
-            for seed_folder in glob(f'{model_folder}/*'):
+        for model_folder in model_folders:
+
+            # check for backwars compatibility, depth two foldler structure
+            if re.match('.*-seed([0-9]+)', model_folder):
+                # set_trace(context=30)
+                seed_folders = [model_folder]
+            else:
+                seed_folders = glob(f'{model_folder}/*')
+
+            for seed_folder in seed_folders:
                 # if config given, identify it by seed
                 if set_seed and f'seed{set_seed}' not in seed_folder:
                     continue
@@ -914,11 +924,11 @@ def final_remove(seed, config_env_vars):
     '''
 
     model_folder = config_env_vars['MODEL_FOLDER']
-    eval_metric = config_env_vars['EVAL_METRIC']
+    # eval_metric = config_env_vars['EVAL_METRIC']
     dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
     seed_folder = f'{model_folder}-seed{seed}'
     dec_checkpoint = f'{seed_folder}/{dec_checkpoint}'
-    target_best = f'{seed_folder}/checkpoint_{eval_metric}_best1.pt'
+    # target_best = f'{seed_folder}/checkpoint_{eval_metric}_best1.pt'
 
     # check the final models exist
     # if (
@@ -932,7 +942,7 @@ def final_remove(seed, config_env_vars):
     #     best_metric_checkpoint_link = target_best
 
     do_not_remove = [
-        dec_checkpoint, # best_metric_checkpoint, best_metric_checkpoint_link
+        dec_checkpoint,  # best_metric_checkpoint, best_metric_checkpoint_link
     ]
 
     if not os.path.isfile(os.path.realpath(dec_checkpoint)):
