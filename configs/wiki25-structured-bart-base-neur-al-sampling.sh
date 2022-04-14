@@ -311,8 +311,6 @@ else
     dec_emb_init_tag=""
 fi
 
-
-
 # combine different model configuration tags to the name
 fp16_tag=""
 if [[ $use_fp16 == 1 ]]; then
