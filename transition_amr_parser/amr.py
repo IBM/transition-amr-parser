@@ -104,6 +104,7 @@ class AMR():
         self.alignments = dict(alignments) if alignments else None
         self.id = id
 
+<<<<<<< HEAD
         # root
         self.root = root
 
@@ -143,14 +144,6 @@ class AMR():
     def parents(self, node_id, edges=True):
         self.cache_graph()
         arcs = self._edges_by_child.get(node_id, [])
-        if edges:
-            return arcs
-        else:
-            return [a[0] for a in arcs]
-
-    def children(self, node_id, edges=True):
-        self.cache_graph()
-        arcs = self._edges_by_parent.get(node_id, [])
         if edges:
             return arcs
         else:
