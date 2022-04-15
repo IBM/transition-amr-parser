@@ -4,8 +4,12 @@
 # FIXME: Variable names messy
 from random import shuffle
 import argparse
-from transition_amr_parser.io import read_amr
-from transition_amr_parser.plots import plot_graph, convert_format
+from transition_amr_parser.io import read_amr, read_endpoint_amr
+from transition_amr_parser.amr_latex import (
+    get_tikz_latex,
+    save_graphs_to_tex,
+)
+from ipdb import set_trace
 
 
 def argument_parser():
@@ -17,6 +21,33 @@ def argument_parser():
         help="AMR 2.0+ annotation file to be splitted",
         type=str,
         required=True
+    )
+    parser.add_argument(
+        "--shuffle",
+        help="randomize input AMRs",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--jamr",
+        help="Read from JAMR annotations",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--out-tex",
+        help="output",
+        type=str,
+        required=True
+    )
+    # latex / tikz variables
+    parser.add_argument("--scale", type=float, default=1.0)
+    parser.add_argument("--x-warp", type=float, default=1.0)
+    parser.add_argument("--y-warp", type=float, default=1.0)
+    #
+    parser.add_argument(
+        "--max-graphs",
+        help="Will stop after plotting this amount",
+        default=100,
+        type=int,
     )
     parser.add_argument(
         "--indices", nargs='+',
@@ -44,87 +75,106 @@ def argument_parser():
     return args
 
 
-def get_example():
+def fix_ner_alignments(amr):
 
-    # fake graph
-    tokens = ["The", "boy", "wants", "to", "go", "to", "New", "York"]
-    #          0        1         2       3       4       5      6
-    nodes = ['boy', 'want-01', 'go-02', 'city', 'name', 'New', 'York']
-    edges = [
-        (1, 'ARG0', 0),
-        (1, 'ARG1', 2),
-        (2, 'ARG0', 0),
-        (2, 'ARG4', 3),
-        (3, 'name', 4),
-        (4, 'op1', 5),
-        (4, 'op2', 6)
-    ]
-    alignments = [[], [0], [1], [], [2], [], [5, 4, 3], [6, 4, 3]]
-    return tokens, nodes, edges, alignments
+    # fix alignments
+    for (src, edge, trg) in amr.edges:
+        if edge == ':name' and amr.nodes[trg] == 'name':
+            ops = sorted(amr.children(trg), key=lambda x: [1])[::-1]
+            if (
+                len(amr.alignments[trg]) > 1
+                and len(amr.alignments[trg]) == len(ops)
+            ):
+                for idx, (nid, _) in enumerate(ops):
+                    amr.alignments[nid] = [amr.alignments[trg][idx]]
+
+    return amr
+
+
+def skip_amr(amr, args):
+    return (
+        args.has_nodes
+        and not set(args.has_nodes) <= set(amr.nodes.values())
+    ) or (
+        args.has_edges
+        and not set(args.has_edges) <= set([x[1][1:] for x in amr.edges])
+    ) or (
+        args.has_repeated_nodes
+        and len(set(amr.nodes.values())) == len(amr.nodes.values())
+    ) or (
+        args.has_repeated_tokens
+        and len(set(amr.tokens)) == len(amr.tokens)
+    )
 
 
 def main(args):
 
-    corpus = read_amr(args.in_amr).amrs
+    # argument handling
+    if args.in_amr.endswith('json'):
+        # assumed JSON from endpoint
+        amrs = read_endpoint_amr(args.in_amr)
+    else:
+        amrs = read_amr(args.in_amr, ibm_format=args.jamr)
+
     print(f'Read {args.in_amr}')
-    num_amrs = len(corpus)
+    num_amrs = len(amrs)
     if args.indices:
         indices = list(map(int, args.indices))
     else:
         indices = list(range(num_amrs))
+    # write into file
+    tex_file = args.out_tex
+    if args.shuffle:
         shuffle(indices)
 
     # get one sample
+    amr_strs = []
     for index in indices:
 
-        amr = corpus[index]
+        amr = amrs[index]
 
-        if 7 > len(amr.tokens) > 10:
-            continue
+        # Fix NER
+        amr = fix_ner_alignments(amr)
 
-        # Get tokens aligned to nodes
-        aligned_tokens = [
-            amr.tokens[i-1]
-            for indices in amr.alignments.values()
-            for i in indices
-        ]
+        # Remove ROOT
+        if amr.tokens[-1] == '<ROOT>':
+            amr.tokens = amr.tokens[:-1]
+
+        if len(amr_strs) >= args.max_graphs:
+            # too many graphs
+            break
 
         # skip amr not meeting criteria
-        if (
-            args.has_nodes
-            and not set(args.has_nodes) <= set(amr.nodes.values())
-        ) or (
-            args.has_edges
-            and not set(args.has_edges) <= set([x[1][1:] for x in amr.edges])
-        ) or (
-            args.has_repeated_nodes
-            and len(set(amr.nodes.values())) == len(amr.nodes.values())
-        ) or (
-            args.has_repeated_tokens
-            and len(set(aligned_tokens)) == len(aligned_tokens)
-        ):
+        if skip_amr(amr, args) or amr.edges == []:
             continue
 
-        # convert IBM AMR format to the one used here
-        # tokens, nodes, edges, alignments = convert_format(amr)
+        src,  _, trg = amr.edges[0]
 
-        print('\n'.join([
-            x
-            for x in amr.toJAMRString().split('\n')
-            if not x.startswith('# ::edge')
-        ]))
-        print(index)
+        # get latex string
+        amr_str = get_tikz_latex(
+            amr,
+            # color_by_id={'a': 'red'},
+            # color_by_id_pair={(src, trg): 'red'},
+            scale=args.scale,
+            x_warp=args.x_warp,
+            y_warp=args.y_warp
+        )
 
         # plot
-        alignments = {k: v[0]-1 for k, v in amr.alignments.items()}
-        plot_graph(amr.tokens, amr.nodes, amr.edges, alignments)
+        amr_strs.append(amr_str)
+
+        # open on the fly
+        save_graphs_to_tex(tex_file, amr_str, plot_cmd='open')
 
         response = input('Quit [N/y]?')
         if response == 'y':
             break
 
+    # write all graphs to a single tex
+    print(f'Wrote {len(amr_strs)} amrs into {tex_file}')
+    save_graphs_to_tex(tex_file, '\n'.join(amr_strs))
+
 
 if __name__ == '__main__':
-
-    # Argument handling
+    # argument handling
     main(argument_parser())

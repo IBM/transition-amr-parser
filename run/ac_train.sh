@@ -44,6 +44,7 @@ else
 
     # Copy variables that we will need for standalone
     cp $DATA_FOLDER/dict.* ${MODEL_FOLDER}-seed${seed}/
+    cp $DATA_FOLDER/actions.vocab.* ${MODEL_FOLDER}-seed${seed}/
 
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then

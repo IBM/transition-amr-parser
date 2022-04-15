@@ -19,7 +19,7 @@ except ImportError as e:
 
 # pip install matplotlib
 from transition_amr_parser.plots import plot_graph
-from transition_amr_parser.io import read_amr2, write_neural_alignments
+from transition_amr_parser.io import read_amr, write_neural_alignments
 from transition_amr_parser.clbar import clbar
 # for debugging
 from ipdb import set_trace

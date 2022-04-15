@@ -104,12 +104,12 @@ class AMR():
         self.alignments = dict(alignments) if alignments else None
         self.id = id
 
+        # root
+        self.root = root
+
         # precompute results for parents() and children()
         self._cache_key = None
         self.cache_graph()
-
-        # root
-        self.root = root
 
     def cache_graph(self):
         '''
@@ -153,9 +153,11 @@ class AMR():
         arcs = self._edges_by_parent.get(node_id, [])
         if edges:
             return arcs
+        else:
+            return [a[0] for a in arcs]
 
     @classmethod
-    def from_penman(cls, penman_text, tokenize=False):
+    def from_penman(cls, penman_text):
         """
         Read AMR from penman notation (will ignore graph data in metadata)
         """
