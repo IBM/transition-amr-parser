@@ -60,7 +60,8 @@ fi
 RESULTS_FOLDER=$(dirname $first_path)/beam${beam_size}
 # Generate results_prefix name if not provided
 if [ "$results_prefix" == "" ];then
-    results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $first_path)
+    #results_prefix=$RESULTS_FOLDER/${data_split}_$(basename $first_path)
+    results_prefix=$RESULTS_FOLDER/${data_split}_ensemble_checkpoint_wiki.smatch_best1
 fi
 echo "Generating ${results_prefix}.actions"
 
@@ -69,6 +70,11 @@ mkdir -p $RESULTS_FOLDER
 # --nbest 3 \
 # --quiet
 LANGS=ar_AR,cs_CZ,de_DE,en_XX,es_XX,et_EE,fi_FI,fr_XX,gu_IN,hi_IN,it_IT,ja_XX,kk_KZ,ko_KR,lt_LT,lv_LV,my_MM,ne_NP,nl_XX,ro_RO,ru_RU,si_LK,tr_TR,vi_VN,zh_CN
+
+#ensemble="DATA/AMR2.0_DE_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed42/checkpoint_wiki.smatch_top3-avg.pt:DATA/AMR2.0_DE_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed43/checkpoint_wiki.smatch_top3-avg.pt:DATA/AMR2.0_DE_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed44/checkpoint_wiki.smatch_top3-avg.pt"
+#ensemble="DATA/AMR2.0_ES_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed42/checkpoint_wiki.smatch_top3-avg.pt:DATA/AMR2.0_ES_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed43/checkpoint_wiki.smatch_top3-avg.pt:DATA/AMR2.0_ES_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed44/checkpoint_wiki.smatch_top3-avg.pt"
+#ensemble="DATA/AMR2.0_IT_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt1024x8-wm4000-dp0.2/ep30-seed42/checkpoint_wiki.smatch_top5-avg.pt:DATA/AMR2.0_IT_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt1024x8-wm4000-dp0.2/ep30-seed43/checkpoint_wiki.smatch_top5-avg.pt:DATA/AMR2.0_IT_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt1024x8-wm4000-dp0.2/ep30-seed43/checkpoint_wiki.smatch_top5-avg.pt"
+ensemble="DATA/AMR2.0_ZH_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed42/checkpoint_wiki.smatch_top5-avg.pt:DATA/AMR2.0_ZH_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed43/checkpoint_wiki.smatch_top3-avg.pt:DATA/AMR2.0_ZH_ENSGEN/models/exp_cofill_o10_act-states_mbart.cc25.v2/_act-pos_vmask1_shiftpos1_ptr-lay12-h1_cam-layall-h2-abuf_dec-sep-emb-sha0_bart-init-dec-emb__fp16-_lr0.00003-mt512x16-wm4000-dp0.2/ep30-seed44/checkpoint_wiki.smatch_top3-avg.pt"
 
 #if [ ! -f "${results_prefix}.actions" ];then
 
@@ -90,9 +96,10 @@ LANGS=ar_AR,cs_CZ,de_DE,en_XX,es_XX,et_EE,fi_FI,fr_XX,gu_IN,hi_IN,it_IT,ja_XX,kk
 	--quiet \
 	--srctag $SRCTAG \
 	--tgttag $TGTTAG \
-        --path $checkpoint \
+        --path $ensemble \
         --results-path $results_prefix \
-	--langs $LANGS
+	--langs $LANGS \
+	--fp16
 
 #fi
 

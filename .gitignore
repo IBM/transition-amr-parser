@@ -28,6 +28,7 @@ amr-evaluation/
 pytorch_scatter*
 fairseq/
 apex/
+x86envs/
 
 !DATA/gpt2_bpe/*
 

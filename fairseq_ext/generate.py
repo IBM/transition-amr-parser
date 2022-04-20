@@ -21,7 +21,6 @@ from fairseq_ext.utils import (post_process_action_pointer_prediction,
                                clean_pointer_arcs,
                                post_process_action_pointer_prediction_bartsv)
 
-
 class Examples():
     def __init__(self, path, results_path, gen_subset, nbest):
         self.examples = []
@@ -269,7 +268,8 @@ def main(args):
                     #     split_token="\t",
                     #     line_tokenizer=task.tokenize,
                     # )
-
+                    #print("hypo_tokens: ", hypo['tokens'])
+                    
                     if 'bartsv' in _model_args.arch:
                         if not tgt_dict[hypo['tokens'][0]].startswith(tgt_dict.bpe.INIT):
                             error_stats['num_sub_start'] += 1

@@ -5,7 +5,7 @@ import time
 
 from ..data import indexed_dataset
 from ..utils import time_since
-
+from fairseq.models.bart import BARTModel
 
 def dataset_dest_prefix(args, output_prefix, lang):
     base = "{}/{}".format(args.embdir, output_prefix)
@@ -55,12 +55,15 @@ def make_binary_bert_features(args, input_prefix, output_prefix, tokenize):
             args.bert_layers
         )
         no_embeddings = False
-    elif args.pretrained_embed.startswith('bart'):
+    #elif args.pretrained_embed.startswith('bart'):
+    #CHANGED
+    elif args.pretrained_embed.startswith('mbart'):
         from .sentence_encoding import SentenceEncodingBART
 
         # NOTE only encode token ids in BART bpe vocabulary, not the pretrained embedding features
         pretrained_embeddings = SentenceEncodingBART(
-            args.pretrained_embed
+            args.pretrained_embed,
+            model=BARTModel.from_pretrained('DATA/mbart.cc25.v2',checkpoint_file='model.pt',bpe='sentencepiece')
         )
         no_embeddings = True
     else:
@@ -95,7 +98,7 @@ def make_binary_bert_features(args, input_prefix, output_prefix, tokenize):
             # we only have tokenized data so we feed whitespace separated
             # tokens
             sentence = " ".join(tokenize(str(sentence).rstrip()))
-
+            #print("sentence: ", sentence)
             # extract embeddings, average them per token and return
             # wordpieces anyway
             if not no_embeddings:
@@ -103,7 +106,6 @@ def make_binary_bert_features(args, input_prefix, output_prefix, tokenize):
                     pretrained_embeddings.extract(sentence)
             else:
                 wordpieces_roberta, word2piece = pretrained_embeddings.encode_sentence(sentence)
-
             # note that data needs to be stored as a 1d array. Also check
             # that number nof woprds matches with embedding size
             if not no_embeddings:

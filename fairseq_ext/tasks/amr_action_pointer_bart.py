@@ -14,7 +14,8 @@ import torch
 from fairseq import options, utils, tokenizer
 from fairseq.data import (
     data_utils,
-    Dictionary
+    Dictionary,
+    AppendTokenDataset
 )
 from fairseq.tasks import FairseqTask, register_task
 
@@ -27,13 +28,29 @@ from fairseq_ext.amr_spec.action_info_binarize import (
     load_actstates_fromfile
 )
 from fairseq_ext.binarize import binarize_file
+from fairseq.models.bart import BARTModel
 
-
-def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dict, tgt_dict, tokenize, dataset_impl,
-                                    max_source_positions, max_target_positions, shuffle,
+def load_amr_action_pointer_dataset(data_path,
+                                    emb_dir,
+                                    split,
+                                    src,
+                                    tgt,
+                                    src_dict,
+                                    tgt_dict,
+                                    tokenize,
+                                    dataset_impl,
+                                    max_source_positions,
+                                    max_target_positions,
+                                    shuffle,
                                     append_eos_to_target,
-                                    collate_tgt_states, collate_tgt_states_graph,
-                                    src_fix_emb_use):
+                                    collate_tgt_states,
+                                    collate_tgt_states_graph,
+                                    src_fix_emb_use,
+                                    append_source_id=False,
+                                    bart_dict=None,
+                                    srctag=None,
+                                    tgttag=None,
+):
     src_tokens = None
     src_dataset = None
     src_fixed_embeddings = None
@@ -101,6 +118,24 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     except:
         assert not collate_tgt_states, ('the target actions states information does not exist --- '
                                         'collate_tgt_states must be 0')
+
+    #eos = None
+    #srclang = "en_XX"
+    #tgtlang = "en_XX"
+    print("bartindex for ", srctag, ": ", bart_dict.index("[{}]".format(srctag)))
+
+    if append_source_id:
+        src_dataset = AppendTokenDataset(
+            src_dataset, src_dict.index("[{}]".format(srctag))
+        )
+        src_wordpieces = AppendTokenDataset(
+            src_wordpieces, bart_dict.index("[{}]".format(srctag))
+        )
+        #if tgt_dataset is not None:
+        #    tgt_dataset = AppendTokenDataset(
+        #        tgt_dataset, tgt_dict.index("[{}]".format(tgtlang))
+        #    )
+        #eos = tgt_dict.index("[{}]".format(tgtlang))
 
     # build dataset
     dataset = AMRActionPointerDataset(src_tokens=src_tokens,
@@ -200,6 +235,14 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                             help='whether to initialize the model parameters with pretrained BART decoder')
         parser.add_argument('--src-fix-emb-use', default=0, type=int,
                             help='whether to use fixed pretrained RoBERTa contextual embeddings for src')
+        parser.add_argument('--langs', required=True, metavar='LANG',
+                            help='comma-separated list of monolingual language'),
+        parser.add_argument('--srctag', required=True, type=str, default='en_XX',
+                            help='source language id from mBART pretraining to be appended'),
+        parser.add_argument('--tgttag', type=str, default='en_XX',
+                            help='target language id from mBART pretraining to be appended'),
+        parser.add_argument('--prepend-bos', action='store_true',
+                            help='prepend bos token to each sentence, matching mBART pretraining')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None):
         super().__init__(args)
@@ -207,10 +250,19 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         self.tgt_dict = tgt_dict
         self.action_state_binarizer = None
         assert self.args.source_lang == 'en' and self.args.target_lang == 'actions'
-
+        self.langs = args.langs.split(",")
         # pretrained BART model
         self.bart = bart
         self.bart_dict = bart.task.target_dictionary if bart is not None else None   # src dictionary is the same
+
+        #for d in [self.bart_dict]:
+        #    for l in self.langs:
+        #        d.add_symbol("[{}]".format(l))
+        #    d.add_symbol("<mask>")
+
+        if self.bart_dict:
+            print('self.bart_dict size: ', len(self.bart_dict))
+            
 
     @ classmethod
     def setup_task(cls, args, **kwargs):
@@ -255,8 +307,9 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
                 print('-' * 10 + ' loading pretrained bart.base model ' + '-' * 10)
                 bart = torch.hub.load('pytorch/fairseq', 'bart.base')
             elif 'bart_large' in args.arch:
-                print('-' * 10 + 'loading pretrained bart.large model ' + '-' * 10)
-                bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+                print('-' * 10 + 'loading pretrained mbart.cc25.v2 model ' + '-' * 10)
+                #bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+                bart = BARTModel.from_pretrained('DATA/mbart.cc25.v2',checkpoint_file='model.pt', bpe='sentencepiece')
             elif 'roberta_base' in args.arch:
                 print('-' * 10 + 'loading pretrained roberta.base model ' + '-' * 10)
                 bart = torch.hub.load('pytorch/fairseq', 'roberta.base')
@@ -270,7 +323,8 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
             # NOTE size does matter; update this later in model initialization if model is with "bart.large"
             print('-' * 10 + ' (for bpe vocab and embed size at inference time) loading pretrained bart.base model '
                   + '-' * 10)
-            bart = torch.hub.load('pytorch/fairseq', 'bart.base')
+            #bart = torch.hub.load('pytorch/fairseq', 'bart.base')
+            bart = BARTModel.from_pretrained('DATA/mbart.cc25.v2',checkpoint_file='model.pt',bpe='sentencepiece')
 
         bart.eval()    # the pretrained BART model is only for assistance
         # ====================================================
@@ -283,7 +337,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         return line.split(cls.word_sep)
 
     @ classmethod
-    def build_dictionary(cls, filenames, workers=1, threshold=-1, nwords=-1, padding_factor=8,
+    def build_dictionary(cls, filenames, langs=None, workers=1, threshold=-1, nwords=-1, padding_factor=8,
                          tokenize=tokenizer.tokenize_line):
         """Build the dictionary
 
@@ -299,10 +353,16 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         """
         if hasattr(cls, 'tokenize'):
             tokenize = cls.tokenize
+
         d = Dictionary()
         for filename in filenames:
             Dictionary.add_file_to_dictionary(filename, d, tokenize, workers)
         d.finalize(threshold=threshold, nwords=nwords, padding_factor=padding_factor)
+
+        if langs:
+            languages = langs.split(",")
+            for l in languages:
+                d.add_symbol("[{}]".format(l))
         return d
 
     @ classmethod
@@ -404,7 +464,11 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
             append_eos_to_target=self.args.append_eos_to_target,
             collate_tgt_states=self.args.collate_tgt_states,
             collate_tgt_states_graph=self.args.collate_tgt_states_graph,
-            src_fix_emb_use=self.args.src_fix_emb_use
+            src_fix_emb_use=self.args.src_fix_emb_use,
+            append_source_id=True,
+            bart_dict=self.bart_dict,
+            srctag=self.args.srctag,
+            tgttag=self.args.tgttag,
         )
 
     def build_dataset_for_inference(self, src_tokens, src_lengths):

@@ -95,6 +95,7 @@ def main(args):
 
         return task.build_dictionary(
             filenames,
+            args.langs,
             workers=args.workers,
             threshold=args.thresholdsrc if src else args.thresholdtgt,
             nwords=args.nwordssrc if src else args.nwordstgt,

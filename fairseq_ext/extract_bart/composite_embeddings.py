@@ -11,7 +11,10 @@ class CompositeEmbedding(nn.Module):
         super().__init__()
 
         self.base_dictionary = base_dictionary    # fairseq.data.dictionary.Dictionary
+        print("self.base_dictionary for composite embedding: ", len(self.base_dictionary))
+        
         self.base_embeddings = base_embeddings    # torch.Tensor/torch.nn.Parameter or torch.nn.Embedding
+        print("base_embeddings.size: ", self.base_embeddings.weight.size(0))
         if isinstance(self.base_embeddings, torch.nn.Embedding):
             assert len(self.base_dictionary) == self.base_embeddings.weight.size(0)
         elif isinstance(self.base_embeddings, torch.Tensor):
@@ -49,6 +52,8 @@ class CompositeEmbedding(nn.Module):
         scatter_index = []
         for sym_id, sym in enumerate(symbols):
             base_idx = self.map_symbol(sym, transform=transform)
+            #print("sym_id: ", sym_id, " symbol: ", sym, " base_idx: ", base_idx)
+            
             map_all.append(base_idx)
             extract_index += base_idx
             scatter_index += [sym_id] * len(base_idx)
@@ -60,6 +65,9 @@ class CompositeEmbedding(nn.Module):
 
     def scatter_embeddings(self, extract_index, scatter_index):
         # NOTE for scatter operation, the src and index have to be of the same size
+        print("extract_indexN: ", extract_index)
+        print("scatter_indexN: ", scatter_index)
+        print("self.base_embeddings.weight: ", self.base_embeddings.weight.size(0))
         if isinstance(self.base_embeddings, torch.nn.Embedding):
             scatter_src = torch.index_select(self.base_embeddings.weight, 0, extract_index)
         elif isinstance(self.base_embeddings, torch.Tensor):
@@ -74,13 +82,16 @@ class CompositeEmbeddingBART(CompositeEmbedding):
     def __init__(self, bart, bart_embeddings, dictionary):
         super().__init__(bart.task.target_dictionary, bart_embeddings)
 
-        # self.register_buffer('model', bart, persistent=False)  # persistent flag is only available for PyTorch >= 1.6
+        # self.register_buffer('model', bart, persistent=False)
+        # persistent flag is only available for PyTorch >= 1.6
         # self.register_buffer('model', bart)    # does not work: could only be Tensor or None
         self.model = [bart]    # NOTE workaround to make it a List, so that it does not appear in state_dict
         # fairseq.models.bart.hub_interface.BARTHubInterface
         # `bart_embeddings` is typically `bart.model.decoder.embed_tokens` (torch.nn.Embedding)
 
         self.dictionary = dictionary
+        print("self.dictionary raw for composite embeddings: ", len(self.dictionary))
+        
         map_all, extract_index, scatter_index = self.map_dictionary(dictionary.symbols,
                                                                     transform=transform_action_symbol)
         self.map_all = map_all
@@ -95,22 +106,28 @@ class CompositeEmbeddingBART(CompositeEmbedding):
         self.num_embeddings = len(self.dictionary)
         self.embedding_dim = bart_embeddings.embedding_dim
         # NOTE bart_embeddings is torch.nn.Embedding
-
+        print("extract index: ", self.extract_index)
+        print("scatter index: ", self.scatter_index)
+        
         self.update_embeddings()    # initialize the embeddings based on base embeddings
 
     def map_symbol(self, sym, transform=None):
-        if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>'] or sym.startswith('madeupword'):
+        #if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>'] or sym.startswith('madeupword'):
+        if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>','[ar_AR]','[cs_CZ]','[de_DE]','[en_XX]','[es_XX]','[et_EE]','[fi_FI]','[fr_XX]','[gu_IN]','[hi_IN]','[it_IT]','[ja_XX]','[kk_KZ]','[ko_KR]','[lt_LT]','[lv_LV]','[my_MM]','[ne_NP]','[nl_XX]','[ro_RO]','[ru_RU]','[si_LK]','[tr_TR]','[vi_VN]','[zh_CN]'] or sym.startswith('madeupword'):
             # keep the special symbols
             base_indices = [self.base_dictionary.index(sym)]
         else:
             if transform is not None:
                 sym = transform(sym)
+                #print("new_sym: ", sym)
             # remove BOS and EOS symbols
             base_indices = self.model[0].encode(sym)[1:-1].tolist()
+        #print("base_indices: ", base_indices)
         return base_indices
 
     def sub_tokens(self, sym, transform=None):
-        if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>'] or sym.startswith('madeupword'):
+        #if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>'] or sym.startswith('madeupword'):
+        if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>','[ar_AR]','[cs_CZ]','[de_DE]','[en_XX]','[es_XX]','[et_EE]','[fi_FI]','[fr_XX]','[gu_IN]','[hi_IN]','[it_IT]','[ja_XX]','[kk_KZ]','[ko_KR]','[lt_LT]','[lv_LV]','[my_MM]','[ne_NP]','[nl_XX]','[ro_RO]','[ru_RU]','[si_LK]','[tr_TR]','[vi_VN]','[zh_CN]'] or sym.startswith('madeupword'):
             # keep the special symbols
             splitted = [sym]
         else:
@@ -168,7 +185,8 @@ def transform_action_symbol(sym):
     Returns:
         new_sym (str): a string of the transformed action symbol
     """
-    if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>'] or sym.startswith('madeupword'):
+    #if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>'] or sym.startswith('madeupword'):
+    if sym in ['<s>', '<pad>', '</s>', '<unk>', '<mask>','[ar_AR]','[cs_CZ]','[de_DE]','[en_XX]','[es_XX]','[et_EE]','[fi_FI]','[fr_XX]','[gu_IN]','[hi_IN]','[it_IT]','[ja_XX]','[kk_KZ]','[ko_KR]','[lt_LT]','[lv_LV]','[my_MM]','[ne_NP]','[nl_XX]','[ro_RO]','[ru_RU]','[si_LK]','[tr_TR]','[vi_VN]','[zh_CN]'] or sym.startswith('madeupword'):
         # special tokens
         return sym
 

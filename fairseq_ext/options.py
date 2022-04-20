@@ -266,6 +266,9 @@ def add_preprocess_args(parser):
     # NOTE: Previous default "17 18 19 20 21 22 23 24"
     group.add_argument('--bert-layers', nargs='+', type=int,
                        help='RoBERTa layers to extract (default last)')
+    group.add_argument('--langs', required=True, metavar='LANG',
+                       help='comma-separated list of monolingual language')
+    
 
     # for stack-transformer
     add_state_machine_args(group)
@@ -320,6 +323,10 @@ def add_dataset_args(parser, train=False, gen=False):
                            help='shard generation over N shards')
         group.add_argument('--shard-id', default=0, type=int, metavar='ID',
                            help='id of the shard to generate (id < num_shards)')
+        #group.add_argument('--st', default='en_XX', type=str,
+        #                   help='source language tag to append for mBART')
+        #group.add_argument('--tt', default='en_XX', type=str,
+        #                   help='target language tag to append for mBART')
     # fmt: on
     return group
 

@@ -26,10 +26,8 @@ la_nopointer_regex = re.compile(r'>LA\((.*)\)')
 ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
-
 def red_background(string):
     return "\033[101m%s\033[0m" % string
-
 
 def graph_alignments(unaligned_nodes, amr):
     """
@@ -128,19 +126,24 @@ class AMROracle():
 
         # Force align missing nodes and store names for stats
         self.gold_amr, self.unaligned_nodes = fix_alignments(gold_amr)
-
+        #print("gold_amr: ", gold_amr)
         # will store alignments by token
         # TODO: This should store alignment probabilities
         align_by_token_pos = defaultdict(list)
         for node_id, token_pos in self.gold_amr.alignments.items():
             node = normalize(self.gold_amr.nodes[node_id])
             matched = False
-            for pos in token_pos:
-                if node == self.gold_amr.tokens[pos]:
-                    align_by_token_pos[pos].append(node_id)
-                    matched = True
-            if not matched:
-                align_by_token_pos[token_pos[0]].append(node_id)
+            if token_pos:
+                for pos in token_pos:
+                    try:
+                        if node == self.gold_amr.tokens[pos]:
+                            align_by_token_pos[pos].append(node_id)
+                            matched = True
+                    except IndexError:
+                        pass
+                if not matched:
+                    align_by_token_pos[token_pos[0]].append(node_id)
+                
         self.align_by_token_pos = align_by_token_pos
 
         node_id_2_node_number = {}
@@ -162,7 +165,11 @@ class AMROracle():
                 other_id = e[0]
                 if other_id == node_id:
                     other_id = e[2]
-                edges.append((node_id_2_node_number[other_id], idx))
+                try:
+                    edges.append((node_id_2_node_number[other_id], idx))
+                except KeyError:
+                    print(f"{other_id} is unknown.")
+
             edges.sort(reverse=True)
             new_edges_for_node = []
             for (_, idx) in edges:
@@ -290,15 +297,18 @@ class AMROracle():
             # tracking and scoring of graph
             target_node = normalize(self.gold_amr.nodes[nid])
 
-            if (
-                self.use_copy and
-                normalize(machine.tokens[machine.tok_cursor]) == target_node
-            ):
-                # COPY
-                return [('COPY', nid)], [1.0]
-            else:
-                # Generate
-                return [(target_node, nid)], [1.0]
+            try:
+                if (
+                    self.use_copy and
+                    normalize(machine.tokens[machine.tok_cursor]) == target_node
+                ):
+                    # COPY
+                    return [('COPY', nid)], [1.0]
+                else: 
+                   # Generate
+                   return [(target_node, nid)], [1.0]
+            except IndexError:
+                pass
 
         # Move monotonic attention
         if machine.tok_cursor < len(machine.tokens):
@@ -371,8 +381,8 @@ class AMRStateMachine():
                 vocab_act_count += 1
                 canonical_act_ids.setdefault(cano_act, []).append(i)
         # print for debugging
-        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary
-        # mapped to canonical actions.')
+        #print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary mapped to canonical actions.')
+        #print("canonical_act_ids: ", canonical_act_ids)
         return canonical_act_ids
 
     def reset(self, tokens):
@@ -449,13 +459,14 @@ class AMRStateMachine():
         return 'NODE'
 
     def get_valid_actions(self, max_1root=True):
-
         valid_base_actions = []
         gen_node_actions = ['COPY', 'NODE'] if self.use_copy else ['NODE']
-
+        #print("self.action_history: ", self.action_history)
+        
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
             valid_base_actions.extend(gen_node_actions)
+            #print("action-1")
 
         if (
             self.action_history
@@ -464,6 +475,7 @@ class AMRStateMachine():
             )
         ):
             valid_base_actions.extend(['>LA', '>RA'])
+            #print("action-2")
 
         if (
             self.action_history
@@ -477,15 +489,18 @@ class AMRStateMachine():
                     valid_base_actions.append('ROOT')
             else:
                 valid_base_actions.append('ROOT')
+            #print("action-3")
 
         if self.tok_cursor == len(self.tokens):
             assert not valid_base_actions \
                 and self.action_history[-1] == 'SHIFT'
             valid_base_actions.append('CLOSE')
-
+            #print("action-4")
+            
         if self.reduce_nodes:
+            #print("action-5")
             raise NotImplementedError
-
+    
             if len(self.node_stack) > 0:
                 valid_base_actions.append('REDUCE')
             if len(self.node_stack) > 1:
@@ -502,7 +517,7 @@ class AMRStateMachine():
         return actions_nodemask
 
     def update(self, action):
-
+        #print("action for update history: ", action)
         assert not self.is_closed
 
         self.actions_tokcursor.append(self.tok_cursor)
@@ -696,29 +711,36 @@ class Stats():
 
         # Check node name match
         for nid, node_name in oracle.gold_amr.nodes.items():
-            node_name_machine = machine.nodes[oracle.node_map[nid]]
-            if normalize(node_name_machine) != normalize(node_name):
-                set_trace(context=30)
-                print()
+            #print("nid: ", nid, " node_name: ", node_name)
+            try:
+                node_name_machine = machine.nodes[oracle.node_map[nid]]
+                if normalize(node_name_machine) != normalize(node_name):
+                    #set_trace(context=30)
+                    print()
+            except KeyError:
+                print(f"{nid} is unknown")
 
         # Check mapped edges match
         mapped_gold_edges = []
         for (s, label, t) in oracle.gold_amr.edges:
             if s not in oracle.node_map or t not in oracle.node_map:
-                set_trace(context=30)
+                #set_trace(context=30)
                 continue
             mapped_gold_edges.append(
                 (oracle.node_map[s], label, oracle.node_map[t])
             )
         if sorted(machine.edges) != sorted(mapped_gold_edges):
-            set_trace(context=30)
+            #set_trace(context=30)
             print()
 
         # Check root matches
-        mapped_root = oracle.node_map[oracle.gold_amr.root]
-        if machine.root != mapped_root:
-            set_trace(context=30)
-            print()
+        try:
+            mapped_root = oracle.node_map[oracle.gold_amr.root]
+            if machine.root != mapped_root:
+                #set_trace(context=30)
+                print()
+        except KeyError:
+            print(f"{KeyError}")
 
     def display(self):
 

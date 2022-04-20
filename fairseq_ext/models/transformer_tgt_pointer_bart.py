@@ -36,11 +36,10 @@ from torch_scatter import scatter_mean
 from ..modules.transformer_layer import TransformerEncoderLayer, TransformerDecoderLayer
 from .attention_masks import get_cross_attention_mask_heads
 from ..extract_bart.composite_embeddings import CompositeEmbeddingBART
-
+from fairseq.models.bart import BARTModel
 
 DEFAULT_MAX_SOURCE_POSITIONS = 1024
 DEFAULT_MAX_TARGET_POSITIONS = 1024
-
 
 @register_model("transformer_tgt_pointer_bart")
 class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
@@ -297,8 +296,9 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         # checkpoint to initialize the model, thus containing `arch`.
         # but `task.bart` is initialized first before the checkpoint is loaded with model `args`
         if 'bart_large' in args.arch:
-            print('-' * 10 + ' task bart rewind: loading pretrained bart.large model ' + '-' * 10)
-            bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+            print('-' * 10 + ' task bart rewind: loading pretrained mbart.cc25.v2 model ' + '-' * 10)
+            #bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+            bart = BARTModel.from_pretrained('DATA/mbart.cc25.v2',checkpoint_file='model.pt', bpe='sentencepiece')
             task.bart = bart
             task.bart_dict = bart.task.target_dictionary    # src dictionary is the same
 
@@ -476,7 +476,7 @@ class TransformerEncoder(FairseqEncoder):
     def __init__(self, args, dictionary, embed_tokens):
         super().__init__(dictionary)
         self.register_buffer("version", torch.Tensor([3]))
-
+        self.dictionary = dictionary
         self.dropout_module = FairseqDropout(
             args.dropout, module_name=self.__class__.__name__
         )
@@ -561,9 +561,14 @@ class TransformerEncoder(FairseqEncoder):
         self, src_tokens, token_embedding: Optional[torch.Tensor] = None
     ):
         # embed tokens and positions
+        #print("src_tokens: ", src_tokens)
+        #print("src_tokens: ", self.dictionary.string(src_tokens))
+        
         if token_embedding is None:
             token_embedding = self.embed_tokens(src_tokens)
+
         x = embed = self.embed_scale * token_embedding
+        
         if self.embed_positions is not None:
             x = embed + self.embed_positions(src_tokens)
         if self.layernorm_embedding is not None:
@@ -571,6 +576,7 @@ class TransformerEncoder(FairseqEncoder):
         x = self.dropout_module(x)
         if self.quant_noise is not None:
             x = self.quant_noise(x)
+        
         return x, embed
 
     def pool_wp2w(self, x, src_tokens, src_wordpieces, src_wp2w):
@@ -589,6 +595,10 @@ class TransformerEncoder(FairseqEncoder):
         Returns:
             src_pooled (torch.Tensor): pooled hidden states, of size (T', B, C)
         """
+        #print("src_wordpieces: ", self.dictionary.string(src_wordpieces))
+        #print("src_wordpieces: ", src_wordpieces)
+        #print("src_wp2w: ", src_wp2w)
+        
         x = x.transpose(0, 1)
 
         # remove sentence start <s>
@@ -597,7 +607,7 @@ class TransformerEncoder(FairseqEncoder):
         x = x[mask].view((bsize, max_len - 1, emb_size))
         # remove sentence end
         x = x[:, :-1, :]
-
+        
         # apply scatter
         # `src_wp2w` was inverted in pre-processing to account for src left side padding, to easily
         # add numbers at the beginning when collating to a batch, so that
@@ -614,10 +624,10 @@ class TransformerEncoder(FairseqEncoder):
 
         # Remove extra padding at the beginning
         src_pooled = src_pooled[:, -src_tokens.shape[1]:, :]
-
+        
         # recover the original dim
         src_pooled = src_pooled.transpose(0, 1)
-
+        
         return src_pooled
 
     def forward(
@@ -725,6 +735,7 @@ class TransformerEncoder(FairseqEncoder):
         # breakpoint()
 
         # encoder layers
+
         for layer in self.layers:
             x = layer(x, encoder_padding_mask)
             if return_all_hiddens:
@@ -745,7 +756,7 @@ class TransformerEncoder(FairseqEncoder):
             x = self.pool_wp2w(x, src_tokens, src_wordpieces, src_wp2w)
             # update the padding mask
             encoder_padding_mask = src_tokens.eq(self.padding_idx)
-
+            
         if not self.bart_encoder_backprop:
             x = x.detach()
 
@@ -862,7 +873,9 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         super().__init__(dictionary)
         self.register_buffer("version", torch.Tensor([3]))
         self._future_mask = torch.empty(0)
-
+        self.dictionary = dictionary
+        self.dictionary_raw = dictionary_raw
+        print("self.dictionary: ", self.dictionary, len(self.dictionary))
         self.dropout_module = FairseqDropout(
             args.dropout, module_name=self.__class__.__name__
         )
@@ -975,6 +988,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         # ========== pooling embedding ==========
         self.dictionary_raw = dictionary_raw
+        print("self.dictionary_raw: ", self.dictionary_raw, len(self.dictionary_raw))
         if not args.bart_emb_decoder:
             if not args.bart_emb_decoder_input:
                 self.composite_embed = None
@@ -1111,6 +1125,9 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         if alignment_layer is None:
             alignment_layer = self.num_layers - 1
 
+        #print("prev_output_tokens: ", prev_output_tokens)
+        #print("prev_output_tokens: ", self.dictionary_raw.string(prev_output_tokens))
+        
         # embed positions
         positions = (
             self.embed_positions(
@@ -1130,7 +1147,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         # ========== apply composite embeddings on the raw tgt tokens ==========
         if not self.args.bart_emb_decoder:
-
+            #print("self.args.bart_emb_decoder: ", self.args.bart_emb_decoder)
             # use the compositional embedding for PRED node actions
             if self.args.bart_emb_composition_pred:
                 self.composite_embed.update_embeddings()
@@ -1153,6 +1170,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         else:
             # compositional embeddings based on BART embeddings
+            print("compositional embeddings based on BART embeddings")
             x = self.embed_scale * self.composite_embed(prev_output_tokens, update=True)
 
         # ======================================================================
@@ -1630,7 +1648,8 @@ def bart_large_architecture(args):
     args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 4 * 1024)
     args.encoder_layers = getattr(args, "encoder_layers", 12)
     args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 16)
-    args.encoder_normalize_before = getattr(args, "encoder_normalize_before", False)
+    #args.encoder_normalize_before = getattr(args, "encoder_normalize_before", False)
+    args.encoder_normalize_before = getattr(args, "encoder_normalize_before", True)
     args.encoder_learned_pos = getattr(args, "encoder_learned_pos", True)
     args.decoder_embed_path = getattr(args, "decoder_embed_path", None)
     args.decoder_embed_dim = getattr(args, "decoder_embed_dim", args.encoder_embed_dim)
@@ -1639,7 +1658,8 @@ def bart_large_architecture(args):
     )
     args.decoder_layers = getattr(args, "decoder_layers", 12)
     args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 16)
-    args.decoder_normalize_before = getattr(args, "decoder_normalize_before", False)
+    #args.decoder_normalize_before = getattr(args, "decoder_normalize_before", False)
+    args.decoder_normalize_before = getattr(args, "decoder_normalize_before", True)
     args.decoder_learned_pos = getattr(args, "decoder_learned_pos", True)
     args.attention_dropout = getattr(args, "attention_dropout", 0.0)
     args.relu_dropout = getattr(args, "relu_dropout", 0.0)
@@ -1661,7 +1681,10 @@ def bart_large_architecture(args):
     )
     args.decoder_input_dim = getattr(args, "decoder_input_dim", args.decoder_embed_dim)
 
-    args.no_scale_embedding = getattr(args, "no_scale_embedding", True)
+    #args.no_scale_embedding = getattr(args, "no_scale_embedding", True)
+    # FOR mbart this has to be set to False
+    args.no_scale_embedding = getattr(args, "no_scale_embedding", False)
+    
     args.layernorm_embedding = getattr(args, "layernorm_embedding", True)
 
     args.activation_fn = getattr(args, "activation_fn", "gelu")

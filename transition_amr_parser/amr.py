@@ -324,7 +324,8 @@ class AMR():
                     start = self.alignments[n]
                     end = self.alignments[n] + 1
                     alignment = f'\t{start}-{end}'
-                else:
+                #else:
+                elif(len(self.alignments[n]) > 0):
                     alignments_in_order = sorted(list(self.alignments[n]))
                     start = alignments_in_order[0]
                     end = alignments_in_order[-1] + 1
@@ -553,7 +554,7 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     elif len(nodes) == 1 and '/' not in amr_string:
         # FIXME: bad method to detect a constant as single node
         amr_string = '(a / amr-empty)'
-
+    output += f'# ::short\t{str(new_ids)}\t\n'
     output += amr_string + '\n\n'
 
     return output

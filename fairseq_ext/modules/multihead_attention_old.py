@@ -265,6 +265,10 @@ class MultiheadAttention(nn.Module):
             key_padding_mask = None
 
         if key_padding_mask is not None:
+            print("keypaddingmask0: ", key_padding_mask.size(0))
+            print("batch: ", bsz)
+            print("keypaddingmask1: ", key_padding_mask.size(1))
+            print("src_len: ", src_len)
             assert key_padding_mask.size(0) == bsz
             assert key_padding_mask.size(1) == src_len
 

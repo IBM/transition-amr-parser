@@ -25,18 +25,21 @@ echo $config
 
 # folder of the model seed
 checkpoints_folder=${MODEL_FOLDER}-seed${seed}/
+echo $checkpoints_folder
 
 # Evaluate all required checkpoints with EVAL_METRIC
 if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
 
     mkdir -p "$checkpoints_folder/epoch_tests/"
-
+    echo "continue running decoder"
+    
     # Note this removes models and links best models on the fly
     while [ "$(python run/status.py -c $config --seed $seed --list-checkpoints-to-eval --link-best --remove)" != "" ];do
     
         # get existing checkpoints
         ready_checkpoints=$(python run/status.py -c $config --seed $seed --list-checkpoints-ready-to-eval)
-    
+	echo $ready_checkpoints
+	
         # if there are no checkpoints at this moment, wait and restart loop
         if [ "$ready_checkpoints" == "" ];then
             printf "\r$$ is waiting for checkpoints of ${config}:$seed"

@@ -53,6 +53,7 @@ else
                 $FAIRSEQ_TRAIN_FINETUNE_ARGS \
                 --user-dir fairseq_ext \
                 --task $TASK \
+		--langs $LANGS \
                 --append-eos-to-target 0 \
                 --collate-tgt-states 1 \
                 --src-fix-emb-use $src_roberta_emb \
@@ -93,6 +94,9 @@ else
                 --tgt-input-src-backprop $tgt_input_src_backprop \
                 --tgt-input-src-combine $tgt_input_src_combine \
                 \
+		--encoder-normalize-before \
+		--decoder-normalize-before \
+		\
                 --max-epoch $MAX_EPOCH \
                 --arch $arch \
                 --optimizer adam \
@@ -115,6 +119,8 @@ else
                 --log-format json \
                 --seed $seed \
                 --save-dir ${MODEL_FOLDER}-seed${seed}/ \
+		--srctag $SRCTAG \
+		--tgttag $TGTTAG \
                 --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16
     
         else

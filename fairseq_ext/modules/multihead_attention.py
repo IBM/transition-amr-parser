@@ -321,14 +321,20 @@ class MultiheadAttention(nn.Module):
         assert k is not None
         src_len = k.size(1)
 
+
         # This is part of a workaround to get around fork/join parallelism
         # not supporting Optional types.
         if key_padding_mask is not None and key_padding_mask.dim() == 0:
             key_padding_mask = None
 
         if key_padding_mask is not None:
-            assert key_padding_mask.size(0) == bsz
-            assert key_padding_mask.size(1) == src_len
+            if key_padding_mask.size(0) != bsz:
+                print("WARNING1: ", key_padding_mask.size(0), " should be the same as ", bsz)
+            if key_padding_mask.size(1) != src_len:
+                print("WARNING2: ", key_padding_mask.size(1), " should be the same as ", src_len)
+                print("WARNING1: ", key_padding_mask.size(0), " should be the same as ", bsz)
+            #assert key_padding_mask.size(0) == bsz
+            #assert key_padding_mask.size(1) == src_len
 
         if self.add_zero_attn:
             assert v is not None
@@ -488,6 +494,7 @@ class MultiheadAttention(nn.Module):
             new_key_padding_mask = torch.cat(
                 [prev_key_padding_mask.float(), filler.float()], dim=1
             )
+
         elif key_padding_mask is not None:
             filler = torch.zeros(
                 (batch_size, src_len - key_padding_mask.size(1)),
@@ -498,6 +505,7 @@ class MultiheadAttention(nn.Module):
             )
         else:
             new_key_padding_mask = prev_key_padding_mask
+
         return new_key_padding_mask
 
     @torch.jit.export

@@ -89,6 +89,7 @@ class SequenceGenerator(object):
         self.eos = tgt_dict.eos()
         self.vocab_size = len(tgt_dict)
         self.beam_size = beam_size
+        print("TGT_DICT: ", self.tgt_dict, self.vocab_size)
         # the max beam size is the dictionary size - 1, since we never select pad
         self.beam_size = min(beam_size, self.vocab_size - 1)
         self.max_len_a = max_len_a
@@ -186,12 +187,14 @@ class SequenceGenerator(object):
             # model.max_decoder_positions() is 1024 by default; it also limits the max of model's positional embeddings
 
         # compute the encoder output for each beam
+        #print("encoder_input: ", encoder_input)
         encoder_outs = model.forward_encoder(encoder_input)
         new_order = torch.arange(bsz).view(-1, 1).repeat(1, beam_size).view(-1)
         new_order = new_order.to(src_tokens.device).long()
         # "new_order": [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4] if bsz is 5 and beam_size is 3
         encoder_outs = model.reorder_encoder_out(encoder_outs, new_order)
-
+        #print("encoder_outs: ", encoder_outs)
+        
         # initialize buffers
         scores = src_tokens.new(bsz * beam_size, max_len + 1).float().fill_(0)
         scores_buf = scores.clone()
@@ -230,6 +233,7 @@ class SequenceGenerator(object):
                 amr_state_machines.append(sm)
 
             canonical_act_ids = amr_state_machines[0].canonical_action_to_dict(self.tgt_dict)
+            #print("canonical_act_ids: ", canonical_act_ids)
         else:
             amr_state_machines = None
             canonical_act_ids = None
@@ -470,6 +474,8 @@ class SequenceGenerator(object):
 
             # ========== take out the beams selected from last step that are valid ==========
             tokens_valid = tokens[valid_bbsz_mask, :step + 1]
+            #print("tokens_valid: ", tokens_valid)
+            
             valid_bbsz_num = tokens_valid.size(0)    # this may be smaller than bsz * beam_size
             # ===============================================================================
 
@@ -489,6 +495,7 @@ class SequenceGenerator(object):
                 for i, j in enumerate(valid_bbsz_idx):
                     sm = amr_state_machines[j]
                     act_allowed = sm.get_valid_actions()
+                    #print("act_allowed: ", act_allowed)
                     # use predicate rules to further restrict the action space for PRED actions
                     pred_allowed = None
                     if use_pred_rules:
@@ -502,7 +509,7 @@ class SequenceGenerator(object):
                                 pred_allowed = list(self.pred_rules[src_token].keys())
 
                     vocab_ids_allowed = set().union(*[set(canonical_act_ids[act]) for act in act_allowed])
-
+                    #print("vocab_ids_allowed: ", vocab_ids_allowed)
                     # TODO update below
                     # use predicate rules to further restrict the action space for PRED actions
                     if pred_allowed is not None:
@@ -536,7 +543,10 @@ class SequenceGenerator(object):
             #     tokens[:, :step + 1], encoder_outs, temperature=self.temperature,
             # )
             avg_attn_scores = None    # this for the cross attention on the source tokens
-
+            #print("encoder_outs: ", encoder_outs)
+            #print("allowed_mask.unsqueeze: ", allowed_mask.unsqueeze(1))
+            #print("tok_cursors.unsqueeze: ", tok_cursors.unsqueeze(1))
+            
             lprobs, avg_attn_tgt_scores = model.forward_decoder(
                 tokens_valid, encoder_outs, temperature=self.temperature, **actions_states
             )
@@ -679,7 +689,7 @@ class SequenceGenerator(object):
             lprobs_buf = lprobs.new(bsz * beam_size, self.vocab_size).fill_(-math.inf)
             lprobs_buf[valid_bbsz_mask] = lprobs
             lprobs = lprobs_buf
-
+            #print("LPROBS: ", lprobs)
             # ====================================================
 
             scores = scores.type_as(lprobs)
@@ -957,6 +967,8 @@ class SequenceGenerator(object):
                         continue
                     # eos changed to CLOSE action (although NOTE currently this will never be eos at this step)
                     act = self.tgt_dict[act_id] if act_id != self.eos else 'CLOSE'
+                    #print("act_id: ", act_id)
+                    #print("act: ", act)
                     sm.update(join_action_pointer(act, act_pos.item()))
                     # sm.update(act)
 
@@ -1068,6 +1080,7 @@ class EnsembleModel(torch.nn.Module):
         self, tokens, model, encoder_out, incremental_states, log_probs,
         temperature=1., **kwargs
     ):
+        #print("decode_one_tokens: ", tokens)
         if self.incremental_states is not None:
             decoder_out = list(model.decoder(tokens, encoder_out, incremental_state=self.incremental_states[model],
                                              **kwargs))
