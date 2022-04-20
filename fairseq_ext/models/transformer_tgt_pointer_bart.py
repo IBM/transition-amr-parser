@@ -595,9 +595,9 @@ class TransformerEncoder(FairseqEncoder):
         Returns:
             src_pooled (torch.Tensor): pooled hidden states, of size (T', B, C)
         """
-        #print("src_wordpieces: ", self.dictionary.string(src_wordpieces))
-        #print("src_wordpieces: ", src_wordpieces)
-        #print("src_wp2w: ", src_wp2w)
+        #print("src_wordpieces: ", self.dictionary.string(src_wordpieces), len(self.dictionary.string(src_wordpieces)))
+        #print("src_wordpieces: ", src_wordpieces, len(src_wordpieces[0]))
+        #print("src_wp2w: ", src_wp2w, len(src_wp2w[0]))
         
         x = x.transpose(0, 1)
 

@@ -192,6 +192,7 @@ else
                 --update-freq $update_freq \
                 --log-format json \
                 --seed $seed \
+		--max-sentences 1 \
                 --save-dir ${MODEL_FOLDER}-seed${seed}/ \
                 --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16
     

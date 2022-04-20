@@ -5,7 +5,8 @@ import time
 
 from ..data import indexed_dataset
 from ..utils import time_since
-from fairseq.models.bart import BARTModel
+#from fairseq.models.bart import BARTModel
+from ..bart import BARTModel2
 
 def dataset_dest_prefix(args, output_prefix, lang):
     base = "{}/{}".format(args.embdir, output_prefix)
@@ -63,7 +64,7 @@ def make_binary_bert_features(args, input_prefix, output_prefix, tokenize):
         # NOTE only encode token ids in BART bpe vocabulary, not the pretrained embedding features
         pretrained_embeddings = SentenceEncodingBART(
             args.pretrained_embed,
-            model=BARTModel.from_pretrained('DATA/mbart.cc25.v2',checkpoint_file='model.pt',bpe='sentencepiece')
+            model=BARTModel2.from_pretrained('DATA/mbart.cc25.v2',checkpoint_file='model.pt',bpe='sentencepiece')
         )
         no_embeddings = True
     else:
