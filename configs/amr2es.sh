@@ -18,7 +18,7 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=AMR2.0
+TASK_TAG=AMR2.0_ES
 
 # TODO: Omit these global vars and use 
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
@@ -75,16 +75,22 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.large
+embedding_tag=mbart.cc25.v2
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
 EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
-# Pretrained embeddings 
-PRETRAINED_EMBED=bart.large
+# Pretrained embeddings
+LANGS=ar_AR,cs_CZ,de_DE,en_XX,es_XX,et_EE,fi_FI,fr_XX,gu_IN,hi_IN,it_IT,ja_XX,kk_KZ,ko_KR,lt_LT,lv_LV,my_MM,ne_NP,nl_XX,ro_RO,ru_RU,si_LK,tr_TR,vi_VN,zh_CN # ADDED
+PRETRAINED_EMBED=mbart.cc25.v2 # CHANGED
+#SENTENCEPIECE_MODEL=sentence.bpe.model # ADDED
 PRETRAINED_EMBED_DIM=1024   # used ???
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
+SRCTAG=es_XX
+TGTTAG=en_XX
+THRESHOLDTGT=1
+
 # pre-stored pretrained en embeddings (not changing with oracle)
 
 ##############################################################################
@@ -148,14 +154,16 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 SEEDS="42 43 44"
-MAX_EPOCH=100
-EVAL_INIT_EPOCH=61
+MAX_EPOCH=80
+EVAL_INIT_EPOCH=21
 time_max_between_epochs=30
 
 # TODO: New
 use_fp16=1
-lr=0.0001
+#lr=0.0001
+lr=0.00003
 max_tokens=2048
+#max_tokens=1024
 update_freq=4
 warmup=4000
 dropout=0.2

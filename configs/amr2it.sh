@@ -18,7 +18,7 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=AMR2.0_ZH_ENSGEN
+TASK_TAG=AMR2.0_IT
 
 # TODO: Omit these global vars and use 
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
@@ -87,8 +87,9 @@ PRETRAINED_EMBED=mbart.cc25.v2 # CHANGED
 #SENTENCEPIECE_MODEL=sentence.bpe.model # ADDED
 PRETRAINED_EMBED_DIM=1024   # used ???
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
-SRCTAG=zh_CN
+SRCTAG=it_IT
 TGTTAG=en_XX
+THRESHOLDTGT=1
 
 # pre-stored pretrained en embeddings (not changing with oracle)
 
@@ -153,18 +154,17 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 SEEDS="42 43 44"
-#MAX_EPOCH=80
-MAX_EPOCH=30
-EVAL_INIT_EPOCH=3
+MAX_EPOCH=80
+EVAL_INIT_EPOCH=6
 time_max_between_epochs=30
 
 # TODO: New
 use_fp16=1
 #lr=0.0001
 lr=0.00003
-#max_tokens=2048
-max_tokens=512
-update_freq=16
+max_tokens=2048
+#max_tokens=1024
+update_freq=4
 warmup=4000
 dropout=0.2
 
