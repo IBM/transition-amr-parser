@@ -48,8 +48,8 @@ pip install torch-scatter==1.3.2
 CAUTION on torch-scatter installation
 
 ```
-Trying to in install torch-scatter on a cpu machine is very likely to fail
 Before installing torch-scatter, try to remove the cached code w/ rm -rf ~/.cache/pip
+Trying to in install torch-scatter on a cpu machine is very likely to fail
 ```
 
 Download mbart and place it in DATA/ directory
@@ -115,4 +115,16 @@ parser = AMRParser.from_checkpoint(in_checkpoint)
 annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
 # Penman notation
 print(''.join(annotations[0][0]))
+```
+
+## References
+
+```
+@inproceedings{youngsuklee-etal-2022-naacl2022,
+   title = "Maximum Bayes Smatch Ensemble Distillation for {AMR} Parsing",
+   author = "Lee, Young-Suk and Fernandez Astudillo, Ramon and Hoang, Thanh Lam and Naseem, Tahira and Florian, Radu and Roukos, Salim",
+   booktitle = "NAACL-HLT 2022: The 2022 Conference of the North American Chapter of the Association for Computational Linguistics - Human Language Technologies",
+   year = "2022"
+
+}
 ```
