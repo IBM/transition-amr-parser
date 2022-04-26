@@ -164,7 +164,8 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
     else:
         roberta = BARTModel.from_pretrained(
             roberta_cache_path,
-            checkpoint_file='model.pt'
+            checkpoint_file='model.pt',
+            bpe='sentencepiece'
         )
     roberta.eval()
     if roberta_use_gpu:
@@ -174,19 +175,20 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
 
 class AMRParser:
     def __init__(
-        self,
-        models,           # PyTorch model
-        task,             # fairseq task
-        src_dict,         # fairseq dict
-        tgt_dict,         # fairseq dict
-        machine_config,   # path to train.rules.json
-        use_cuda,         #
-        args,             # args for decoding
-        model_args,       # args read from the saved model checkpoint
-        bart_dict=None,
-        to_amr=True,      # whether to output the final AMR graph
-        embeddings=None,  # PyTorch RoBERTa model (if dealing with token input)
-        inspector=None    # function to call after each step
+            self,
+            models,           # PyTorch model
+            task,             # fairseq task
+            src_dict,         # fairseq dict
+            tgt_dict,         # fairseq dict
+            machine_config,   # path to train.rules.json
+            use_cuda,         #
+            args,             # args for decoding
+            model_args,       # args read from the saved model checkpoint
+            user_args,
+            bart_dict=None,
+            to_amr=True,      # whether to output the final AMR graph
+            embeddings=None,  # PyTorch RoBERTa model (if dealing with token input)
+            inspector=None    # function to call after each step
     ):
         # member variables
         self.models = models
@@ -203,8 +205,8 @@ class AMRParser:
         self.bart_dict = bart_dict
         self.generator = self.task.build_generator(args, model_args)
         self.to_amr = to_amr
-        self.srctag = args.srctag
-        self.tgttag = args.tgttag
+        self.srctag = user_args.srctag
+        self.tgttag = user_args.tgttag
         if self.bart_dict:
             print('self.bart_dict size: ', len(self.bart_dict))
 
@@ -216,7 +218,7 @@ class AMRParser:
                         '--user-dir', './fairseq_ext',
                         '--task', 'amr_action_pointer_bartsv',    # this is dummy; will be updated by the model args
                         '--modify-arcact-score', '1',
-                        '--beam', '1',
+                        '--beam', '10',
                         '--batch-size', '128',
                         '--remove-bpe',
                         '--path', checkpoint or 'dummy_model_path',
@@ -230,7 +232,7 @@ class AMRParser:
 
 
     @classmethod
-    def from_checkpoint(cls, checkpoint, dict_dir=None, roberta_cache_path=None,
+    def from_checkpoint(cls, checkpoint, user_args, dict_dir=None, roberta_cache_path=None,
                         fp16=False,
                         inspector=None):
         '''
@@ -280,6 +282,7 @@ class AMRParser:
         print("pretrained_embed: ", pretrained_embed)
         embeddings = SentenceEncodingBART(
             name=pretrained_embed,
+            model=load_roberta(name=pretrained_embed,roberta_cache_path='DATA/mbart.cc25.v2')
         )
 
         print("Finished loading models")
@@ -289,7 +292,7 @@ class AMRParser:
         assert os.path.isfile(machine_config), f"Missing {machine_config}"
 
         return cls(models,task, task.src_dict, task.tgt_dict, machine_config,
-                   use_cuda, args, model_args, task.bart_dict,
+                   use_cuda, args, model_args, user_args, task.bart_dict,
                    to_amr=True, embeddings=embeddings, inspector=inspector)
 
     def get_bert_features_batched(self, sentences, batch_size):
@@ -333,10 +336,6 @@ class AMRParser:
         return bart_data
 
     def convert_sentences_to_data(self, sentences, batch_size, roberta_batch_size):
-        #srclang = "en_XX"
-        #tgtlang = "en_XX"
-        #append_source_id = 1
-        
         # extract RoBERTa features
         roberta_features = \
             self.get_bart_features(sentences)
@@ -516,7 +515,7 @@ def main():
 
     # load parser
     start = time.time()
-    parser = AMRParser.from_checkpoint(args.in_checkpoint,roberta_cache_path=args.roberta_cache_path,inspector=inspector)
+    parser = AMRParser.from_checkpoint(args.in_checkpoint,args,roberta_cache_path=args.roberta_cache_path,inspector=inspector)
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to load parser: {time_secs}')
