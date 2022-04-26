@@ -5,7 +5,9 @@ Neural transition-based parser for Abstract Meaning Representation (AMR) produci
 
 ### Structured-mBART
 
-Current version. Cross-lingual version of Structured-BART
+Current version. Cross-lingual version of Structured-BART. Model
+training and decoding tested on NVIDIA Tesla A100 and v100 GPU with
+40-80BG of GPU memory.
 
 ### Structured-BART 
 
