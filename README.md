@@ -35,7 +35,6 @@ touch set_environment.sh
 Note that all bash scripts always source `set_environment.sh`, so you do not need to source it yourself.
 
 To install clone and pip install
-torch-scatter should be installed on a GPU machine unless you know how to do it without GPU:)
 
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git --branch Structured-mBART -s Structured-mBART
@@ -44,6 +43,13 @@ git checkout <branch>    # for e.g. action-pointer, ignore for current version
 . set_environment.sh     # see above
 pip install -e .            # remove -e(ditable) option if you do not need to modifiy the source code
 pip install torch-scatter==1.3.2
+```
+
+CAUTION on torch-scatter installation
+
+```
+Trying to in install torch-scatter on a cpu machine is very likely to fail
+Before installing torch-scatter, try to remove the cached code w/ rm -rf ~/.cache/pip
 ```
 
 Download mbart and place it in DATA/ directory
