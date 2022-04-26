@@ -288,17 +288,9 @@ class AMRParser:
         machine_config = os.path.join(config_data_dict['ORACLE_FOLDER'], 'machine_config.json')
         assert os.path.isfile(machine_config), f"Missing {machine_config}"
 
-<<<<<<< HEAD
-        return cls(models,task, task.src_dict, task.tgt_dict, machine_config,
-                   use_cuda, args, model_args, to_amr=True,
-                   embeddings=embeddings, inspector=inspector)
-=======
-        #srctag = args.srctag
-        #tgttag = args.tgttag
         return cls(models,task, task.src_dict, task.tgt_dict, machine_config,
                    use_cuda, args, model_args, task.bart_dict,
                    to_amr=True, embeddings=embeddings, inspector=inspector)
->>>>>>> 813bc1fc... structured mbart cleanup
 
     def get_bert_features_batched(self, sentences, batch_size):
         bert_data = []
@@ -340,17 +332,11 @@ class AMRParser:
         assert len(bart_data) == len(sentences)
         return bart_data
 
-<<<<<<< HEAD
-    def convert_sentences_to_data(self, sentences, batch_size,
-                                  roberta_batch_size):
-
-=======
     def convert_sentences_to_data(self, sentences, batch_size, roberta_batch_size):
         #srclang = "en_XX"
         #tgtlang = "en_XX"
         #append_source_id = 1
         
->>>>>>> 813bc1fc... structured mbart cleanup
         # extract RoBERTa features
         roberta_features = \
             self.get_bart_features(sentences)
@@ -359,10 +345,7 @@ class AMRParser:
         data = []
         for index, sentence in enumerate(sentences):
             ids = self.get_token_ids(sentence)
-<<<<<<< HEAD
-            wordpieces_roberta, word2piece_scattered_indices =\
-                roberta_features[index]
-=======
+
             a = torch.IntTensor(1)
             a[0] = self.src_dict.index("[{}]".format(self.srctag))
 
@@ -376,7 +359,7 @@ class AMRParser:
             
             #print("ids: ", ids)
             #print("wordpieces_roberta: ", wordpieces_roberta)
->>>>>>> 813bc1fc... structured mbart cleanup
+
             data.append({
                 'id': index,
                 'source': ids,
@@ -461,12 +444,7 @@ class AMRParser:
             #    tokens.append("<ROOT>")
             sentences.append(" ".join(tokens))
 
-<<<<<<< HEAD
-        data = self.convert_sentences_to_data(sentences, batch_size,
-                                              roberta_batch_size)
-=======
         data = self.convert_sentences_to_data(sentences, batch_size, roberta_batch_size)
->>>>>>> 813bc1fc... structured mbart cleanup
         data_iterator = self.get_iterator(data, batch_size)
 
         # Loop over batches of sentences
@@ -489,12 +467,6 @@ class AMRParser:
             for pred_dict in predictions:
                 sample_id = pred_dict['sample_id']
                 machine = pred_dict['machine']
-<<<<<<< HEAD
-
-=======
-                #print("actions: ", pred_dict['actions'])
-                
->>>>>>> 813bc1fc... structured mbart cleanup
                 machine.reset(pred_dict['src_tokens'])
                 if pred_dict['actions'][-1] != 'CLOSE':
                     pred_dict['actions'].append('CLOSE');
