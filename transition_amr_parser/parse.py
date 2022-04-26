@@ -23,10 +23,6 @@ from fairseq_ext.data.amr_action_pointer_dataset import collate
 from transition_amr_parser.amr_machine import AMRStateMachine
 #from transition_amr_parser.amr import InvalidAMRError, get_duplicate_edges
 from transition_amr_parser.io import read_config_variables, read_tokenized_sentences
-<<<<<<< HEAD
-from fairseq_ext.utils import post_process_action_pointer_prediction, post_process_action_pointer_prediction_bartsv, clean_pointer_arcs
-from fairseq_ext.utils_import import import_user_module
-=======
 from fairseq_ext.utils import post_process_action_pointer_prediction,post_process_action_pointer_prediction_bartsv, clean_pointer_arcs
 from fairseq_ext.utils_import import import_user_module
 from fairseq.data import (
@@ -34,7 +30,6 @@ from fairseq.data import (
     Dictionary,
     AppendTokenDataset
 )
->>>>>>> 813bc1fc... structured mbart cleanup
 
 def argument_parsing():
 
@@ -97,8 +92,6 @@ def argument_parsing():
         help="breakpoint after each action",
         action='store_true',
         default=False
-<<<<<<< HEAD
-=======
     ),
     parser.add_argument(
         "--srctag",
@@ -111,7 +104,6 @@ def argument_parsing():
         type=str,
         default='en_XX',
         help='target language id from mBART pretraining to be appended to the target sentence'
->>>>>>> 813bc1fc... structured mbart cleanup
     )
     args = parser.parse_args()
 
@@ -121,18 +113,10 @@ def argument_parsing():
 
     return args
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 813bc1fc... structured mbart cleanup
 def ordered_exit(signum, frame):
     print("\nStopped by user\n")
     exit(0)
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 813bc1fc... structured mbart cleanup
 def load_models_and_task(args, use_cuda, task=None):
     # if `task` is not provided, it will be from the saved model args
     models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
@@ -195,26 +179,15 @@ class AMRParser:
         task,             # fairseq task
         src_dict,         # fairseq dict
         tgt_dict,         # fairseq dict
-<<<<<<< HEAD
-        machine_config,    # path to train.rules.json
-        use_cuda,         #
-        args,             # args for decoding
-        model_args,       # args read from the saved model checkpoint
-=======
         machine_config,   # path to train.rules.json
         use_cuda,         #
         args,             # args for decoding
         model_args,       # args read from the saved model checkpoint
         bart_dict=None,
->>>>>>> 813bc1fc... structured mbart cleanup
         to_amr=True,      # whether to output the final AMR graph
         embeddings=None,  # PyTorch RoBERTa model (if dealing with token input)
         inspector=None    # function to call after each step
     ):
-<<<<<<< HEAD
-
-=======
->>>>>>> 813bc1fc... structured mbart cleanup
         # member variables
         self.models = models
         self.task = task
@@ -227,10 +200,6 @@ class AMRParser:
         print("self.machine_config: ", self.machine_config)
         self.args = args
         self.model_args = model_args
-<<<<<<< HEAD
-        self.generator = self.task.build_generator(args, model_args)
-        self.to_amr = to_amr
-=======
         self.bart_dict = bart_dict
         self.generator = self.task.build_generator(args, model_args)
         self.to_amr = to_amr
@@ -238,7 +207,6 @@ class AMRParser:
         self.tgttag = args.tgttag
         if self.bart_dict:
             print('self.bart_dict size: ', len(self.bart_dict))
->>>>>>> 813bc1fc... structured mbart cleanup
 
     @classmethod
     def default_args(cls, checkpoint=None, fp16=False):
@@ -246,11 +214,7 @@ class AMRParser:
         default_args = ['dummy_data_folder',
                         '--emb-dir', 'dummy_emb_dir',
                         '--user-dir', './fairseq_ext',
-<<<<<<< HEAD
-                        '--task', 'amr_action_pointer_bart',    # this is dummy; will be updated by the model args
-=======
                         '--task', 'amr_action_pointer_bartsv',    # this is dummy; will be updated by the model args
->>>>>>> 813bc1fc... structured mbart cleanup
                         '--modify-arcact-score', '1',
                         '--beam', '1',
                         '--batch-size', '128',
@@ -292,21 +256,12 @@ class AMRParser:
             # otherwise, the default dict folder is read from the model args
         use_cuda = torch.cuda.is_available() and not args.cpu
         models, model_args, task = load_models_and_task(args, use_cuda, task=None)
-<<<<<<< HEAD
 
-=======
-        #print(model_args)
->>>>>>> 813bc1fc... structured mbart cleanup
         # ===== load pretrained Roberta model for source embeddings =====
         if model_args.pretrained_embed_dim == 768:
             pretrained_embed = 'bart.base'
         elif model_args.pretrained_embed_dim == 1024:
-<<<<<<< HEAD
-            pretrained_embed = 'bart.large'
-=======
-            #pretrained_embed = 'bart.large'
             pretrained_embed = 'mbart.cc25.v2'
->>>>>>> 813bc1fc... structured mbart cleanup
         else:
             raise ValueError
 
