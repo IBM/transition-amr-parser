@@ -40,7 +40,7 @@ git clone git@github.ibm.com:mnlp/transition-amr-parser.git --branch Structured-
 cd transition-amr-parser
 git checkout <branch>    # for e.g. action-pointer, ignore for current version
 . set_environment.sh     # see above
-pip install .            # use --editable if to modify code
+pip install -e .            # remove -e(ditable) option if you do not need to modifiy the source code
 pip install torch-scatter==1.3.2
 ```
 
@@ -82,7 +82,7 @@ python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.
 To launch train/test use (this will also run the aligner) for English AMR2.0
 
 ```
-bash run/run_experiment.sh configs/amr2.0-mbart-large.sh
+bash run/run_experiment.sh configs/amr2en.sh
 ```
 
 ## Decode with Pre-trained model
