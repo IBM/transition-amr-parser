@@ -37,7 +37,7 @@ Note that all bash scripts always source `set_environment.sh`, so you do not nee
 To install clone and pip install
 
 ```bash
-git clone git@github.ibm.com:mnlp/transition-amr-parser.git --branch Structured-mBART -s Structured-mBART
+git clone git@github.ibm.com:mnlp/transition-amr-parser.git --branch structured-mbart -s structured-mbart
 cd transition-amr-parser
 git checkout <branch>    # for e.g. action-pointer, ignore for current version
 . set_environment.sh     # see above
@@ -64,11 +64,6 @@ To test if install worked
 ```bash
 bash tests/correctly_installed.sh
 ```
-To do a mini-test with 25 annotated sentences that we provide. This should take 10 minutes. It wont learn anything but at least will run all stages.
-```bash
-bash tests/minimal_test.sh
-```
-
 
 If you want to align AMR data, the aligner uses additional tools that can be donwloaded and installed with
 
@@ -98,14 +93,13 @@ bash run/run_experiment.sh configs/amr2en.sh
 To use from the command line with a trained model do
 
 ```bash
-amr-parse -c $in_checkpoint -i $input_file -o file.amr --roberta-cache-path DATA/mbart.cc25.v2
+bash scripts/parse.sh checkpointfile tokenized_inputfile amr_outputfile srctag
 ```
 
-It will parse each line of `$input_file` separately (assumed tokenized).
-`$in_checkpoint` is the Pytorch checkpoint of a trained model. The `file.amr`
+It will parse each line of `tokenized_inputfile` separately (assumed tokenized).
+`checkpointfile` is the Pytorch checkpoint of a trained model. The `amr_outputfile`
 will contain the PENMAN notation AMR with additional alignment information as
-comments. Use the flag `--service` together with `-c` for an iterative parsing
-mode.
+comments. `srctag` can be one of the following 5: de_DE, en_XX, es_XX, it_IT, zh_CN
 
 To use from other Python code with a trained model do
 
