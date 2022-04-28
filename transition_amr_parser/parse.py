@@ -13,7 +13,7 @@ from tqdm import tqdm
 import torch
 from fairseq import checkpoint_utils, utils, progress_bar
 from fairseq.tokenizer import tokenize_line
-from fairseq.models.bart import BARTModel
+from fairseq_ext.bart import BARTModel2
 
 from fairseq_ext import options    # this is key to recognizing the customized arguments
 from fairseq_ext.extract_bart.sentence_encoding import SentenceEncodingBART #new
@@ -162,7 +162,7 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
         # Load the Roberta Model from torch hub
         roberta = torch.hub.load('pytorch/fairseq', name)
     else:
-        roberta = BARTModel.from_pretrained(
+        roberta = BARTModel2.from_pretrained(
             roberta_cache_path,
             checkpoint_file='model.pt',
             bpe='sentencepiece'
@@ -439,6 +439,7 @@ class AMRParser:
         sentences = []
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
+            #print("tokens: ", tokens)
             #if tokens[-1] != "<ROOT>":
             #    tokens.append("<ROOT>")
             sentences.append(" ".join(tokens))
