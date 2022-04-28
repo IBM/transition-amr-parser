@@ -94,12 +94,16 @@ To use from the command line with a trained model do
 
 ```bash
 bash scripts/parse.sh checkpointfile tokenized_inputfile amr_outputfile srctag
+
+python scripts/add_wiki.py amr_outputfile DATA/EL/legacy_linker_amr2.0/test.wiki DATA/EL/legacy_linker_amr2.0 > amr_outputfile.wiki
 ```
 
 It will parse each line of `tokenized_inputfile` separately (assumed tokenized).
 `checkpointfile` is the Pytorch checkpoint of a trained model. The `amr_outputfile`
 will contain the PENMAN notation AMR with additional alignment information as
 comments. `srctag` can be one of the following 5: de_DE, en_XX, es_XX, it_IT, zh_CN
+
+The python script add_wiki.py applies wikification to the parsing output in postprocessing step
 
 To use from other Python code with a trained model do
 
