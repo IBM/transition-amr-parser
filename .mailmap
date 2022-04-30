@@ -1,0 +1,18 @@
+# change username and email of of matching emails (right-most)
+ramon-astudillo <ramon@astudillo.com> <ramon.astudillo@ibm.com>
+jzhou316 <jzhou02@g.harvard.edu> <jzhou@ibm.com>
+jzhou316 <jzhou02@g.harvard.edu> <31744226+jzhou316@users.noreply.github.com>
+kjbarker-work <kjbarker.work@gmail.com> <kjbarker@us.ibm.com>
+gangiswag <g.revanthreddy111@gmail.com> <Revanth.Reddy@ibm.com>
+gangiswag <g.revanthreddy111@gmail.com> <revanth@dccxl002.pok.ibm.com>
+gangiswag <g.revanthreddy111@gmail.com> <revanth@dccxc270.pok.ibm.com>
+tahira <tahira.naseem@gmail.com> <cnnrnn@dccxl003.pok.ibm.com>
+tahira <tahira.naseem@gmail.com> <tnaseem@us.ibm.com>
+tahira <tahira.naseem@gmail.com> <tahira@csail.mit.edu>
+
+# change username of matching emails 
+gangiswag <g.revanthreddy111@gmail.com>
+ramon-astudillo <ramon@astudillo.com>
+cpendus <cpendus@us.ibm.com>
+ysuklee <ysuklee@us.ibm.com>
+
