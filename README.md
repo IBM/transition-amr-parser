@@ -37,7 +37,7 @@ Note that all bash scripts always source `set_environment.sh`, so you do not nee
 To install clone and pip install
 
 ```bash
-git clone git@github.ibm.com:mnlp/transition-amr-parser.git --branch structured-mbart -s structured-mbart
+git clone https://github.com/IBM/transition-amr-parser --branch structured-mbart -s structured-mbart
 cd transition-amr-parser
 git checkout <branch>    # for e.g. action-pointer, ignore for current version
 . set_environment.sh     # see above
