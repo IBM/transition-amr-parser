@@ -1,22 +1,40 @@
-import json
 from tqdm import tqdm
 import argparse
 import re
 import subprocess
-import sys
-import re
 from ipdb import set_trace
-from transition_amr_parser.io import read_blocks, AMR
+from transition_amr_parser.io import read_blocks
 # this requires local smatch installed --editable and touch smatch/__init__.py
-from smatch.smatch import get_amr_match, get_best_match, compute_f
+from smatch.smatch import get_best_match, compute_f
 from smatch import amr
 import smatch
 
 
 def format_penman(x):
+    # remove comments
     lines = '\n'.join([x for x in x.split('\n') if x and x[0] != '#'])
+    # remove ISI alignments if any
     lines = re.sub(r'\~[0-9]+', '', lines)
     return lines.replace('\n', '')
+
+
+def protected_read(penman, index, prefix):
+
+    fpenman = format_penman(penman)
+
+    damr = amr.AMR.parse_AMR_line(fpenman)
+    # stop if reading failed
+    if damr is None:
+        set_trace(context=30)
+        print()
+
+    # original ids
+    ids = [x[1] for x in damr.get_triples()[0]]
+
+    # prefix name as per original code
+    damr.rename_node(prefix)
+
+    return damr, ids
 
 
 def vimdiff(penman1, penman2):
@@ -30,40 +48,11 @@ def vimdiff(penman1, penman2):
     subprocess.call(['vimdiff', '_tmp1', '_tmp2'])
 
 
-def redo_match(mapping, weight_dict):
-
-    node_match_num = 0
-    edge_match_num = 0
-    # i is node index in AMR 1, m is node index in AMR 2
-    for i, m in enumerate(mapping):
-        if m == -1:
-            # no node maps to this node
-            continue
-        # node i in AMR 1 maps to node m in AMR 2
-        current_node_pair = (i, m)
-        if current_node_pair not in weight_dict:
-            continue
-
-        for key in weight_dict[current_node_pair]:
-            if key == -1:
-                # matching triple resulting from instance/attribute triples
-                node_match_num += weight_dict[current_node_pair][key]
-            # only consider node index larger than i to avoid duplicates
-            # as we store both weight_dict[node_pair1][node_pair2] and
-            #     weight_dict[node_pair2][node_pair1] for a relation
-            elif key[0] < i:
-                continue
-            elif mapping[key[0]] == key[1]:
-                edge_match_num += weight_dict[current_node_pair][key]
-
-    return node_match_num, edge_match_num
-
-
 def main(args):
 
     # read files
-    gold_penmans = read_blocks(args.in_reference_amr)
-    oracle_penmans = read_blocks(args.in_amr)
+    gold_penmans = read_blocks(args.in_reference_amr, return_tqdm=False)
+    oracle_penmans = read_blocks(args.in_amr, return_tqdm=False)
 
     # set global in module
     smatch.smatch.iteration_num = args.r + 1
@@ -75,37 +64,24 @@ def main(args):
     node_id_maps = []
     for index in tqdm(range(len(oracle_penmans))):
 
-        # format penman ot be read by smatch penman parser
-        gold_penman = format_penman(gold_penmans[index])
-        oracle_penman = format_penman(oracle_penmans[index])
-
-        # parse penman using smatchs parser
-        amr1 = amr.AMR.parse_AMR_line(gold_penman)
-        amr2 = amr.AMR.parse_AMR_line(oracle_penman)
-
-        # get ids before changing prefix
-        ids_a = [x[1] for x in amr1.get_triples()[0]]
-        ids_b = [x[1] for x in amr2.get_triples()[0]]
-
-        # prefix name as per original code
-        prefix1 = "a"
-        prefix2 = "b"
-        amr1.rename_node(prefix1)
-        amr2.rename_node(prefix2)
+        # read and format. Keep original ids for later reconstruction
+        amr1, ids_a = protected_read(gold_penmans[index], index, "a")
+        amr2, ids_b = protected_read(oracle_penmans[index], index, "b")
 
         # use smatch code to align nodes
         (instance1, attributes1, relation1) = amr1.get_triples()
         (instance2, attributes2, relation2) = amr2.get_triples()
-        best_mapping, best_match_num, weight_dict = get_best_match(
+        best_mapping, best_match_num = get_best_match(
             instance1, attributes1, relation1,
             instance2, attributes2, relation2,
-            prefix1, prefix2
+            "a", "b"
         )
         # IMPORTANT: Reset cache
         smatch.smatch.match_triple_dict = {}
         # use smatch code to compute partial scores
         test_triple_num = len(instance1) + len(attributes1) + len(relation1)
         gold_triple_num = len(instance2) + len(attributes2) + len(relation2)
+
         # accumulate statistics for corpus-level normalization
         statistics.append([best_match_num, test_triple_num, gold_triple_num])
         # store sentence-level normalized score
@@ -117,22 +93,27 @@ def main(args):
         best_id_map = dict(zip(ids_a, sorted_ids_b))
         node_id_maps.append(best_id_map)
 
-        if args.stop_if_different and score[-1] < 1.0:
-            amr1_p = AMR.from_penman(gold_penmans[index])
-            amr2_p = AMR.from_penman(oracle_penmans[index])
-            # for k, v in best_id_map.items(): print(amr1_p.nodes[k], amr2_p.nodes[v])
-            set_trace()
-            node_match_num, edge_match_num = redo_match(best_mapping, weight_dict)
+        # stop if score is not perfect
+        if (
+            args.stop_if_different
+            and (
+                best_match_num != gold_triple_num
+                or test_triple_num != gold_triple_num
+            )
+        ):
+            print(gold_penmans[index])
+            print(oracle_penmans[index])
             vimdiff(gold_penmans[index], oracle_penmans[index])
-            set_trace()
             print()
 
-        # for debug
-        # amr1_p = AMR.from_penman(gold_penmans[i])
-        # amr2_p = AMR.from_penman(oracle_penmans[i])
-        # for k, v in best_id_map.items(): print(amr1_p.nodes[k], amr2_p.nodes[v])
-
     # TODO: Save scores and alignments
+
+    # final score
+    best_match_num = sum([t[0] for t in statistics])
+    test_triple_num = sum([t[1] for t in statistics])
+    gold_triple_num = sum([t[2] for t in statistics])
+    corpus_score = compute_f(best_match_num, test_triple_num, gold_triple_num)
+    print(f'Smatch: {corpus_score[2]:.2f}')
 
 
 def argument_parser():
@@ -152,7 +133,7 @@ def argument_parser():
         "-r",
         help="Number of restarts",
         type=int,
-        default=4
+        default=10
     )
     # flags
     parser.add_argument(
@@ -160,8 +141,6 @@ def argument_parser():
         help="If sentence Smatch is not 1.0, breakpoint",
         action='store_true'
     )
-
-
     args = parser.parse_args()
     return args
 

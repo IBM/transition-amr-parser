@@ -115,19 +115,17 @@ def read_neural_alignments(alignments_file):
     return alignments
 
 
-def read_amr(file_path, ibm_format=False, generate=False):
+def read_amr(file_path, jamr=False, generate=False):
     if generate:
-        # yields each AMr, faster but non sequential
-        return amr_generator(file_path, ibm_format=ibm_format)
+        # yields each AMR, faster but non sequential
+        return amr_generator(file_path, jamr=jamr)
     else:
-        return amr_iterator(file_path, ibm_format=ibm_format)
+        return amr_iterator(file_path, jamr=jamr)
 
 
-def amr_iterator(file_path, ibm_format=False):
+def amr_iterator(file_path, jamr=False):
     '''
     Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
-
-    (tokenize is deprecated)
     '''
 
     amrs = []
@@ -136,7 +134,7 @@ def amr_iterator(file_path, ibm_format=False):
     num_amr = len(tqdm_iterator)
     for index, raw_amr in enumerate(tqdm_iterator):
 
-        if ibm_format:
+        if jamr:
             # From JAMR plus IBMs alignment format (DEPRECATED)
             amrs.append(AMR.from_metadata(raw_amr))
         else:
@@ -148,7 +146,7 @@ def amr_iterator(file_path, ibm_format=False):
     return amrs
 
 
-def amr_generator(file_path, ibm_format=False):
+def amr_generator(file_path, jamr=False):
     '''
     Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
 
@@ -160,7 +158,7 @@ def amr_generator(file_path, ibm_format=False):
     num_amr = len(tqdm_iterator)
     for index, raw_amr in enumerate(tqdm_iterator):
 
-        if ibm_format:
+        if jamr:
             # From JAMR plus IBMs alignment format (DEPRECATED)
             yield AMR.from_metadata(raw_amr)
         else:

@@ -15,7 +15,7 @@
 # This file is standalone and intended to be used as well separately of the
 # repository, hence the attached license above.
 
-from collections import defaultdict
+from collections import defaultdict, Counter
 import re
 from copy import deepcopy
 # need to be installed with pip install penman
@@ -30,6 +30,87 @@ from transition_amr_parser.clbar import yellow_font
 alignment_regex = re.compile('(-?[0-9]+)-(-?[0-9]+)')
 
 
+# known annotation issues in different corpora
+ANNOTATION_ISSUES = {
+    'amr2-train': [
+        # repeated edge and child
+        # :polarity
+        2657,   # Each time the owners said "NO" don't worry about.
+        # :mod
+        17055,  # Oh boo hoo hoo!
+        19264,  # Obviously, the reports of major downsizings by various ...
+        # c :ARG1 g :ARG1-of c
+        27279,  # I think Romney might have got the Catholic vote anyhow ...
+
+        # not attribute in string-entity : value
+        # https://www.isi.edu/~ulf/amr/lib/amr-dict.html#string-entity
+        # :value "racist"
+        19409,  # But the word racist is so over-used and so frequently ...
+        19410,  # So, once again, my understanding of the word racist ...
+        19412,  # Now, what is your definition of the word, racist?
+        19414,  # I do not know what her definition of racist is, but if ...
+        # :value "maroon"
+        19862,  # Here's the thing, my theory, you are either some little ...
+        # :value "might"
+        24480,  # The key word there is "might".
+        # :value "commenting"
+        24526,  # I should have said disrupting and not commenting.
+        # :value "exciting"
+        25906,  # I agree with you but don't think 'exciting' is ...
+        # :value "deniability"
+        26128,  # Might be worth googling the word "deniability".
+
+        # not attribute in :timezone
+        # https://www.isi.edu/~ulf/amr/lib/popup/timezone.html
+        # :timezone (l / local)
+        # should be  local-02, but not an attribute error, REMOVED
+        # 27501  # eight o'clock in the morning local time
+    ],
+
+    'amr2-dev': [
+        # repeated edge and child
+        # m2 :ARG2 c6
+        599  # Afghanistan does produce the opium which is the raw ...
+    ],
+
+    'amr3-train': [
+
+        # repeated edge and child
+        2657,   # AMR2.0
+        # repeated i :ARG0 c'
+        19578,  # it is NOT designed to bring the insurance companies down
+        21937,  # AMR2.0's 19264
+        # repeated c :mod h
+        27459,  # But hey, hey, who really gives a shit if a bunch of ...
+        # repeated p :mod c
+        29248,  # The British pipe was usually used as a wine measure, ...
+        # repeated p5 :quant 10
+        33047,  # A poll conducted by Ipsos/MORI for the Sun newspaper ...
+        # repeated i2 :mod 2
+        33187,  # Its going to be quite a show - and it is entirely,
+        # repeated d :time "17:48"
+        33645,  # Blair reappears on shortlist to head EU � By Tony Barber
+        # repeated j2 :mod f
+        34039,  # She always wore Christmas jumpers but not cheerful ...
+        # repeates e :time s
+        34161,   # When he slept with his ex the last time I somehow ...
+        # AMR2.0 19264
+        41560,
+        # p :mod c
+        54617,  # To ensure that the money reaches the Iraqi program , ...
+
+        # :wiki "-" instead of :wiki -
+        # from 24440 on this is widespread, ignored in test
+    ],
+
+    'amr3-dev': [
+        # repeated edge and child
+        # AMR2.0's 599
+        953
+    ]
+}
+
+
 def normalize(token):
     """
     Normalize token or node
@@ -40,47 +121,445 @@ def normalize(token):
         return token.replace('"', '')
 
 
-def create_valid_amr(tokens, nodes, edges, root, alignments):
+class NodeStackErrors():
+
+    def __init__(self):
+        self.visited_edges = []
+        self.forbidden_edges = []
+        self.visited_nodes = []
+        self.offending_stacks = {
+            'cycle': [],
+            'mini-cycle': [],
+            'reentrant': [],
+            'mising_nodes': [],
+            'mising_edges': []
+        }
+
+    def update(self, edge_stack, new_edges):
+
+        # check for re-entrancies or cycles
+        for new_edge in list(new_edges):
+
+            self.visited_edges.append(new_edge)
+            if edge_stack[-1][-1] not in self.visited_nodes:
+                self.visited_nodes.append(edge_stack[-1][-1])
+
+            child = new_edge[-1]
+            if child in [e[0] for e in edge_stack]:
+                # long cycle: do not follow as it will yield a loop
+                # edge is still valid AMR
+                # set_trace(context=30)
+                self.forbidden_edges.append(new_edge)
+                self.offending_stacks['cycle'].append(edge_stack + [new_edge])
+
+            elif child == edge_stack[-1][0]:
+                # mini cycle: parent child with edges in different directions
+                # this is not valid AMR
+                new_edges.remove(new_edge)
+                self.offending_stacks['mini-cycle'].append(
+                    edge_stack + [new_edge]
+                )
+
+            elif child in [e[0] for e in self.visited_edges]:
+                # re-entrancy
+                if new_edge not in self.offending_stacks['reentrant']:
+                    # self.forbidden_edges.append(new_edge)
+                    self.offending_stacks['reentrant'].append(new_edge)
+
+    def close(self, edges):
+        # get stats about missing nodes
+        missing_edges = [e for e in edges if e not in self.visited_edges]
+        if missing_edges:
+            self.offending_stacks['mising_edges'] = missing_edges
+        nodes = [nid for edge in edges for nid in [edge[0], edge[-1]]]
+        visited_nodes = [
+            nid for edge in self.visited_edges for nid in [edge[0], edge[-1]]
+        ]
+        missing_nodes = [n for n in nodes if n not in visited_nodes]
+        if missing_nodes:
+            self.offending_stacks['mising_nodes'] = missing_nodes
+
+
+def trasverse(edges, root, downwards=True, reentrant=False):
+    '''
+    returns a list of stacks of edges when doing a depth first trasversal of a
+    graph
+
+    transverse graph comming from AMR annotation. It detects mini-loops (same
+    node pair) and normal loops and removes them, it also identifies
+    re-entrant subgraphs
+
+    edges        list of (node_id, node_label, node_id)
+    root         node_id in edges
+    downwards    return edge when going down the tree/graph otherwise upwards
+    reentrant    include reentrant nodes
+    '''
 
     # edges by parent
-    parents = defaultdict(list)
+    children_by_nid = defaultdict(list)
     for (source, edge_name, target) in edges:
-        parents[source].append((target, edge_name))
+        children_by_nid[source].append((source, edge_name, target))
 
-    # edges by child
+    # will handle errors/ warnings for invalid AMR
+    error = NodeStackErrors()
+
+    # travel down through graph
+    dfs_edges = []
+    edge_stack = [(None, None, root)]
+    visited_nodes = set()
+    while edge_stack:
+
+        if downwards:
+            dfs_edges.append(list(edge_stack))
+
+        # collect new children edges to put on top of the stack
+        # do not add forbidden edges to the stack
+        if not reentrant and edge_stack[-1][-1] in visited_nodes:
+            new_edges = []
+        else:
+            new_edges = [
+                e for e in children_by_nid[edge_stack[-1][-1]]
+                if (
+                    e not in error.forbidden_edges
+                    # and (reentrant or e[-1] not in visited_nodes)
+                )
+            ]
+            visited_nodes.add(edge_stack[-1][-1])
+        new_edges = sort_edges(new_edges)[::-1]
+
+        # update stats for warning/errors on AMR graph validity
+        error.update(edge_stack, new_edges)
+
+        if new_edges:
+            # downwards
+            edge_stack.extend(new_edges)
+
+        else:
+
+            # upwards, remove all edges until we find unvisited children
+            while (
+                len(edge_stack) > 1
+                and edge_stack[-2][0] != edge_stack[-1][0]
+            ):
+                if not downwards:
+                    dfs_edges.append(list(edge_stack))
+                edge_stack.pop()
+            # and the edge at the same level as those children
+            if not downwards:
+                dfs_edges.append(list(edge_stack))
+            edge_stack.pop()
+
+    # close and compute stats
+    error.close(edges)
+
+    return dfs_edges, error.offending_stacks
+
+
+def sort_edges(edges):
+    # sort edges consistently with AMR annotations
+    edge_by_label = defaultdict(list)
+    for e in edges:
+        edge_by_label[e[1]].append(e)
+    # sort top tier labels by this order
+    top_tier = []
+    for label in [':li', ':wiki', ':name', ':purpose', ':quant']:
+        top_tier.extend(edge_by_label[label])
+    # sort rest alphabetically
+    rest_edges = [e for e in edges if e not in top_tier]
+    rest_edges = sorted(rest_edges, key=lambda x: x[1])
+    return top_tier + rest_edges
+
+
+def scape_node_names(nodes):
+    isolated_scaped_chars = ['-', '+']
+    new_nodes = {}
+    for nid, nname in nodes.items():
+        if nname == '"':
+            # just a single quote, invalid
+            raise Exception('invalid node name "')
+        elif nname[0] == '"' and nname[-1] == '"':
+            # already quoted, ensure no quotes inside
+            nname[1:-1].replace('"', '')
+        elif any(c in nname for c in AMR.reserved_amr_chars):
+            # reserved chars, need to be scaped
+            nname = f'"{nname}"'
+        elif nname in isolated_scaped_chars:
+            # some chars, if they appear in isolation, need to be scaped
+            nname = f'"{nname}"'
+        new_nodes[nid] = nname
+    return new_nodes
+
+
+def get_is_atribute(nodes, edges):
+    '''
+    heuristic to determine which nodes in a graph are attributes
+
+    TODO: this is imperfect
+    '''
+    # edges whis child is allways an attribute
+    const_edges = [':mode', ':polite', ':wiki', ':li']
+    # parents whos :value child is allways an attribute
+    value_const_parents = ['url-entity', 'amr-unintelligible']
+    # numbers are allways attributes
+    numeric_regex = re.compile(r'["0-9,\.:-]')
+    # single letters are allways attributes
+    single_letter_regex = re.compile(r'^[A-Z]$')
+    # TODO: This may not capture all cases
+    propbank_regex = re.compile(r'[a-z-]-[0-9]+')
+    # these symbols are allways attributes
+    const_symbols = ['-', '+']
+    # center node in a named entity
+    ner_nids = [
+        e[2] for e in edges if e[1] == ':name' and nodes[e[2]] == 'name'
+    ]
+
     children = defaultdict(list)
-    for (source, edge_name, target) in edges:
-        children[target].append((source, edge_name))
+    parents = defaultdict(list)
+    for (s, l, t) in edges:
+        children[s].append((s, l, t))
+        parents[t].append((s, l, t))
+
+    is_attribute = {}
+    for nid, nname in nodes.items():
+
+        if children[nid]:
+            # if it has children, it is not a constant
+            is_attribute[nid] = False
+
+        elif (
+            numeric_regex.match(nodes[nid])
+            or nodes[nid] in const_symbols
+        ):
+            # digit or time
+            is_attribute[nid] = True
+
+        elif any(label in const_edges for _, label, _ in parents[nid]):
+            # parent edges of constants only
+            is_attribute[nid] = True
+
+        elif (
+            any(label == ':timezone' for _, label, _ in parents[nid])
+            and not nodes[nid].startswith('local')
+        ):
+            # :timezone is not allways a parent of an attribute
+            is_attribute[nid] = True
+
+        elif any(
+            label == ':value'
+            and nodes[s] in value_const_parents
+            for (s, label, t) in parents[nid]
+        ):
+            # URL entity or amr-unintelligible values are constants
+            is_attribute[nid] = True
+
+        elif any(
+            label == ':value' and nodes[s] == 'string-entity'
+            # FIXME: Unreliable detection of propbank
+            and not propbank_regex.match(nodes[s])
+            for (s, label, t) in parents[nid]
+        ):
+            # FIXME: string-entity seems to have no clear rule to decide
+            # between constant and variable
+            is_attribute[nid] = True
+
+        elif any(s in ner_nids for (s, l, t) in parents[nid]):
+            # Named entity
+            is_attribute[nid] = True
+
+        elif (
+            any(label == ':era' for (s, label, t) in parents[nid])
+            and nodes[nid] in ['AD', 'BC']
+        ):
+            # specific alphanumeric era values
+            # TODO: This is not a robust strategy
+            is_attribute[nid] = True
+
+        elif single_letter_regex.match(nodes[nid]):
+            # single letter in caps, it also a constant
+            is_attribute[nid] = True
+
+        else:
+            is_attribute[nid] = False
+
+    return is_attribute
+
+
+def simple_to_penman(nodes, edges, root=None, color=False):
+
+    # ensure node name are valid
+    nodes = scape_node_names(nodes)
+
+    # depth first trasversal, return all edges involved in paths from root to
+    # current leaf as well as detected re-entrancies or loop reentrancies this
+    # will not stop at re-entrancies but will remove mini-loops and ignore
+    # loops
+    edge_stacks, offending_stacks = trasverse(edges, root, reentrant=False)
+
+    # rules to determine if a node is an attribute or variable
+    is_attribute = get_is_atribute(nodes, edges)
+
+    # needed statistics
+    loop_edges = [x[-1] for x in offending_stacks['cycle']]
+    loop_nids = set([x[-1] for x in loop_edges])
+    reentrant_edges = offending_stacks['reentrant']
+    reentrant_nids = set([x[-1] for x in reentrant_edges])
+
+    penman_str = ''
+    prev_stack = None
+    do_not_close = False
+    visited_nodes = set()
+    while edge_stacks:
+
+        # for edge_stack in edge_stacks:
+        edge_stack = edge_stacks.pop(0)
+
+        # stats
+        edge = edge_stack[-1]
+        pad = '    ' * (len(set(x[0] for x in edge_stack)) - 1)
+        parent, label, nid = edge
+
+        # close parentheses when moving upwards in the tree
+        if prev_stack is not None and len(prev_stack) > len(edge_stack):
+            prev_child = None
+            # if node was re-entrant it has no termination parenthesis
+            if do_not_close:
+                do_not_close = False
+                prev_stack.pop()
+            # move upwards in the tree one depth at at a time by popping from
+            # the edge stack
+            while prev_stack != edge_stack:
+                _, _, child = prev_stack.pop()
+                if child != prev_child:
+                    penman_str += ')'
+                prev_child = child
+
+        if prev_stack is not None:
+            penman_str += '\n'
+
+        # color
+        nid_str = nid
+        if color:
+            if nid in loop_nids:
+                nid_str = "\033[91m%s\033[0m" % nid
+            elif nid in reentrant_nids:
+                nid_str = "\033[93m%s\033[0m" % nid
+            if label == ':rel':
+                label = "\033[93m%s\033[0m" % label
+
+        # node conditions
+        # special case
+        if (
+            # label in [':wiki', ':polarity', ':polite']
+            nodes[nid] in ['"-"', '"+"']
+        ):
+            nname = normalize(nodes[nid])
+        else:
+            nname = nodes[nid]
+
+        # print edge
+        if label:
+            if is_attribute[nid]:
+                # attribute
+                penman_str += f'{pad}{label} {nname}'
+                do_not_close = True
+
+            elif nid in visited_nodes:
+                # re-entrancy
+                penman_str += f'{pad}{label} {nid_str}'
+                do_not_close = True
+
+            else:
+                # normal node
+                penman_str += f'{pad}{label} ({nid_str} / {nname}'
+        else:
+            penman_str += f'({nid_str} / {nname}'
+        prev_stack = edge_stack
+
+        # add this node as visited
+        visited_nodes.add(nid)
+
+    # close AMR
+    while bool(prev_stack):
+        if do_not_close:
+            do_not_close = False
+            prev_stack.pop()
+        prev_stack.pop()
+        penman_str += ')'
+    penman_str += '\n'
+
+    return penman_str
+
+
+def find_roots(edges):
+
+    num_parents = Counter()
+    num_children = Counter()
+    nodes = set()
+    for (s, l, t) in edges:
+        num_parents[t] += 1
+        num_children[s] += 1
+        nodes.add(s)
+        nodes.add(t)
+
+    heads = [n for n in nodes if num_parents[n] == 0]
+    # if we have edges and no head, there is a cycle. Cut at the node with
+    # highest number of children
+    if heads == [] and edges != []:
+        heads = [num_children.most_common(1)[0][0]]
+    return heads
+
+
+def force_rooted_connected_graph(nodes, edges, root):
 
     # locate all heads of the entire graph (there should be only one)
-    heads = [n for n in nodes if len(parents[n]) == 0]
+    heads = find_roots(edges)
 
-    # heuristics to find the root
+    # for each head, find its descendant, ignore loops
+    head_descendants = dict()
+    for head in heads:
+        _, offending_stacks = trasverse(edges, head)
+        descendants = [
+            nid
+            for nid in nodes.keys()
+            if nid not in offending_stacks['mising_nodes']
+        ]
+        head_descendants[head] = descendants
+
+    # find root strategy: multi-sentence or head with more descendants
     if root is None:
-        if len(heads) == 1:
+        if 'multi-sentence' in nodes.values():
+            index = list(nodes.values).index('multi-sentence')
+            root = list(nodes.keys())[index]
+        elif edges == []:
+            heads = list(nodes.keys())
             root = heads[0]
-        elif 'multi-sentence' in nodes.values():
-            for nid in heads:
-                if 'multi-sentence' == nodes[nid]:
-                    root = nid
-                    break
-        elif heads:
-            # FIXME: this need for an if signals degenerate cases not being
-            # captured
-            # heuristic to find a root if missing
-            # simple criteria, head with more children is the root
-            root = sorted(
-                heads, key=lambda n: len(children[n])
-            )[-1]
+        else:
+            def key(x): return len(x[1])
+            root = sorted(head_descendants.items(), key=key)[-1][0]
 
-    # heuristics join disconnected graphs
-    if len(heads) > 1:
-        # add rel edges from detached subgraphs to the root
-        if root in heads:
-            # FIXME: this should not be happening
-            heads.remove(root)
-        for n in heads:
-            edges.append((root, AMR.default_rel, n))
+    # connect graph: add rel edges from detached subgraphs to the root
+    if root in heads:
+        heads.remove(root)
+    for n in heads:
+        edges.append((root, AMR.default_rel, n))
+
+    return root, edges
+
+
+def create_valid_amr(tokens, nodes, edges, root, alignments):
+
+    if root is None:
+        print(yellow_font('WARNING: missing root'))
+
+    # rooted and connected
+    root, edges = force_rooted_connected_graph(nodes, edges, root)
+    if any(e[1] == AMR.default_rel for e in edges):
+        print(yellow_font('WARNING: disconnected graphs'))
+
+    # TODO: Unlcear if necessary depending on printer
+    # nodes, edges = prune_mini_cycles(nodes, edges, root)
+    # if alignments:
+    #     alignments = {nid: alignments[nid] for nid in nodes}
 
     return tokens, nodes, edges, root, alignments
 
@@ -91,6 +570,7 @@ class AMR():
     default_rel = ':rel'
     # these need to be scaped in node names
     reserved_amr_chars = [':', '/', '(', ')']
+    # TODO: also - + in isolation
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
                  alignments=None, sentence=None, id=None):
@@ -153,7 +633,7 @@ class AMR():
         arcs = self._edges_by_parent.get(node_id, [])
         if edges:
             return arcs
-        else:    
+        else:
             return [a[0] for a in arcs]
 
     @classmethod
@@ -525,11 +1005,8 @@ def get_jamr_metadata(tokens, nodes, edges, root, alignments, penman=False):
         nodes_str = nodes[n] if n in nodes else "None"
         output += f'# ::node\t{n}\t{nodes_str}' + alignment + '\n'
     # root
-    if root is not None:
-        # FIXME: This is allowed to complete the printing, but this graph is
-        # already invalid.
-        roots = nodes[root] if root in nodes else "None"
-        output += f'# ::root\t{root}\t{roots}\n'
+    roots = nodes[root] if root in nodes else "None"
+    output += f'# ::root\t{root}\t{roots}\n'
     # edges
     for s, r, t in edges:
         r = r.replace(':', '')
@@ -729,10 +1206,6 @@ def legacy_graph_printer(metadata, nodes, root, edges):
     '''
     Legacy printer from stack-LSTM, stack-Transformer and action-pointer
     '''
-
-    if root is None:
-        # FIXME: This is to catch the if root is None: of get_jamr_metadata
-        return '(a / amr-empty)\n\n'
 
     # These symbols can not be used directly for nodes
     must_scape_symbols = [':', '/', '(', ')']

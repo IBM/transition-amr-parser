@@ -11,7 +11,7 @@ from tqdm import tqdm
 import numpy as np
 from transition_amr_parser.io import (
     AMR,
-    read_amr2,
+    read_amr,
     read_tokenized_sentences,
     write_tokenized_sentences,
     read_neural_alignments
@@ -1181,14 +1181,22 @@ class StatsForVocab:
 
 def oracle(args):
 
+    if args.jamr:
+        print(yellow_font('WARNING: --jamr format is deprecated'))
+
     # Read AMR
     amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
-    amrs = read_amr2(amr_file, ibm_format=not args.no_jamr,
-                     tokenize=args.no_jamr)
+    amrs = read_amr(amr_file, jamr=args.jamr)
     if args.in_aligned_amr:
         # check actually aligned
-        assert all(bool(amr.alignments) for amr in amrs), \
-            f'Expected alignments in {amr_file}'
+        for amr in amrs:
+            if not bool(amr.alignments):
+                print(yellow_font(f'Expected alignments in {amr_file}'))
+                print(amr)
+            elif any(n not in amr.alignments for n in amr.nodes):
+                set_trace(context=30)
+                print(yellow_font(f'Missing alignment {amr_file}'))
+                print(amr)
 
     # read AMR alignments if provided
     if args.in_alignment_probs:
@@ -1394,8 +1402,8 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
-        "--no-jamr",
-        help="Read AMR and alignments from PENMAN and not JAMR (meta-data)",
+        "--jamr",
+        help="Read AMR and alignments from JAMR and not PENMAN",
         action='store_true'
     )
     parser.add_argument(
