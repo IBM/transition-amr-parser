@@ -324,6 +324,7 @@ def get_is_atribute(nodes, edges):
 
         if children[nid]:
             # if it has children, it is not a constant
+            # NOTE: This can happen with attributes in invalid graphs
             is_attribute[nid] = False
 
         elif (
