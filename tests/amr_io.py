@@ -62,8 +62,8 @@ def main(args):
 
         # read, write back and read again
         amr = AMR.from_penman(penman_str)
-        penman_str2 = simple_to_penman(amr.nodes, amr.edges, amr.root)
-        out_amr_penmans.append(f'# ::snt {amr.sentence}\n{penman_str2}')
+        penman_str2 = amr.__str__()
+        out_amr_penmans.append(penman_str2)
         amr2 = AMR.from_penman(penman_str2)
 
         # graphs are either single root or acyclic due to "-of" inversions
