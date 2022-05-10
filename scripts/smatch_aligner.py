@@ -5,7 +5,7 @@ import subprocess
 from collections import defaultdict
 from ipdb import set_trace
 from transition_amr_parser.io import read_blocks
-from transition_amr_parser.amr import AMR, get_is_atribute
+from transition_amr_parser.amr import AMR, get_is_atribute, normalize
 # this requires local smatch installed --editable and touch smatch/__init__.py
 from transition_amr_parser.clbar import yellow_font
 from smatch.smatch import get_best_match, compute_f
@@ -87,16 +87,8 @@ def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
     test_triple_num2 = \
         len(dec_vars) + len(dec_attributes) + len(dec_relations) + 1
 
+    # node hits
     node_hits = 0
-    relation_hits = 0
-    attribute_hits = 0
-    # keep a list from which we can remove nodes to avoid double count. Also
-    # replace attriburte ids by node names, as node ids for attributes is juts
-    # afeature of our internal format
-    dec_edges = [
-        (s, l, amr.nodes[t]) if is_attribute[t] else (s, l, t)
-        for (s, l, t) in amr.edges
-    ]
     for gid, nid in alignments.items():
 
         # nodes (instances differ)
@@ -106,25 +98,35 @@ def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
         else:
             node_hits += 1
 
-        # relations / attributes
+    # relations / attribute hits
+    relation_hits = 0
+    attribute_hits = 0
+    # keep a list from which we can remove nodes to avoid double count. Also
+    # replace attriburte ids by node names, as node ids for attributes is juts
+    # afeature of our internal format
+    dec_edges = [
+        (s, l, normalize(amr.nodes[t])) if is_attribute[t] else (s, l, t)
+        for (s, l, t) in amr.edges
+    ]
+    for gid, nid in alignments.items():
         for gtgt, label in gold_amr.children(gid):
 
             # attributes are not aligned, but names should match
             # if gold_is_attribute[gtgt]:  # this is an imperfect heuristic
             if gtgt not in alignments:
-                child_id = gold_amr.nodes[gtgt]
+                child_id = normalize(gold_amr.nodes[gtgt])
             else:
                 child_id = alignments[gtgt]
 
             # edeges may be also inverted
-            direct_edge = (alignments[gid], label, child_id)
+            direct_edge = (nid, label, child_id)
             if label.endswith('-of'):
-                inverse_edge = (child_id, f'{label[:-3]}', alignments[gid])
+                inverse_edge = (child_id, f'{label[:-3]}', nid)
             else:
-                inverse_edge = (child_id, f'{label}-of', alignments[gid])
+                inverse_edge = (child_id, f'{label}-of', nid)
 
             if direct_edge in dec_edges:
-                if gid not in alignments:
+                if gtgt not in alignments:
                     attribute_hits += 1
                 else:
                     relation_hits += 1
@@ -133,7 +135,7 @@ def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
                 dec_edges.remove(direct_edge)
 
             elif inverse_edge in dec_edges:
-                if gid not in alignments:
+                if gtgt not in alignments:
                     attribute_hits += 1
                 else:
                     relation_hits += 1
@@ -141,6 +143,7 @@ def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
                 dec_edges.remove(inverse_edge)
 
             else:
+                # missing relation
                 set_trace(context=30)
                 print()
 
@@ -170,7 +173,7 @@ def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
             set_trace(context=30)
             print()
 
-    return best_match_num, test_triple_num, gold_triple_num
+    return best_match_num2, test_triple_num2, gold_triple_num2
 
 
 def main(args):
@@ -230,15 +233,15 @@ def main(args):
         sorted_ids_b = [ids_b[i] for i in best_mapping]
         best_id_map = dict(zip(ids_a, sorted_ids_b))
 
-        # compute scores ourselves and compare against smatch computation
-        ref = (
-            best_match_num,
-            (instance2, attributes2, relation2),
-            (instance1, attributes1, relation1)
-        )
-        num_hits, num_guess, num_gold = compute_score_ourselves(
-            gold_penman, penman, best_id_map, ref
-        )
+#         # compute scores ourselves and compare against smatch computation
+#         ref = (
+#             best_match_num,
+#             (instance2, attributes2, relation2),
+#             (instance1, attributes1, relation1)
+#         )
+#         num_hits, num_guess, num_gold = compute_score_ourselves(
+#             gold_penman, penman, best_id_map, None
+#         )
 
         # stop if score is not perfect
         if (
@@ -264,7 +267,7 @@ def main(args):
     test_triple_num = sum([t[1] for t in statistics])
     gold_triple_num = sum([t[2] for t in statistics])
     corpus_score = compute_f(best_match_num, test_triple_num, gold_triple_num)
-    print(f'Smatch: {corpus_score[2]:.2f}')
+    print(f'Smatch: {corpus_score[2]:.4f}')
 
 
 def argument_parser():
