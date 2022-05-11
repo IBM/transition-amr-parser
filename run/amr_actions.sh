@@ -24,7 +24,7 @@ mkdir -p $ORACLE_FOLDER
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
 if [ -f $ORACLE_FOLDER/.done ]; then
 
-    echo "Directory to oracle: $ORACLE_FOLDER already exists --- do nothing."
+    printf "[\033[92m OK \033[0m] $ORACLE_FOLDER/.done\n"
 
 else
 

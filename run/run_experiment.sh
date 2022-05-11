@@ -58,18 +58,18 @@ bash run/train_aligner.sh $config
 echo "[Building oracle actions:]"
 mkdir -p $ORACLE_FOLDER
 # TODO: replace by task agnostic oracle creation
-bash run/aa_amr_actions.sh $config
+bash run/amr_actions.sh $config
 
 echo "[Preprocessing data:]"
 mkdir -p $DATA_FOLDER
-bash run/ab_preprocess.sh $config
+bash run/preprocess.sh $config
 
 [ "$on_the_fly_decoding" = true ] \
     && echo "[Decoding and computing smatch (on the fly):]" \
     && bash run/run_model_eval.sh $config $seed &
 
 echo "[Training:]"
-bash run/ac_train.sh $config $seed 
+bash run/train.sh $config $seed 
 
 [ "$on_the_fly_decoding" = false ] \
     && echo "[Decoding and computing smatch:]" \

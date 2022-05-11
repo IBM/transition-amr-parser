@@ -869,6 +869,8 @@ def link_remove(args, seed, config_env_vars, checkpoints=None,
 
 def wait_checkpoint_ready_to_eval(args):
 
+    assert bool(args.config), "Missing config"
+
     config_env_vars = read_config_variables(args.config)
     if args.seed:
         seeds = [args.seed]
@@ -891,10 +893,17 @@ def wait_checkpoint_ready_to_eval(args):
                  )
 
             # sanity check: we did not delete checkpoints without testing them
-            if sneed_eval and max(sneed_eval) < max(starget_epochs):
-                print('\nCheckpoints may have been deleted before tesing or '
-                      'testing failed on evaluation\n')
-                print(f'missing {sneed_eval}\n')
+            deleted_epochs = [
+                e for e in sneed_eval if e not in starget_epochs
+            ]
+            if deleted_epochs:
+
+                model_folder = config_env_vars['MODEL_FOLDER']
+                seed_folder = f'{model_folder}-seed{seed}'
+                print('\nCheckpoints may have been deleted before testing or '
+                      'testing failed on evaluation, missing\n')
+                for epoch in deleted_epochs:
+                    print(f'{seed_folder}/checkpoint{epoch}.pt')
                 exit(1)
 
             checkpoints.extend(scheckpoints)

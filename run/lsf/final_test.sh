@@ -50,7 +50,7 @@ for seed in $SEEDS;do
           -name "$jbsub_tag" \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash run/ad_test.sh ${checkpoints_dir}/$DECODING_CHECKPOINT \
+          /bin/bash run/test.sh ${checkpoints_dir}/$DECODING_CHECKPOINT \
             -b $BEAM_SIZE \
             -s test
 

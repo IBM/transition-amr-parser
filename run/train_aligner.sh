@@ -150,7 +150,7 @@ else
        --single-input $ALIGNED_FOLDER/train.dummy_align.txt \
        --single-output $ALIGNED_FOLDER/alignment.trn.align_dist.npy
 
-   python align_cfg/align_utils.py write_argmax \
+    python align_cfg/align_utils.py write_argmax \
        --in-amr $ALIGNED_FOLDER/train.dummy_align.txt \
        --in-amr-align-dist $ALIGNED_FOLDER/alignment.trn.align_dist.npy \
        --out-amr-aligned $ALIGNED_FOLDER/train.txt

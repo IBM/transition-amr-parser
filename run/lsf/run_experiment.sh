@@ -109,7 +109,7 @@ if [ ! -f "$ORACLE_FOLDER/.done" ];then
           $align_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
           -err $ORACLE_FOLDER/${jbsub_tag}-%J.stderr \
-          /bin/bash run/aa_amr_actions.sh $config
+          /bin/bash run/amr_actions.sh $config
 
     # train will wait for this to start
     prepro_depends="-depend $jbsub_tag"
@@ -134,7 +134,7 @@ if [[ (! -f $DATA_FOLDER/.done) || (! -f $EMB_FOLDER/.done) ]]; then
           $prepro_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
           -err $ORACLE_FOLDER/${jbsub_tag}-%J.stderr \
-          /bin/bash run/ab_preprocess.sh $config
+          /bin/bash run/preprocess.sh $config
 
     # train will wait for this to start
     train_depends="-depend $jbsub_tag"
@@ -167,7 +167,7 @@ for seed in $SEEDS;do
               $train_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
               -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-              /bin/bash run/ac_train.sh $config "$seed"
+              /bin/bash run/train.sh $config "$seed"
 
         # testing will wait for training to be finished
         test_depends="-depend $jbsub_tag"

@@ -48,10 +48,14 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
         # run test for these checkpoints
         for checkpoint in $ready_checkpoints;do
             results_prefix=$checkpoints_folder/epoch_tests/dec-$(basename $checkpoint .pt)
-            bash run/ad_test.sh $checkpoint -o $results_prefix
+            bash run/test.sh $checkpoint -o $results_prefix
         done
     done
     touch $checkpoints_folder/epoch_tests/.done
+
+else
+
+    printf "[\033[92m OK \033[0m] $checkpoints_folder/epoch_tests/.done\n"
     
 fi
 
@@ -97,4 +101,4 @@ fi
     && echo -e "Missing $checkpoints_folder/$DECODING_CHECKPOINT" \
     && exit 1
 mkdir -p $checkpoints_folder/beam${BEAM_SIZE}/
-bash run/ad_test.sh $checkpoints_folder/$DECODING_CHECKPOINT -b $BEAM_SIZE
+bash run/test.sh $checkpoints_folder/$DECODING_CHECKPOINT -b $BEAM_SIZE
