@@ -1,7 +1,5 @@
 import argparse
 import copy
-
-from formatter import amr_to_string
 from transition_amr_parser.io import read_amr
 
 
@@ -25,4 +23,4 @@ if __name__ == '__main__':
     with open(args.out_amr, 'w') as f:
         for amr in corpus:
             amr = dummy_align(amr)
-            f.write(amr_to_string(amr).strip() + '\n\n')
+            f.write(f'{amr.__str__()}\n')

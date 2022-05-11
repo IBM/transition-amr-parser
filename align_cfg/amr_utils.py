@@ -1,15 +1,19 @@
 import collections
+from ipdb import set_trace
 
 import torch
 
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.io import read_amr
 
 
-def safe_read(path, ibm_format=True, tokenize=False, max_length=0, check_for_edges=False, remove_empty_align=True, remove_none_edges=True):
+def safe_read(path, ibm_format=False, tokenize=False, max_length=0, check_for_edges=False, remove_empty_align=True, remove_none_edges=True):
+
+    if tokenize:
+        raise NotImplementedError('On the fly tokeninzing is deprecated')
 
     skipped = collections.Counter()
 
-    corpus = read_amr2(path, ibm_format=ibm_format, tokenize=tokenize)
+    corpus = read_amr(path, jamr=ibm_format)
 
     if max_length > 0:
         new_corpus = []

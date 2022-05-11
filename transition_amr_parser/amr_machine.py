@@ -78,6 +78,7 @@ def graph_alignments(unaligned_nodes, amr):
 def graph_vicinity_align(gold_amr):
 
     # Fix unaligned nodes by graph vicinity
+    assert gold_amr.alignments, "Expected alignments in AMR"
     unaligned_nodes = set(gold_amr.nodes) - set(gold_amr.alignments)
     unaligned_nodes |= \
         set(nid for nid, pos in gold_amr.alignments.items() if pos is None)

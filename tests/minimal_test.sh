@@ -22,7 +22,7 @@ if [ -z $1 ];then
     else
         echo "$ELMO_WEIGHTS does not exist."
 
-        # Delete previous runs is exist
+        # Delete previous runs if exists
         rm -Rf DATA/wiki25/*
     fi
 

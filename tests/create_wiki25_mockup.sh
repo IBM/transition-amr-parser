@@ -23,8 +23,8 @@ touch DATA/wiki25/corpora/.done
 mkdir -p DATA/wiki25/aligned/cofill/
 [ ! -f DATA/wiki25/aligned/cofill/train.txt ] \
     && ln -s ../../../wiki25.jkaln DATA/wiki25/aligned/cofill/train.txt 
-[ ! -f DATA/wiki25/aligned/cofill/train.txt ] \
-    && ln -s ../../../wiki25.jkaln DATA/wiki25/aligned/cofill/train.txt
+[ ! -f DATA/wiki25/aligned/cofill/dev.txt ] \
+    && ln -s ../../../wiki25.jkaln DATA/wiki25/aligned/cofill/dev.txt
 [ ! -f DATA/wiki25/aligned/cofill/test.txt ] \
     && ln -s ../../../wiki25.jkaln DATA/wiki25/aligned/cofill/test.txt 
 touch DATA/wiki25/aligned/cofill/.done

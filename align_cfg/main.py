@@ -38,31 +38,19 @@ from tqdm import tqdm
 
 from align_utils import save_align_dist
 from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_distance, get_node_ids
-from amr_utils import safe_read as safe_read_
+from amr_utils import safe_read as safe_read
 from alignment_decoder import AlignmentDecoder
 from evaluation import EvalAlignments
 from formatter import amr_to_pretty_format, amr_to_string
 from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.io import read_amr
 from transformer_lm import BiTransformer, TransformerModel
 from tree_lstm import TreeEncoder as TreeLSTMEncoder
 from tree_lstm import TreeEncoder_v2 as TreeLSTMEncoder_v2
 from tree_rnn import TreeEncoder as TreeRNNEncoder
 from vocab import *
 from vocab_definitions import MaskInfo
-
-
-def safe_read(path, **kwargs):
-    # TODO: Rename to --jamr or similar
-    if args.aligner_training_and_eval:
-        # read JAMR
-        kwargs['ibm_format'], kwargs['tokenize'] = True, False
-    else:
-        # read PENMAN
-        kwargs['ibm_format'], kwargs['tokenize'] = False, False
-
-    return safe_read_(path, **kwargs)
 
 
 class JSONConfig(object):
@@ -229,11 +217,6 @@ def argument_parser():
     parser.add_argument(
         "--no-jamr",
         help="If true, then read penman. Otherwise, read JAMR.",
-        action='store_true',
-    )
-    parser.add_argument(
-        "--aligner-training-and-eval",
-        help="Set when training or evaluating aligner.",
         action='store_true',
     )
     # Other options
@@ -1542,6 +1525,7 @@ def maybe_write(context):
 
 
 def main(args):
+
     batch_size = args.batch_size
     lr = args.lr
     max_epoch = args.max_epoch + 1

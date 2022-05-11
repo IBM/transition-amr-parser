@@ -31,7 +31,7 @@ from fairseq_ext.amr_spec.action_info_binarize import (
     load_actstates_fromfile
 )
 from fairseq_ext.binarize import binarize_file
-from transition_amr_parser.io import read_amr2, read_neural_alignments, read_neural_alignments_from_memmap
+from transition_amr_parser.io import read_amr, read_neural_alignments, read_neural_alignments_from_memmap
 from transition_amr_parser.amr_machine import AMRStateMachine, AMROracle, peel_pointer
 from fairseq_ext.amr_spec.action_info import get_actions_states
 from fairseq_ext.data.data_utils import collate_tokens
@@ -113,7 +113,7 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
 
     # gold AMR with alignments (to enable running oracle on the fly)
     aligned_amr_path = os.path.join(data_path, f'{split}.aligned.gold-amr')
-    gold_amrs = read_amr2(aligned_amr_path, ibm_format=True)
+    gold_amrs = read_amr(aligned_amr_path)
     # read alignment probabilities
     if split == 'train':
         amr_align_probs_path = os.path.join(data_path, 'alignment.trn.pretty')

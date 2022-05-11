@@ -31,10 +31,10 @@ def add_sampling_vocabulary(tgt_dict, trainpref):
     # what is COPY-ed may change
 
     # FIXME: ugly and local way
-    from transition_amr_parser.io import read_amr2
+    from transition_amr_parser.io import read_amr
     amr_path = f'{os.path.dirname(trainpref)}/ref_train.amr'
     assert os.path.exists(amr_path)
-    for amr in read_amr2(amr_path, ibm_format=True):
+    for amr in read_amr(amr_path):
         for node_name in amr.nodes.values():
             tgt_dict.add_symbol(node_name.replace('"', ''))
 

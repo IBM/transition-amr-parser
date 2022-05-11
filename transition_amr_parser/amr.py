@@ -17,11 +17,10 @@
 
 from collections import defaultdict, Counter
 import re
-from copy import deepcopy
 # need to be installed with pip install penman
 import penman
 from penman.layout import Push
-from penman.graph import Graph, Edge, Attribute
+from penman.graph import Edge, Attribute
 from penman import surface
 from ipdb import set_trace
 from transition_amr_parser.clbar import yellow_font
@@ -621,10 +620,9 @@ def create_valid_amr(tokens, nodes, edges, root, alignments):
     # rooted and connected
     root, edges = force_rooted_connected_graph(nodes, edges, root)
     if any(e[1] == AMR.default_rel for e in edges):
-        set_trace(context=30)
         print(yellow_font('WARNING: disconnected graphs'))
 
-    # TODO: Unlcear if necessary depending on printer
+    # TODO: Unclear if necessary depending on printer
     # nodes, edges = prune_mini_cycles(nodes, edges, root)
     # if alignments:
     #     alignments = {nid: alignments[nid] for nid in nodes}
@@ -812,6 +810,9 @@ class AMR():
                 print(yellow_font('WARNING: edge with extra node (ignored)'))
                 print((s, label, t))
         edges = new_edges
+
+        # sanity check: there was some JAMR
+        assert bool(nodes), "JAMR notation seems empty"
 
         return cls(tokens, nodes, edges, root, penman=None,
                    alignments=alignments, sentence=sentence, id=graph_id)
