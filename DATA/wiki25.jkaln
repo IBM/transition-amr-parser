@@ -170,12 +170,12 @@
 (s / share-01~1
       :ARG0 (p / person~0 :name "Fine"~0)
       :ARG1 (a / and~3
-            :op1 (o / ord~2 :value 1 :name (n2~2 / name :op1 "ord-entity"~2))
-            :op2 (o2 / ord~4 :value 2 :name (n~4 / name :op1 "ord-entity"~4))
+            :op1 (o / ord~2 :value 1 :name (n2 / name~2 :op1 "ord-entity"~2))
+            :op2 (o2 / ord~4 :value 2 :name (n / name~4 :op1 "ord-entity"~4))
             :mod (s2 / score-entity~16
                   :op1 (s3 / slash~9
                         :op1 5~9
-                        :op2 7~9
+                        :op2 7~9)
                   :mod (a2 / ahead~16
                         :op1 (p4 / person~18 :name "Alekhine"~18)
                         :extent (p3 / point-yy~15 :quant "1/2"~13))))
