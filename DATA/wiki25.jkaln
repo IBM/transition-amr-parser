@@ -1,926 +1,298 @@
 # ::snt The gestation period averages 12 months.
 # ::tok The gestation period averages 12 months .
-# ::alignments 3-4|0 4-5|0.1.0 5-6|0.1.1 2-3|0.0 1-2|0.0.0
-# ::node	0	average-01	3-4
-# ::node	0.0	period	2-3
-# ::node	0.0.0	gestate-01	1-2
-# ::node	0.1	temporal-quant
-# ::node	0.1.0	12	4-5
-# ::node	0.1.1	month	5-6
-# ::root	0	average-01
-# ::edge	average-01	ARG1	period	0	0.0
-# ::edge	average-01	ARG2	temporal-quant	0	0.1
-# ::edge	period	consist-of	gestate-01	0.0	0.0.0
-# ::edge	temporal-quant	quant	12	0.1	0.1.0
-# ::edge	temporal-quant	unit	month	0.1	0.1.1
-(a / average-01
-      :ARG1 (p / period
-            :consist-of (g / gestate-01))
-      :ARG2 (t / temporal-quant :quant 12
-            :unit (m / month)))
+(a / average-01~3
+      :ARG1 (p / period~2
+            :consist-of (g / gestate-01~1))
+      :ARG2 (t / temporal-quant~4 :quant 12~4
+            :unit (m / month~5)))
 
 # ::snt At the end of 1922, Jaffa had 32,000 residents and Tel Aviv, 15,000.
 # ::tok At the end of 1922 , Jaffa had 32,000 residents and Tel Aviv , 15,000 .
-# ::alignments 11-13|0.1.0+0.1.0.0+0.1.0.0.0+0.1.0.0.1 4-5|0.2.0+0.2.0.0 10-11|0 2-3|0.2 7-8|0.1 6-7|0.0.0+0.0.0.0 9-10|0.1.1+0.1.1.1
-# ::node	0	and	3-4
-# ::node	0.0	have-03	2-3
-# ::node	0.0.0	city	1-2
-# ::node	0.0.0.0	"Jaffa"	6-7
-# ::node	0.0.1	person
-# ::node	0.0.1.0	"32,000"
-# ::node	0.0.1.1	reside-01
-# ::node	0.1	have-03	4-5
-# ::node	0.1.0	city	11-13
-# ::node	0.1.0.0	name	11-13
-# ::node	0.1.0.0.0	"Tel"	11-13
-# ::node	0.1.0.0.1	"Aviv"	11-13
-# ::node	0.1.1	person	5-6
-# ::node	0.1.1.0	"15,000"
-# ::node	0.1.1.1	reside-01	9-10
-# ::node	0.2	end-01
-# ::node	0.2.0	date-entity
-# ::node	0.2.0.0	1922
-# ::root	0	and	3-4
-# ::edge	and	op1	have-03	0	0.0
-# ::edge	and	op2	have-03	0	0.1
-# ::edge	and	time	end-01	0	0.2
-# ::edge	city	name	"Jaffa"	0.0.0	0.0.0.0
-# ::edge	city	name	name	0.1.0	0.1.0.0
-# ::edge	date-entity	year	1922	0.2.0	0.2.0.0
-# ::edge	end-01	ARG1	date-entity	0.2	0.2.0
-# ::edge	have-03	ARG0	city	0.0	0.0.0
-# ::edge	have-03	ARG0	city	0.1	0.1.0
-# ::edge	have-03	ARG1	person	0.0	0.0.1
-# ::edge	have-03	ARG1	person	0.1	0.1.1
-# ::edge	name	op1	"Tel"	0.1.0.0	0.1.0.0.0
-# ::edge	name	op2	"Aviv"	0.1.0.0	0.1.0.0.1
-# ::edge	person	ARG0-of	reside-01	0.0.1	0.0.1.1
-# ::edge	person	ARG0-of	reside-01	0.1.1	0.1.1.1
-# ::edge	person	quant	"15,000"	0.1.1	0.1.1.0
-# ::edge	person	quant	"32,000"	0.0.1	0.0.1.0
-(a / and
-      :op1 (h / have-03
-            :ARG0 (c / city :name "Jaffa")
+(a / and~3
+      :op1 (h / have-03~2
+            :ARG0 (c / city~1 :name "Jaffa"~6)
             :ARG1 (p / person :quant "32,000"
                   :ARG0-of (r / reside-01)))
-      :op2 (h2 / have-03
-            :ARG0 (c2 / city :name (n / name :op1 "Tel" :op2 "Aviv"))
-            :ARG1 (p2 / person :quant "15,000"
-                  :ARG0-of (r2 / reside-01)))
+      :op2 (h2 / have-03~4
+            :ARG0 (c2 / city~11 :name (n / name~11 :op1 "Tel"~11 :op2 "Aviv"~11))
+            :ARG1 (p2 / person~5 :quant "15,000"
+                  :ARG0-of (r2 / reside-01~9)))
       :time (e / end-01
             :ARG1 (d / date-entity :year 1922)))
 
 # ::snt Each chapter was named for the story previously published in magazine form.
 # ::tok Each chapter was named for the story previously published in magazine form .
-# ::alignments 3-4|0 6-7|0.1 8-9|0.1.0 11-12|0.1.0.1 10-11|0.1.0.1.0 1-2|0.0 0-1|0.0.0 7-8|0.1.0.0
-# ::node	0	name-02	3-4
-# ::node	0.0	chapter	1-2
-# ::node	0.0.0	each	0-1
-# ::node	0.1	story	6-7
-# ::node	0.1.0	publish-01	8-9
-# ::node	0.1.0.0	previous	7-8
-# ::node	0.1.0.1	form	11-12
-# ::node	0.1.0.1.0	magazine	10-11
-# ::root	0	name-02
-# ::edge	chapter	mod	each	0.0	0.0.0
-# ::edge	form	mod	magazine	0.1.0.1	0.1.0.1.0
-# ::edge	name-02	ARG1	chapter	0	0.0
-# ::edge	name-02	ARG2	story	0	0.1
-# ::edge	publish-01	manner	form	0.1.0	0.1.0.1
-# ::edge	publish-01	time	previous	0.1.0	0.1.0.0
-# ::edge	story	ARG1-of	publish-01	0.1	0.1.0
-(n / name-02
-      :ARG1 (c / chapter
-            :mod (e / each))
-      :ARG2 (s / story
-            :ARG1-of (p / publish-01
-                  :time (p2 / previous)
-                  :manner (f / form
-                        :mod (m / magazine)))))
+(n / name-02~3
+      :ARG1 (c / chapter~1
+            :mod (e / each~0))
+      :ARG2 (s / story~6
+            :ARG1-of (p / publish-01~8
+                  :time (p2 / previous~7)
+                  :manner (f / form~11
+                        :mod (m / magazine~10)))))
 
 # ::snt The ball may be hit, pushed or lifted in any direction by the team offended against.
 # ::tok The ball may be hit , pushed or lifted in any direction by the team offended against .
-# ::alignments 2-3|0 7-8|0.0 10-11|0.0.3 8-9|0.0.2 6-7|0.0.1 4-5|0.0.0 1-2|0.0.0.1 14-15|0.0.0.0 15-16|0.0.0.0.0
-# ::node	0	possible-01	2-3
-# ::node	0.0	or	7-8
-# ::node	0.0.0	hit-01	4-5
-# ::node	0.0.0.0	team	14-15
-# ::node	0.0.0.0.0	offend-01	15-16
-# ::node	0.0.0.1	ball	1-2
-# ::node	0.0.1	push-01	6-7
-# ::node	0.0.2	lift-01	8-9
-# ::node	0.0.3	any	10-11
-# ::root	0	possible-01
-# ::edge	hit-01	ARG0	team	0.0.0	0.0.0.0
-# ::edge	hit-01	ARG1	ball	0.0.0	0.0.0.1
-# ::edge	lift-01	ARG0	team	0.0.2	0.0.0.0
-# ::edge	lift-01	ARG1	ball	0.0.2	0.0.0.1
-# ::edge	offend-01	prep-against	team	0.0.0.0.0	0.0.0.0
-# ::edge	or	direction	any	0.0	0.0.3
-# ::edge	or	op1	hit-01	0.0	0.0.0
-# ::edge	or	op2	push-01	0.0	0.0.1
-# ::edge	or	op3	lift-01	0.0	0.0.2
-# ::edge	possible-01	ARG1	or	0	0.0
-# ::edge	push-01	ARG0	team	0.0.1	0.0.0.0
-# ::edge	push-01	ARG1	ball	0.0.1	0.0.0.1
-# ::edge	team	ARG1-of	offend-01	0.0.0.0	0.0.0.0.0
-(p / possible-01
-      :ARG1 (o / or
-            :op1 (h / hit-01
-                  :ARG0 (t / team
-                        :ARG1-of (o2 / offend-01
+(p / possible-01~2
+      :ARG1 (o / or~7
+            :op1 (h / hit-01~4
+                  :ARG0 (t / team~14
+                        :ARG1-of (o2 / offend-01~15
                               :prep-against t))
-                  :ARG1 (b / ball))
-            :op2 (p2 / push-01
+                  :ARG1 (b / ball~1))
+            :op2 (p2 / push-01~6
                   :ARG0 t
                   :ARG1 b)
-            :op3 (l / lift-01
+            :op3 (l / lift-01~8
                   :ARG0 t
                   :ARG1 b)
-            :direction (a / any)))
+            :direction (a / any~10)))
 
 # ::snt In the poem the nymph Caissa initially repels the advances of Mars, the god of war.
 # ::tok In the poem the nymph Caissa initially repels the advances of Mars , the god of war .
-# ::alignments 7-8|0 2-3|0.2 9-10|0.1 11-12|0.1.0+0.1.0.0 5-6|0.0+0.0.0 4-5|0.0.1
-# ::node	0	repel-01	10-11
-# ::node	0.0	person	3-4
-# ::node	0.0.0	"Caissa"	5-6
-# ::node	0.0.1	nymph	7-8
-# ::node	0.1	advance-01	9-10
-# ::node	0.1.0	person	11-12
-# ::node	0.1.0.0	"Mars"	11-12
-# ::node	0.1.0.1	have-org-role-91
-# ::node	0.1.0.1.0	god-of-war
-# ::node	0.2	poem	2-3
-# ::root	0	repel-01	10-11
-# ::edge	advance-01	ARG0	person	0.1	0.1.0
-# ::edge	have-org-role-91	ARG2	god-of-war	0.1.0.1	0.1.0.1.0
-# ::edge	person	ARG0-of	have-org-role-91	0.1.0	0.1.0.1
-# ::edge	person	mod	nymph	0.0	0.0.1
-# ::edge	person	name	"Caissa"	0.0	0.0.0
-# ::edge	person	name	"Mars"	0.1.0	0.1.0.0
-# ::edge	repel-01	ARG0	person	0	0.0
-# ::edge	repel-01	ARG1	advance-01	0	0.1
-# ::edge	repel-01	location	poem	0	0.2
-(r / repel-01
-      :ARG0 (p3 / person :name "Caissa"
-            :mod (n / nymph))
-      :ARG1 (a / advance-01
-            :ARG0 (p / person :name "Mars"
+(r / repel-01~10
+      :ARG0 (p3 / person~3 :name "Caissa"~5
+            :mod (n / nymph~7))
+      :ARG1 (a / advance-01~9
+            :ARG0 (p / person~11 :name "Mars"~11
                   :ARG0-of (h / have-org-role-91
                         :ARG2 (g / god-of-war))))
-      :location (p2 / poem))
+      :location (p2 / poem~2))
 
 # ::snt On 10 April 1935, Korolev's wife gave birth to their daughter, Natasha.
 # ::tok On 10 April 1935 , Korolev 's wife gave birth to their daughter , Natasha .
-# ::alignments 1-4|0.2+0.2.0+0.2.1+0.2.2 5-6|0.0.0.0+0.0.0.0.0 7-8|0.0.0+0.0.0.1 14-15|0.1+0.1.0 12-13|0.1.1+0.1.1.1
-# ::node	0	bear-02
-# ::node	0.0	person
-# ::node	0.0.0	have-rel-role-91	7-8
-# ::node	0.0.0.0	person	5-6
-# ::node	0.0.0.0.0	"Korolev"	5-6
-# ::node	0.0.0.1	wife	7-8
-# ::node	0.1	person	14-15
-# ::node	0.1.0	natasha	14-15
-# ::node	0.1.1	have-rel-role-91	12-13
-# ::node	0.1.1.0	and
-# ::node	0.1.1.1	daughter	12-13
-# ::node	0.2	date-entity	1-4
-# ::node	0.2.0	4	1-4
-# ::node	0.2.1	10	1-4
-# ::node	0.2.2	1935	1-4
-# ::root	0	bear-02
-# ::edge	and	op1	person	0.1.1.0	0.0
-# ::edge	and	op2	person	0.1.1.0	0.0.0.0
-# ::edge	bear-02	ARG0	person	0	0.0
-# ::edge	bear-02	ARG1	person	0	0.1
-# ::edge	bear-02	time	date-entity	0	0.2
-# ::edge	date-entity	day	10	0.2	0.2.1
-# ::edge	date-entity	month	4	0.2	0.2.0
-# ::edge	date-entity	year	1935	0.2	0.2.2
-# ::edge	have-rel-role-91	ARG1	and	0.1.1	0.1.1.0
-# ::edge	have-rel-role-91	ARG1	person	0.0.0	0.0.0.0
-# ::edge	have-rel-role-91	ARG2	daughter	0.1.1	0.1.1.1
-# ::edge	have-rel-role-91	ARG2	wife	0.0.0	0.0.0.1
-# ::edge	person	ARG0-of	have-rel-role-91	0.0	0.0.0
-# ::edge	person	ARG0-of	have-rel-role-91	0.1	0.1.1
-# ::edge	person	name	"Korolev"	0.0.0.0	0.0.0.0.0
-# ::edge	person	name	natasha	0.1	0.1.0
 (b / bear-02
       :ARG0 (p / person
-            :ARG0-of (h / have-rel-role-91
-                  :ARG1 (p2 / person :name "Korolev")
-                  :ARG2 (w / wife)))
-      :ARG1 (p3 / person :name (n / natasha)
-            :ARG0-of (h2 / have-rel-role-91
+            :ARG0-of (h / have-rel-role-91~7
+                  :ARG1 (p2 / person~5 :name "Korolev"~5)
+                  :ARG2 (w / wife~7)))
+      :ARG1 (p3 / person~14 :name (n / natasha~14)
+            :ARG0-of (h2 / have-rel-role-91~12
                   :ARG1 (a / and
                         :op1 p
                         :op2 p2)
-                  :ARG2 (d / daughter)))
-      :time (d2 / date-entity :month 4 :day 10 :year 1935))
+                  :ARG2 (d / daughter~12)))
+      :time (d2 / date-entity~1 :month 4~1 :day 10~1 :year 1935~1))
 
 # ::snt In February 2005 Smith spoke out publicly about his Asperger syndrome, which is part of the autism spectrum.
 # ::tok In February 2005 Smith spoke out publicly about his Asperger syndrome , which is part of the autism spectrum .
-# ::alignments 1-3|0.3+0.3.0+0.3.1 3-4|0.0+0.0.0 10-11|0.1 18-19|0.1.1 17-18|0.1.1.0 9-10|0.1.0 4-5|0 6-7|0.2
-# ::node	0	speak-out-03	4-5
-# ::node	0.0	person	3-4
-# ::node	0.0.0	"Smith"	3-4
-# ::node	0.1	syndrome	10-11
-# ::node	0.1.0	"Asperger"	9-10
-# ::node	0.1.1	spectrum	18-19
-# ::node	0.1.1.0	autism	17-18
-# ::node	0.2	public-02	6-7
-# ::node	0.3	date-entity	1-3
-# ::node	0.3.0	2	1-3
-# ::node	0.3.1	2005	1-3
-# ::root	0	speak-out-03
-# ::edge	date-entity	month	2	0.3	0.3.0
-# ::edge	date-entity	year	2005	0.3	0.3.1
-# ::edge	person	name	"Smith"	0.0	0.0.0
-# ::edge	speak-out-03	ARG0	person	0	0.0
-# ::edge	speak-out-03	ARG1	syndrome	0	0.1
-# ::edge	speak-out-03	ARG1-of	public-02	0	0.2
-# ::edge	speak-out-03	time	date-entity	0	0.3
-# ::edge	spectrum	mod	autism	0.1.1	0.1.1.0
-# ::edge	syndrome	name	"Asperger"	0.1	0.1.0
-# ::edge	syndrome	part-of	spectrum	0.1	0.1.1
-# ::edge	syndrome	poss	person	0.1	0.0
-(s / speak-out-03
-      :ARG0 (p / person :name "Smith")
-      :ARG1 (s3 / syndrome :name "Asperger"
-            :part-of (s2 / spectrum
-                  :mod (a / autism))
+(s / speak-out-03~4
+      :ARG0 (p / person~3 :name "Smith"~3)
+      :ARG1 (s3 / syndrome~10 :name "Asperger"~9
+            :part-of (s2 / spectrum~18
+                  :mod (a / autism~17))
             :poss p)
-      :ARG1-of (p2 / public-02)
-      :time (d / date-entity :month 2 :year 2005))
+      :ARG1-of (p2 / public-02~6)
+      :time (d / date-entity~1 :month 2~1 :year 2005~1))
 
 # ::snt In 2008, Theron was named the Hasty Pudding Theatricals Woman of the Year.
 # ::tok In 2008 , Theron was named the Hasty Pudding Theatricals Woman of the Year .
-# ::alignments 7-14|0.1+0.1.0+0.1.0.0+0.1.0.1+0.1.0.2+0.1.0.3+0.1.0.4+0.1.0.5+0.1.0.6 1-2|0.2+0.2.0 5-6|0 3-4|0.0+0.0.0
-# ::node	0	name-01	3-4
-# ::node	0.0	person	1-2
-# ::node	0.0.0	"Theron"	0-1
-# ::node	0.1	award	6-7
-# ::node	0.1.0	name	8-9
-# ::node	0.1.0.0	"Hasty"	7-8
-# ::node	0.1.0.1	"Pudding"	11-12
-# ::node	0.1.0.2	"Theatricals"	7-14
-# ::node	0.1.0.3	"Woman"	7-14
-# ::node	0.1.0.4	"of"	7-14
-# ::node	0.1.0.5	"the"	7-14
-# ::node	0.1.0.6	"Year"	7-14
-# ::node	0.2	date-entity	1-2
-# ::node	0.2.0	2008	1-2
-# ::root	0	name-01	3-4
-# ::edge	award	name	name	0.1	0.1.0
-# ::edge	date-entity	year	2008	0.2	0.2.0
-# ::edge	name	op1	"Hasty"	0.1.0	0.1.0.0
-# ::edge	name	op2	"Pudding"	0.1.0	0.1.0.1
-# ::edge	name	op3	"Theatricals"	0.1.0	0.1.0.2
-# ::edge	name	op4	"Woman"	0.1.0	0.1.0.3
-# ::edge	name	op5	"of"	0.1.0	0.1.0.4
-# ::edge	name	op6	"the"	0.1.0	0.1.0.5
-# ::edge	name	op7	"Year"	0.1.0	0.1.0.6
-# ::edge	name-01	ARG1	person	0	0.0
-# ::edge	name-01	ARG2	award	0	0.1
-# ::edge	name-01	time	date-entity	0	0.2
-# ::edge	person	name	"Theron"	0.0	0.0.0
-(n / name-01
-      :ARG1 (p / person :name "Theron")
-      :ARG2 (a / award :name (n2 / name :op1 "Hasty" :op2 "Pudding" :op3 "Theatricals" :op4 "Woman" :op5 "of" :op6 "the" :op7 "Year"))
-      :time (d / date-entity :year 2008))
+(n / name-01~3
+      :ARG1 (p / person~1 :name "Theron"~0)
+      :ARG2 (a / award~6 :name (n2 / name~8 :op1 "Hasty"~7 :op2 "Pudding"~11 :op3 "Theatricals"~7 :op4 "Woman"~7 :op5 "of"~7 :op6 "the"~7 :op7 "Year"~7))
+      :time (d / date-entity~1 :year 2008~1))
 
 # ::snt The Russian company Yuzhuralzoloto also signed a strategic partnership with the Lead and Zinc Mine Sase Srebrenica.
 # ::tok The Russian company Yuzhuralzoloto also signed a strategic partnership with the Lead and Zinc Mine Sase Srebrenica .
-# ::alignments 15-17|0.2.0+0.2.0.0+0.2.0.1 5-6|0 4-5|0.3 2-3|0.2 14-15|0.2.1 12-13|0.2.1.0 13-14|0.2.1.0.1 11-12|0.2.1.0.0 3-4|0.0+0.0.0 8-9|0.1 7-8|0.1.0 1-2|0.0.1+0.0.1.0
-# ::node	0	sign-02	5-6
-# ::node	0.0	company	3-4
-# ::node	0.0.0	"Yuzhuralzoloto"	3-4
-# ::node	0.0.1	country	1-2
-# ::node	0.0.1.0	"Russia"	1-2
-# ::node	0.1	partner-01	8-9
-# ::node	0.1.0	strategy	7-8
-# ::node	0.2	company	2-3
-# ::node	0.2.0	name	15-17
-# ::node	0.2.0.0	"Sase"	15-17
-# ::node	0.2.0.1	"Srebrenica"	15-17
-# ::node	0.2.1	mine	14-15
-# ::node	0.2.1.0	and	12-13
-# ::node	0.2.1.0.0	lead	11-12
-# ::node	0.2.1.0.1	zinc	13-14
-# ::node	0.3	also	4-5
-# ::root	0	sign-02
-# ::edge	and	op1	lead	0.2.1.0	0.2.1.0.0
-# ::edge	and	op2	zinc	0.2.1.0	0.2.1.0.1
-# ::edge	company	mod	country	0.0	0.0.1
-# ::edge	company	mod	mine	0.2	0.2.1
-# ::edge	company	name	"Yuzhuralzoloto"	0.0	0.0.0
-# ::edge	company	name	name	0.2	0.2.0
-# ::edge	country	name	"Russia"	0.0.1	0.0.1.0
-# ::edge	mine	mod	and	0.2.1	0.2.1.0
-# ::edge	name	op1	"Sase"	0.2.0	0.2.0.0
-# ::edge	name	op2	"Srebrenica"	0.2.0	0.2.0.1
-# ::edge	partner-01	mod	strategy	0.1	0.1.0
-# ::edge	sign-02	ARG0	company	0	0.0
-# ::edge	sign-02	ARG1	partner-01	0	0.1
-# ::edge	sign-02	ARG2	company	0	0.2
-# ::edge	sign-02	mod	also	0	0.3
-(s / sign-02
-      :ARG0 (c / company :name "Yuzhuralzoloto"
-            :mod (c2 / country :name "Russia"))
-      :ARG1 (p / partner-01
-            :mod (s2 / strategy))
-      :ARG2 (c3 / company :name (n / name :op1 "Sase" :op2 "Srebrenica")
-            :mod (m / mine
-                  :mod (a / and
-                        :op1 (l / lead)
-                        :op2 (z / zinc))))
-      :mod (a2 / also))
+(s / sign-02~5
+      :ARG0 (c / company~3 :name "Yuzhuralzoloto"~3
+            :mod (c2 / country~1 :name "Russia"~1))
+      :ARG1 (p / partner-01~8
+            :mod (s2 / strategy~7))
+      :ARG2 (c3 / company~2 :name (n / name~15 :op1 "Sase"~15 :op2 "Srebrenica"~15)
+            :mod (m / mine~14
+                  :mod (a / and~12
+                        :op1 (l / lead~11)
+                        :op2 (z / zinc~13))))
+      :mod (a2 / also~4))
 
 # ::snt A father (or dad) is a male parent of a child.
 # ::tok A father ( or dad ) is a male parent of a child .
-# ::alignments 12-13|0.0 8-9|0.1 3-4|0.1.0 4-5|0.1.0.1 1-2|0.1.0.0 9-10|0+0.2
-# ::node	0	have-rel-role-91	9-10
-# ::node	0.0	child	12-13
-# ::node	0.1	male	8-9
-# ::node	0.1.0	or	3-4
-# ::node	0.1.0.0	father	1-2
-# ::node	0.1.0.1	dad	4-5
-# ::node	0.2	parent	9-10
-# ::root	0	have-rel-role-91
-# ::edge	have-rel-role-91	ARG0	child	0	0.0
-# ::edge	have-rel-role-91	ARG1	male	0	0.1
-# ::edge	have-rel-role-91	ARG2	parent	0	0.2
-# ::edge	male	domain	or	0.1	0.1.0
-# ::edge	or	op1	father	0.1.0	0.1.0.0
-# ::edge	or	op2	dad	0.1.0	0.1.0.1
-(h / have-rel-role-91
-      :ARG0 (c / child)
-      :ARG1 (m / male
-            :domain (o / or
-                  :op1 (f / father)
-                  :op2 (d / dad)))
-      :ARG2 (p / parent))
+(h / have-rel-role-91~9
+      :ARG0 (c / child~12)
+      :ARG1 (m / male~8
+            :domain (o / or~3
+                  :op1 (f / father~1)
+                  :op2 (d / dad~4)))
+      :ARG2 (p / parent~9))
 
 # ::snt From there, the boy urinated on the troops of the Berthouts, who eventually lost the battle.
 # ::tok From there , the boy urinated on the troops of the Berthouts , who eventually lost the battle .
-# ::alignments 5-6|0 1-2|0.2 8-9|0.1 15-16|0.1.0.1 17-18|0.1.0.1.0 4-5|0.0 11-12|0.1.0+0.1.0.0 14-15|0.1.0.1.1
-# ::node	0	urinate-01	11-12
-# ::node	0.0	boy	7-8
-# ::node	0.1	troop	8-9
-# ::node	0.1.0	organization
-# ::node	0.1.0.0	"Berthout"
-# ::node	0.1.0.1	lose-03	15-16
-# ::node	0.1.0.1.0	battle	17-18
-# ::node	0.1.0.1.1	eventual	14-15
-# ::node	0.2	there	1-2
-# ::root	0	urinate-01	11-12
-# ::edge	lose-03	ARG1	battle	0.1.0.1	0.1.0.1.0
-# ::edge	lose-03	time	eventual	0.1.0.1	0.1.0.1.1
-# ::edge	organization	ARG0-of	lose-03	0.1.0	0.1.0.1
-# ::edge	organization	name	"Berthout"	0.1.0	0.1.0.0
-# ::edge	troop	mod	organization	0.1	0.1.0
-# ::edge	urinate-01	ARG0	boy	0	0.0
-# ::edge	urinate-01	location	there	0	0.2
-# ::edge	urinate-01	location	troop	0	0.1
-(u / urinate-01
-      :ARG0 (b / boy)
-      :location (t / troop
+(u / urinate-01~11
+      :ARG0 (b / boy~7)
+      :location (t / troop~8
             :mod (o / organization :name "Berthout"
-                  :ARG0-of (l / lose-03
-                        :ARG1 (b2 / battle)
-                        :time (e / eventual))))
-      :location (t2 / there))
+                  :ARG0-of (l / lose-03~15
+                        :ARG1 (b2 / battle~17)
+                        :time (e / eventual~14))))
+      :location (t2 / there~1))
 
 # ::snt The flow rate of the Arno is irregular.
 # ::tok The flow rate of the Arno is irregular .
-# ::alignments 2-3|0.1 5-6|0.1.1+0.1.1.0 1-2|0.1.0
-# ::node	0	regular-02
-# ::node	0.0	-
-# ::node	0.1	rate	2-3
-# ::node	0.1.0	flow-01	1-2
-# ::node	0.1.1	river	5-6
-# ::node	0.1.1.0	"Arno"	5-6
-# ::root	0	regular-02
-# ::edge	rate	ARG1-of	flow-01	0.1	0.1.0
-# ::edge	rate	poss	river	0.1	0.1.1
-# ::edge	regular-02	ARG1	rate	0	0.1
-# ::edge	regular-02	polarity	-	0	0.0
-# ::edge	river	name	"Arno"	0.1.1	0.1.1.0
 (r / regular-02 :polarity -
-      :ARG1 (r2 / rate
-            :ARG1-of (f / flow-01)
-            :poss (r3 / river :name "Arno")))
+      :ARG1 (r2 / rate~2
+            :ARG1-of (f / flow-01~1)
+            :poss (r3 / river~5 :name "Arno"~5)))
 
 # ::snt A cartouche (magical rope) often was used to surround the name and protect it.
 # ::tok A cartouche ( magical rope ) often was used to surround the name and protect it .
-# ::alignments 8-9|0 6-7|0.2 13-14|0.1 14-15|0.1.1 10-11|0.1.0 12-13|0.1.0.0 1-2|0.0 4-5|0.0.0.0 3-4|0.0.0.0.0
-# ::node	0	use-01	8-9
-# ::node	0.0	cartouche	1-2
-# ::node	0.0.0	mean-01
-# ::node	0.0.0.0	rope	4-5
-# ::node	0.0.0.0.0	magic	3-4
-# ::node	0.1	and	13-14
-# ::node	0.1.0	surround-01	10-11
-# ::node	0.1.0.0	name	12-13
-# ::node	0.1.1	protect-01	14-15
-# ::node	0.2	often	6-7
-# ::root	0	use-01
-# ::edge	and	op1	surround-01	0.1	0.1.0
-# ::edge	and	op2	protect-01	0.1	0.1.1
-# ::edge	cartouche	ARG1-of	mean-01	0.0	0.0.0
-# ::edge	mean-01	ARG2	rope	0.0.0	0.0.0.0
-# ::edge	protect-01	ARG1	name	0.1.1	0.1.0.0
-# ::edge	rope	mod	magic	0.0.0.0	0.0.0.0.0
-# ::edge	surround-01	ARG1	name	0.1.0	0.1.0.0
-# ::edge	use-01	ARG1	cartouche	0	0.0
-# ::edge	use-01	ARG2	and	0	0.1
-# ::edge	use-01	frequency	often	0	0.2
-(u / use-01
-      :ARG1 (c / cartouche
+(u / use-01~8
+      :ARG1 (c / cartouche~1
             :ARG1-of (m / mean-01
-                  :ARG2 (r / rope
-                        :mod (m2 / magic))))
-      :ARG2 (a / and
-            :op1 (s / surround-01
-                  :ARG1 (n / name))
-            :op2 (p / protect-01
+                  :ARG2 (r / rope~4
+                        :mod (m2 / magic~3))))
+      :ARG2 (a / and~13
+            :op1 (s / surround-01~10
+                  :ARG1 (n / name~12))
+            :op2 (p / protect-01~14
                   :ARG1 n))
-      :frequency (o / often))
+      :frequency (o / often~6))
 
 # ::snt At the ceremony, the school was renamed the Rubin Academy of Music in Jerusalem.
 # ::tok At the ceremony , the school was renamed the Rubin Academy of Music in Jerusalem .
-# ::alignments 9-15|0.1.0+0.1.0.0+0.1.0.1+0.1.0.2+0.1.0.3+0.1.0.4+0.1.0.5 7-8|0 2-3|0.2 5-6|0.1
-# ::node	0	rename-01	7-8
-# ::node	0.0	school
-# ::node	0.1	school	9-10
-# ::node	0.1.0	name	11-12
-# ::node	0.1.0.0	"Rubin"	11-12
-# ::node	0.1.0.1	"Academy"	15-16
-# ::node	0.1.0.2	"of"	9-15
-# ::node	0.1.0.3	"Music"	9-15
-# ::node	0.1.0.4	"in"	9-15
-# ::node	0.1.0.5	"Jerusalem"	9-15
-# ::node	0.2	ceremony	2-3
-# ::root	0	rename-01	7-8
-# ::edge	name	op1	"Rubin"	0.1.0	0.1.0.0
-# ::edge	name	op2	"Academy"	0.1.0	0.1.0.1
-# ::edge	name	op3	"of"	0.1.0	0.1.0.2
-# ::edge	name	op4	"Music"	0.1.0	0.1.0.3
-# ::edge	name	op5	"in"	0.1.0	0.1.0.4
-# ::edge	name	op6	"Jerusalem"	0.1.0	0.1.0.5
-# ::edge	rename-01	ARG1	school	0	0.0
-# ::edge	rename-01	ARG2	school	0	0.1
-# ::edge	rename-01	time	ceremony	0	0.2
-# ::edge	school	name	name	0.1	0.1.0
-(r / rename-01
+(r / rename-01~7
       :ARG1 (s / school)
-      :ARG2 (s2 / school :name (n / name :op1 "Rubin" :op2 "Academy" :op3 "of" :op4 "Music" :op5 "in" :op6 "Jerusalem"))
-      :time (c / ceremony))
+      :ARG2 (s2 / school~9 :name (n / name~11 :op1 "Rubin"~11 :op2 "Academy"~15 :op3 "of"~9 :op4 "Music"~9 :op5 "in"~9 :op6 "Jerusalem"~9))
+      :time (c / ceremony~2))
 
 # ::snt He is the younger brother of Fabio Cannavaro.
 # ::tok He is the younger brother of Fabio Cannavaro .
-# ::alignments 6-8|0.1+0.1.0+0.1.0.0+0.1.0.1 0-1|0.0 4-5|0+0.2 3-4|0.2.0.0
-# ::node	0	have-rel-role-91	4-5
-# ::node	0.0	he	0-1
-# ::node	0.1	person	6-8
-# ::node	0.1.0	name	6-8
-# ::node	0.1.0.0	"Fabio"	6-8
-# ::node	0.1.0.1	"Cannavaro"	6-8
-# ::node	0.2	brother	4-5
-# ::node	0.2.0	have-degree-91
-# ::node	0.2.0.0	young	3-4
-# ::node	0.2.0.1	more
-# ::root	0	have-rel-role-91
-# ::edge	brother	ARG1-of	have-degree-91	0.2	0.2.0
-# ::edge	have-degree-91	ARG2	young	0.2.0	0.2.0.0
-# ::edge	have-degree-91	ARG3	more	0.2.0	0.2.0.1
-# ::edge	have-rel-role-91	ARG0	he	0	0.0
-# ::edge	have-rel-role-91	ARG1	person	0	0.1
-# ::edge	have-rel-role-91	ARG2	brother	0	0.2
-# ::edge	name	op1	"Fabio"	0.1.0	0.1.0.0
-# ::edge	name	op2	"Cannavaro"	0.1.0	0.1.0.1
-# ::edge	person	name	name	0.1	0.1.0
-(h / have-rel-role-91
-      :ARG0 (h2 / he)
-      :ARG1 (p / person :name (n / name :op1 "Fabio" :op2 "Cannavaro"))
-      :ARG2 (b / brother
+(h / have-rel-role-91~4
+      :ARG0 (h2 / he~0)
+      :ARG1 (p / person~6 :name (n / name~6 :op1 "Fabio"~6 :op2 "Cannavaro"~6))
+      :ARG2 (b / brother~4
             :ARG1-of (h3 / have-degree-91
-                  :ARG2 (y / young)
+                  :ARG2 (y / young~3)
                   :ARG3 (m / more))))
 
 # ::snt Fine shared 1st–2nd at Amsterdam 1936 on 5/7 with Euwe, half a point ahead of Alekhine.
 # ::tok Fine shared 1st -- 2nd at Amsterdam 1936 on 5/7 with Euwe , half a point ahead of Alekhine .
-# ::alignments 1-2|0 6-7|0.3+0.3.0 11-12|0.2+0.2.0 16-17|0.1.2.1 18-19|0.1.2.1.0+0.1.2.1.0.0 0-1|0.0+0.0.0 15-16|0.1.2.1.1
-# ::node	0	share-01	1-2
-# ::node	0.0	person	0-1
-# ::node	0.0.0	"Fine"	0-1
-# ::node	0.1	and
-# ::node	0.1.0	ord
-# ::node	0.1.0.0	1
-# ::node	0.1.0.1	name
-# ::node	0.1.0.1.0	"ord-entity"
-# ::node	0.1.1	ord
-# ::node	0.1.1.0	2
-# ::node	0.1.1.1	name
-# ::node	0.1.1.1.0	"ord-entity"
-# ::node	0.1.2	score-entity	16-17
-# ::node	0.1.2.0	slash
-# ::node	0.1.2.0.0	5
-# ::node	0.1.2.0.1	7
-# ::node	0.1.2.1	ahead	16-17
-# ::node	0.1.2.1.0	person	18-19
-# ::node	0.1.2.1.0.0	"Alekhine"	18-19
-# ::node	0.1.2.1.1	point-yy	15-16
-# ::node	0.1.2.1.1.0	"1/2"
-# ::node	0.2	person	11-12
-# ::node	0.2.0	"Euwe"	11-12
-# ::node	0.3	city	6-7
-# ::node	0.3.0	"Amsterdam"	6-7
-# ::root	0	share-01
-# ::edge	ahead	extent	point-yy	0.1.2.1	0.1.2.1.1
-# ::edge	ahead	op1	person	0.1.2.1	0.1.2.1.0
-# ::edge	and	mod	score-entity	0.1	0.1.2
-# ::edge	and	op1	ord	0.1	0.1.0
-# ::edge	and	op2	ord	0.1	0.1.1
-# ::edge	city	name	"Amsterdam"	0.3	0.3.0
-# ::edge	name	op1	"ord-entity"	0.1.0.1	0.1.0.1.0
-# ::edge	name	op1	"ord-entity"	0.1.1.1	0.1.1.1.0
-# ::edge	ord	name	name	0.1.0	0.1.0.1
-# ::edge	ord	name	name	0.1.1	0.1.1.1
-# ::edge	ord	value	1	0.1.0	0.1.0.0
-# ::edge	ord	value	2	0.1.1	0.1.1.0
-# ::edge	person	name	"Alekhine"	0.1.2.1.0	0.1.2.1.0.0
-# ::edge	person	name	"Euwe"	0.2	0.2.0
-# ::edge	person	name	"Fine"	0.0	0.0.0
-# ::edge	point-yy	quant	"1/2"	0.1.2.1.1	0.1.2.1.1.0
-# ::edge	score-entity	mod	ahead	0.1.2	0.1.2.1
-# ::edge	score-entity	op1	slash	0.1.2	0.1.2.0
-# ::edge	share-01	ARG0	person	0	0.0
-# ::edge	share-01	ARG1	and	0	0.1
-# ::edge	share-01	ARG2	person	0	0.2
-# ::edge	share-01	location	city	0	0.3
-# ::edge	slash	op1	5	0.1.2.0	0.1.2.0.0
-# ::edge	slash	op2	7	0.1.2.0	0.1.2.0.1
-(s / share-01
-      :ARG0 (p / person :name "Fine")
-      :ARG1 (a / and
-            :op1 (o / ord :value 1 :name (n2 / name :op1 "ord-entity"))
-            :op2 (o2 / ord :value 2 :name (n / name :op1 "ord-entity"))
-            :mod (s2 / score-entity
-                  :op1 (s3 / slash
-                        :op1 (x / 5)
-                        :op2 (x2 / 7))
-                  :mod (a2 / ahead
-                        :op1 (p4 / person :name "Alekhine")
-                        :extent (p3 / point-yy :quant "1/2"))))
-      :ARG2 (p2 / person :name "Euwe")
-      :location (c / city :name "Amsterdam"))
+(s / share-01~1
+      :ARG0 (p / person~0 :name "Fine"~0)
+      :ARG1 (a / and~3
+            :op1 (o / ord~2 :value 1 :name (n2~2 / name :op1 "ord-entity"~2))
+            :op2 (o2 / ord~4 :value 2 :name (n~4 / name :op1 "ord-entity"~4))
+            :mod (s2 / score-entity~16
+                  :op1 (s3 / slash~9
+                        :op1 5~9
+                        :op2 7~9
+                  :mod (a2 / ahead~16
+                        :op1 (p4 / person~18 :name "Alekhine"~18)
+                        :extent (p3 / point-yy~15 :quant "1/2"~13))))
+      :ARG2 (p2 / person~11 :name "Euwe"~11)
+      :location (c / city~6 :name "Amsterdam"~6))
 
 # ::snt These states are now typically considered part of Southern Africa.
 # ::tok These states are now typically considered part of Southern Africa .
-# ::alignments 5-6|0 3-4|0.2 9-10|0.0.0.0+0.0.0.0.0 1-2|0.0.1 4-5|0.1 8-9|0.0.0
-# ::node	0	consider-01	9-10
-# ::node	0.0	have-part-91	6-7
-# ::node	0.0.0	south	0-1
-# ::node	0.0.0.0	continent	5-6
-# ::node	0.0.0.0.0	"Africa"	5-6
-# ::node	0.0.1	state	1-2
-# ::node	0.0.1.0	this
-# ::node	0.1	typical-02	4-5
-# ::node	0.2	now	3-4
-# ::root	0	consider-01	9-10
-# ::edge	consider-01	ARG1	have-part-91	0	0.0
-# ::edge	consider-01	ARG1-of	typical-02	0	0.1
-# ::edge	consider-01	time	now	0	0.2
-# ::edge	continent	name	"Africa"	0.0.0.0	0.0.0.0.0
-# ::edge	have-part-91	ARG1	south	0.0	0.0.0
-# ::edge	have-part-91	ARG2	state	0.0	0.0.1
-# ::edge	south	part-of	continent	0.0.0	0.0.0.0
-# ::edge	state	mod	this	0.0.1	0.0.1.0
-(c / consider-01
-      :ARG1 (h / have-part-91
-            :ARG1 (s / south
-                  :part-of (c2 / continent :name "Africa"))
-            :ARG2 (s2 / state
+(c / consider-01~9
+      :ARG1 (h / have-part-91~6
+            :ARG1 (s / south~0
+                  :part-of (c2 / continent~5 :name "Africa"~5))
+            :ARG2 (s2 / state~1
                   :mod (t / this)))
-      :ARG1-of (t2 / typical-02)
-      :time (n / now))
+      :ARG1-of (t2 / typical-02~4)
+      :time (n / now~3))
 
 # ::snt Amy Beach is the only woman composer on the granite wall.
 # ::tok Amy Beach is the only woman composer on the granite wall .
-# ::alignments 0-2|0.1.0+0.1.0.0+0.1.0.1 6-7|0+0.0 5-6|0.1 4-5|0.2 10-11|0.3 9-10|0.3.0
-# ::node	0	person	6-7
-# ::node	0.0	compose-02	6-7
-# ::node	0.1	woman	5-6
-# ::node	0.1.0	name	0-2
-# ::node	0.1.0.0	"Amy"	0-2
-# ::node	0.1.0.1	"Beach"	0-2
-# ::node	0.2	only	4-5
-# ::node	0.3	wall	10-11
-# ::node	0.3.0	granite	9-10
-# ::root	0	person
-# ::edge	name	op1	"Amy"	0.1.0	0.1.0.0
-# ::edge	name	op2	"Beach"	0.1.0	0.1.0.1
-# ::edge	person	ARG0-of	compose-02	0	0.0
-# ::edge	person	domain	woman	0	0.1
-# ::edge	person	location	wall	0	0.3
-# ::edge	person	mod	only	0	0.2
-# ::edge	wall	consist-of	granite	0.3	0.3.0
-# ::edge	woman	name	name	0.1	0.1.0
-(p / person
-      :ARG0-of (c / compose-02)
-      :domain (w / woman :name (n / name :op1 "Amy" :op2 "Beach"))
-      :mod (o / only)
-      :location (w2 / wall
-            :consist-of (g / granite)))
+(p / person~6
+      :ARG0-of (c / compose-02~6)
+      :domain (w / woman~5 :name (n / name~0 :op1 "Amy"~0 :op2 "Beach"~0))
+      :mod (o / only~4)
+      :location (w2 / wall~10
+            :consist-of (g / granite~9)))
 
 # ::snt In port after port, citizens in the thousands turned out to see and greet the fleet.
 # ::tok In port after port , citizens in the thousands turned out to see and greet the fleet .
-# ::alignments 13-14|0.0 14-15|0.0.1 12-13|0.0.0 16-17|0.0.0.0 5-6|0.1 1-2|0.2 2-3|0.2.0 3-4|0.2.0.0 9-10|0
-# ::node	0	turn-out-17	9-10
-# ::node	0.0	and	13-14
-# ::node	0.0.0	see-01	12-13
-# ::node	0.0.0.0	fleet	16-17
-# ::node	0.0.1	greet-01	14-15
-# ::node	0.1	citizen	5-6
-# ::node	0.1.0	multiple
-# ::node	0.1.0.0	1000
-# ::node	0.2	port	1-2
-# ::node	0.2.0	after	2-3
-# ::node	0.2.0.0	port	3-4
-# ::root	0	turn-out-17
-# ::edge	after	op1	port	0.2.0	0.2.0.0
-# ::edge	and	op1	see-01	0.0	0.0.0
-# ::edge	and	op2	greet-01	0.0	0.0.1
-# ::edge	citizen	quant	multiple	0.1	0.1.0
-# ::edge	greet-01	ARG0	citizen	0.0.1	0.1
-# ::edge	greet-01	ARG1	fleet	0.0.1	0.0.0.0
-# ::edge	multiple	op1	1000	0.1.0	0.1.0.0
-# ::edge	port	mod	after	0.2	0.2.0
-# ::edge	see-01	ARG0	citizen	0.0.0	0.1
-# ::edge	see-01	ARG1	fleet	0.0.0	0.0.0.0
-# ::edge	turn-out-17	ARG0	and	0	0.0
-# ::edge	turn-out-17	ARG1	citizen	0	0.1
-# ::edge	turn-out-17	location	port	0	0.2
-(t / turn-out-17
-      :ARG0 (a / and
-            :op1 (s / see-01
+(t / turn-out-17~9
+      :ARG0 (a / and~13
+            :op1 (s / see-01~12
                   :ARG0 c
-                  :ARG1 (f / fleet))
-            :op2 (g / greet-01
+                  :ARG1 (f / fleet~16))
+            :op2 (g / greet-01~14
                   :ARG0 c
                   :ARG1 f))
-      :ARG1 (c / citizen
+      :ARG1 (c / citizen~5
             :quant (m / multiple :op1 1000))
-      :location (p / port
-            :mod (a2 / after
-                  :op1 (p2 / port))))
+      :location (p / port~1
+            :mod (a2 / after~2
+                  :op1 (p2 / port~3))))
 
 # ::snt Many refugees tried to return home when the fighting ended.
 # ::tok Many refugees tried to return home when the fighting ended .
-# ::alignments 2-3|0 9-10|0.2 8-9|0.2.0 4-5|0.1 5-6|0.1.0 1-2|0.0 0-1|0.0.0
-# ::node	0	try-01	4-5
-# ::node	0.0	refugee	1-2
-# ::node	0.0.0	many	3-4
-# ::node	0.1	return-01
-# ::node	0.1.0	home	9-10
-# ::node	0.2	end-01	6-7
-# ::node	0.2.0	fight-01	8-9
-# ::root	0	try-01	4-5
-# ::edge	end-01	ARG1	fight-01	0.2	0.2.0
-# ::edge	refugee	quant	many	0.0	0.0.0
-# ::edge	return-01	ARG1	refugee	0.1	0.0
-# ::edge	return-01	ARG4	home	0.1	0.1.0
-# ::edge	try-01	ARG0	refugee	0	0.0
-# ::edge	try-01	ARG1	return-01	0	0.1
-# ::edge	try-01	time	end-01	0	0.2
-(t / try-01
-      :ARG0 (r / refugee
-            :quant (m / many))
+(t / try-01~4
+      :ARG0 (r / refugee~1
+            :quant (m / many~3))
       :ARG1 (r2 / return-01
             :ARG1 r
-            :ARG4 (h / home))
-      :time (e / end-01
-            :ARG1 (f / fight-01)))
+            :ARG4 (h / home~9))
+      :time (e / end-01~6
+            :ARG1 (f / fight-01~8)))
 
 # ::snt In November 1957 he was put on trial, in which he was accused (again) of conspiracy against the regime.
 # ::tok In November 1957 he was put on trial , in which he was accused ( again ) of conspiracy against the regime .
-# ::alignments 1-3|0.2+0.2.0+0.2.1 5-6|0 13-14|0.1.0 15-16|0.1.0.1 21-22|0.1.0.0.1 3-4|0.0 18-19|0.1.0.0+0.1.0.0.0
-# ::node	0	put-01	5-6
-# ::node	0.0	he	3-4
-# ::node	0.1	try-02
-# ::node	0.1.0	accuse-01	13-14
-# ::node	0.1.0.0	thing	18-19
-# ::node	0.1.0.0.0	conspire-01	18-19
-# ::node	0.1.0.0.1	regime	21-22
-# ::node	0.1.0.1	again	15-16
-# ::node	0.2	date-entity	1-3
-# ::node	0.2.0	11	1-3
-# ::node	0.2.1	1957	1-3
-# ::root	0	put-01
-# ::edge	accuse-01	ARG1	he	0.1.0	0.0
-# ::edge	accuse-01	ARG2	thing	0.1.0	0.1.0.0
-# ::edge	accuse-01	mod	again	0.1.0	0.1.0.1
-# ::edge	conspire-01	ARG0	he	0.1.0.0.0	0.0
-# ::edge	date-entity	month	11	0.2	0.2.0
-# ::edge	date-entity	year	1957	0.2	0.2.1
-# ::edge	put-01	ARG1	he	0	0.0
-# ::edge	put-01	ARG2	try-02	0	0.1
-# ::edge	put-01	time	date-entity	0	0.2
-# ::edge	thing	ARG1-of	conspire-01	0.1.0.0	0.1.0.0.0
-# ::edge	thing	prep-against	regime	0.1.0.0	0.1.0.0.1
-# ::edge	try-02	ARG1	he	0.1	0.0
-# ::edge	try-02	ARG1-of	accuse-01	0.1	0.1.0
-(p / put-01
-      :ARG1 (h / he)
+(p / put-01~5
+      :ARG1 (h / he~3)
       :ARG2 (t / try-02
             :ARG1 h
-            :ARG1-of (a / accuse-01
+            :ARG1-of (a / accuse-01~13
                   :ARG1 h
-                  :ARG2 (t2 / thing
-                        :ARG1-of (c / conspire-01
+                  :ARG2 (t2 / thing~18
+                        :ARG1-of (c / conspire-01~18
                               :ARG0 h)
-                        :prep-against (r / regime))
-                  :mod (a2 / again)))
-      :time (d / date-entity :month 11 :year 1957))
+                        :prep-against (r / regime~21))
+                  :mod (a2 / again~15)))
+      :time (d / date-entity~1 :month 11~1 :year 1957~1))
 
 # ::snt Initially produced twice a year, it became a quarterly in 2003.
 # ::tok Initially produced twice a year , it became a quarterly in 2003 .
-# ::alignments 11-12|0.1.1+0.1.1.0 1-2|0.0 4-5|0.0.1.1+0.0.1.1.1 7-8|0.1 0-1|0.0.0
-# ::node	0	and
-# ::node	0.0	produce-01	1-2
-# ::node	0.0.0	initial	0-1
-# ::node	0.0.1	rate-entity-91	4-5
-# ::node	0.0.1.0	2
-# ::node	0.0.1.1	temporal-quantity	4-5
-# ::node	0.0.1.1.0	1
-# ::node	0.0.1.1.1	year	4-5
-# ::node	0.1	become-01	7-8
-# ::node	0.1.0	rate-entity-91
-# ::node	0.1.0.0	4
-# ::node	0.1.0.1	temporal-quantity
-# ::node	0.1.0.1.0	1
-# ::node	0.1.0.1.1	year
-# ::node	0.1.1	date-entity	11-12
-# ::node	0.1.1.0	2003	11-12
-# ::root	0	and
-# ::edge	and	op1	produce-01	0	0.0
-# ::edge	and	op2	become-01	0	0.1
-# ::edge	become-01	ARG1	produce-01	0.1	0.0
-# ::edge	become-01	frequency	rate-entity-91	0.1	0.1.0
-# ::edge	become-01	time	date-entity	0.1	0.1.1
-# ::edge	date-entity	year	2003	0.1.1	0.1.1.0
-# ::edge	produce-01	frequency	rate-entity-91	0.0	0.0.1
-# ::edge	produce-01	time	initial	0.0	0.0.0
-# ::edge	rate-entity-91	ARG1	2	0.0.1	0.0.1.0
-# ::edge	rate-entity-91	ARG1	4	0.1.0	0.1.0.0
-# ::edge	rate-entity-91	ARG2	temporal-quantity	0.0.1	0.0.1.1
-# ::edge	rate-entity-91	ARG2	temporal-quantity	0.1.0	0.1.0.1
-# ::edge	temporal-quantity	quant	1	0.0.1.1	0.0.1.1.0
-# ::edge	temporal-quantity	quant	1	0.1.0.1	0.1.0.1.0
-# ::edge	temporal-quantity	unit	year	0.0.1.1	0.0.1.1.1
-# ::edge	temporal-quantity	unit	year	0.1.0.1	0.1.0.1.1
 (a / and
-      :op1 (p / produce-01
-            :time (i2 / initial)
-            :frequency (r / rate-entity-91
+      :op1 (p / produce-01~1
+            :time (i2 / initial~0)
+            :frequency (r / rate-entity-91~4
                   :ARG1 2
-                  :ARG2 (t / temporal-quantity :quant 1
-                        :unit (y / year))))
-      :op2 (b / become-01
+                  :ARG2 (t / temporal-quantity~4 :quant 1
+                        :unit (y / year~4))))
+      :op2 (b / become-01~7
             :ARG1 p
             :frequency (r2 / rate-entity-91
                   :ARG1 4
                   :ARG2 (t2 / temporal-quantity :quant 1
                         :unit (y2 / year)))
-            :time (d / date-entity :year 2003)))
+            :time (d / date-entity~11 :year 2003~11)))
 
 # ::snt Black Isle Studios is a division of the computer and video game developer and publisher Interplay Entertainment.
 # ::tok Black Isle Studios is a division of the computer and video game developer and publisher Interplay Entertainment .
-# ::alignments 0-3|0.0+0.0.0+0.0.0.0+0.0.0.1+0.0.0.2 15-17|0.0.1+0.0.1.0+0.0.1.0.0+0.0.1.0.1 5-6|0 9-10|0.0.1.1 12-13|0.0.1.1.1+0.0.1.1.1.0 13-14|0.0.1.1.1.0.0 11-12|0.0.1.1.1.0.0.1 10-11|0.0.1.1.1.0.0.1.0 8-9|0.0.1.1.1.0.0.0 14-15|0.0.1.1.0
-# ::node	0	division	5-6
-# ::node	0.0	division	3-4
-# ::node	0.0.0	name	3-4
-# ::node	0.0.0.0	"Black"	0-3
-# ::node	0.0.0.1	"Isle"	0-3
-# ::node	0.0.0.2	"Studios"	0-3
-# ::node	0.0.1	company	15-17
-# ::node	0.0.1.0	name	15-17
-# ::node	0.0.1.0.0	"Interplay"	15-17
-# ::node	0.0.1.0.1	"Entertainment"	15-17
-# ::node	0.0.1.1	and	9-10
-# ::node	0.0.1.1.0	publish-01	14-15
-# ::node	0.0.1.1.1	thing	12-13
-# ::node	0.0.1.1.1.0	develop-02	12-13
-# ::node	0.0.1.1.1.0.0	and	13-14
-# ::node	0.0.1.1.1.0.0.0	computer	8-9
-# ::node	0.0.1.1.1.0.0.1	game	11-12
-# ::node	0.0.1.1.1.0.0.1.0	video	10-11
-# ::root	0	division	5-6
-# ::edge	and	op1	computer	0.0.1.1.1.0.0	0.0.1.1.1.0.0.0
-# ::edge	and	op1	publish-01	0.0.1.1	0.0.1.1.0
-# ::edge	and	op2	game	0.0.1.1.1.0.0	0.0.1.1.1.0.0.1
-# ::edge	and	op2	thing	0.0.1.1	0.0.1.1.1
-# ::edge	company	ARG0-of	and	0.0.1	0.0.1.1
-# ::edge	company	name	name	0.0.1	0.0.1.0
-# ::edge	develop-02	ARG1	and	0.0.1.1.1.0	0.0.1.1.1.0.0
-# ::edge	division	domain	division	0	0.0
-# ::edge	division	name	name	0.0	0.0.0
-# ::edge	division	part-of	company	0.0	0.0.1
-# ::edge	game	mod	video	0.0.1.1.1.0.0.1	0.0.1.1.1.0.0.1.0
-# ::edge	name	op1	"Black"	0.0.0	0.0.0.0
-# ::edge	name	op1	"Interplay"	0.0.1.0	0.0.1.0.0
-# ::edge	name	op2	"Entertainment"	0.0.1.0	0.0.1.0.1
-# ::edge	name	op2	"Isle"	0.0.0	0.0.0.1
-# ::edge	name	op3	"Studios"	0.0.0	0.0.0.2
-# ::edge	thing	ARG0-of	develop-02	0.0.1.1.1	0.0.1.1.1.0
-(d3 / division
-      :domain (d2 / division :name (n2 / name :op1 "Black" :op2 "Isle" :op3 "Studios")
-            :part-of (c / company :name (n / name :op1 "Interplay" :op2 "Entertainment")
-                  :ARG0-of (a / and
-                        :op1 (p / publish-01)
-                        :op2 (t / thing
-                              :ARG0-of (d / develop-02
-                                    :ARG1 (a2 / and
-                                          :op1 (c2 / computer)
-                                          :op2 (g / game
-                                                :mod (v / video)))))))))
+(d3 / division~5
+      :domain (d2 / division~3 :name (n2 / name~3 :op1 "Black"~0 :op2 "Isle"~0 :op3 "Studios"~0)
+            :part-of (c / company~15 :name (n / name~15 :op1 "Interplay"~15 :op2 "Entertainment"~15)
+                  :ARG0-of (a / and~9
+                        :op1 (p / publish-01~14)
+                        :op2 (t / thing~12
+                              :ARG0-of (d / develop-02~12
+                                    :ARG1 (a2 / and~13
+                                          :op1 (c2 / computer~8)
+                                          :op2 (g / game~11
+                                                :mod (v / video~10)))))))))
 
 # ::snt Bauer's parents fled from Cuba to Miami, Florida, on July 4, 1960, following Fidel Castro's Revolution.
 # ::tok Bauer 's parents fled from Cuba to Miami , Florida , on July 4 , 1960 , following Fidel Castro 's Revolution .
-# ::alignments 18-20|0.4.0.0+0.4.0.0.0+0.4.0.0.0.0+0.4.0.0.0.1 12-16|0.3+0.3.0+0.3.1+0.3.2 3-4|0 17-18|0.4 21-22|0.4.0 7-8|0.2+0.2.0 9-10|0.2.1+0.2.1.0 5-6|0.1+0.1.0 0-1|0.0.0.0+0.0.0.0.0 2-3|0.0.0+0.0.0.1
-# ::node	0	flee-05	3-4
-# ::node	0.0	person
-# ::node	0.0.0	have-rel-role-91	2-3
-# ::node	0.0.0.0	person	0-1
-# ::node	0.0.0.0.0	"Bauer"	0-1
-# ::node	0.0.0.1	parent	2-3
-# ::node	0.1	country	5-6
-# ::node	0.1.0	"Cuba"	5-6
-# ::node	0.2	city	7-8
-# ::node	0.2.0	"Miami"	7-8
-# ::node	0.2.1	state	9-10
-# ::node	0.2.1.0	"Florida"	9-10
-# ::node	0.3	date-entity	12-16
-# ::node	0.3.0	7	12-16
-# ::node	0.3.1	4	12-16
-# ::node	0.3.2	1960	12-16
-# ::node	0.4	follow-01	17-18
-# ::node	0.4.0	revolution-03	21-22
-# ::node	0.4.0.0	person	18-20
-# ::node	0.4.0.0.0	name	18-20
-# ::node	0.4.0.0.0.0	"Fidel"	18-20
-# ::node	0.4.0.0.0.1	"Castro"	18-20
-# ::root	0	flee-05
-# ::edge	city	location	state	0.2	0.2.1
-# ::edge	city	name	"Miami"	0.2	0.2.0
-# ::edge	country	name	"Cuba"	0.1	0.1.0
-# ::edge	date-entity	day	4	0.3	0.3.1
-# ::edge	date-entity	month	7	0.3	0.3.0
-# ::edge	date-entity	year	1960	0.3	0.3.2
-# ::edge	flee-05	ARG0	person	0	0.0
-# ::edge	flee-05	ARG1	country	0	0.1
-# ::edge	flee-05	ARG1-of	follow-01	0	0.4
-# ::edge	flee-05	ARG2	city	0	0.2
-# ::edge	flee-05	time	date-entity	0	0.3
-# ::edge	follow-01	ARG1	revolution-03	0.4	0.4.0
-# ::edge	have-rel-role-91	ARG1	person	0.0.0	0.0.0.0
-# ::edge	have-rel-role-91	ARG2	parent	0.0.0	0.0.0.1
-# ::edge	name	op1	"Fidel"	0.4.0.0.0	0.4.0.0.0.0
-# ::edge	name	op2	"Castro"	0.4.0.0.0	0.4.0.0.0.1
-# ::edge	person	ARG0-of	have-rel-role-91	0.0	0.0.0
-# ::edge	person	name	"Bauer"	0.0.0.0	0.0.0.0.0
-# ::edge	person	name	name	0.4.0.0	0.4.0.0.0
-# ::edge	revolution-03	ARG0	person	0.4.0	0.4.0.0
-# ::edge	state	name	"Florida"	0.2.1	0.2.1.0
-(f / flee-05
+(f / flee-05~3
       :ARG0 (p / person
-            :ARG0-of (h / have-rel-role-91
-                  :ARG1 (p2 / person :name "Bauer")
-                  :ARG2 (p3 / parent)))
-      :ARG1 (c / country :name "Cuba")
-      :ARG2 (c2 / city :name "Miami"
-            :location (s / state :name "Florida"))
-      :time (d / date-entity :month 7 :day 4 :year 1960)
-      :ARG1-of (f2 / follow-01
-            :ARG1 (r / revolution-03
-                  :ARG0 (p4 / person :name (n / name :op1 "Fidel" :op2 "Castro")))))
+            :ARG0-of (h / have-rel-role-91~2
+                  :ARG1 (p2 / person~0 :name "Bauer"~0)
+                  :ARG2 (p3 / parent~2)))
+      :ARG1 (c / country~5 :name "Cuba"~5)
+      :ARG2 (c2 / city~7 :name "Miami"~7
+            :location (s / state~9 :name "Florida"~9))
+      :time (d / date-entity~12 :month 7~12 :day 4~12 :year 1960~12)
+      :ARG1-of (f2 / follow-01~17
+            :ARG1 (r / revolution-03~21
+                  :ARG0 (p4 / person~18 :name (n / name~18 :op1 "Fidel"~18 :op2 "Castro"~18)))))
 
 # ::snt For every 100 females there were 93.9 males.
 # ::tok For every 100 females there were 93.9 males .
-# ::alignments 7-8|0 3-4|0.1 1-2|0.1.1 2-3|0.1.0 6-7|0.0
-# ::node	0	male	7-8
-# ::node	0.0	93.9	6-7
-# ::node	0.1	female	3-4
-# ::node	0.1.0	100	2-3
-# ::node	0.1.1	every	1-2
-# ::root	0	male
-# ::edge	female	mod	every	0.1	0.1.1
-# ::edge	female	quant	100	0.1	0.1.0
-# ::edge	male	beneficiary	female	0	0.1
-# ::edge	male	quant	93.9	0	0.0
-(m / male :quant 93.9
-      :beneficiary (f / female :quant 100
-            :mod (e / every)))
+(m / male~7 :quant 93.9~6
+      :beneficiary (f / female~3 :quant 100~2
+            :mod (e / every~1)))
 
