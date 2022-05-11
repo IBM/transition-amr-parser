@@ -29,4 +29,4 @@ python tests/amr_io.py \
    --ignore-errors 'amr3-train' \
    # --out-amr tmp.amr
 
-printf "[\033[92mOK\033[0m] AMR class passes IO test\n"
+printf "[\033[92m OK \033[0m] $0\n"

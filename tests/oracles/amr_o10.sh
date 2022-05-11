@@ -7,7 +7,7 @@ set -o nounset
 
 oracle_folder=DATA/AMR2.0/oracles/o10_pinitos/
 mkdir -p $oracle_folder 
-
+ 
 # get actions from oracle
 python transition_amr_parser/amr_machine.py \
     --in-aligned-amr $gold_amr \
@@ -26,5 +26,11 @@ python transition_amr_parser/amr_machine.py \
     --out-amr $oracle_folder/train_oracle.amr
 
 # score
-echo "Conmputing Smatch (make take long for 1K or more sentences)"
-smatch.py -r 10 --significant 4 -f $gold_amr $oracle_folder/train_oracle.amr
+echo "Computing Smatch (make take long for 1K or more sentences)"
+python scripts/smatch_aligner.py \
+    --in-amr $oracle_folder/train_oracle.amr \
+    --in-reference-amr $gold_amr \
+    # --stop-if-different
+    --raise-if-smaller 0.999
+
+printf "[\033[92m OK \033[0m] $0\n"

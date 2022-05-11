@@ -345,7 +345,7 @@ def read_blocks(file_path, return_tqdm=True):
                 block += line
 
     if return_tqdm:
-        return tqdm(blocks)
+        return tqdm(blocks, leave=False)
     else:
         return blocks
 

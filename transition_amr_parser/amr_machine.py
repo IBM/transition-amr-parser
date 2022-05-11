@@ -48,9 +48,9 @@ def graph_alignments(unaligned_nodes, amr):
     for (src, _, tgt) in amr.edges:
         if (
             src in unaligned_nodes
-            and amr.alignments[tgt] is not None
+            and amr.alignments.get(tgt, None) is not None
             and max(amr.alignments[tgt])
-                > fix_alignments.get(src, 0)
+                > fix_alignments.get(src, -1)
         ):
             # # debug: to justify to change 0 to -1e6 for a test data corner
             # case; see if there are other cases affected
@@ -66,7 +66,7 @@ def graph_alignments(unaligned_nodes, amr):
     for (src, _, tgt) in amr.edges:
         if (
             tgt in unaligned_nodes
-            and amr.alignments[src] is not None
+            and amr.alignments.get(src, None) is not None
             and min(amr.alignments[src])
                 < fix_alignments.get(tgt, 1e6)
         ):
@@ -106,12 +106,14 @@ def graph_vicinity_align(gold_amr):
         # debug: avoid infinite loop for AMR2.0 test data with bad alignments
         count += 1
         if count == 1000:
-            print(
-                red_background('\nhard fix on 0th token for fix_alignments\n')
-            )
-            for k, v in list(gold_amr.alignments.items()):
-                if v is None:
-                    gold_amr.alignments[k] = [0]
+            msg = 'hard fix on 0th token for fix_alignments'
+            print(f'\n{red_background(msg)}\n')
+            for nid in gold_amr.nodes:
+                if (
+                    nid not in gold_amr.alignments
+                    or gold_amr.alignments[nid] == []
+                ):
+                    gold_amr.alignments[nid] = [0]
             break
 
     return gold_amr, unaligned_nodes_original
@@ -208,11 +210,6 @@ class AMROracle():
         if self.force_align_ner:
             raise NotImplementedError()
             # align parents in NERs to first child
-            for ner in get_ner_ids(gold_amr):
-                child_id = ner['children_ids'][0][0]
-                gold_amr.alignments[ner['id']] = gold_amr.alignments[child_id]
-                gold_amr.alignments[ner['name_id']] \
-                    = gold_amr.alignments[child_id]
 
         # will store alignments by token
         align_by_token_pos = defaultdict(list)
@@ -474,6 +471,10 @@ class AMRStateMachine():
         reject_align_samples = True raises BadAlignModeSample if sample does
         not satisfy contraints
         '''
+
+        assert tokens is not None, \
+            "State machine requires sentence to be tokenized"
+
         # state
         self.tokens = list(tokens)
         self.tok_cursor = 0
@@ -574,7 +575,7 @@ class AMRStateMachine():
 
         if self.edges:
             # This can die with cicles saying its a disconnected graph
-            amr_str = self.get_amr().to_penman(node_map=node_map)
+            amr_str = self.get_amr(node_map=node_map).to_penman()
         else:
             # invalid AMR
             amr_str = '\n'.join(
@@ -859,14 +860,22 @@ class AMRStateMachine():
         # Action for each time-step
         self.action_history.append(action)
 
-    def get_amr(self):
+    def get_amr(self, node_map=None):
 
         # ensure AMR is valid
         tokens, nodes, edges, root, alignments = create_valid_amr(
             self.tokens, self.nodes, self.edges, self.root, self.alignments
         )
 
-        return AMR(tokens, nodes, edges, root, alignments=alignments)
+        # create an AMR class
+        amr = AMR(tokens, nodes, edges, root, alignments=alignments)
+
+        # use valid node names
+        if node_map is None:
+            node_map = amr.get_node_id_map()
+        amr.remap_ids(node_map)
+
+        return amr
 
     def get_annotation(self, node_map=None, jamr=False):
 
@@ -875,9 +884,8 @@ class AMRStateMachine():
 
             # FIXME: deprecate JAMR
             if jamr:
-                amr = self.get_amr()
                 node_map = self.align_tracker.get_flat_map(no_list=True)
-                amr.remap_ids(node_map)
+                amr = self.get_amr(node_map=node_map)
                 metadata = amr.get_jamr_metadata(penman=True)
             else:
                 metadata = {}
@@ -898,16 +906,13 @@ class AMRStateMachine():
 
                 # Add metadata containing JAMR notation
                 node_map = self.align_tracker.get_flat_map()
-                return self.get_amr().to_penman(
-                    node_map=node_map,
+                return self.get_amr(node_map=node_map).to_penman(
                     metadata=metadata
                 )
 
-        elif jamr:
-            return self.get_amr().to_jamr()
-
         else:
-            return self.get_amr().to_penman()
+
+            return self.get_amr().to_penman(jamr=jamr)
 
 
 def get_ngram(sequence, order):
@@ -1151,14 +1156,14 @@ class StatsForVocab:
         )
         print('Total number of different node names: ', end='')
         print(len(list(self.nodes.keys())))
-        print('Most frequent node names:')
-        print(self.nodes.most_common(20))
-        print('Most frequent left arc actions:')
-        print(self.left_arcs.most_common(20))
-        print('Most frequent right arc actions:')
-        print(self.right_arcs.most_common(20))
-        print('Other control actions:')
-        print(self.control)
+        # print('Most frequent node names:')
+        # print(self.nodes.most_common(20))
+        # print('Most frequent left arc actions:')
+        # print(self.left_arcs.most_common(20))
+        # print('Most frequent right arc actions:')
+        # print(self.right_arcs.most_common(20))
+        # print('Other control actions:')
+        # print(self.control)
 
     def write(self, path_prefix):
         """
@@ -1194,7 +1199,6 @@ def oracle(args):
                 print(yellow_font(f'Expected alignments in {amr_file}'))
                 print(amr)
             elif any(n not in amr.alignments for n in amr.nodes):
-                set_trace(context=30)
                 print(yellow_font(f'Missing alignment {amr_file}'))
                 print(amr)
 
@@ -1245,10 +1249,6 @@ def oracle(args):
     stats_vocab = StatsForVocab(no_close=False)
     for idx, amr in tqdm(enumerate(amrs), desc='Oracle'):
 
-        # debug
-        # print(idx)    # 96 for AMR2.0 test data infinit loop
-        # if idx == 96:
-        #     breakpoint()
         # spawn new machine for this sentence
         machine.reset(amr.tokens)
 
@@ -1352,7 +1352,7 @@ def play(args):
 
     with open(args.out_amr, 'w') as fid:
         for annotation in annotations:
-            fid.write(annotation)
+            fid.write(f'{annotation}\n')
 
 
 def main(args):

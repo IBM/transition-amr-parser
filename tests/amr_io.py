@@ -4,7 +4,6 @@ import subprocess
 from collections import Counter
 from transition_amr_parser.io import AMR, read_blocks
 from transition_amr_parser.amr import (
-    simple_to_penman,
     trasverse,
     ANNOTATION_ISSUES
 )
@@ -86,8 +85,6 @@ def main(args):
         if (
             set(amr.penman.triples) != set(amr2.penman.triples)
             and index not in annotation_error_indices
-
-
         ):
             missing = set(amr2.penman.triples) - set(amr.penman.triples)
             excess = set(amr.penman.triples) - set(amr2.penman.triples)
@@ -124,7 +121,7 @@ def main(args):
             for penman in out_amr_penmans:
                 fid.write(f'{penman}\n')
 
-    print('[ \033[92mOK\033[0m ] read and written AMR passes')
+    print(f'[ \033[92mOK\033[0m ] {args.in_amr} ({args.ignore_errors})')
 
 
 if __name__ == '__main__':

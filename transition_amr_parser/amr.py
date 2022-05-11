@@ -42,6 +42,9 @@ ANNOTATION_ISSUES = {
         # c :ARG1 g :ARG1-of c
         27279,  # I think Romney might have got the Catholic vote anyhow ...
 
+        # "side" quoted and is not NER leaf (or a leaf in general)
+        34110,
+
         # not attribute in string-entity : value
         # https://www.isi.edu/~ulf/amr/lib/amr-dict.html#string-entity
         # :value "racist"
@@ -74,6 +77,9 @@ ANNOTATION_ISSUES = {
     ],
 
     'amr3-train': [
+
+        # AMR2.0 34110
+        53032,
 
         # repeated edge and child
         2657,   # AMR2.0
@@ -310,7 +316,7 @@ def scape_node_names(nodes, edges):
         elif nname[0] == '"' and nname[-1] == '"':
             # already quoted, ensure no quotes inside
             nname[1:-1].replace('"', '')
-        elif nid in ner_leaves:
+        elif nid in ner_leaves and not re.match('^[0-9]+$', nname):
             # unquoted ner leaves
             nname = f'"{nname}"'
         elif any(c in nname for c in AMR.reserved_amr_chars):
