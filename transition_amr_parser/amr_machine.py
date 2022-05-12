@@ -925,9 +925,11 @@ def get_ngram(sequence, order):
 
 class Stats():
 
-    def __init__(self, ignore_indices, ngram_stats=False, breakpoint=False):
+    def __init__(self, ignore_indices, ngram_stats=False, breakpoint=False,
+                 stop_if_error=False):
         self.index = 0
         self.ignore_indices = ignore_indices
+        self.stop_if_error = stop_if_error
         # arc generation stats
         self.stack_size_count = Counter()
         self.pointer_positions_count = Counter()
@@ -993,7 +995,8 @@ class Stats():
             self.fourgram_count.update(get_ngram(actions, 4))
 
         # breakpoint if AMR does not match
-        self.stop_if_error(oracle, machine)
+        if self.stop_if_error:
+            self.stop_if_error(oracle, machine)
 
         # update counter
         self.index += 1
@@ -1246,7 +1249,8 @@ def oracle(args):
     )
 
     # will store statistics and check AMR is recovered
-    stats = Stats(ignore_indices, ngram_stats=False)
+    stats = Stats(ignore_indices, ngram_stats=False,
+                  stop_if_error=args.stop_if_error)
     stats_vocab = StatsForVocab(no_close=False)
     for idx, amr in tqdm(enumerate(amrs), desc='Oracle'):
 
@@ -1388,7 +1392,9 @@ def main(args):
 
 def argument_parser():
 
-    parser = argparse.ArgumentParser(description='Aligns AMR to its sentence')
+    parser = argparse.ArgumentParser(
+        description='Produces oracle sequences given AMR alignerd to sentence'
+    )
     # Single input parameters
     parser.add_argument(
         "--in-aligned-amr",
@@ -1482,6 +1488,12 @@ def argument_parser():
         help="configuration for state machine in config format",
         type=str,
     )
+    parser.add_argument(
+        "--stop-if-error",
+        help="set_trace if a reconstructed AMR is not perfect",
+        type=str,
+    )
+
     args = parser.parse_args()
     return args
 
