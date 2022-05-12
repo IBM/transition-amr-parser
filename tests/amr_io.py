@@ -5,7 +5,8 @@ from collections import Counter
 from transition_amr_parser.io import AMR, read_blocks
 from transition_amr_parser.amr import (
     trasverse,
-    ANNOTATION_ISSUES
+    ANNOTATION_ISSUES,
+    normalize
 )
 from ipdb import set_trace
 
@@ -82,12 +83,22 @@ def main(args):
             print(f'[ \033[91mFAILED\033[0m ] Duplicate edges triples {index}')
             # exit(1)
 
+        # get triples ignoring quotes
+        triples = [
+            (normalize(a), b, normalize(c))
+            for (a, b, c) in amr.penman.triples
+        ]
+        triples2 = [
+            (normalize(a), b, normalize(c))
+            for (a, b, c) in amr2.penman.triples
+        ]
+
         if (
-            set(amr.penman.triples) != set(amr2.penman.triples)
+            set(triples) != set(triples2)
             and index not in annotation_error_indices
         ):
-            missing = set(amr2.penman.triples) - set(amr.penman.triples)
-            excess = set(amr.penman.triples) - set(amr2.penman.triples)
+            missing = set(triples) - set(triples2)
+            excess = set(triples2) - set(triples)
 
             # Apparently starting here in AMR3.0, wiki starts being quoted
             # we can ignore this one

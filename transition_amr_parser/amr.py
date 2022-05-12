@@ -294,17 +294,32 @@ def sort_edges(edges):
         return top_tier + rest_edges
 
 
-def scape_node_names(nodes, edges):
+def scape_node_names(nodes, edges, is_attribute):
+
+    # numbers are allways attributes
+    numeric_regex = re.compile(r'["0-9,\.:-]')
 
     ner_ids = []
+    name_ids = []
+    wiki_ids = []
+    value_ids = []
     for e in edges:
         if e[1] == ':name' and nodes[e[2]] == 'name':
             ner_ids.append(e[2])
+        elif nodes[e[2]] == 'name':
+            name_ids.append(e[2])
+        elif e[1] == ':wiki':
+            wiki_ids.append(e[2])
+        elif e[1] == ':value':
+            value_ids.append(e[2])
 
     ner_leaves = []
+    name_leaves = []
     for e in edges:
         if e[0] in ner_ids:
             ner_leaves.append(e[2])
+        elif e[0] in name_ids:
+            name_leaves.append(e[2])
 
     isolated_scaped_chars = ['-', '+']
     new_nodes = {}
@@ -318,17 +333,129 @@ def scape_node_names(nodes, edges):
         elif len(nname.split()) > 1:
             # multi-token expression
             nname = f'"{nname}"'
-        elif nid in ner_leaves and not re.match('^[0-9]+$', nname):
-            # unquoted ner leaves
-            nname = f'"{nname}"'
         elif any(c in nname for c in AMR.reserved_amr_chars):
             # reserved chars, need to be scaped
             nname = f'"{nname}"'
         elif nname in isolated_scaped_chars:
             # some chars, if they appear in isolation, need to be scaped
             nname = f'"{nname}"'
+
+        # below here: just aesthetics
+
+        elif nid in ner_leaves and not re.match('^[0-9]+$', nname):
+            # numeric is not a 100% working criteria
+            # unquoted ner leaves
+            nname = f'"{nname}"'
+        elif (
+            is_attribute[nid]
+            and nid in value_ids
+            and not numeric_regex.match(nname)
+        ):
+            # non numeric attribute values
+            nname = f'"{nname}"'
+        elif is_attribute[nid] and nid in name_leaves:
+            # attribute :name leaves
+            nname = f'"{nname}"'
+        elif nid in wiki_ids and nname != "-":
+            # wiki
+            # the "-" rule does not apply on AMR3 sometimes
+            nname = f'"{nname}"'
         new_nodes[nid] = nname
     return new_nodes
+
+
+def get_attribute_ids_by_node(nodes):
+    # returns node ids that are attributes
+
+    # attribute rules by node name
+    # these symbols are allways attributes
+    # numbers are allways attributes
+    numeric_regex = re.compile(r'["0-9,\.:-]')
+    # single letters are allways attributes
+    single_letter_regex = re.compile(r'^[A-Z]$')
+    attribute_ids = []
+    for nid, nname in nodes.items():
+
+        if numeric_regex.match(nodes[nid]):
+            # digit or time
+            attribute_ids.append(nid)
+
+        elif nodes[nid] in ['-', '+']:
+            # constants
+            attribute_ids.append(nid)
+
+        elif single_letter_regex.match(nodes[nid]):
+            # single letter in caps, it also a constant
+            attribute_ids.append(nid)
+
+    return attribute_ids
+
+
+def get_attribute_ids_by_edge(nodes, edges):
+    # returns node ids that are attributes
+
+    # named entity node
+    ner_nids = [
+        e[2] for e in edges if e[1] == ':name' and nodes[e[2]] == 'name'
+    ]
+
+    # attribute rules by edge
+    # TODO: This may not capture all cases
+    propbank_regex = re.compile(r'[a-z-]-[0-9]+')
+    # edges whis child is allways an attribute (unless it has children)
+    const_edges = [':mode', ':polite', ':wiki', ':li', ':era', ':value']
+    # parents whos :value child is allways an attribute
+    value_const_parents = [
+        'url-entity', 'amr-unintelligible', 'word', 'email-address-entity',
+        'emoticon', 'phone-number-entity'
+    ]
+    # option
+    option_regex = re.compile(r':op[0-9]+')
+    attribute_ids = []
+    for (src, label, trg) in edges:
+
+        if trg in attribute_ids:
+            # ignore nodes assigned by other rules
+            pass
+        elif src in ner_nids:
+            attribute_ids.append(trg)
+        elif label in const_edges and nodes[trg] != 'amr-unknown':
+            attribute_ids.append(trg)
+        elif label == ':value' and nodes[src] in value_const_parents:
+            # subset of :value edges
+            attribute_ids.append(trg)
+        elif (
+            label == ':value'
+            and nodes[src] == 'string-entity'
+            and not propbank_regex.match(nodes[trg])
+        ):
+            # subset of string-entity :value edges
+            # this is actually a bug on annotations
+            attribute_ids.append(trg)
+        elif label == ':timezone' and not nodes[trg].startswith('local'):
+            # subset of :timezone
+            attribute_ids.append(trg)
+        elif label == ':era' and nodes[trg] in ['AD', 'BC']:
+            # subset of :era
+            attribute_ids.append(trg)
+        elif bool(option_regex.match(label)) and nodes[src] == 'name':
+            # name :op<number>
+            attribute_ids.append(trg)
+        elif (
+            nodes[src] == 'score-on-scale-91'
+            and label in [':ARG1', ':ARG3']
+            and nodes[trg] != 'amr-unknown'
+        ):
+            attribute_ids.append(trg)
+        elif (
+            nodes[src] == 'street-address-91'
+            and label in [':ARG6']
+            and nodes[trg] != 'amr-unknown'
+        ):
+            attribute_ids.append(trg)
+
+
+    return attribute_ids
 
 
 def get_is_atribute(nodes, edges):
@@ -338,101 +465,25 @@ def get_is_atribute(nodes, edges):
     TODO: this is imperfect
     '''
 
-    # get children and parents
-    children = defaultdict(list)
-    parents = defaultdict(list)
-    for (s, l, t) in edges:
-        children[s].append((s, l, t))
-        parents[t].append((s, l, t))
-
-    # edges whis child is allways an attribute
-    const_edges = [':mode', ':polite', ':wiki', ':li']
-    # parents whos :value child is allways an attribute
-    value_const_parents = ['url-entity', 'amr-unintelligible']
-    # numbers are allways attributes
-    numeric_regex = re.compile(r'["0-9,\.:-]')
-    # single letters are allways attributes
-    single_letter_regex = re.compile(r'^[A-Z]$')
-    # TODO: This may not capture all cases
-    propbank_regex = re.compile(r'[a-z-]-[0-9]+')
-    # option
-    option_regex = re.compile(r':op[0-9]+')
-    # these symbols are allways attributes
-    const_symbols = ['-', '+']
-    # center node in a named entity
-    ner_nids = [
-        e[2] for e in edges if e[1] == ':name' and nodes[e[2]] == 'name'
-    ]
-
+    # main rule: attributes do not have children
     is_attribute = {}
-    for nid, nname in nodes.items():
+    for (src, label, trg) in edges:
+        is_attribute[src] = False
 
-        if children[nid]:
-            # if it has children, it is not a constant
-            # NOTE: This can happen with attributes in invalid graphs
-            is_attribute[nid] = False
-
-        elif (
-            numeric_regex.match(nodes[nid])
-            or nodes[nid] in const_symbols
-        ):
-            # digit or time
+    # rules based on nodes
+    for nid in get_attribute_ids_by_node(nodes):
+        if nid not in is_attribute:
             is_attribute[nid] = True
 
-        elif any(label in const_edges for _, label, _ in parents[nid]):
-            # parent edges of constants only
+    # rules based on edges
+    for nid in get_attribute_ids_by_edge(nodes, edges):
+        if nid not in is_attribute:
             is_attribute[nid] = True
 
-        elif (
-            any(label == ':timezone' for _, label, _ in parents[nid])
-            and not nodes[nid].startswith('local')
-        ):
-            # :timezone is not allways a parent of an attribute
-            is_attribute[nid] = True
-
-        elif any(
-            label == ':value'
-            and nodes[s] in value_const_parents
-            for (s, label, t) in parents[nid]
-        ):
-            # URL entity or amr-unintelligible values are constants
-            is_attribute[nid] = True
-
-        elif any(
-            label == ':value' and nodes[s] == 'string-entity'
-            # FIXME: Unreliable detection of propbank
-            and not propbank_regex.match(nodes[s])
-            for (s, label, t) in parents[nid]
-        ):
-            # FIXME: string-entity seems to have no clear rule to decide
-            # between constant and variable
-            is_attribute[nid] = True
-
-        elif any(s in ner_nids for (s, l, t) in parents[nid]):
-            # Named entity
-            is_attribute[nid] = True
-
-        elif all(
-            bool(option_regex.match(l)) and nodes[s] == 'name'
-            for (s, l, t) in parents[nid]
-        ):
-            # :name n :op1 ""
-            is_attribute[nid] = True
-
-        elif (
-            any(label == ':era' for (s, label, t) in parents[nid])
-            and nodes[nid] in ['AD', 'BC']
-        ):
-            # specific alphanumeric era values
-            # TODO: This is not a robust strategy
-            is_attribute[nid] = True
-
-        elif single_letter_regex.match(nodes[nid]):
-            # single letter in caps, it also a constant
-            is_attribute[nid] = True
-
-        else:
-            is_attribute[nid] = False
+    # rest are false
+    for n in nodes:
+        if n not in is_attribute:
+            is_attribute[n] = False
 
     return is_attribute
 
@@ -440,17 +491,17 @@ def get_is_atribute(nodes, edges):
 def simple_to_penman(nodes, edges, root, alignments=None, isi=True,
                      color=False):
 
+    # rules to determine if a node is an attribute or variable
+    is_attribute = get_is_atribute(nodes, edges)
+
     # ensure node name are valid
-    nodes = scape_node_names(nodes, edges)
+    nodes = scape_node_names(nodes, edges, is_attribute)
 
     # depth first trasversal, return all edges involved in paths from root to
     # current leaf as well as detected re-entrancies or loop reentrancies this
     # will not stop at re-entrancies but will remove mini-loops and ignore
     # loops
     edge_stacks, offending_stacks = trasverse(edges, root, reentrant=False)
-
-    # rules to determine if a node is an attribute or variable
-    is_attribute = get_is_atribute(nodes, edges)
 
     # needed statistics
     loop_edges = [x[-1] for x in offending_stacks['cycle']]
@@ -898,14 +949,14 @@ class AMR():
         single_letter_regex = re.compile(r'^[A-Z]$')
         # TODO: This may not capture all cases
         propbank_regex = re.compile(r'[a-z-]-[0-9]+')
-        const_symbols = ['-', '+']
+        const_nodes = ['-', '+']
 
         if self.children(nid):
             # if it has children, it is not a constant
             return False
         elif (
             numeric_regex.match(self.nodes[nid])
-            or self.nodes[nid] in const_symbols
+            or self.nodes[nid] in const_nodes
         ):
             # digit or time
             return True
