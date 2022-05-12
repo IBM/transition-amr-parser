@@ -315,6 +315,9 @@ def scape_node_names(nodes, edges):
         elif nname[0] == '"' and nname[-1] == '"':
             # already quoted, ensure no quotes inside
             nname[1:-1].replace('"', '')
+        elif len(nname.split()) > 1:
+            # multi-token expression
+            nname = f'"{nname}"'
         elif nid in ner_leaves and not re.match('^[0-9]+$', nname):
             # unquoted ner leaves
             nname = f'"{nname}"'
@@ -737,6 +740,9 @@ class AMR():
         for key in delete_keys:
             del graph.metadata[key]
 
+        # remove quotes
+        nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
+
         return cls(tokens, nodes, edges, graph.top, penman=graph,
                    alignments=alignments, sentence=sentence, id=graph_id)
 
@@ -813,6 +819,9 @@ class AMR():
 
         # sanity check: there was some JAMR
         assert bool(nodes), "JAMR notation seems empty"
+
+        # remove quotes
+        nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
 
         return cls(tokens, nodes, edges, root, penman=None,
                    alignments=alignments, sentence=sentence, id=graph_id)
