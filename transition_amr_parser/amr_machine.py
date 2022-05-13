@@ -11,7 +11,7 @@ from tqdm import tqdm
 import numpy as np
 from transition_amr_parser.io import (
     AMR,
-    read_amr,
+    read_blocks,
     read_tokenized_sentences,
     write_tokenized_sentences,
     read_neural_alignments
@@ -1191,25 +1191,17 @@ class StatsForVocab:
 def oracle(args):
 
     if args.jamr:
-        print(yellow_font('WARNING: --jamr format is deprecated'))
+        raise Exception('--jamr format is deprecated')
 
-    # Read AMR
+    # Read AMR as a generator with tqdm progress bar
     amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
-    amrs = read_amr(amr_file, jamr=args.jamr)
-    if args.in_aligned_amr:
-        # check actually aligned
-        for amr in amrs:
-            if not bool(amr.alignments):
-                print(yellow_font(f'Expected alignments in {amr_file}'))
-                print(amr)
-            elif any(n not in amr.alignments for n in amr.nodes):
-                print(yellow_font(f'Missing alignment {amr_file}'))
-                print(amr)
+    tqdm_amrs = read_blocks(amr_file)
+    tqdm_amrs.set_description(f'Computing oracle')
 
     # read AMR alignments if provided
     if args.in_alignment_probs:
         corpus_align_probs = read_neural_alignments(args.in_alignment_probs)
-        assert len(corpus_align_probs) == len(amrs)
+        assert len(corpus_align_probs) == len(tqdm_amrs)
     else:
         corpus_align_probs = None
 
@@ -1252,13 +1244,17 @@ def oracle(args):
     stats = Stats(ignore_indices, ngram_stats=False,
                   stop_if_error=args.stop_if_error)
     stats_vocab = StatsForVocab(no_close=False)
-    for idx, amr in tqdm(enumerate(amrs), desc='Oracle'):
+    for idx, penman_str in enumerate(tqdm_amrs):
+
+        # read into AMR class (this looses epigraph data and attribute info)
+        amr = AMR.from_penman(penman_str)
 
         # spawn new machine for this sentence
         machine.reset(amr.tokens)
 
         # initialize new oracle for this AMR
         if corpus_align_probs:
+            # sampling of alignments
             oracle.reset(amr, alignment_probs=corpus_align_probs[idx],
                          alignment_sampling_temp=args.alignment_sampling_temp)
         else:
