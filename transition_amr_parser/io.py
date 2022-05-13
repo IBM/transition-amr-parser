@@ -3,12 +3,9 @@ import json
 import subprocess
 import xml.etree.ElementTree as ET
 from tqdm import tqdm
-from penman.layout import Push
-import shutil
 import numpy as np
 from collections import Counter
 from transition_amr_parser.amr import AMR
-from ipdb import set_trace
 
 
 def write_neural_alignments(out_alignment_probs, aligned_amrs, joints):
@@ -348,42 +345,6 @@ def read_blocks(file_path, return_tqdm=True):
         return tqdm(blocks, leave=False)
     else:
         return blocks
-
-
-def read_amr2(file_path, ibm_format=False, tokenize=False):
-
-    # FIXME: WIP purge old read_amr
-    return read_amr(file_path, ibm_format=ibm_format, generate=False)
-
-    with open(file_path) as fid:
-        raw_amr = []
-        raw_amrs = []
-
-        def read_lines():
-            for line in fid.readlines():
-                yield line
-            yield ''
-
-        for line in tqdm(read_lines(), desc='Reading AMR'):
-            if line.strip() == '':
-                if len(raw_amr) == 0:
-                    continue
-
-                if ibm_format:
-                    # From ::node, ::edge etc
-                    raw_amrs.append(
-                        AMR.from_metadata(raw_amr, tokenize=tokenize)
-                    )
-                else:
-                    # From penman
-                    raw_amrs.append(
-                        AMR.from_penman(raw_amr, tokenize=tokenize)
-                    )
-                raw_amr = []
-            else:
-                raw_amr.append(line)
-
-    return raw_amrs
 
 
 def read_frame(xml_file):
