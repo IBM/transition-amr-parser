@@ -325,8 +325,9 @@ def scape_node_names(nodes, edges, is_attribute):
     new_nodes = {}
     for nid, nname in nodes.items():
         if nname == '"':
-            # just a single quote, invalid
-            raise Exception('invalid node name "')
+            # FIXME: This should be solved at machine level
+            # just a single quote, invalid, put some dummy symbol
+            nname == '-'
         elif nname[0] == '"' and nname[-1] == '"':
             # already quoted, ensure no quotes inside
             nname[1:-1].replace('"', '')
@@ -491,6 +492,10 @@ def get_is_atribute(nodes, edges):
 def simple_to_penman(nodes, edges, root, alignments=None, isi=True,
                      color=False):
 
+    # quick exit
+    if nodes == {}:
+        return '(a / amr-empty)\n'
+
     # rules to determine if a node is an attribute or variable
     is_attribute = get_is_atribute(nodes, edges)
 
@@ -652,7 +657,8 @@ def force_rooted_connected_graph(nodes, edges, root):
             root = list(nodes.keys())[index]
         elif edges == []:
             heads = list(nodes.keys())
-            root = heads[0]
+            if nodes:
+                root = heads[0]
         else:
             def key(x): return len(x[1])
             root = sorted(head_descendants.items(), key=key)[-1][0]
@@ -931,7 +937,8 @@ class AMR():
                 id_map[nid]: alignments
                 for nid, alignments in self.alignments.items()
             }
-        self.root = id_map[self.root]
+        if self.root is not None:
+            self.root = id_map[self.root]
 
     def is_constant(self, nid):
         '''

@@ -1489,7 +1489,6 @@ def argument_parser():
         help="set_trace if a reconstructed AMR is not perfect",
         type=str,
     )
-
     args = parser.parse_args()
     return args
 
