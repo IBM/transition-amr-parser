@@ -20,7 +20,6 @@ import re
 # need to be installed with pip install penman
 import penman
 from penman.layout import Push
-from penman.graph import Edge, Attribute
 from penman import surface
 from ipdb import set_trace
 from transition_amr_parser.clbar import yellow_font
@@ -455,7 +454,6 @@ def get_attribute_ids_by_edge(nodes, edges):
         ):
             attribute_ids.append(trg)
 
-
     return attribute_ids
 
 
@@ -487,6 +485,18 @@ def get_is_atribute(nodes, edges):
             is_attribute[n] = False
 
     return is_attribute
+
+
+def get_isi_str(alignments):
+    if alignments is None:
+        return ''
+    start = min(alignments)
+    end = max(alignments)
+    if start + 1 == end or start == end:
+        return f'~{start}'
+    else:
+        end += 1
+        return f'~{start},{end}'
 
 
 def simple_to_penman(nodes, edges, root, alignments=None, isi=True,
@@ -573,8 +583,8 @@ def simple_to_penman(nodes, edges, root, alignments=None, isi=True,
                 penman_str += f'{pad}{label} {nname}'
                 if alignments and nid in alignments:
                     if isi:
-                        al_str = ','.join(map(str, alignments[nid]))
-                        penman_str += f'~{al_str}'
+                        penman_str += get_isi_str(alignments[nid])
+
                 do_not_close = True
 
             elif nid in visited_nodes:
@@ -587,15 +597,13 @@ def simple_to_penman(nodes, edges, root, alignments=None, isi=True,
                 penman_str += f'{pad}{label} ({nid_str} / {nname}'
                 if alignments and nid in alignments:
                     if isi:
-                        al_str = ','.join(map(str, alignments[nid]))
-                        penman_str += f'~{al_str}'
+                        penman_str += get_isi_str(alignments[nid])
 
         else:
             penman_str += f'({nid_str} / {nname}'
             if alignments and nid in alignments:
                 if isi:
-                    al_str = ','.join(map(str, alignments[nid]))
-                    penman_str += f'~{al_str}'
+                    penman_str += get_isi_str(alignments[nid])
 
         prev_stack = edge_stack
 
@@ -1046,6 +1054,11 @@ class AMR():
         else:
             penman_str = self.get_metadata(isi)
 
+        # if this does not come from reading with penman moduel, redo ids as
+        # the could come from jamr or parsing
+        if self.penman is None:
+            self.remap_ids(self.get_node_id_map())
+
         return penman_str + simple_to_penman(
             self.nodes, self.edges, self.root, self.alignments, isi=isi
         )
@@ -1171,7 +1184,14 @@ def get_simple_graph(graph):
     for x in graph.instances():
         name_to_node[x.source] = x.target
         if x in isi_alignments:
-            alignments[x.source] = list(isi_alignments[x].indices)
+            if len(isi_alignments[x].indices) == 1:
+                alignments[x.source] = list(isi_alignments[x].indices)
+            elif len(isi_alignments[x].indices) == 2:
+                start = isi_alignments[x].indices[0]
+                end = isi_alignments[x].indices[-1]
+                alignments[x.source] = list(range(start, end))
+            else:
+                raise Exception('Unexpected ISI alignment format')
 
     # reentrancy
     reentrancies = [e for e, c in graph.reentrancies().items() if c > 1]
@@ -1247,7 +1267,15 @@ def get_simple_graph(graph):
         name_to_node[index] = att.target
         # add alignments
         if att in isi_alignments:
-            alignments[index] = list(isi_alignments[att].indices)
+            if len(isi_alignments[att].indices) == 1:
+                alignments[index] = list(isi_alignments[att].indices)
+            elif len(isi_alignments[att].indices) == 2:
+                start = isi_alignments[att].indices[0]
+                end = isi_alignments[att].indices[-1]
+                alignments[index] = list(range(start, end))
+            else:
+                raise Exception('Unexpected ISI alignment format')
+
         edge_epidata = graph.epidata[(att.source, att.role, att.target)]
         if (
             edge_epidata
