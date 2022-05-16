@@ -3,10 +3,8 @@ import copy
 import itertools
 import os
 
-from formatter import amr_to_string
-
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.io import read_amr
 
 import numpy as np
 import torch
@@ -583,8 +581,8 @@ class EvalAlignments(object):
                 #CorpusRecall_WithDupsAndSpans(),
             ]
 
-        gold = read_amr2(path_gold, ibm_format=True)
-        pred = read_amr2(path_pred, ibm_format=True)
+        gold = read_amr(path_gold)
+        pred = read_amr(path_pred)
         print(f'N = {len(gold)} {len(pred)}')
 
         jamr = False

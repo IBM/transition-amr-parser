@@ -31,9 +31,7 @@ import os
 
 from tqdm import tqdm
 
-from formatter import amr_to_string
-
-from transition_amr_parser.io import read_amr2
+from transition_amr_parser.io import read_amr
 
 
 MY_GLOBALS = {}
@@ -79,7 +77,7 @@ def read_resolve_file(filename):
 
 
 def read_amr2_as_dict(filename):
-    corpus = read_amr2(filename, ibm_format=True, tokenize=False)
+    corpus = read_amr(filename)
 
     new_corpus = {}
 
@@ -195,7 +193,8 @@ def resolve_align_with_string(amr, align_list, resolve=None):
             return [k for k, v in amr.nodes.items() if v == node_name]
 
     fake_alignments = {k: [0] for k in amr.nodes.keys()}
-    f_resolve.write(amr_to_string(amr, alignments=fake_alignments).strip() + '\n')
+    amr.alignments = fake_alignments
+    f_resolve.write(f'{amr.__str__()}\n')
 
     all_ok = True
 
@@ -271,7 +270,8 @@ def resolve_align_with_string(amr, align_list, resolve=None):
 def resolve_align_with_variable_names(amr, align_list):
 
     fake_alignments = {k: [0] for k in amr.nodes.keys()}
-    f_resolve.write(amr_to_string(amr, alignments=fake_alignments).strip() + '\n')
+    amr.alignments = fake_alignments
+    f_resolve.write(f'{amr.__str__()}\n')
 
     seen = set()
 
@@ -337,9 +337,8 @@ def do_write(d_align, d, output_file):
     print(f'writing... {output_file} {len(new_corpus)}')
     with open(output_file, 'w') as f:
         fake_alignments = {k: [0] for k in amr.nodes.keys()}
-        body = amr_to_string(amr, alignments=fake_alignments).strip()
-
-        f.write(body + '\n')
+        amr.alignments = fake_alignments
+        f.write(f'{amr.__str__()}\n')
 
 def write_amr3_train(datasets, output_dir):
     d_align = set.union(set(datasets['manual_dev'].keys()), set(datasets['manual_test'].keys()))
@@ -405,7 +404,8 @@ def main():
 
             with open(new_file, 'w') as f:
                 for amr, alignments in corpus:
-                    f.write(amr_to_string(amr, alignments=alignments).strip() + '\n\n')
+                    amr.alignments = alignments
+                    f.write(f'{amr.__str__()}\n')
 
     def print_ok_stats():
         print('ok')

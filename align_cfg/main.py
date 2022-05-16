@@ -41,7 +41,7 @@ from amr_utils import convert_amr_to_tree, get_tree_edges, compute_pairwise_dist
 from amr_utils import safe_read as safe_read
 from alignment_decoder import AlignmentDecoder
 from evaluation import EvalAlignments
-from formatter import amr_to_pretty_format, amr_to_string
+from formatter import amr_to_pretty_format
 from gcn import GCNEncoder
 from pretrained_embeddings import read_embeddings, read_amr_vocab_file, read_text_vocab_file
 from transition_amr_parser.io import read_amr
@@ -1441,7 +1441,7 @@ def maybe_write(context):
                 # # write reference amr
                 # for idx in batch_indices:
                 #     amr = corpus[idx]
-                #     f_gold.write(amr_to_string(amr).strip() + '\n\n')
+                #     f_gold.write(f'{amr.__str__()}\n')
 
         f_pretty.close()
         f_gold.close()
@@ -1482,13 +1482,15 @@ def maybe_write(context):
         # write pred
         with open(path_pred, 'w') as f_pred:
             for amr, alignments in zip(predictions['amr'], predictions['alignments']):
-                f_pred.write(amr_to_string(amr, alignments).strip() + '\n\n')
+                amr.alignments = alignments
+                f_pred.write(f'{amr.__str__()}\n')
 
         # write gold
         if write_gold:
             with open(path_gold, 'w') as f_gold:
                 for amr, alignments in zip(predictions['amr'], predictions['alignments']):
-                       f_gold.write(amr_to_string(amr).strip() + '\n\n')
+                    # FIXME: Why not the alignments?
+                    f_pred.write(f'{amr.__str__()}\n')
 
     if args.write_pretty:
 

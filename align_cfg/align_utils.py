@@ -1,5 +1,4 @@
 import argparse
-import copy
 import hashlib
 import os
 import numpy as np
@@ -7,8 +6,6 @@ from tqdm import tqdm
 
 from transition_amr_parser.io import read_amr
 from amr_utils import get_node_ids
-from formatter import amr_to_pretty_format, amr_to_string
-from ipdb import set_trace
 
 
 def hash_corpus(corpus):
@@ -94,9 +91,9 @@ def save_amr_align_argmax(path, corpus, dist_list, path_gold=None, write_gold=Fa
             argmax = dist.argmax(-1).reshape(-1).tolist()
             assert len(nodes) == len(argmax)
 
-            alignments = {k: [v] for k, v in zip(nodes, argmax)}
+            amr.alignments = {k: [v] for k, v in zip(nodes, argmax)}
 
-            f.write(amr_to_string(amr, alignments).strip() + '\n\n')
+            f.write(f'{amr.__str__()}\n')
 
 
 def load_align_dist_pretty(path, corpus):

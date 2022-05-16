@@ -8,8 +8,8 @@ from tqdm import tqdm
 import numpy as np
 
 from evaluation import EvalAlignments
-from formatter import amr_to_pretty_format, amr_to_string
-from transition_amr_parser.io import read_amr2
+from formatter import amr_to_pretty_format
+from transition_amr_parser.io import read_amr
 
 
 class CorpusRecall_WithGoldSpans_WithSomeNodes(object):
@@ -70,9 +70,9 @@ class CorpusRecall_WithGoldSpans_WithSomeNodes(object):
 
 
 def main(args):
-    gold = read_amr2(args.gold, ibm_format=True, tokenize=False)
-    neural = read_amr2(args.neural, ibm_format=True, tokenize=False)
-    cofill = read_amr2(args.cofill, ibm_format=True, tokenize=False)
+    gold = read_amr(args.gold)
+    neural = read_amr(args.neural)
+    cofill = read_amr(args.cofill)
 
     d_gold = {amr.id: amr for amr in gold}
     d_neural = {amr.id: amr for amr in neural}

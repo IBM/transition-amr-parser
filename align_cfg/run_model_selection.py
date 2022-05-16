@@ -1,7 +1,6 @@
 import argparse
 import collections
 import os
-import sys
 
 import numpy as np
 
@@ -9,13 +8,12 @@ from tqdm import tqdm
 
 import metric_utils
 from amr_utils import safe_read as safe_read_
-from formatter import amr_to_string
 
 
 def write_amr(path, corpus):
     with open(path, 'w') as f:
         for amr in corpus:
-            f.write(amr_to_string(amr).strip() + '\n\n')
+            f.write(f'{amr.__str__()}\n')
 
 
 def safe_read(path, **kwargs):

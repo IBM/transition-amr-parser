@@ -24,9 +24,6 @@ python transition_amr_parser/amr_machine.py --use-copy 1 \
 import argparse
 import collections
 import copy
-import json
-import os
-import sys
 
 import numpy as np
 import torch
@@ -35,10 +32,8 @@ from tqdm import tqdm
 
 from amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
 from amr_utils import safe_read as safe_read_
-from formatter import amr_to_string, read_amr_pretty_file
+from formatter import read_amr_pretty_file
 from metric_utils import distortion_proxy
-
-from transition_amr_parser.io import read_amr2
 
 
 def safe_read(path, **kwargs):
@@ -131,7 +126,8 @@ def run_mode_uniform(args):
     # write
     with open(args.out_amr, 'w') as f_out:
         for amr, a in zip(corpus, new_alignments):
-            f_out.write(amr_to_string(amr, alignments=a).strip() + '\n\n')
+            amr.alignments = a
+            f_out.write(f'{amr.__str__()}\n')
 
 
 def run_mode_1(args):
@@ -163,7 +159,8 @@ def run_mode_1(args):
     # write
     with open(args.out_amr, 'w') as f_out:
         for amr, a in zip(corpus, new_alignments):
-            f_out.write(amr_to_string(amr, alignments=a).strip() + '\n\n')
+            amr.alignments = a
+            f_out.write(f'{amr.__str__()}\n')
 
 
 def run_mode_2(args):
