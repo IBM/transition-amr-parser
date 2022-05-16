@@ -61,7 +61,7 @@ if [[ (-f $DATA_FOLDER/.done) && (-f $EMB_FOLDER/.done) ]]; then
     echo "Using $DATA_FOLDER/"
 else
     echo "Re-computing features, may take a while"
-    bash run/ab_preprocess.sh $config
+    bash run/preprocess.sh $config
 fi
 
 RESULTS_FOLDER=$(dirname $first_path)/beam${beam_size}
@@ -144,11 +144,9 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
-    smatch.py \
-         --significant 4  \
+    python smatch/smatch.py -r 10 --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr \
-         -r 10 \
          | tee ${results_prefix}.smatch
 
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
@@ -157,11 +155,9 @@ elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr_wiki"
     echo "${results_prefix}.wiki.amr"
-    smatch.py \
-         --significant 4  \
+    python smatch/smatch.py -r 10 --significant 4  \
          -f $reference_amr_wiki \
          ${results_prefix}.wiki.amr \
-         -r 10 \
          | tee ${results_prefix}.wiki.smatch
 
 fi
