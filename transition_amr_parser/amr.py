@@ -16,6 +16,7 @@
 # repository, hence the attached license above.
 
 from collections import defaultdict, Counter
+import string
 import re
 # need to be installed with pip install penman
 import penman
@@ -426,7 +427,7 @@ def get_attribute_ids_by_edge(nodes, edges):
             attribute_ids.append(trg)
         elif (
             label == ':value'
-            and nodes[src] == 'string-entity'
+            and nodes[src] == 'String-entity'
             and not propbank_regex.match(nodes[trg])
         ):
             # subset of string-entity :value edges
@@ -703,7 +704,7 @@ class AMR():
     # relation used for detached subgraph
     default_rel = ':rel'
     # these need to be scaped in node names
-    reserved_amr_chars = [':', '/', '(', ')']
+    reserved_amr_chars = [':', '/', '(', ')', '~']
     # TODO: also - + in isolation
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
@@ -906,6 +907,15 @@ class AMR():
     def get_node_id_map(self):
         ''' Redo the ids of a graph to ensure they are valid '''
 
+        def get_valid_char(nname):
+            candidates = str(nname)
+            while candidates and candidates[0] not in string.ascii_lowercase:
+                candidates = candidates[1:]
+            if candidates:
+                return candidates[0]
+            else:
+                return 'a'
+
         # determine a map from old to new ids. Importnat to sort constants in
         # the same way as from_penman code to get the same mapping
         num_constants = 0
@@ -918,14 +928,10 @@ class AMR():
                 id_map[nid] = str(num_constants)
                 num_constants += 1
             else:
-                new_id = nname[0].lower()
-                if new_id == '"':
-                    new_id = nname[1].lower()
+                new_id = get_valid_char(nname)
                 repeat = 2
                 while new_id in id_map.values():
-                    char = nname[0].lower()
-                    if char == '"':
-                        char = nname[1].lower()
+                    char = get_valid_char(nname)
                     new_id = f'{char}{repeat}'
                     repeat += 1
                 id_map[nid] = new_id
