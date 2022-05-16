@@ -10,7 +10,7 @@ set -o pipefail
 set -o nounset
 
 # this will be name of the model folder
-config_name=amr2.0-structured-bart-large-neur-al
+config_name=amr3.0-structured-bart-large-neur-al
 
 ##############################################################################
 # DATA
@@ -87,7 +87,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.large
+embedding_tag=${align_tag}_bart.large
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -159,10 +159,10 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-SEEDS="42 43 44"
+#SEEDS="42 43 44"
 SEEDS="42"
 MAX_EPOCH=120
-EVAL_INIT_EPOCH=71
+EVAL_INIT_EPOCH=1
 time_max_between_epochs=30
 
 # TODO: New
@@ -311,8 +311,6 @@ else
     dec_emb_init_tag=""
 fi
 
-
-
 # combine different model configuration tags to the name
 fp16_tag=""
 if [[ $use_fp16 == 1 ]]; then
@@ -343,5 +341,6 @@ LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
+# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
