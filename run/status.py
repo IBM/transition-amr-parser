@@ -222,18 +222,18 @@ def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
         if delta > 0:
             return (
                 f"\033[93m{delta}/{len(target_epochs)}\033[0m",
-                f"{seed_folder}"
+                f"{seed_folder}/epoch_tests"
             ), False
         else:
             return (
                 f"{delta}/{len(target_epochs)}",
-                f"{seed_folder}"
+                f"{seed_folder}/epoch_tests"
             ), False
 
     else:
         return (
             f"\033[92m{len(target_epochs)}/{len(target_epochs)}\033[0m",
-            f"{seed_folder}"
+            f"{seed_folder}/epoch_tests"
         ), True
 
 
