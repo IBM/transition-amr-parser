@@ -76,9 +76,23 @@ def graph_alignments(unaligned_nodes, amr):
 
 
 def graph_vicinity_align(gold_amr):
+    '''
+    Fix unaligned nodes by graph vicinity
+    '''
 
-    # Fix unaligned nodes by graph vicinity
-    assert gold_amr.alignments, "Expected alignments in AMR"
+    # easy fix, where no alignments is admissible
+    if (
+        gold_amr.alignments is None
+        and len(gold_amr.nodes) == 1
+        and len(gold_amr.tokens) == 1
+    ):
+        single_nid = list(gold_amr.nodes.keys())[0]
+        gold_amr.alignments = {single_nid: [0]}
+        return gold_amr, set([single_nid])
+
+    elif gold_amr.alignments is None:
+        raise Exception("Expected alignments in AMR")
+
     unaligned_nodes = set(gold_amr.nodes) - set(gold_amr.alignments)
     unaligned_nodes |= \
         set(nid for nid, pos in gold_amr.alignments.items() if pos is None)
@@ -212,7 +226,8 @@ class AMROracle():
             raise NotImplementedError()
             # align parents in NERs to first child
 
-        # will store alignments by token
+        # will store node-id by token they align to
+        # TODO: no order of nodes enforced (?), see TODO below
         align_by_token_pos = defaultdict(list)
         for node_id, token_pos in self.gold_amr.alignments.items():
             node = normalize(self.gold_amr.nodes[node_id])
@@ -225,7 +240,8 @@ class AMROracle():
                 align_by_token_pos[token_pos[0]].append(node_id)
         self.align_by_token_pos = align_by_token_pos
 
-        # TODO: Describe this
+        # get gold node-id to decoded node-id map ()
+        # TODO: Previous order expected to be the generation order
         node_id_2_node_number = {}
         for token_pos in sorted(self.align_by_token_pos.keys()):
             for node_id in self.align_by_token_pos[token_pos]:
@@ -880,40 +896,15 @@ class AMRStateMachine():
 
     def get_annotation(self, node_map=None, jamr=False):
 
-        # TODO: deprecate JAMR
         if self.gold_amr:
+            assert self.gold_amr.penman, "Align mode requires AMR.from_penman"
+            assert not jamr, "Align dows not support --jamr write"
 
-            # FIXME: deprecate JAMR
-            if jamr:
-                node_map = self.align_tracker.get_flat_map(no_list=True)
-                amr = self.get_amr(node_map=node_map)
-                metadata = amr.get_jamr_metadata(penman=True)
-            else:
-                metadata = {}
-
-            # Align mode
-            # If we read the gold AMR from penman, we can just apply the
-            # alignments to it, thus keeping the epidata info intact
-            if self.gold_amr.penman:
-
-                if jamr:
-                    # FIXME: deprecate JAMR
-                    # FIXME: Avoid appending to the original read class.
-                    self.gold_amr.penman.metadata.update(metadata)
-
-                return self.align_tracker.add_alignments_to_penman(self)
-
-            else:
-
-                # Add metadata containing JAMR notation
-                node_map = self.align_tracker.get_flat_map()
-                return self.get_amr(node_map=node_map).to_penman(
-                    metadata=metadata
-                )
+            # just add alignments to existing penman
+            return self.align_tracker.add_alignments_to_penman(self)
 
         else:
-
-            return self.get_amr().to_penman(jamr=jamr)
+            return self.get_amr(node_map=node_map).to_penman(jamr=jamr)
 
 
 def get_ngram(sequence, order):
