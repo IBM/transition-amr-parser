@@ -21,7 +21,7 @@ echo $config
 # quick exit
 if [ -f $ALIGNED_FOLDER/.done ]; then
 
-    printf "[\033[92m OK \033[0m] $ALIGNED_FOLDER/.done\n"
+    printf "[\033[92m done \033[0m] $ALIGNED_FOLDER/.done\n"
     exit 0
 
 fi
@@ -29,7 +29,7 @@ fi
 ###### AMR Alignment (Pre-processing)
 if [ -f $ALIGNED_FOLDER/.done.preprocess ]; then
 
-    printf "[\033[92m OK \033[0m] $ALIGNED_FOLDER/.done.preprocess\n"
+    printf "[\033[92m done \033[0m] $ALIGNED_FOLDER/.done.preprocess\n"
 
 else
 
@@ -76,7 +76,7 @@ fi
 ###### AMR Alignment (Cache data)
 if [ -f $ALIGNED_FOLDER/.done.cache_data ]; then
 
-    printf "[\033[92m OK \033[0m] $ALIGNED_FOLDER/.done.cache_data\n"
+    printf "[\033[92m done \033[0m] $ALIGNED_FOLDER/.done.cache_data\n"
 
 else
 
@@ -104,7 +104,7 @@ fi
 ###### AMR Alignment (Train aligner)
 if [ -f $ALIGNED_FOLDER/.done.train ]; then
 
-    printf "[\033[92m OK \033[0m] $ALIGNED_FOLDER/.done.train\n"
+    printf "[\033[92m done \033[0m] $ALIGNED_FOLDER/.done.train\n"
 
 else
 
@@ -132,7 +132,7 @@ fi
 ###### AMR Alignment (Extract)
 if [ -f $ALIGNED_FOLDER/.done ]; then
 
-    printf "[\033[92m OK \033[0m] $ALIGNED_FOLDER/.done\n"
+    printf "[\033[92m done \033[0m] $ALIGNED_FOLDER/.done\n"
 
 else
 
@@ -159,4 +159,4 @@ else
 
 fi
 
-python align_cfg/align_utils.py verify_corpus_id --in-amr $ALIGNED_FOLDER/train.txt --corpus-id $ALIGNED_FOLDER/alignment.trn.align_dist.npy.corpus_hash
+# python align_cfg/align_utils.py verify_corpus_id --in-amr $ALIGNED_FOLDER/train.txt --corpus-id $ALIGNED_FOLDER/alignment.trn.align_dist.npy.corpus_hash

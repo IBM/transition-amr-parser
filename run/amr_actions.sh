@@ -24,7 +24,7 @@ mkdir -p $ORACLE_FOLDER
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
 if [ -f $ORACLE_FOLDER/.done ]; then
 
-    printf "[\033[92m OK \033[0m] $ORACLE_FOLDER/.done\n"
+    printf "[\033[92m done \033[0m] $ORACLE_FOLDER/.done\n"
 
 else
 
