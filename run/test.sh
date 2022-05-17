@@ -141,23 +141,31 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
 
     # Smatch evaluation without wiki
 
+    # until smatch is fixed, we need to remove the ISI alignment annotations
+    sed 's@\~[0-9]\{1,\}@@g' ${results_prefix}.amr > ${results_prefix}.amr.no_isi
+
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
-    python smatch/smatch.py -r 10 --significant 4 \
+    smatch.py -r 10 --significant 4 \
          -f $reference_amr \
-         ${results_prefix}.amr \
+         ${results_prefix}.amr.no_isi \
          | tee ${results_prefix}.smatch
 
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
+
+    # Smatch evaluation without wiki
+
+    # until smatch is fixed, we need to remove the ISI alignment annotations
+    sed 's@\~[0-9]\{1,\}@@g' ${results_prefix}.wiki.amr > ${results_prefix}.wiki.amr.no_isi
 
     # compute score
     echo "Computing SMATCH between ---"
     echo "$reference_amr_wiki"
     echo "${results_prefix}.wiki.amr"
-    python smatch/smatch.py -r 10 --significant 4  \
+    smatch.py -r 10 --significant 4  \
          -f $reference_amr_wiki \
-         ${results_prefix}.wiki.amr \
+         ${results_prefix}.wiki.amr.no_isi \
          | tee ${results_prefix}.wiki.smatch
 
 fi
