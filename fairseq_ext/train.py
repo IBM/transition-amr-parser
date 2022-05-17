@@ -280,10 +280,6 @@ def main(args):
 
     # Load the latest checkpoint if one is available and restore the
     # corresponding train iterator
-    from ipdb import set_trace; set_trace(context=30)
-    # b venv/lib/python3.6/site-packages/fairseq/checkpoint_utils.py:216
-    # b venv/lib/python3.6/site-packages/fairseq/trainer.py:193
-    # b venv/lib/python3.6/site-packages/fairseq/optim/fp16_optimizer.py:271
     extra_state, epoch_itr = checkpoint_utils.load_checkpoint(
         args,
         trainer,
