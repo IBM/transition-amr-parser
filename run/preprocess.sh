@@ -53,8 +53,8 @@ TASK=${TASK:-amr_action_pointer}
 
 if [[ (-f $DATA_FOLDER/.done) && (-f $EMB_FOLDER/.done) ]]; then
 
-    printf "[\033[92m OK \033[0m] $DATA_FOLDER/.done\n"
-    printf "[\033[92m OK \033[0m] $EMB_FOLDER/.done\n"
+    printf "[\033[92m done \033[0m] $DATA_FOLDER/.done\n"
+    printf "[\033[92m done \033[0m] $EMB_FOLDER/.done\n"
 
 else
 

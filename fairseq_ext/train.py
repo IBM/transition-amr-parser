@@ -71,6 +71,10 @@ logger = logging.getLogger("fairseq_cli.train")
 
 
 def main(args):
+
+    if not torch.cuda.is_available():
+        args.fp16 = False
+
     import_user_module(args)
 
     assert (

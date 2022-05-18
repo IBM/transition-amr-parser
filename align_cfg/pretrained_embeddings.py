@@ -129,15 +129,12 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('--cuda', action='store_true',
                         help='If true, then use GPU.')
-    parser.add_argument('--allow-cpu', action='store_true',
-                        help='If true, then allow CPU if GPU not available.')
     parser.add_argument('--cache-dir', type=str, required=True,
                         help='Folder to save elmo weights and embeddings.')
     args = parser.parse_args()
 
-    if args.allow_cpu and args.cuda:
-        if not torch.cuda.is_available():
-            print('WARNING: CUDA not available. Falling back to CPU.')
-            args.cuda = False
+    if not torch.cuda.is_available():
+        print('WARNING: CUDA not available. Falling back to CPU.')
+        args.cuda = False
 
     main(args)
