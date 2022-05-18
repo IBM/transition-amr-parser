@@ -8,11 +8,12 @@ features_folder=$1
 embeddings_folder=$2
 set -o nounset 
 
+# pyinstrument tests/fairseq_data_iterator.py \
 python tests/fairseq_data_iterator.py \
     $features_folder  \
     --emb-dir $embeddings_folder \
     --user-dir fairseq_ext \
-    --task amr_action_pointer_bartsv \
+    --task amr_action_pointer_bart \
     --gen-subset train \
     --max-tokens 3584 \
     --path dummpy.pt
