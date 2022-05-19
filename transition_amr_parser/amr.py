@@ -800,11 +800,14 @@ class AMR():
         # also remove unsupported "alignments" field
         delete_keys = []
         for key, data in graph.metadata.items():
-            for okey in ['node', 'edge', 'root', 'short', 'alignments']:
+            for okey in ['node', 'edge', 'root', 'short']:
                 if key.startswith(okey):
                     delete_keys.append(key)
         for key in delete_keys:
             del graph.metadata[key]
+
+        # if an alignments field is specified, chech if this is in replacement
+        # of ISI alignment annotation
 
         # remove quotes
         nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
