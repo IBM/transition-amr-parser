@@ -55,7 +55,7 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
 
 else
 
-    printf "[\033[92m OK \033[0m] $checkpoints_folder/epoch_tests/.done\n"
+    printf "[\033[92m done \033[0m] $checkpoints_folder/epoch_tests/.done\n"
     
 fi
 

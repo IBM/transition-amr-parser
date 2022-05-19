@@ -11,7 +11,7 @@ import argparse
 from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
-from transition_amr_parser.clbar import clbar
+from transition_amr_parser.clbar import clbar, yellow_font
 from ipdb import set_trace
 
 
@@ -121,6 +121,11 @@ def argument_parser():
     parser.add_argument(
         "--clear",
         help="Clear screen before printing status",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--ignore-missing-checkpoints",
+        help="When linking best checkpoints, ignore missing ones",
         action='store_true'
     )
     args = parser.parse_args()
@@ -824,8 +829,8 @@ def ordered_exit(signum, frame):
     exit(1)
 
 
-def link_remove(args, seed, config_env_vars, checkpoints=None,
-                target_epochs=None):
+def link_remove(args, seed, config_env_vars, ignore_missing_checkpoints=False,
+                checkpoints=None, target_epochs=None):
 
     # in script usage mode we cant have stdout
     warnings = True
@@ -852,9 +857,27 @@ def link_remove(args, seed, config_env_vars, checkpoints=None,
         get_best_checkpoints(config_env_vars, seed, target_epochs,
                              n_best=args.nbest)
 
+    missing_checkpoints = [f'checkpoint{n}.pt' for n in best_n]
+    if (
+        args.link_best
+        and ignore_missing_checkpoints
+        and bool(set(best_n) & set(missing_checkpoints))
+    ):
+        print(set(best_n) & set(missing_checkpoints))
+        raise Exception(
+            '--link-best --ignore-missing-checkpoints can not be used if any '
+            'n-best is missing'
+        )
+
     # link best model if all results are done
-    if missing_epochs == [] and args.link_best:
+    if (
+        (missing_epochs == [] or ignore_missing_checkpoints)
+        and args.link_best
+    ):
         link_best_model(best_n, config_env_vars, seed, args.nbest)
+        if ignore_missing_checkpoints and missing_epochs:
+            print(missing_epochs)
+            print(yellow_font('WARNING: --link-best with missing checkpoints'))
 
     # remove checkpoints not among the n-best
     for checkpoint in rest_checkpoints:
@@ -1042,7 +1065,8 @@ def main(args):
 
         # link and/or remove checkpoints
         if args.link_best or args.remove:
-            link_remove(args, args.seed, config_env_vars)
+            link_remove(args, args.seed, config_env_vars,
+                        args.ignore_missing_checkpoints)
 
         # print checkpoints to be evaluated
         for checkpoint in checkpoints:
