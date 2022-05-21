@@ -12,6 +12,7 @@ from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
 from transition_amr_parser.clbar import clbar, yellow_font
+from fairseq_ext.utils import remove_optimizer_state
 from ipdb import set_trace
 
 
@@ -93,7 +94,7 @@ def argument_parser():
     )
     parser.add_argument(
         "--final-remove",
-        help="Remove all but final checkpoint",
+        help="Remove all but final checkpoint, remove also optimizer",
         action='store_true'
     )
     parser.add_argument(
@@ -950,7 +951,8 @@ def wait_checkpoint_ready_to_eval(args):
         sleep(10)
 
 
-def final_remove(seed, config_env_vars):
+def final_remove(seed, config_env_vars, remove_optimizer=True,
+                 remove_features=False):
     '''
     Remove all but the final trained model file DEC_CHECKPOINT and best metric
     '''
@@ -983,6 +985,10 @@ def final_remove(seed, config_env_vars):
     else:
         dec_checkpoint = os.path.realpath(dec_checkpoint)
 
+    # remove optimizer from final checkpoint
+    if remove_optimizer:
+        remove_optimizer_state(dec_checkpoint)
+
     # remove all other checkpoints
     for checkpoint in glob(f'{seed_folder}/*.pt'):
         if (
@@ -990,6 +996,11 @@ def final_remove(seed, config_env_vars):
         ):
             print(f'rm {checkpoint}')
             os.remove(checkpoint)
+
+    # remove shared features for this model
+    # this willl also affect other models with same features!
+    if remove_features:
+        remove_features(config_env_vars)
 
 
 def remove_features(config_env_vars):
@@ -1015,7 +1026,7 @@ def main(args):
 
     if args.final_remove:
 
-        assert args.config, "Needs config"
+        assert args.config, "Needs --config (optional --seed)"
 
         # print status for this config
         config_env_vars = read_config_variables(args.config)
