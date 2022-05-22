@@ -978,6 +978,8 @@ def final_remove(seed, config_env_vars, remove_optimizer=True,
     do_not_remove = [
         dec_checkpoint,  # best_metric_checkpoint, best_metric_checkpoint_link
     ]
+    # use realpaths
+    do_not_remove = [os.path.realpath(x) for x in do_not_remove]
 
     if not os.path.isfile(os.path.realpath(dec_checkpoint)):
         print('Can not --final-remove, missing {dec_checkpoint}')

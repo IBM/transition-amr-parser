@@ -156,11 +156,14 @@ def time_since(start):
         return '%dh %dm %ds' % (h, m, s)
 
 
-def remove_optimizer_state(checkpoint_path, out_checkpoint_path):
+def remove_optimizer_state(checkpoint_path, out_checkpoint_path=None):
     '''
     Given a fairseq model checkpoint, remove the optimizer state to reduce
     space
     '''
+
+    if out_checkpoint_path is None:
+        out_checkpoint_path = checkpoint_path
 
     class ARGS():
         def __init__(self):
