@@ -430,6 +430,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
             else:
                 from fairseq_ext.sequence_generator import SequenceGenerator
             return SequenceGenerator(
+                # FIXME: In situ defaults
                 self.target_dictionary,
                 beam_size=getattr(args, 'beam', 5),
                 max_len_a=getattr(args, 'max_len_a', 0),
@@ -474,8 +475,6 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
         """
         model.train()
         model.set_num_updates(update_num)
-
-        # import pdb; pdb.set_trace()
 
         # NOTE detect_anomaly() would raise an error for fp16 training due to overflow, which is automatically handled
         #      by gradient scaling with fp16 optimizer
