@@ -53,7 +53,7 @@ def argument_parsing():
     )
     parser.add_argument(
         '--beam',
-        type=str,
+        type=int,
         default=1,
         help='Beam decoding size'
     )
@@ -239,7 +239,7 @@ class AMRParser:
     @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
-                        inspector=None):
+                        inspector=None, beam=1):
         '''
         Initialize model from checkpoint
         '''
@@ -254,10 +254,6 @@ class AMRParser:
         if args.max_tokens is None and args.max_sentences is None:
             args.max_tokens = 12000
 
-        # debug
-        print(args)
-        # breakpoint()
-
         # load model (ensemble), further model args, and the fairseq task
         if dict_dir is not None:
             args.model_overrides = f'{{"data": "{dict_dir}"}}'
@@ -266,6 +262,8 @@ class AMRParser:
         models, model_args, task = load_models_and_task(
             args, use_cuda, task=None
         )
+        # overload some arguments
+        args.beam = beam
 
         # load pretrained Roberta model for source embeddings
         if model_args.pretrained_embed_dim == 768:
@@ -392,9 +390,6 @@ class AMRParser:
         return batches
 
     def parse_batch(self, sample, to_amr=True):
-        # parse a batch of data
-        # following generate.py
-
         hypos = self.task.inference_step(
             self.generator, self.models, sample, self.args, prefix_tokens=None
         )
@@ -409,12 +404,14 @@ class AMRParser:
             for j, hypo in enumerate(hypos[i][:self.args.nbest]):
                 # args.nbest is default 1, i.e. saving only the top predictions
                 if 'bartsv' in self.model_args.arch:
+                    # shared vocabulary BART
                     actions_nopos, actions_pos, actions = \
                         post_process_action_pointer_prediction_bartsv(
                             hypo, self.tgt_dict
                         )
                 else:
-                    actiOns_nopos, actions_pos, actions = \
+                    # BART
+                    actions_nopos, actions_pos, actions = \
                         post_process_action_pointer_prediction(
                             hypo, self.tgt_dict
                         )
@@ -435,7 +432,7 @@ class AMRParser:
         return predictions
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
-                        gold_amrs=None):
+                        gold_amrs=None, beam=1):
         """parse a list of sentences.
 
         Args:
@@ -553,7 +550,8 @@ def main():
     parser = AMRParser.from_checkpoint(
         args.in_checkpoint,
         roberta_cache_path=args.roberta_cache_path,
-        inspector=inspector
+        inspector=inspector,
+        beam=args.beam
     )
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
@@ -582,6 +580,7 @@ def main():
                 tokens,
                 batch_size=args.batch_size,
                 roberta_batch_size=args.roberta_batch_size,
+                beam=args.beam
             )
             #
             os.system('clear')
@@ -624,7 +623,8 @@ def main():
             tokenized_sentences,
             batch_size=args.batch_size,
             roberta_batch_size=args.roberta_batch_size,
-            gold_amrs=gold_amrs
+            gold_amrs=gold_amrs,
+            beam=args.beam
         )
 
         with open(args.out_amr, 'w') as fid:
