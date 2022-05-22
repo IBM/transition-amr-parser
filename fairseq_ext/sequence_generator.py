@@ -1067,7 +1067,7 @@ class SequenceGenerator(object):
                 out=tokens_buf.view(bsz, beam_size, -1)[:, :, step + 1],
             )
 
-            # ========== reorder the AMR state machine and target pointer info on previous beams ==========
+            # reorder the AMR state machine and target pointer info on previous beams
             # print([(i, sm.is_closed, sm.action_history) for i, sm in enumerate(amr_state_machines)])
             # import pdb; pdb.set_trace()
 
