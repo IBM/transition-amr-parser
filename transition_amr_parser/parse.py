@@ -19,11 +19,7 @@ from fairseq_ext import options
 from fairseq_ext.extract_bart.sentence_encoding import SentenceEncodingBART
 from fairseq_ext.extract_bart.binarize_encodings import get_scatter_indices
 from fairseq_ext.data.amr_action_pointer_dataset import collate
-from transition_amr_parser.io import (
-    read_config_variables,
-    read_tokenized_sentences,
-    read_amr
-)
+from transition_amr_parser.io import read_tokenized_sentences, read_amr
 from fairseq_ext.utils import (
     post_process_action_pointer_prediction,
     post_process_action_pointer_prediction_bartsv,
@@ -56,6 +52,12 @@ def argument_parsing():
         help='Tokenize with a jamr-like tokenizer input sentences or AMR'
     )
     parser.add_argument(
+        '--beam',
+        type=str,
+        default=1,
+        help='Beam decoding size'
+    )
+    parser.add_argument(
         '--service',
         action='store_true',
         help='Prompt user for sentences'
@@ -84,13 +86,13 @@ def argument_parsing():
     parser.add_argument(
         '--roberta-batch-size',
         type=int,
-        default=10,
+        default=512,
         help='Batch size for roberta computation (watch for OOM)'
     )
     parser.add_argument(
         '--batch-size',
         type=int,
-        default=1,
+        default=512,
         help='Batch size for decoding (excluding roberta)'
     )
     # step by step parameters
@@ -219,7 +221,8 @@ class AMRParser:
         default_args = ['dummy_data_folder',
                         '--emb-dir', 'dummy_emb_dir',
                         '--user-dir', './fairseq_ext',
-                        '--task', 'amr_action_pointer_bart',    # this is dummy; will be updated by the model args
+                        # this is dummy; will be updated by the model args
+                        '--task', 'amr_action_pointer_bart',
                         '--modify-arcact-score', '1',
                         '--beam', '1',
                         '--batch-size', '128',
@@ -233,17 +236,17 @@ class AMRParser:
             default_args.append('--fp16')
         return default_args
 
-
     @classmethod
-    def from_checkpoint(cls, checkpoint, dict_dir=None, roberta_cache_path=None,
-                        fp16=False,
+    def from_checkpoint(cls, checkpoint, dict_dir=None,
+                        roberta_cache_path=None, fp16=False,
                         inspector=None):
         '''
         Initialize model from checkpoint
         '''
         # load default args: some are dummy
         parser = options.get_interactive_generation_parser()
-        default_args = cls.default_args(checkpoint, fp16=fp16)    # model path set here
+        # model path set here
+        default_args = cls.default_args(checkpoint, fp16=fp16)
         args = options.parse_args_and_arch(parser, input_args=default_args)
         import_user_module(args)
         # when `input_args` is fed in, it overrides the command line input args
@@ -260,7 +263,9 @@ class AMRParser:
             args.model_overrides = f'{{"data": "{dict_dir}"}}'
             # otherwise, the default dict folder is read from the model args
         use_cuda = torch.cuda.is_available() and not args.cpu
-        models, model_args, task = load_models_and_task(args, use_cuda, task=None)
+        models, model_args, task = load_models_and_task(
+            args, use_cuda, task=None
+        )
 
         # load pretrained Roberta model for source embeddings
         if model_args.pretrained_embed_dim == 768:
@@ -279,13 +284,8 @@ class AMRParser:
         assert config_data_path is not None, \
             'data configuration file not found'
 
-        config_data_dict = read_config_variables(config_data_path)
-        bert_layers = list(map(int, config_data_dict['BERT_LAYERS'].split()))
-
         print("pretrained_embed: ", pretrained_embed)
-        embeddings = SentenceEncodingBART(
-            name=pretrained_embed,
-        )
+        embeddings = SentenceEncodingBART(name=pretrained_embed)
 
         print("Finished loading models")
 
@@ -293,7 +293,7 @@ class AMRParser:
         machine_config = os.path.join(model_folder, 'machine_config.json')
         assert os.path.isfile(machine_config), f"Missing {machine_config}"
 
-        return cls(models,task, task.src_dict, task.tgt_dict, machine_config,
+        return cls(models, task, task.src_dict, task.tgt_dict, machine_config,
                    use_cuda, args, model_args, to_amr=True,
                    embeddings=embeddings, inspector=inspector)
 
@@ -395,15 +395,13 @@ class AMRParser:
         # parse a batch of data
         # following generate.py
 
-        hypos = self.task.inference_step(self.generator, self.models, sample, self.args, prefix_tokens=None)
-        assert self.args.nbest == 1, 'Currently we only support outputing the top predictions'
-
-        # FIXME: Temporary sanity check
-        # if not all(s.tokens == h[0]['state_machine'].tokens for s, h in zip(sample['gold_amr'], hypos)):
-        #    set_trace(context=30)
+        hypos = self.task.inference_step(
+            self.generator, self.models, sample, self.args, prefix_tokens=None
+        )
+        assert self.args.nbest == 1, \
+            'Currently we only support outputing the top predictions'
 
         predictions = []
-        #print("sample: ", sample)
         for i, sample_id in enumerate(sample['id'].tolist()):
             src_tokens = sample['src_sents'][i]
             target_tokens = None
@@ -411,14 +409,19 @@ class AMRParser:
             for j, hypo in enumerate(hypos[i][:self.args.nbest]):
                 # args.nbest is default 1, i.e. saving only the top predictions
                 if 'bartsv' in self.model_args.arch:
-                    actions_nopos, actions_pos, actions = post_process_action_pointer_prediction_bartsv(hypo, self.tgt_dict)
+                    actions_nopos, actions_pos, actions = \
+                        post_process_action_pointer_prediction_bartsv(
+                            hypo, self.tgt_dict
+                        )
                 else:
-                    actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, self.tgt_dict)
+                    actiOns_nopos, actions_pos, actions = \
+                        post_process_action_pointer_prediction(
+                            hypo, self.tgt_dict
+                        )
 
                 if self.args.clean_arcs:    # this is 0 by default
-                    actions_nopos, actions_pos, actions, invalid_idx = clean_pointer_arcs(actions_nopos,
-                                                                                          actions_pos,
-                                                                                          actions)
+                    actions_nopos, actions_pos, actions, invalid_idx = \
+                        clean_pointer_arcs(actions_nopos, actions_pos, actions)
                 predictions.append({
                     'actions_nopos': actions_nopos,
                     'actions_pos': actions_pos,
@@ -431,14 +434,15 @@ class AMRParser:
 
         return predictions
 
-    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=10,
+    def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
                         gold_amrs=None):
         """parse a list of sentences.
 
         Args:
             batch (List[List[str]]): list of tokenized sentences.
             batch_size (int, optional): batch size. Defaults to 128.
-            roberta_batch_size (int, optional): RoBerta batch size. Defaults to 10.
+            roberta_batch_size (int, optional): RoBerta batch size. Defaults to
+            10.
         """
         # max batch_size
         if len(batch) < batch_size:
@@ -448,8 +452,6 @@ class AMRParser:
         sentences = []
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
-            #if tokens[-1] != "<ROOT>":
-            #    tokens.append("<ROOT>")
             sentences.append(" ".join(tokens))
 
         data = self.convert_sentences_to_data(
@@ -480,7 +482,8 @@ class AMRParser:
             # FIXME: Entropic
             for index, pred_dict in enumerate(predictions):
                 sample_id = pred_dict['sample_id']
-                amr_annotations[sample_id] = pred_dict['machine'].get_annotation()
+                amr_annotations[sample_id] = \
+                    pred_dict['machine'].get_annotation()
 
         # return the AMRs in order
         results = []
