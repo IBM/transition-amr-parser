@@ -31,6 +31,11 @@ if [[ $use_fp16 == 1 ]]; then
     fp16="--fp16"
 fi
 
+# create folder if missing 
+if [ ! -d "${MODEL_FOLDER}-seed${seed}/" ];then
+    mkdir -p "${MODEL_FOLDER}-seed${seed}/"
+fi    
+
 if [ -f ${MODEL_FOLDER}-seed${seed}/epoch_tests/.done ];then
 
     # Note that after run/status.py --final-remove this will flag but not the if below
@@ -54,6 +59,7 @@ else
 
             # kernprof -l fairseq_ext/train.py \
             # python -m ipdb fairseq_ext/train.py \
+            # python fairseq_ext/train.py \
             python fairseq_ext/train.py \
                 $DATA_FOLDER \
                 --emb-dir $EMB_FOLDER \
