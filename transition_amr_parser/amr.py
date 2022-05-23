@@ -1266,19 +1266,22 @@ def get_simple_graph(graph):
             x.source, x.role, x.target.replace('"', '')
         )
     )
-    for index, att in enumerate(attributes):
+    index = 0
+    for att in attributes:
         assert index not in name_to_node
         # will be used as a node id, needs to be a string
-        index = str(index)
-        name_to_node[index] = att.target
+        # watch for existing numbers used as ids
+        while str(index) in name_to_node:
+            index += 1
+        name_to_node[str(index)] = att.target
         # add alignments
         if att in isi_alignments:
             if len(isi_alignments[att].indices) == 1:
-                alignments[index] = list(isi_alignments[att].indices)
+                alignments[str(index)] = list(isi_alignments[att].indices)
             elif len(isi_alignments[att].indices) == 2:
                 start = isi_alignments[att].indices[0]
                 end = isi_alignments[att].indices[-1]
-                alignments[index] = list(range(start, end))
+                alignments[str(index)] = list(range(start, end))
             else:
                 raise Exception('Unexpected ISI alignment format')
 
@@ -1290,9 +1293,12 @@ def get_simple_graph(graph):
         ):
             # reversed edge
             raise Exception()
-            edges.append((index, f'{att.role}-of', att.source))
+            edges.append((str(index), f'{att.role}-of', att.source))
         else:
-            edges.append((att.source, att.role, index))
+            edges.append((att.source, att.role, str(index)))
+
+        # increase index
+        index += 1
 
     return name_to_node, edges, alignments
 
