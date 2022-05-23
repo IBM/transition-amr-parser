@@ -808,6 +808,14 @@ class AMR():
 
         # if an alignments field is specified, chech if this is in replacement
         # of ISI alignment annotation
+        if 'alignments' in graph.metadata:
+            alignments2 = {
+                x.split('~')[0]: [int(y) for y in x.split('~')[1].split(',')]
+                for x in graph.metadata['alignments'].split()
+            }
+            if alignments is not None and alignments != alignments2:
+                raise Exception('conflicting ISI and ::alignments field')
+            alignments = alignments2
 
         # remove quotes
         nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
