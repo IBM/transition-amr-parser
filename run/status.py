@@ -982,7 +982,7 @@ def final_remove(seed, config_env_vars, remove_optimizer=True,
     do_not_remove = [os.path.realpath(x) for x in do_not_remove]
 
     if not os.path.isfile(os.path.realpath(dec_checkpoint)):
-        print('Can not --final-remove, missing {dec_checkpoint}')
+        print(f'Can not --final-remove, missing {dec_checkpoint}')
         return
     else:
         dec_checkpoint = os.path.realpath(dec_checkpoint)
@@ -993,9 +993,7 @@ def final_remove(seed, config_env_vars, remove_optimizer=True,
 
     # remove all other checkpoints
     for checkpoint in glob(f'{seed_folder}/*.pt'):
-        if (
-            os.path.realpath(checkpoint) not in do_not_remove
-        ):
+        if os.path.realpath(checkpoint) not in do_not_remove:
             print(f'rm {checkpoint}')
             os.remove(checkpoint)
 
