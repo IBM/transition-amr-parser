@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o errexit
 set -o pipefail
+. set_environment.sh
+set -o nounset
 
 # Argument handling
 # First argument must be checkpoint
@@ -50,6 +52,4 @@ for split in $split_files;do
     
     fi
 
-    exit
-    
 done
