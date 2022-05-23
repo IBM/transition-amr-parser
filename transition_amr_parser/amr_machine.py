@@ -350,7 +350,7 @@ class AMROracle():
         gold_node_id = self.node_reverse_map[node_id]
         return self.pend_edges_by_node[gold_node_id] == []
 
-    def get_actions(self, machine):
+    def get_action(self, machine):
 
         # Label node as root
         if (
@@ -359,7 +359,7 @@ class AMROracle():
             and self.node_reverse_map[machine.node_stack[-1]] ==
                 self.gold_amr.root
         ):
-            return ['ROOT'], [1.0]
+            return 'ROOT'
 
         # REDUCE in stack after are LA/RA that completes all edges for an node
         if self.reduce_nodes == 'all':
@@ -367,13 +367,13 @@ class AMROracle():
             arc_reduce_top = self.get_reduce_action(machine, top=True)
             if arc_reduce_no_top and arc_reduce_top:
                 # both nodes invoved
-                return ['REDUCE3'], [1.0]
+                return 'REDUCE3'
             elif arc_reduce_top:
                 # top of the stack node
-                return ['REDUCE'], [1.0]
+                return 'REDUCE'
             elif arc_reduce_no_top:
                 # the other node
-                return ['REDUCE2'], [1.0]
+                return 'REDUCE2'
 
         # Return action creating next pending edge last node in stack
         if len(machine.node_stack) > 1:
@@ -395,16 +395,24 @@ class AMROracle():
                 normalize(machine.tokens[machine.tok_cursor]) == target_node
             ):
                 # COPY
-                return [('COPY', nid)], [1.0]
+                node_id = len(machine.action_history)
+                self.node_map[nid] = node_id
+                self.node_reverse_map[node_id] = nid
+                return 'COPY'
             else:
                 # Generate
-                return [(target_node, nid)], [1.0]
+                node_id = len(machine.action_history)
+                self.node_map[nid] = node_id
+                self.node_reverse_map[node_id] = nid
+                return target_node
 
         # Move monotonic attention
         if machine.tok_cursor < len(machine.tokens):
-            return ['SHIFT'], [1.0]
+            self.action_nids.append(None)
+            return 'SHIFT'
 
-        return ['CLOSE'], [1.0]
+        self.action_nids.append(None)
+        return 'CLOSE'
 
 
 class AMRStateMachine():
@@ -1254,21 +1262,12 @@ def oracle(args):
         # proceed left to right throught the sentence generating nodes
         while not machine.is_closed:
 
-            # get valid actions
-            _ = machine.get_valid_actions()
+            # oracle action given machine state
+            action = oracle.get_action(machine)
 
-            # oracle
-            actions, scores = oracle.get_actions(machine)
-            # actions = [a for a in actions if a in valid_actions]
-            # most probable
-            action = actions[np.argmax(scores)]
-
-            # if it is node generation, keep track of original id in gold amr
-            if isinstance(action, tuple):
-                action, gold_node_id = action
-                node_id = len(machine.action_history)
-                oracle.node_map[gold_node_id] = node_id
-                oracle.node_reverse_map[node_id] = gold_node_id
+            # sanity check action is valide
+            if action not in machine.get_valid_actions():
+                raise Exception(f'Invalid action {action}')
 
             # update machine,
             machine.update(action)
