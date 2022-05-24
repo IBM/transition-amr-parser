@@ -12,7 +12,9 @@ from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
 from transition_amr_parser.clbar import clbar, yellow_font
-from fairseq_ext.utils import remove_optimizer_state
+from fairseq_ext.utils import (
+    remove_optimizer_state, load_checkpoint_ext
+)
 from ipdb import set_trace
 
 
@@ -100,6 +102,11 @@ def argument_parser():
     parser.add_argument(
         "--remove-features",
         help="Remove features",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--remove-corrupted-checkpoints",
+        help="Will remove checkpoints (check only last ones)",
         action='store_true'
     )
     parser.add_argument(
@@ -244,6 +251,10 @@ def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
 
 
 def get_corrupted_checkpoints(seed_folder):
+    '''
+    Looks for checkpoints that have clearly smaller size than the rest as hint
+    that they could be corrupted
+    '''
 
     # check for corrupted models
     checkpoints_by_size = defaultdict(list)
@@ -714,7 +725,6 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
 
     # collect data for each experiment as a dictionary
     results = []
-    # set_trace(context=30)
     for conf, seed in get_experiment_configs(models_folder, configs, set_seed):
         result = extract_experiment_data(conf, seed, do_test)
         if result:
@@ -1018,13 +1028,85 @@ def remove_features(config_env_vars):
         os.rmdir(feature_folder)
 
 
+def remove_corrupted_checkpoints(config, seed):
+
+    def remove_if_corrupted(path):
+        try:
+            load_checkpoint_ext(path)
+            print(f'\r  \033[92mok\033[0m    {path}')
+            return False
+        except RuntimeError as exception:
+            if str(exception).startswith('unexpected EOF'):
+                print(f'\r  \033[91mbad\033[0m  {path}')
+                return True
+            else:
+                raise exception
+
+    # print status for this config
+    config_env_vars = read_config_variables(config)
+    if seed:
+        seeds = [seed]
+    else:
+        seeds = config_env_vars['SEEDS'].split()
+
+    # add latest checkpoints
+    eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
+    max_epoch = int(config_env_vars['MAX_EPOCH'])
+
+    model_folder = config_env_vars['MODEL_FOLDER']
+
+    # collect all suspicious checkpoints
+    for seed in seeds:
+        seed_folder = f'{model_folder}-seed{seed}'
+        print(seed_folder)
+
+        # available checkpoints
+        available_checkpoints = []
+        for n in range(eval_init_epoch, max_epoch+1):
+            path = f'{seed_folder}/checkpoint{n}.pt'
+            if os.path.isfile(path):
+                available_checkpoints.append(path)
+
+        # go over existing checkpoints, remove those corrupted, also remove it
+        # from available list
+        for path in list(available_checkpoints):
+            if remove_if_corrupted(path):
+                available_checkpoints.remove(path)
+
+        # replace last and best by last valid checkpoint
+        path = f'{seed_folder}/checkpoint_last.pt'
+        if (
+            os.path.isfile(path)
+            and remove_if_corrupted(path)
+            and available_checkpoints
+        ):
+            print('f{available_checkpoints[-1]} -> {path}')
+            shutil.copy(available_checkpoints[-1], path)
+        path = f'{seed_folder}/checkpoint_best.pt'
+        if (
+            os.path.isfile(path)
+            and remove_if_corrupted(path)
+            and available_checkpoints
+        ):
+            # TODO: This is actually wrong, but does not matter for us since we
+            # do not use validation
+            print('f{available_checkpoints[-1]} -> {path}')
+            shutil.copy(available_checkpoints[-1], path)
+
+
 def main(args):
 
     # set ordered exit
     signal.signal(signal.SIGINT, ordered_exit)
     signal.signal(signal.SIGTERM, ordered_exit)
 
-    if args.final_remove:
+    if args.remove_corrupted_checkpoints:
+
+        assert args.config, "Needs --config (optional --seed)"
+
+        remove_corrupted_checkpoints(args.config, args.seed)
+
+    elif args.final_remove:
 
         assert args.config, "Needs --config (optional --seed)"
 

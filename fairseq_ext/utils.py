@@ -156,6 +156,18 @@ def time_since(start):
         return '%dh %dm %ds' % (h, m, s)
 
 
+def load_checkpoint_ext(checkpoint_path):
+    '''
+    To import models, we need to indicate the location of custom code
+    '''
+    class ARGS():
+        def __init__(self):
+            self.user_dir = 'fairseq_ext/'
+    import_user_module(ARGS())
+    state = load_checkpoint_to_cpu(checkpoint_path)
+    return load_checkpoint_to_cpu(checkpoint_path)
+
+
 def remove_optimizer_state(checkpoint_path, out_checkpoint_path=None):
     '''
     Given a fairseq model checkpoint, remove the optimizer state to reduce
