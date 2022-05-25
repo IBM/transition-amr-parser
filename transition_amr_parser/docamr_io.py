@@ -120,7 +120,7 @@ def process_corefs(fnames):
             rel = "SELF"
             if 'variable' not in root[1][1][i][0].attrib.keys():
                 var = root[1][1][i][0].attrib['parentvariable']
-                rel = root[1][1][i][0].attrib['argument']
+                rel = ":"+root[1][1][i][0].attrib['argument']
                 if ':' not in rel:
                     print("COLON MISSING IN PROCESS COREF SINGLETONS")
             
