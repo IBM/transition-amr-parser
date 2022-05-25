@@ -1369,8 +1369,13 @@ def make_pairwise_edges(damr):
                 #FIXME adding the src node of a coref edge with no alignments member of chain with closest sid
                 # print(doc_id + '  ',e[0],' alignments is None  src node in coref edge, not adding it ')
                 sid = e[0].split('.')[0]
-                ent = recent_member_by_sent(ents_chain[e[2]],sid,doc_id)
-                damr.edges[idx] = (e[0],e[1],ent)
+                if len(ents_chain[e[2]]) >0 :
+                    ent = recent_member_by_sent(ents_chain[e[2]],sid,doc_id)
+                    damr.edges[idx] = (e[0],e[1],ent)
+                #FIXME
+                else:
+                    print("coref edge missing, empty chain, edge not added")
+                
             assert e[2].startswith('rel')
        
 
@@ -1462,9 +1467,8 @@ def oracle(args):
 
 
     if args.coref_fof:
-        #FIXME remove absolute path
-        home_path = '/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/'
-        coref_files = [home_path+line.strip() for line in open(args.coref_fof)]
+        
+        coref_files = [args.fof_path+line.strip() for line in open(args.coref_fof)]
         corefs = process_corefs(coref_files)
         
     # Read AMR as a generator with tqdm progress bar
@@ -1818,6 +1822,13 @@ def argument_parser():
         "--stop-if-error",
         help="set_trace if a reconstructed AMR is not perfect",
         type=str,
+    )
+    parser.add_argument(
+        "--fof-path",
+        help="path to coref fof files",
+        type=str
+
+
     )
     args = parser.parse_args()
     return args
