@@ -53,6 +53,8 @@ ANNOTATION_ISSUES = {
         19414,  # I do not know what her definition of racist is, but if ...
         # :value "maroon"
         19862,  # Here's the thing, my theory, you are either some little ...
+        # :value "antisemitism"
+        23538,
         # :value "might"
         24480,  # The key word there is "might".
         # :value "commenting"
@@ -72,6 +74,7 @@ ANNOTATION_ISSUES = {
     'amr2-dev': [
         # repeated edge and child
         # m2 :ARG2 c6
+        # this meks Smatch double-count, penman filters this
         599  # Afghanistan does produce the opium which is the raw ...
     ],
 
@@ -803,17 +806,21 @@ class AMR():
             for okey in ['node', 'edge', 'root', 'short']:
                 if key.startswith(okey):
                     delete_keys.append(key)
+            # remove non ISI-like alignmengts
+            if key.startswith('alignments') and '~' not in data:
+                delete_keys.append(key)
+
         for key in delete_keys:
             del graph.metadata[key]
 
         # if an alignments field is specified, chech if this is in replacement
         # of ISI alignment annotation
-        if 'alignments' in graph.metadata:
+        if 'alignments' in graph.metadata and '~' in graph.metadata['alignments']:
             alignments2 = {
                 x.split('~')[0]: [int(y) for y in x.split('~')[1].split(',')]
                 for x in graph.metadata['alignments'].split()
             }
-            if alignments is not None and alignments != alignments2:
+            if bool(alignments) and alignments != alignments2:
                 raise Exception('conflicting ISI and ::alignments field')
             alignments = alignments2
 
