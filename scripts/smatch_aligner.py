@@ -17,7 +17,7 @@ def format_penman(x):
     # remove comments
     lines = '\n'.join([x for x in x.split('\n') if x and x[0] != '#'])
     # remove ISI alignments if any
-    lines = re.sub(r'\~[0-9]+', '', lines)
+    lines = re.sub(r'\~[0-9,]+', '', lines)
     return lines.replace('\n', '')
 
 
@@ -267,8 +267,6 @@ def main(args):
     test_triple_num = sum([t[1] for t in statistics])
     gold_triple_num = sum([t[2] for t in statistics])
     corpus_score = compute_f(best_match_num, test_triple_num, gold_triple_num)
-    if bool(args.raise_if_smaller) and corpus_score < args.raise_if_smaller:
-        raise Exception('Smatch {corpus_score:.4f} < {args.raise_if_smaller}')
     print(f'Smatch: {corpus_score[2]:.4f}')
 
 
