@@ -1028,7 +1028,10 @@ def remove_features(config_env_vars):
         os.rmdir(feature_folder)
 
 
-def remove_corrupted_checkpoints(config, seed):
+def remove_corrupted_checkpoints(config, seed, num_models=2):
+    '''
+    Check suspicious size checkpoints plus the last NUM_MODELS
+    '''
 
     def remove_if_corrupted(path):
         try:
@@ -1067,30 +1070,31 @@ def remove_corrupted_checkpoints(config, seed):
             if os.path.isfile(path):
                 available_checkpoints.append(path)
 
-        # go over existing checkpoints, remove those corrupted, also remove it
-        # from available list
-        for path in list(available_checkpoints):
+        # visit also supicious checkpoints with odd size
+        for path in get_corrupted_checkpoints(seed_folder):
             if remove_if_corrupted(path):
+                available_checkpoints.remove(path)
+
+        # go over existing last NUM_MODELS checkpoints, remove those corrupted,
+        # also remove it from available list
+        for path in list(available_checkpoints)[-num_models:]:
+            if path in available_checkpoints and remove_if_corrupted(path):
                 available_checkpoints.remove(path)
 
         # replace last and best by last valid checkpoint
         path = f'{seed_folder}/checkpoint_last.pt'
-        if (
-            os.path.isfile(path)
-            and remove_if_corrupted(path)
-            and available_checkpoints
-        ):
-            print('f{available_checkpoints[-1]} -> {path}')
+        if os.path.isfile(path):
+            remove_if_corrupted(path)
+        if not os.path.isfile(path) and available_checkpoints:
+            print(f'{available_checkpoints[-1]} -> {path}')
             shutil.copy(available_checkpoints[-1], path)
         path = f'{seed_folder}/checkpoint_best.pt'
-        if (
-            os.path.isfile(path)
-            and remove_if_corrupted(path)
-            and available_checkpoints
-        ):
+        if os.path.isfile(path):
+            remove_if_corrupted(path)
+        if not os.path.isfile(path) and available_checkpoints:
             # TODO: This is actually wrong, but does not matter for us since we
             # do not use validation
-            print('f{available_checkpoints[-1]} -> {path}')
+            print(f'{available_checkpoints[-1]} -> {path}')
             shutil.copy(available_checkpoints[-1], path)
 
 
