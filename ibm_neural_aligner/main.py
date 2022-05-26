@@ -113,14 +113,14 @@ def argument_parser():
         help="Vocab file.",
         type=str,
         required=True,
-        # default='./align_cfg/vocab.text.2021-06-30.txt'
+        # default='./ibm_neural_aligner/vocab.text.2021-06-30.txt'
     )
     parser.add_argument(
         "--vocab-amr",
         help="Vocab file.",
         type=str,
         required=True,
-        # default='./align_cfg/vocab.amr.2021-06-30.txt'
+        # default='./ibm_neural_aligner/vocab.amr.2021-06-30.txt'
     )
     parser.add_argument(
         "--log-dir",

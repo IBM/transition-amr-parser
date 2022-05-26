@@ -15,7 +15,7 @@ DATA_DIR="/dccstor/ykt-parse/SHARED/misc/adrozdov/data"
 # - text: /dccstor/ykt-parse/SHARED/misc/adrozdov/data/elmo.e257682c.npy
 # - amr:  /dccstor/ykt-parse/SHARED/misc/adrozdov/data/elmo.03e30112.npy
 
-python align_cfg/vocab.py \
+python ibm_neural_aligner/vocab.py \
     --in-amrs \
          ${DATA_DIR}/AMR2.0/aligned/cofill/train.txt \
          ${DATA_DIR}/AMR2.0/aligned/cofill/dev.txt \
@@ -28,4 +28,4 @@ python align_cfg/vocab.py \
     --out-amr TMP/vocab.amr.txt
 
 # Extract ELMO embeddings
-bash align_cfg/pretrained_embeddings.sh TMP
+bash ibm_neural_aligner/pretrained_embeddings.sh TMP

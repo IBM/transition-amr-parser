@@ -1423,7 +1423,7 @@ def argument_parser():
     )
     parser.add_argument(
         "--in-alignment-probs",
-        help="Alignment probabilities produced by align_cfg/main.py",
+        help="Alignment probabilities produced by ibm_neural_aligner/main.py",
         type=str
     )
     parser.add_argument(
