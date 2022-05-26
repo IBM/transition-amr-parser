@@ -8,7 +8,7 @@ from transition_amr_parser.io import read_blocks
 from transition_amr_parser.amr import AMR, get_is_atribute, normalize
 # this requires local smatch installed --editable and touch smatch/__init__.py
 from transition_amr_parser.clbar import yellow_font
-from smatch.smatch import get_best_match, compute_f
+from smatch import get_best_match, compute_f
 from smatch import amr
 import smatch
 
@@ -183,7 +183,7 @@ def main(args):
     penmans = read_blocks(args.in_amr, return_tqdm=False)
 
     # set global in module
-    smatch.smatch.iteration_num = args.r + 1
+    smatch.iteration_num = args.r + 1
 
     assert len(gold_penmans) == len(penmans)
 
@@ -210,7 +210,7 @@ def main(args):
             "a", "b"
         )
         # IMPORTANT: Reset cache
-        smatch.smatch.match_triple_dict = {}
+        smatch.match_triple_dict = {}
         # use smatch code to compute partial scores
         test_triple_num = len(instance1) + len(attributes1) + len(relation1)
         gold_triple_num = len(instance2) + len(attributes2) + len(relation2)
