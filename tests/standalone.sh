@@ -3,7 +3,7 @@ set -o pipefail
 if [ -z $1 ];then
 
     # Standard mini-test with wiki25
-    config=configs/wiki25-structured-bart-base-neur-al.sh
+    config=configs/wiki25-structured-bart-base-neur-al-sampling.sh
 
     # Delete previous runs if exists
     rm -Rf DATA/wiki25/*
