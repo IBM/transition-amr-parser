@@ -302,7 +302,7 @@ class AMROracle():
                 # return [f'LA({label[1:]};{index})'], [1.0]
                 # NOTE include the relation marker ':' in action names
                 assert label[0] == ':'
-                return [f'>LA({index},{label})'], [1.0]
+                return f'>LA({index},{label})'
 
             elif (
                 self.node_map[tgt] == top_node_id
@@ -323,7 +323,7 @@ class AMROracle():
                 # return [f'RA({label[1:]};{index})'], [1.0]
                 # NOTE include the relation marker ':' in action names
                 assert label[0] == ':'
-                return [f'>RA({index},{label})'], [1.0]
+                return f'>RA({index},{label})'
 
     def get_reduce_action(self, machine, top=True):
         """
@@ -408,10 +408,8 @@ class AMROracle():
 
         # Move monotonic attention
         if machine.tok_cursor < len(machine.tokens):
-            self.action_nids.append(None)
             return 'SHIFT'
 
-        self.action_nids.append(None)
         return 'CLOSE'
 
 
@@ -902,17 +900,19 @@ class AMRStateMachine():
 
         return amr
 
-    def get_annotation(self, node_map=None, jamr=False):
+    def get_annotation(self, node_map=None, jamr=False, isi=True):
 
         if self.gold_amr:
             assert self.gold_amr.penman, "Align mode requires AMR.from_penman"
             assert not jamr, "Align dows not support --jamr write"
+            assert isi, "Align mode requires ISI"
 
             # just add alignments to existing penman
             return self.align_tracker.add_alignments_to_penman(self)
 
         else:
-            return self.get_amr(node_map=node_map).to_penman(jamr=jamr)
+            amr = self.get_amr(node_map=node_map)
+            return amr.to_penman(jamr=jamr, isi=isi)
 
 
 def get_ngram(sequence, order):
@@ -925,10 +925,10 @@ def get_ngram(sequence, order):
 class Stats():
 
     def __init__(self, ignore_indices, ngram_stats=False, breakpoint=False,
-                 stop_if_error=False):
+                 if_oracle_error=None):
         self.index = 0
         self.ignore_indices = ignore_indices
-        self.stop_if_error = stop_if_error
+        self.if_oracle_error = if_oracle_error
         # arc generation stats
         self.stack_size_count = Counter()
         self.pointer_positions_count = Counter()
@@ -994,39 +994,56 @@ class Stats():
             self.fourgram_count.update(get_ngram(actions, 4))
 
         # breakpoint if AMR does not match
-        if self.stop_if_error:
-            self.stop_if_error(oracle, machine)
+        if self.if_oracle_error is not None:
+            self.check_error(oracle, machine)
 
         # update counter
         self.index += 1
 
-    def stop_if_error(self, oracle, machine):
+    def check_error(self, oracle, machine):
 
         # Check node name match
         for nid, node_name in oracle.gold_amr.nodes.items():
             node_name_machine = machine.nodes[oracle.node_map[nid]]
             if normalize(node_name_machine) != normalize(node_name):
-                set_trace(context=30)
-                print()
+                if self.if_oracle_error == 'stop':
+                    set_trace(context=30)
+                    print()
+                elif self.if_oracle_error == 'raise':
+                    print(machine)
+                    raise Exception('Oracle does not match')
 
         # Check mapped edges match
         mapped_gold_edges = []
         for (s, label, t) in oracle.gold_amr.edges:
             if s not in oracle.node_map or t not in oracle.node_map:
-                set_trace(context=30)
+                if self.if_oracle_error == 'stop':
+                    set_trace(context=30)
+                    print()
+                elif self.if_oracle_error == 'raise':
+                    print(machine)
+                    raise Exception('Oracle does not match')
                 continue
             mapped_gold_edges.append(
                 (oracle.node_map[s], label, oracle.node_map[t])
             )
         if sorted(machine.edges) != sorted(mapped_gold_edges):
-            set_trace(context=30)
-            print()
+            if self.if_oracle_error == 'stop':
+                set_trace(context=30)
+                print()
+            elif self.if_oracle_error == 'raise':
+                print(machine)
+                raise Exception('Oracle does not match')
 
         # Check root matches
         mapped_root = oracle.node_map[oracle.gold_amr.root]
         if machine.root != mapped_root:
-            set_trace(context=30)
-            print()
+            if self.if_oracle_error == 'stop':
+                set_trace(context=30)
+                print()
+            elif self.if_oracle_error == 'raise':
+                print(machine)
+                raise Exception('Oracle does not match')
 
     def display(self):
 
@@ -1195,6 +1212,7 @@ def oracle(args):
     # Read AMR as a generator with tqdm progress bar
     amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
     tqdm_amrs = read_blocks(amr_file)
+    print(f'Gold AMRs: {amr_file}')
     tqdm_amrs.set_description(f'Computing oracle')
 
     # read AMR alignments if provided
@@ -1241,7 +1259,7 @@ def oracle(args):
 
     # will store statistics and check AMR is recovered
     stats = Stats(ignore_indices, ngram_stats=False,
-                  stop_if_error=args.stop_if_error)
+                  if_oracle_error=args.if_oracle_error)
     stats_vocab = StatsForVocab(no_close=False)
     for idx, penman_str in enumerate(tqdm_amrs):
 
@@ -1266,7 +1284,10 @@ def oracle(args):
             action = oracle.get_action(machine)
 
             # sanity check action is valide
-            if action not in machine.get_valid_actions():
+            if (
+                action not in machine.get_valid_actions()
+                and 'NODE' not in machine.get_valid_actions()
+            ):
                 raise Exception(f'Invalid action {action}')
 
             # update machine,
@@ -1339,11 +1360,12 @@ def play(args):
         assert machine.is_closed
 
         # print AMR
-        annotations.append(machine.get_annotation())
+        annotations.append(machine.get_annotation(isi=not args.no_isi))
 
     with open(args.out_amr, 'w') as fid:
         for annotation in annotations:
             fid.write(f'{annotation}\n')
+        print(f'Oracle AMRs: {args.out_amr}')
 
 
 def main(args):
@@ -1470,14 +1492,19 @@ def argument_parser():
         type=str,
     )
     parser.add_argument(
+        "--no-isi",
+        help="Write ISI alignments in # ::alignments field",
+        type=str,
+    )
+    parser.add_argument(
         "--in-machine-config",
         help="configuration for state machine in config format",
         type=str,
     )
     parser.add_argument(
-        "--stop-if-error",
-        help="set_trace if a reconstructed AMR is not perfect",
-        type=str,
+        "--if-oracle-error",
+        help="choose action to do if oracle does not match gold",
+        choices=['stop', 'raise'],
     )
     args = parser.parse_args()
     return args
