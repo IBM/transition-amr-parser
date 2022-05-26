@@ -27,17 +27,19 @@ set -o nounset
 # load config
 . $config
 
-checkpoint=${MODEL_FOLDER}-seed42/$DECODING_CHECKPOINT
-FOLDER=${MODEL_FOLDER}-seed42/unit_test/
-results_prefix=$FOLDER/dev
+# from config
 reference_amr=$AMR_DEV_FILE
 reference_amr_wiki=$AMR_DEV_FILE_WIKI
 wiki=$LINKER_CACHE_PATH/dev.wiki
+checkpoint=${MODEL_FOLDER}-seed42/$DECODING_CHECKPOINT
+# where to put results
+FOLDER=${MODEL_FOLDER}-seed42/unit_test/
+results_prefix=$FOLDER/dev
+[ -d "$FOLDER" ] && rm $FOLDER/*
 mkdir -p $FOLDER
-rm $FOLDER/*
 
 [ ! -f "$ALIGNED_FOLDER/dev.txt" ] \
-    && echo "Missing $FOLDER/dev.txt" \
+    && echo "Missing $ALIGNED_FOLDER/dev.txt" \
     && exit 1
 
 # prepare model for export

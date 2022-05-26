@@ -522,17 +522,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             # valid_actions = machine.get_valid_actions()
 
             # oracle
-            actions, scores = oracle.get_actions(machine)
-            # actions = [a for a in actions if a in valid_actions]
-            # most probable
-            action = actions[np.argmax(scores)]
-
-            # if it is node generation, keep track of original id in gold amr
-            if isinstance(action, tuple):
-                action, gold_node_id = action
-                node_id = len(machine.action_history)
-                oracle.node_map[gold_node_id] = node_id
-                oracle.node_reverse_map[node_id] = gold_node_id
+            action = oracle.get_action(machine)
 
             # update machine
             machine.update(action)
@@ -710,16 +700,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             token_cursors.append(machine.tok_cursor)
 
             # oracle
-            actions, scores = oracle.get_actions(machine)
-            # most probable
-            action = actions[np.argmax(scores)]
-
-            # if it is node generation, keep track of original id in gold amr
-            if isinstance(action, tuple):
-                action, gold_node_id = action
-                node_id = len(machine.action_history)
-                oracle.node_map[gold_node_id] = node_id
-                oracle.node_reverse_map[node_id] = gold_node_id
+            action = oracle.get_action(machine)
 
             # check if valid
             assert machine.get_base_action(
