@@ -1014,7 +1014,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # ===== move to device
         device = sample['id'].device
         # device = sample['net_input']['src_wordpieces'].device
-        sample_new = utils.move_to_cuda(sample_tgt, device)
+        if device.type != 'cpu':
+            sample_new = utils.move_to_cuda(sample_tgt, device)
+        else:
+            sample_new = sample_tgt
 
         # ===== combine with the src data to generate the complete new sample batch
         for k, v in sample.items():
