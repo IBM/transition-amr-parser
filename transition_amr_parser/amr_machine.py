@@ -1053,9 +1053,10 @@ class Stats():
             f'{num_processed}/{self.index} ({perc:.1f} %)'
             f' exact match of AMR graphs (non printed)'
         )
-        print(yellow_font(
-            f'{len(self.ignore_indices)} sentences ignored for stats'
-        ))
+        if self.ignore_indices:
+            print(yellow_font(
+                f'{len(self.ignore_indices)} sentences ignored for stats'
+            ))
 
         num_copy = self.action_count['COPY']
         perc = num_copy * 100. / self.node_count
@@ -1222,23 +1223,6 @@ def oracle(args):
     else:
         corpus_align_probs = None
 
-    # broken annotations that we ignore in stats
-    # 'DATA/AMR2.0/aligned/cofill/train.txt'
-    ignore_indices = [
-        8372,   # (49, ':time', 49), (49, ':condition', 49)
-        17055,  # (3, ':mod', 7), (3, ':mod', 7)
-        27076,  # '0.0.2.1.0.0' is on ::edges but not ::nodes
-        # for AMR 3.0 data: DATA/AMR3.0/aligned/cofill/train.txt
-        # self-loop:
-        # "# ::edge vote-01 condition vote-01 0.0.2 0.0.2",
-        # "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
-        9296,
-    ]
-    # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list
-    # and used for both oracles, since: this would NOT change the oracle
-    # actions, but only ignore sanity checks and displayed stats after oracle
-    # run
-
     # Initialize machine
     machine = AMRStateMachine(
         reduce_nodes=args.reduce_nodes,
@@ -1258,6 +1242,7 @@ def oracle(args):
     )
 
     # will store statistics and check AMR is recovered
+    ignore_indices = []
     stats = Stats(ignore_indices, ngram_stats=False,
                   if_oracle_error=args.if_oracle_error)
     stats_vocab = StatsForVocab(no_close=False)

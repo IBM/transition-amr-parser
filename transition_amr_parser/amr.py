@@ -32,6 +32,10 @@ alignment_regex = re.compile('(-?[0-9]+)-(-?[0-9]+)')
 # known annotation issues in different corpora
 ANNOTATION_ISSUES = {
     'amr2-train': [
+
+        # self loop
+        8372,   # (49, ':time', 49), (49, ':condition', 49)
+
         # repeated edge and child
         # :polarity
         2657,   # Each time the owners said "NO" don't worry about.
@@ -82,6 +86,12 @@ ANNOTATION_ISSUES = {
 
         # AMR2.0 34110
         53032,
+
+        # self edge (2, ':li', 2)
+        15723,
+
+        # a :li a  , ambiguous if self edge or literal
+        16237,
 
         # repeated edge and child
         2657,   # AMR2.0

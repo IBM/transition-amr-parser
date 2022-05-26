@@ -5,7 +5,7 @@ set -o pipefail
 gold_amr=$1
 set -o nounset 
 
-oracle_folder=DATA/AMR2.0/oracles/o10_pinitos/
+oracle_folder=DATA/unit_test_$(basename $(dirname $gold_amr))/
 mkdir -p $oracle_folder 
  
 # get actions from oracle
@@ -16,7 +16,7 @@ python transition_amr_parser/amr_machine.py \
     --out-tokens $oracle_folder/train.tokens \
     --use-copy 1 \
     --absolute-stack-positions  \
-    --if-oracle-error stop
+    # --if-oracle-error stop
     # --reduce-nodes all
 
 # play actions on state machine
