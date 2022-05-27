@@ -8,9 +8,31 @@ from tqdm import tqdm
 import numpy as np
 from collections import Counter
 from transition_amr_parser.amr import AMR
+from dateutil.parser import parse
 
 
-def read_experiment(config):
+def get_score_from_log(file_path, score_name):
+
+    smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
+
+    results = [None]
+
+    if 'smatch' in score_name:
+        regex = smatch_results_re
+    else:
+        raise Exception(f'Unknown score type {score_name}')
+
+    with open(file_path) as fid:
+        for line in fid:
+            if regex.match(line):
+                results = regex.match(line).groups()
+                results = [100*float(x) for x in results]
+                break
+
+    return results
+
+
+def read_train_log(seed_folder, config_name):
 
     train_info_regex = re.compile(
         r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) '
@@ -20,6 +42,53 @@ def read_experiment(config):
         r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) '
         r'\| INFO \| valid \| (.*)'
     )
+
+    seed_data = []
+    for log_file in glob(f'{seed_folder}/tr-*.stdout'):
+        with open(log_file) as fid:
+            for line in fid:
+                if train_info_regex.match(line):
+                    date_str, json_info = \
+                        train_info_regex.match(line).groups()
+                    item = json.loads(json_info)
+                    item['timestamp'] = parse(date_str)
+                    item['experiment_key'] = config_name
+                    item['set'] = 'train'
+                    item['name'] = config_name
+                    seed_data.append(item)
+
+                elif valid_info_regex.match(line):
+                    date_str, json_info = \
+                        valid_info_regex.match(line).groups()
+                    item = json.loads(json_info)
+                    item['timestamp'] = parse(date_str)
+                    item['experiment_key'] = config_name
+                    item['set'] = 'valid'
+                    item['name'] = config_name
+                    seed_data.append(item)
+
+    # TODO: compute time between epochs
+    train_seed_data = [x for x in seed_data if 'train_nll_loss' in x]
+    train_data_sort = sorted(train_seed_data, key=lambda x: x['epoch'])
+    if train_data_sort == []:
+        return []
+    train_data_sort[0]['epoch_time'] = None
+    prev = [train_data_sort[0]['epoch'], train_data_sort[0]['timestamp']]
+    new_data = [train_data_sort[0]]
+    for item in train_data_sort[1:]:
+        time_delta = item['timestamp'] - prev[1]
+        epoch_delta = item['epoch'] - prev[0]
+        if epoch_delta:
+            item['epoch_time'] = time_delta.total_seconds() / epoch_delta
+            prev = [item['epoch'], item['timestamp']]
+        else:
+            item['epoch_time'] = 0
+        new_data.append(item)
+
+    return new_data
+
+
+def read_experiment(config):
 
     config_name = os.path.basename(config)
     config_env_vars = read_config_variables(config)
@@ -31,48 +100,7 @@ def read_experiment(config):
         seed_folder = f'{model_folder}-seed{seed}'
 
         # read info from logs
-        seed_data = []
-        for log_file in glob(f'{seed_folder}/tr-*.stdout'):
-            with open(log_file) as fid:
-                for line in fid:
-                    if train_info_regex.match(line):
-                        date_str, json_info = \
-                            train_info_regex.match(line).groups()
-                        item = json.loads(json_info)
-                        item['timestamp'] = parse(date_str)
-                        item['experiment_key'] = config_name
-                        item['set'] = 'train'
-                        item['name'] = config_name
-                        seed_data.append(item)
-
-                    elif valid_info_regex.match(line):
-                        date_str, json_info = \
-                            valid_info_regex.match(line).groups()
-                        item = json.loads(json_info)
-                        item['timestamp'] = parse(date_str)
-                        item['experiment_key'] = config_name
-                        item['set'] = 'valid'
-                        item['name'] = config_name
-                        seed_data.append(item)
-
-        # TODO: compute time between epochs
-        train_seed_data = [x for x in seed_data if 'train_nll_loss' in x]
-        train_data_sort = sorted(train_seed_data, key=lambda x: x['epoch'])
-        if train_data_sort == []:
-            return []
-        train_data_sort[0]['epoch_time'] = None
-        prev = [train_data_sort[0]['epoch'], train_data_sort[0]['timestamp']]
-        new_data = [train_data_sort[0]]
-        for item in train_data_sort[1:]:
-            time_delta = item['timestamp'] - prev[1]
-            epoch_delta = item['epoch'] - prev[0]
-            if epoch_delta:
-                item['epoch_time'] = time_delta.total_seconds() / epoch_delta
-                prev = [item['epoch'], item['timestamp']]
-            else:
-                item['epoch_time'] = 0
-            new_data.append(item)
-        exp_data.extend(new_data)
+        exp_data.extend(read_train_log(seed_folder, config_name))
 
         # read validation decoding scores
         eval_metric = config_env_vars['EVAL_METRIC']
