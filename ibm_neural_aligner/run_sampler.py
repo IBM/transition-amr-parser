@@ -5,7 +5,7 @@
 # Create uniform random alignment.
 
 mkdir -p DATA/AMR3.0-aligners/random
-python align_cfg/run_sampler.py --aligner-training-and-eval \
+python ibm_neural_aligner/run_sampler.py --aligner-training-and-eval \
     --in-amr DATA/AMR3.0-aligners/best-lstm-write_amr3/alignment.trn.out.gold \
     --out-amr DATA/AMR3.0-aligners/random/train.txt \
     --mode mode_uniform --seed 111

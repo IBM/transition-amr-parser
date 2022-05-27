@@ -11,11 +11,11 @@ python preprocess/remove_wiki.py ./DATA/${TASK}/corpora/dev.txt ./DATA/${TASK}/c
 python preprocess/remove_wiki.py ./DATA/${TASK}/corpora/test.txt ./DATA/${TASK}/corpora/test.txt.no_wiki
 python preprocess/remove_wiki.py ./DATA/${TASK}/corpora/train.txt ./DATA/${TASK}/corpora/train.txt.no_wiki
 
-python align_cfg/tokenize_amr.py --in-amr ./DATA/${TASK}/corpora/dev.txt.no_wiki --out-amr ./${cache}/dev.txt.no_wiki
-python align_cfg/tokenize_amr.py --in-amr ./DATA/${TASK}/corpora/test.txt.no_wiki --out-amr ./${cache}/test.txt.no_wiki
-python align_cfg/tokenize_amr.py --in-amr ./DATA/${TASK}/corpora/train.txt.no_wiki --out-amr ./${cache}/train.txt.no_wiki
+python ibm_neural_aligner/tokenize_amr.py --in-amr ./DATA/${TASK}/corpora/dev.txt.no_wiki --out-amr ./${cache}/dev.txt.no_wiki
+python ibm_neural_aligner/tokenize_amr.py --in-amr ./DATA/${TASK}/corpora/test.txt.no_wiki --out-amr ./${cache}/test.txt.no_wiki
+python ibm_neural_aligner/tokenize_amr.py --in-amr ./DATA/${TASK}/corpora/train.txt.no_wiki --out-amr ./${cache}/train.txt.no_wiki
 
-python align_cfg/vocab.py \
+python ibm_neural_aligner/vocab.py \
     --in-amrs \
         ./DATA/${TASK}/aligned/cofill/dev.txt \
         ./DATA/${TASK}/aligned/cofill/test.txt \
@@ -31,8 +31,8 @@ python align_cfg/vocab.py \
     --out-text ./${CACHE}/vocab.text.txt \
     --out-amr ./${CACHE}/vocab.amr.txt
 
-python align_cfg/pretrained_embeddings.py --cuda --cache-dir ./${CACHE}/ --vocab ./${CACHE}/vocab.text.txt
-python align_cfg/pretrained_embeddings.py --cuda --cache-dir ./${CACHE}/ --vocab ./${CACHE}/vocab.amr.txt
+python ibm_neural_aligner/pretrained_embeddings.py --cuda --cache-dir ./${CACHE}/ --vocab ./${CACHE}/vocab.text.txt
+python ibm_neural_aligner/pretrained_embeddings.py --cuda --cache-dir ./${CACHE}/ --vocab ./${CACHE}/vocab.amr.txt
 
-cp align_cfg/setup_amr3.sh $CACHE/setup_data.sh
+cp ibm_neural_aligner/setup_amr3.sh $CACHE/setup_data.sh
 

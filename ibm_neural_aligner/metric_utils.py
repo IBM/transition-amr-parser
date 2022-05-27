@@ -2,7 +2,7 @@ import collections
 
 import numpy as np
 
-from align_cfg.amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
+from ibm_neural_aligner.amr_utils import convert_amr_to_tree, compute_pairwise_distance, get_node_ids
 
 
 def fertility_proxy(amr, ignore_nodes=('country', '-', 'and', 'person', 'name')):

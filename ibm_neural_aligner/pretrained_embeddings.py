@@ -8,8 +8,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from align_cfg.vocab_definitions import BOS_TOK, EOS_TOK, special_tokens
-from align_cfg.standalone_elmo import batch_to_ids, ElmoCharacterEncoder, remove_sentence_boundaries
+from ibm_neural_aligner.vocab_definitions import BOS_TOK, EOS_TOK, special_tokens
+from ibm_neural_aligner.standalone_elmo import batch_to_ids, ElmoCharacterEncoder, remove_sentence_boundaries
 
 
 # files for original elmo model

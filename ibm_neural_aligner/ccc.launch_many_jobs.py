@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--launch', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--log', default='/dccstor/ykt-parse/SHARED/misc/adrozdov/log/align')
-parser.add_argument('--input', default='align_cfg/experiments.jsonl')
+parser.add_argument('--input', default='ibm_neural_aligner/experiments.jsonl')
 parser.add_argument('--require', default=None, type=str)
 parser.add_argument('--queue', default='x86_24h', type=str)
 parser.add_argument('--new', action='store_true')
@@ -39,7 +39,7 @@ cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
-python -u align_cfg/main.py --cuda \
+python -u ibm_neural_aligner/main.py --cuda \
     --aligner-training-and-eval \
     --log-dir {log} \
     --max-length 100 \
@@ -62,7 +62,7 @@ cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
-python -u align_cfg/main.py --cuda \
+python -u ibm_neural_aligner/main.py --cuda \
     --aligner-training-and-eval \
     --log-dir {log}_write_amr2 \
     {flags} \
@@ -76,7 +76,7 @@ python -u align_cfg/main.py --cuda \
     --batch-size 8 \
     --max-length 0
 
-python -u align_cfg/main.py --cuda \
+python -u ibm_neural_aligner/main.py --cuda \
     --aligner-training-and-eval \
     --log-dir {log}_write_amr3 \
     {flags} \
@@ -101,7 +101,7 @@ cd /dccstor/ykt-parse/SHARED/misc/adrozdov/code/mnlp-transition-amr-parser
 
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
-python -u align_cfg/main.py --cuda \
+python -u ibm_neural_aligner/main.py --cuda \
     --aligner-training-and-eval \
     --log-dir {log}_write_pretty_amr2 \
     {flags} \
@@ -115,7 +115,7 @@ python -u align_cfg/main.py --cuda \
     --batch-size 8 \
     --max-length 0
 
-python -u align_cfg/main.py --cuda \
+python -u ibm_neural_aligner/main.py --cuda \
     --aligner-training-and-eval \
     --log-dir {log}_write_pretty_amr3 \
     {flags} \

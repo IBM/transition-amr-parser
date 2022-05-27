@@ -255,14 +255,14 @@ if __name__ == '__main__':
         args.in_amrs.append(os.path.expanduser('~/data/AMR2.0/aligned/cofill/dev.txt'))
         args.in_actions.append(os.path.expanduser('~/data/AMR2.0/aligned/cofill/dev.actions'))
 
-        args.in_amrs.append(os.path.expanduser('DATA/AMR2.0/aligned/align_cfg/dev.txt'))
-        args.in_actions.append(os.path.expanduser('DATA/AMR2.0/aligned/align_cfg/dev.actions'))
+        args.in_amrs.append(os.path.expanduser('DATA/AMR2.0/aligned/ibm_neural_aligner/dev.txt'))
+        args.in_actions.append(os.path.expanduser('DATA/AMR2.0/aligned/ibm_neural_aligner/dev.actions'))
     if args.preset == 'train':
         args.in_amrs.append(os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.txt'))
         args.in_actions.append(os.path.expanduser('~/data/AMR2.0/aligned/cofill/train.actions'))
 
-        args.in_amrs.append(os.path.expanduser('DATA/AMR2.0/aligned/align_cfg/train.txt'))
-        args.in_actions.append(os.path.expanduser('DATA/AMR2.0/aligned/align_cfg/train.actions'))
+        args.in_amrs.append(os.path.expanduser('DATA/AMR2.0/aligned/ibm_neural_aligner/train.txt'))
+        args.in_actions.append(os.path.expanduser('DATA/AMR2.0/aligned/ibm_neural_aligner/train.actions'))
 
     if args.preset == 'mbr-2':
         args.in_amrs.append(os.path.expanduser('DATA/AMR3.0-aligners/best-gold-ref/train.txt'))

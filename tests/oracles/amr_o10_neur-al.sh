@@ -28,7 +28,7 @@ set -o nounset
 if [ ! -f "$ALIGNED_FOLDER/alignment.trn.pretty" ];then
 
     # Align
-    python align_cfg/main.py --cuda \
+    python ibm_neural_aligner/main.py --cuda \
         --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
         --load $ALIGN_MODEL \
@@ -40,7 +40,7 @@ if [ ! -f "$ALIGNED_FOLDER/alignment.trn.pretty" ];then
         --single-output $AMR_TRAIN_FILE
     
     # Get alignment probabilities
-    python align_cfg/main.py --cuda \
+    python ibm_neural_aligner/main.py --cuda \
         --no-jamr \
         --cache-dir $ALIGNED_FOLDER \
         --load $ALIGN_MODEL \

@@ -158,8 +158,8 @@ def main(args):
                 else:
                     assert args.trainpref, "--trainpref must be set if --tgtdict is not specified"
                     tgt_dict = build_dictionary([train_path(args.target_lang_nopos)], tgt=True)
-                    # if args.task.endswith('dyo'):
-                    add_sampling_vocabulary(tgt_dict, args.trainpref)
+                    if args.task.endswith('dyo'):
+                        add_sampling_vocabulary(tgt_dict, args.trainpref)
 
             else:
                 tgt_dict = None

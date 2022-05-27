@@ -40,9 +40,39 @@ def argument_parser():
     parser.add_argument("--ignore-errors", type=str,
                         choices=ANNOTATION_ISSUES.keys(),
                         help="Ignore known errors")
+    parser.add_argument("--no-isi", action='store_true',
+                        help="Write alignments in ::alignments")
     args = parser.parse_args()
 
     return args
+
+
+def stop_if_duplicates(amr2):
+    duplicates = [
+        k for k, c in Counter(amr2.penman.triples).items() if c > 1
+    ]
+    if duplicates:
+        return duplicates
+
+
+def stop_if_triples_do_not_match(amr, amr2):
+
+    # get triples ignoring quotes
+    triples = [
+        (normalize(a), b, normalize(c))
+        for (a, b, c) in amr.penman.triples
+    ]
+    triples2 = [
+        (normalize(a), b, normalize(c))
+        for (a, b, c) in amr2.penman.triples
+    ]
+
+    if set(triples) != set(triples2):
+        missing = set(triples) - set(triples2)
+        excess = set(triples2) - set(triples)
+        return missing, excess
+    else:
+        return [], []
 
 
 def main(args):
@@ -62,7 +92,10 @@ def main(args):
 
         # read, write back and read again
         amr = AMR.from_penman(penman_str)
-        penman_str2 = amr.__str__()
+        if args.no_isi:
+            penman_str2 = amr.to_penman(isi=False)
+        else:
+            penman_str2 = amr.__str__()
         out_amr_penmans.append(penman_str2)
         amr2 = AMR.from_penman(penman_str2)
 
@@ -71,35 +104,21 @@ def main(args):
         edge_stacks, offending_stacks = trasverse(amr.edges, amr.root)
         num_cycles += int(bool(offending_stacks['cycle']))
 
-        duplicates = [
-            k for k, c in Counter(amr2.penman.triples).items() if c > 1
-        ]
-        if duplicates and index not in annotation_error_indices:
+        # look for duplicate edge triples
+        dupes = stop_if_duplicates(amr2)
+        if bool(dupes) and index not in annotation_error_indices:
             print(penman_str)
             print()
             print(penman_str2)
-            print(duplicates)
-            set_trace(context=30)
+            print(dupes)
             print(f'[ \033[91mFAILED\033[0m ] Duplicate edges triples {index}')
-            # exit(1)
+            set_trace(context=30)
+            vimdiff(penman_str, penman_str2, index=index)
+            exit(1)
 
-        # get triples ignoring quotes
-        triples = [
-            (normalize(a), b, normalize(c))
-            for (a, b, c) in amr.penman.triples
-        ]
-        triples2 = [
-            (normalize(a), b, normalize(c))
-            for (a, b, c) in amr2.penman.triples
-        ]
-
-        if (
-            set(triples) != set(triples2)
-            and index not in annotation_error_indices
-        ):
-            missing = set(triples) - set(triples2)
-            excess = set(triples2) - set(triples)
-
+        # look for different triples
+        missing, excess = stop_if_triples_do_not_match(amr, amr2)
+        if (missing or excess) and index not in annotation_error_indices:
             # Apparently starting here in AMR3.0, wiki starts being quoted
             # we can ignore this one
             if (
@@ -108,17 +127,17 @@ def main(args):
                 and all([e[2] == '"-"' for e in excess])
             ):
                 continue
-
             print(penman_str)
             print()
             print(penman_str2)
             print(missing)
             print(excess)
-            set_trace(context=30)
             print(f'[ \033[91mFAILED\033[0m ] Missing/Excess triples {index}')
-            # exit(1)
-            # vimdiff(penman_str, penman_str2, index=index)
+            set_trace(context=30)
+            vimdiff(penman_str, penman_str2, index=index)
+            exit(1)
 
+        # look for different alignments
         if amr.alignments and amr.alignments != amr2.alignments:
             print(penman_str)
             print()
@@ -126,6 +145,12 @@ def main(args):
             set_trace(context=30)
             print(f'[ \033[91mFAILED\033[0m ] Missing Alignments {index}')
             # exit(1)
+
+        # check this is not marked as not ok, but its actually ok
+        if index in annotation_error_indices:
+            # NOTE that there being an error in an annotation does not
+            # guarantee and error in io.
+            print(f'{index} has annotation errors, but passes anyway')
 
     if args.out_amr:
         with open(args.out_amr, 'w') as fid:

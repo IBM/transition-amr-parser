@@ -5,7 +5,7 @@ if [ -z $1 ];then
     # Standard mini-test with wiki25
     config=configs/wiki25-structured-bart-base-neur-al-sampling.sh
 
-    ELMO_WEIGHTS="DATA/wiki25/aligned/align_cfg/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
+    ELMO_WEIGHTS="DATA/wiki25/aligned/ibm_neural_aligner/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 
     if [ -f "$ELMO_WEIGHTS" ]; then
         echo "$ELMO_WEIGHTS exists."
@@ -17,7 +17,7 @@ if [ -z $1 ];then
         rm -Rf DATA/wiki25/*
 
         # Restore elmo weights.
-        mkdir -p DATA/wiki25/aligned/align_cfg
+        mkdir -p DATA/wiki25/aligned/ibm_neural_aligner
         mv tmp.elmo $ELMO_WEIGHTS
     else
         echo "$ELMO_WEIGHTS does not exist."

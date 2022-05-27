@@ -14,7 +14,8 @@ install_requires = [
     'h5py',
     # for scoring
     'penman',
-    'smatch==1.0.4',
+    # needs tools to be importable > 1.0.4
+    'smatch',
     # for debugging
     'ipdb',
     'line_profiler',
