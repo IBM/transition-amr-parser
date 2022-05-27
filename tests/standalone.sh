@@ -41,6 +41,7 @@ mkdir -p $FOLDER
 
 # prepare model for export
 # bash run/status.sh -c $config --final-remove
+beam_size=10
 
 use_alignment_tokenization=true
 if [ "$use_alignment_tokenization" = true ];then
@@ -50,8 +51,8 @@ if [ "$use_alignment_tokenization" = true ];then
         | sed 's@# ::tok @@g' > ${results_prefix}.tokens
     
     # run first seed of model
-    echo "amr-parse --beam 1 --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
-    amr-parse --beam 1 --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
+    echo "amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
+    amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
  
 else
 
@@ -60,8 +61,8 @@ else
         | sed 's@# ::snt @@g' > ${results_prefix}.sentences
     
     # run first seed of model
-    echo "amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
-    amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
+    echo "amr-parse --beam ${beam_size} --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
+    amr-parse --beam ${beam_size} --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
     
 fi
 
