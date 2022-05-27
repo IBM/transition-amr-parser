@@ -33,12 +33,15 @@ echo "$checkpoint"
 
 [ ! -f "$checkpoint" ] && echo "Is $config training complete?" && exit 1
 
-# remove optimizer from checkpoint
-python scripts/remove_optimizer_state.py $checkpoint $model_folder/model.pt
+echo "This will remove optimizer from ${checkpoint}."
+read -p "Do you wish to continue? Y/[N]" answer
+[ "$answer" != "Y" ] && exit 1
 
+# remove optimizer from checkpoint
+python scripts/remove_optimizer_state.py $checkpoint $checkpoint
 # zip all
-zip -r ${model_name}.zip \
-    $model_folder/model.pt \
+zip -r ${model_name}-seed${seed}.zip \
+    $checkpoint \
     $model_folder/config.sh \
     $model_folder/dict.actions_nopos.txt \
     $model_folder/dict.en.txt \

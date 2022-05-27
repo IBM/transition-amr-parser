@@ -116,9 +116,6 @@ def argument_parsing():
     ) or bool(args.service), \
         "Must either specify --in-tokenized-sentences or set --service"
 
-    assert bool(args.in_tokenized_sentences) != bool(args.in_amr), \
-        "Provide either --in-tokenize-sentences or --in-amr"
-
     return args
 
 
@@ -574,7 +571,7 @@ def main():
                 # jamr-like tokenization
                 tokens = [protected_tokenizer(sentence)[0]]
             else:
-                tokens = [sentence.split()],
+                tokens = [sentence.split()]
 
             result = parser.parse_sentences(
                 tokens,
@@ -608,17 +605,23 @@ def main():
 
         else:
             gold_amrs = None
-            tokenized_sentences = read_tokenized_sentences(
-                args.in_tokenized_sentences
-            )
             if args.tokenize:
+                # TODO: have tokenized as default
                 # jamr-like tokenization
-                tokenized_sentences = [
-                    protected_tokenizer(sentence)[0]
-                    for sentence in tokenized_sentences
-                ]
+                with open(args.in_tokenized_sentences) as fid:
+                    tokenized_sentences = [
+                        protected_tokenizer(sentence.rstrip())[0]
+                        for sentence in fid.readlines()
+                    ]
+            else:
+                tokenized_sentences = read_tokenized_sentences(
+                    args.in_tokenized_sentences
+                )
 
         # Parse sentences
+        num_sent = len(tokenized_sentences)
+        print(f'Parsing {num_sent} sentences')
+        start = time.time()
         result = parser.parse_sentences(
             tokenized_sentences,
             batch_size=args.batch_size,
@@ -626,7 +629,14 @@ def main():
             gold_amrs=gold_amrs,
             beam=args.beam
         )
+        end = time.time()
+        time_secs = timedelta(seconds=float(end-start))
+        sents_per_second = num_sent / time_secs.seconds
+        print(f'Total time taken to parse {num_sent} sentences ', end='')
+        print(f'at batch size {args.batch_size}: {time_secs} ', end='')
+        print(f'{sents_per_second:.2f} sentences / second')
 
+        # save file
         with open(args.out_amr, 'w') as fid:
             fid.write('\n'.join(result[0]))
 
