@@ -37,7 +37,7 @@ echo "$checkpoint"
 python scripts/remove_optimizer_state.py $checkpoint $model_folder/model.pt
 
 # zip all
-zip -r ${model_name}.zip \
+zip -r ${model_name}-seed${seed}.zip \
     $model_folder/model.pt \
     $model_folder/config.sh \
     $model_folder/dict.actions_nopos.txt \
