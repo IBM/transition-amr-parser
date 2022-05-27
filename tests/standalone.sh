@@ -31,7 +31,7 @@ set -o nounset
 # from config
 sset=test
 reference_amr=$AMR_TEST_FILE
-reference_amr_wiki=$AMR_DEV_FILE_WIKI
+reference_amr_wiki=$AMR_TEST_FILE_WIKI
 wiki=$LINKER_CACHE_PATH/${sset}.wiki
 checkpoint=${MODEL_FOLDER}-seed42/$DECODING_CHECKPOINT
 
@@ -45,13 +45,29 @@ mkdir -p $FOLDER
     && echo "Missing $ALIGNED_FOLDER/${sset}.txt" \
     && exit 1
 
-# extract sentences from test
-grep '# ::snt ' $reference_amr \
-    | sed 's@# ::snt @@g' > ${results_prefix}.tokens
+use_alignment_tokenization=true
+if [ "$use_alignment_tokenization" = true ];then
 
-# run first seed of model
-echo "amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
-amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
+    # extract sentences from test
+    grep '# ::tok ' $ALIGNED_FOLDER/${sset}.txt \
+        | sed 's@# ::tok @@g' > ${results_prefix}.tokens
+    
+    # run first seed of model
+    echo "amr-parse --beam 1 --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
+    amr-parse --beam 1 --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
+ 
+else
+
+    # extract sentences from test
+    grep '# ::snt ' $reference_amr \
+        | sed 's@# ::snt @@g' > ${results_prefix}.sentences
+    
+    # run first seed of model
+    echo "amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
+    amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
+    
+fi
+
 
 # GRAPH POST-PROCESSING
 
