@@ -116,9 +116,6 @@ def argument_parsing():
     ) or bool(args.service), \
         "Must either specify --in-tokenized-sentences or set --service"
 
-    assert bool(args.in_tokenized_sentences) != bool(args.in_amr), \
-        "Provide either --in-tokenize-sentences or --in-amr"
-
     return args
 
 
@@ -574,7 +571,7 @@ def main():
                 # jamr-like tokenization
                 tokens = [protected_tokenizer(sentence)[0]]
             else:
-                tokens = [sentence.split()],
+                tokens = [sentence.split()]
 
             result = parser.parse_sentences(
                 tokens,
