@@ -685,8 +685,7 @@ def create_valid_amr(tokens, nodes, edges, root, alignments):
 
     # rooted and connected
     # NOTE: be careful not to overwrite edges or root
-    droot = root if root is None else str(root)
-    root, edges = force_rooted_connected_graph(nodes, list(edges), droot)
+    root, edges = force_rooted_connected_graph(nodes, list(edges), root)
     if any(e[1] == AMR.default_rel for e in edges):
         print(yellow_font('WARNING: disconnected graphs'))
 
