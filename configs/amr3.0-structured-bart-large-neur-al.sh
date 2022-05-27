@@ -161,7 +161,7 @@ tgt_input_src_combine="add"
 
 #SEEDS="42 43 44"
 SEEDS="42"
-MAX_EPOCH=1
+MAX_EPOCH=120
 EVAL_INIT_EPOCH=1
 time_max_between_epochs=30
 
