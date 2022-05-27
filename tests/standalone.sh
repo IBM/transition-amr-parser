@@ -5,18 +5,6 @@ if [ -z $1 ];then
     # Standard mini-test with wiki25
     config=configs/wiki25-structured-bart-base-neur-al-sampling.sh
 
-    # Delete previous runs if exists
-    rm -Rf DATA/wiki25/*
-
-    # replace code above with less restrictive deletion
-    # rm -R -f DATA/wiki25/embeddings
-    # rm -R -f DATA/wiki25/features
-    # rm -R -f DATA/wiki25/oracles
-    # rm -R -f DATA/wiki25/models
-
-    # simulate completed corpora extraction and alignment
-    bash tests/create_wiki25_mockup.sh
-
 else
 
     # custom config mini-test
@@ -37,13 +25,22 @@ checkpoint=${MODEL_FOLDER}-seed42/$DECODING_CHECKPOINT
 
 # where to put results
 FOLDER=${MODEL_FOLDER}-seed42/unit_test/
-results_prefix=$FOLDER/${sset}
-[ -d "$FOLDER" ] && rm -R $FOLDER/
+results_prefix=$FOLDER/dev
+
+# needs data and model
+[ ! -f "$checkpoint" ] \
+    && echo "Missing $checkpoint" \
+    && exit 1
+[ ! -f "$ALIGNED_FOLDER/dev.txt" ] \
+    && echo "Missing $ALIGNED_FOLDER/dev.txt" \
+    && exit 1
+
+# prepare unit test folder
+[ -d "$FOLDER" ] && rm $FOLDER/*
 mkdir -p $FOLDER
 
-[ ! -f "$ALIGNED_FOLDER/${sset}.txt" ] \
-    && echo "Missing $ALIGNED_FOLDER/${sset}.txt" \
-    && exit 1
+# prepare model for export
+# bash run/status.sh -c $config --final-remove
 
 use_alignment_tokenization=true
 if [ "$use_alignment_tokenization" = true ];then
@@ -67,7 +64,6 @@ else
     amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
     
 fi
-
 
 # GRAPH POST-PROCESSING
 

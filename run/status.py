@@ -12,7 +12,9 @@ from collections import defaultdict, Counter
 from statistics import mean
 from transition_amr_parser.io import read_config_variables
 from transition_amr_parser.clbar import clbar, yellow_font
-from fairseq_ext.utils import remove_optimizer_state
+from fairseq_ext.utils import (
+    remove_optimizer_state, load_checkpoint_ext
+)
 from ipdb import set_trace
 
 
@@ -100,6 +102,11 @@ def argument_parser():
     parser.add_argument(
         "--remove-features",
         help="Remove features",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--remove-corrupted-checkpoints",
+        help="Will remove checkpoints (check only last ones)",
         action='store_true'
     )
     parser.add_argument(
@@ -221,15 +228,38 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False, warnings=True):
 
 def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
 
-    checkpoints, target_epochs, _ = \
+    # get checkpoints pending to be evaluated
+    checkpoints, target_epochs, missing_epochs = \
         get_checkpoints_to_eval(config_env_vars, seed)
+
+    # check if a checkpoint after a missing checkpoint exists. This is an
+    # indication that we deleted a checkpoint too soon
+    deleted_checkpoints = False
+    if missing_epochs:
+        model_folder = config_env_vars['MODEL_FOLDER']
+        seed_folder = f'{model_folder}-seed{seed}'
+        earliest_missing_epoch = min(missing_epochs)
+        for n in target_epochs:
+            if (
+                n > earliest_missing_epoch
+                and os.path.isfile(f'{seed_folder}/checkpoint{n}.pt')
+            ):
+                deleted_checkpoints = True
+                break
+
     if checkpoints:
         delta = len(target_epochs) - len(checkpoints)
         if delta > 0:
-            return (
-                f"\033[93m{delta}/{len(target_epochs)}\033[0m",
-                f"{seed_folder}/epoch_tests"
-            ), False
+            if deleted_checkpoints:
+                return (
+                    f"\033[91m{delta}/{len(target_epochs)}\033[0m",
+                    f"{seed_folder}/epoch_tests"
+                ), False
+            else:
+                return (
+                    f"\033[93m{delta}/{len(target_epochs)}\033[0m",
+                    f"{seed_folder}/epoch_tests"
+                ), False
         else:
             return (
                 f"{delta}/{len(target_epochs)}",
@@ -243,7 +273,13 @@ def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
         ), True
 
 
-def get_corrupted_checkpoints(seed_folder):
+def get_corrupted_checkpoints(seed_folder, drop_percentage=0.5):
+    '''
+    Looks for checkpoints that have clearly smaller size than the rest as hint
+    that they could be corrupted
+
+    If size is les than DROP_PERCENTAGE of average, flag it
+    '''
 
     # check for corrupted models
     checkpoints_by_size = defaultdict(list)
@@ -257,7 +293,7 @@ def get_corrupted_checkpoints(seed_folder):
         normal_size = max(list(size_count.keys()))
         corrupted_checkpoints = []
         for size, checkpoints in checkpoints_by_size.items():
-            if size < 0.5 * float(normal_size):
+            if size < drop_percentage * float(normal_size):
                 corrupted_checkpoints.extend(checkpoints)
         return corrupted_checkpoints
     else:
@@ -714,7 +750,6 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
 
     # collect data for each experiment as a dictionary
     results = []
-    # set_trace(context=30)
     for conf, seed in get_experiment_configs(models_folder, configs, set_seed):
         result = extract_experiment_data(conf, seed, do_test)
         if result:
@@ -858,7 +893,7 @@ def link_remove(args, seed, config_env_vars, ignore_missing_checkpoints=False,
         get_best_checkpoints(config_env_vars, seed, target_epochs,
                              n_best=args.nbest)
 
-    missing_checkpoints = [f'checkpoint{n}.pt' for n in best_n]
+    missing_checkpoints = [f'checkpoint{n}.pt' for n in missing_epochs]
     if (
         args.link_best
         and ignore_missing_checkpoints
@@ -935,9 +970,12 @@ def wait_checkpoint_ready_to_eval(args):
 
             # link and/or remove checkpoints
             if args.link_best or args.remove:
-                link_remove(args, seed,
-                            config_env_vars, checkpoints=scheckpoints,
-                            target_epochs=starget_epochs)
+                link_remove(
+                    args, seed,
+                    config_env_vars, checkpoints=scheckpoints,
+                    target_epochs=starget_epochs,
+                    ignore_missing_checkpoints=args.ignore_missing_checkpoints
+                )
 
         if need_eval == []:
             print('Finished!')
@@ -1018,13 +1056,91 @@ def remove_features(config_env_vars):
         os.rmdir(feature_folder)
 
 
+def remove_corrupted_checkpoints(config, seed, num_models=2):
+    '''
+    Check suspicious size checkpoints plus the last NUM_MODELS
+    '''
+
+    def remove_if_corrupted(path):
+        try:
+            load_checkpoint_ext(path)
+            print(f'\r  \033[92mok\033[0m    {path}')
+            return False
+        except RuntimeError as exception:
+            if str(exception).startswith('unexpected EOF'):
+                print(f'\r  \033[91mbad\033[0m  {path}')
+                return True
+            else:
+                raise exception
+
+    # print status for this config
+    config_env_vars = read_config_variables(config)
+    if seed:
+        seeds = [seed]
+    else:
+        seeds = config_env_vars['SEEDS'].split()
+
+    # add latest checkpoints
+    eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
+    max_epoch = int(config_env_vars['MAX_EPOCH'])
+
+    model_folder = config_env_vars['MODEL_FOLDER']
+
+    # collect all suspicious checkpoints
+    for seed in seeds:
+        seed_folder = f'{model_folder}-seed{seed}'
+        print(seed_folder)
+
+        # available checkpoints
+        available_checkpoints = []
+        for n in range(eval_init_epoch, max_epoch+1):
+            path = f'{seed_folder}/checkpoint{n}.pt'
+            if os.path.isfile(path):
+                available_checkpoints.append(path)
+
+        # visit also supicious checkpoints with odd size
+        for path in get_corrupted_checkpoints(
+            seed_folder, drop_percentage=0.95
+        ):
+            if remove_if_corrupted(path):
+                available_checkpoints.remove(path)
+
+        # go over existing last NUM_MODELS checkpoints, remove those corrupted,
+        # also remove it from available list
+        for path in list(available_checkpoints)[-num_models:]:
+            if path in available_checkpoints and remove_if_corrupted(path):
+                available_checkpoints.remove(path)
+
+        # replace last and best by last valid checkpoint
+        path = f'{seed_folder}/checkpoint_last.pt'
+        if os.path.isfile(path):
+            remove_if_corrupted(path)
+        if not os.path.isfile(path) and available_checkpoints:
+            print(f'{available_checkpoints[-1]} -> {path}')
+            shutil.copy(available_checkpoints[-1], path)
+        path = f'{seed_folder}/checkpoint_best.pt'
+        if os.path.isfile(path):
+            remove_if_corrupted(path)
+        if not os.path.isfile(path) and available_checkpoints:
+            # TODO: This is actually wrong, but does not matter for us since we
+            # do not use validation
+            print(f'{available_checkpoints[-1]} -> {path}')
+            shutil.copy(available_checkpoints[-1], path)
+
+
 def main(args):
 
     # set ordered exit
     signal.signal(signal.SIGINT, ordered_exit)
     signal.signal(signal.SIGTERM, ordered_exit)
 
-    if args.final_remove:
+    if args.remove_corrupted_checkpoints:
+
+        assert args.config, "Needs --config (optional --seed)"
+
+        remove_corrupted_checkpoints(args.config, args.seed)
+
+    elif args.final_remove:
 
         assert args.config, "Needs --config (optional --seed)"
 
@@ -1102,7 +1218,12 @@ def main(args):
             # link and/or remove checkpoints
             if args.link_best or args.remove:
                 for seed in seeds:
-                    link_remove(args, seed, config_env_vars)
+                    link_remove(
+                        args,
+                        seed,
+                        config_env_vars,
+                        ignore_missing_checkpoints=args.ignore_missing_checkpoints
+                    )
             # exit if finished
             if not args.wait_finished or fin:
                 break

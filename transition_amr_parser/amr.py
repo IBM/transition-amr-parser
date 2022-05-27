@@ -149,7 +149,6 @@ class NodeStackErrors():
             'cycle': [],
             'mini-cycle': [],
             'reentrant': [],
-            'mising_nodes': [],
             'mising_edges': []
         }
 
@@ -193,9 +192,6 @@ class NodeStackErrors():
         visited_nodes = [
             nid for edge in self.visited_edges for nid in [edge[0], edge[-1]]
         ]
-        missing_nodes = [n for n in nodes if n not in visited_nodes]
-        if missing_nodes:
-            self.offending_stacks['mising_nodes'] = missing_nodes
 
 
 def trasverse(edges, root, downwards=True, reentrant=False):
@@ -340,7 +336,8 @@ def scape_node_names(nodes, edges, is_attribute):
         if nname == '"':
             # FIXME: This should be solved at machine level
             # just a single quote, invalid, put some dummy symbol
-            nname == '-'
+            nname = '_'
+            # raise Exception('Quotes can not be a single AMR node')
         elif nname[0] == '"' and nname[-1] == '"':
             # already quoted, ensure no quotes inside
             nname[1:-1].replace('"', '')
@@ -663,19 +660,20 @@ def force_rooted_connected_graph(nodes, edges, root):
 
     # for each head, find its descendant, ignore loops
     head_descendants = dict()
+    total_visited = set()
     for head in heads:
-        _, offending_stacks = trasverse(edges, head)
-        descendants = [
-            nid
-            for nid in nodes.keys()
-            if nid not in offending_stacks['mising_nodes']
-        ]
+        stacks, offending_stacks = trasverse(edges, head)
+        descendants = set([s[-1][-1] for s in stacks if s[-1][-1] != head])
+        if stacks and stacks[0]:
+            descendants |= set(stacks[0][0])
         head_descendants[head] = descendants
+        total_visited |= set(descendants)
+    loose_nodes = set(nodes) - total_visited
 
     # find root strategy: multi-sentence or head with more descendants
     if root is None:
         if 'multi-sentence' in nodes.values():
-            index = list(nodes.values).index('multi-sentence')
+            index = list(nodes.values()).index('multi-sentence')
             root = list(nodes.keys())[index]
         elif edges == []:
             heads = list(nodes.keys())
@@ -686,10 +684,9 @@ def force_rooted_connected_graph(nodes, edges, root):
             root = sorted(head_descendants.items(), key=key)[-1][0]
 
     # connect graph: add rel edges from detached subgraphs to the root
-    if root in heads:
-        heads.remove(root)
-    for n in heads:
-        edges.append((root, AMR.default_rel, n))
+    for n in heads + sorted(loose_nodes):
+        if n != root:
+            edges.append((root, AMR.default_rel, n))
 
     return root, edges
 
@@ -700,7 +697,8 @@ def create_valid_amr(tokens, nodes, edges, root, alignments):
         print(yellow_font('WARNING: missing root'))
 
     # rooted and connected
-    root, edges = force_rooted_connected_graph(nodes, edges, root)
+    # NOTE: be careful not to overwrite edges or root
+    root, edges = force_rooted_connected_graph(nodes, list(edges), root)
     if any(e[1] == AMR.default_rel for e in edges):
         print(yellow_font('WARNING: disconnected graphs'))
 
