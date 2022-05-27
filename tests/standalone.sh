@@ -22,34 +22,36 @@ else
     # custom config mini-test
     config=$1
 fi
+. set_environment.sh
 set -o nounset
 
 # load config
 . $config
 
 # from config
-reference_amr=$AMR_DEV_FILE
+sset=test
+reference_amr=$AMR_TEST_FILE
 reference_amr_wiki=$AMR_DEV_FILE_WIKI
-wiki=$LINKER_CACHE_PATH/dev.wiki
+wiki=$LINKER_CACHE_PATH/${sset}.wiki
 checkpoint=${MODEL_FOLDER}-seed42/$DECODING_CHECKPOINT
+
 # where to put results
 FOLDER=${MODEL_FOLDER}-seed42/unit_test/
-results_prefix=$FOLDER/dev
-[ -d "$FOLDER" ] && rm $FOLDER/*
+results_prefix=$FOLDER/${sset}
+[ -d "$FOLDER" ] && rm -R $FOLDER/
 mkdir -p $FOLDER
 
-[ ! -f "$ALIGNED_FOLDER/dev.txt" ] \
-    && echo "Missing $ALIGNED_FOLDER/dev.txt" \
+[ ! -f "$ALIGNED_FOLDER/${sset}.txt" ] \
+    && echo "Missing $ALIGNED_FOLDER/${sset}.txt" \
     && exit 1
 
-# prepare model for export
-# bash run/status.sh -c $config --final-remove
-
-grep '^# ::tok' $ALIGNED_FOLDER/dev.txt \
-    | sed 's@^# ::tok @@g' > ${results_prefix}.tokens
+# extract sentences from test
+grep '# ::snt ' $reference_amr \
+    | sed 's@# ::snt @@g' > ${results_prefix}.tokens
 
 # run first seed of model
-amr-parse -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr --beam 10 --batch-size 128
+echo "amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
+amr-parse --beam 1 --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
 
 # GRAPH POST-PROCESSING
 
