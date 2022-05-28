@@ -12,6 +12,7 @@ install_requires = [
     'requests',
     # for data (ELMO embeddings)
     'h5py',
+    'python-dateutil',
     # for scoring
     'penman',
     # needs tools to be importable > 1.0.4
