@@ -18,53 +18,48 @@ set -o nounset
 
 # from config
 sset=test
-reference_amr=$AMR_TEST_FILE
 reference_amr_wiki=$AMR_TEST_FILE_WIKI
 wiki=$LINKER_CACHE_PATH/${sset}.wiki
 checkpoint=${MODEL_FOLDER}-seed42/$DECODING_CHECKPOINT
 
 # where to put results
 FOLDER=${MODEL_FOLDER}-seed42/unit_test/
-results_prefix=$FOLDER/dev
+results_prefix=$FOLDER/${sset}
 
 # needs data and model
 [ ! -f "$checkpoint" ] \
     && echo "Missing $checkpoint" \
     && exit 1
-[ ! -f "$ALIGNED_FOLDER/dev.txt" ] \
-    && echo "Missing $ALIGNED_FOLDER/dev.txt" \
-    && exit 1
 
 # prepare unit test folder
-[ -d "$FOLDER" ] && rm $FOLDER/*
+[ -d "$FOLDER" ] && rm -R  $FOLDER/
 mkdir -p $FOLDER
 
-# prepare model for export
-# bash run/status.sh -c $config --final-remove
+# beam size
 beam_size=10
+batch_size=64
 
-use_alignment_tokenization=true
-if [ "$use_alignment_tokenization" = true ];then
+[ ! -f "$reference_amr_wiki" ] \
+    && echo "$reference_amr_wiki" \
+    && exit 1
 
-    # extract sentences from test
-    grep '# ::tok ' $ALIGNED_FOLDER/${sset}.txt \
-        | sed 's@# ::tok @@g' > ${results_prefix}.tokens
-    
-    # run first seed of model
-    echo "amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
-    amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
+#    # extract sentences from test
+#    grep '# ::tok ' $ALIGNED_FOLDER/${sset}.txt \
+#        | sed 's@# ::tok @@g' > ${results_prefix}.tokens
+#    
+#    # run first seed of model
+#    echo "amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
+#    amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
  
-else
 
-    # extract sentences from test
-    grep '# ::snt ' $reference_amr \
-        | sed 's@# ::snt @@g' > ${results_prefix}.sentences
+# extract sentences from test
+grep '# ::snt ' $reference_amr_wiki \
+    | sed 's@# ::snt @@g' > ${results_prefix}.sentences
+
+# run first seed of model
+echo "amr-parse --beam ${beam_size} --batch-size ${batch_size} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
+amr-parse --beam ${beam_size} --batch-size ${batch_size} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
     
-    # run first seed of model
-    echo "amr-parse --beam ${beam_size} --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
-    amr-parse --beam ${beam_size} --batch-size 128 --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
-    
-fi
 
 # GRAPH POST-PROCESSING
 
@@ -104,10 +99,10 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     sed 's@\~[0-9]\{1,\}@@g' ${results_prefix}.amr > ${results_prefix}.amr.no_isi
 
     echo "Computing SMATCH between ---"
-    echo "$reference_amr"
+    echo "$reference_amr_wiki"
     echo "${results_prefix}.amr"
     smatch.py -r 10 --significant 4 \
-         -f $reference_amr \
+         -f $reference_amr_wiki \
          ${results_prefix}.amr.no_isi \
          | tee ${results_prefix}.smatch
 
