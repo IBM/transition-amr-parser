@@ -5,7 +5,7 @@ from functools import partial
 import re
 from copy import deepcopy
 from itertools import chain
-from collections import defaultdict, Counter
+from collections import defaultdict, Counter, namedtuple
 
 from tqdm import tqdm
 import numpy as np
@@ -193,20 +193,18 @@ class AMROracle():
 
     def __init__(
         self,
-        reduce_nodes=None,                   # garbage collection mode
-        absolute_stack_pos=False,            # index nodes relative or absolute
-        use_copy=True,                       # copy mechanism toggle
+        machine_config,
         alignment_sampling_temperature=1.0,  # temperature if sampling
         force_align_ner=False                # align NER parents to first child
     ):
 
-        # Remove nodes that have all their edges created
-        self.reduce_nodes = reduce_nodes
-        # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
-        # rather than relative to end of self.node_stack
-        self.absolute_stack_pos = absolute_stack_pos
+        # inmutable config from state machine
+        self.machine_config = machine_config
+
+        if not machine_config.absolute_stack_pos:
+            raise NotImplementedError()
+
         self.alignment_sampling_temperature = alignment_sampling_temperature
-        self.use_copy = use_copy
         self.force_align_ner = force_align_ner
 
     def reset(self, gold_amr, alignment_probs=None,
@@ -274,6 +272,7 @@ class AMROracle():
         self.node_map = {}
         self.node_reverse_map = {}
         self.predicted_edges = []
+        self.expected_history = []
 
     def get_arc_action(self, machine):
 
@@ -289,11 +288,12 @@ class AMROracle():
                 and self.node_map[tgt] in machine.node_stack[:-1]
             ):
                 # LA <--
-                if self.absolute_stack_pos:
+                if self.machine_config.absolute_stack_pos:
                     # node position is just position in action history
                     index = self.node_map[tgt]
                 else:
                     # stack position 0 is closest to current node
+                    raise NotImplementedError()
                     index = machine.node_stack.index(self.node_map[tgt])
                     index = len(machine.node_stack) - index - 2
                 # Remove this edge from for both involved nodes
@@ -310,11 +310,12 @@ class AMROracle():
             ):
                 # RA -->
                 # note stack position 0 is closest to current node
-                if self.absolute_stack_pos:
+                if self.machine_config.absolute_stack_pos:
                     # node position is just position in action history
                     index = self.node_map[src]
                 else:
                     # Relative node position
+                    raise NotImplementedError()
                     index = machine.node_stack.index(self.node_map[src])
                     index = len(machine.node_stack) - index - 2
                 # Remove this edge from for both involved nodes
@@ -352,6 +353,10 @@ class AMROracle():
 
     def get_action(self, machine):
 
+        # sanity check: machine is on current oracle path
+        if self.expected_history != machine.action_history:
+            raise Exception('Machine did not follow this oracle')
+
         # Label node as root
         if (
             machine.node_stack
@@ -359,26 +364,31 @@ class AMROracle():
             and self.node_reverse_map[machine.node_stack[-1]] ==
                 self.gold_amr.root
         ):
+            self.expected_history.append('ROOT')
             return 'ROOT'
 
         # REDUCE in stack after are LA/RA that completes all edges for an node
-        if self.reduce_nodes == 'all':
+        if self.machine_config.reduce_nodes == 'all':
             arc_reduce_no_top = self.get_reduce_action(machine, top=False)
             arc_reduce_top = self.get_reduce_action(machine, top=True)
             if arc_reduce_no_top and arc_reduce_top:
                 # both nodes invoved
+                self.expected_history.append('REDUCE3')
                 return 'REDUCE3'
             elif arc_reduce_top:
                 # top of the stack node
+                self.expected_history.append('REDUCE')
                 return 'REDUCE'
             elif arc_reduce_no_top:
                 # the other node
+                self.expected_history.append('REDUCE2')
                 return 'REDUCE2'
 
         # Return action creating next pending edge last node in stack
         if len(machine.node_stack) > 1:
             arc_action = self.get_arc_action(machine)
             if arc_action:
+                self.expected_history.append(arc_action)
                 return arc_action
 
         # Return action creating next node aligned to current cursor
@@ -391,50 +401,63 @@ class AMROracle():
             target_node = normalize(self.gold_amr.nodes[nid])
 
             if (
-                self.use_copy and
+                self.machine_config.use_copy and
                 normalize(machine.tokens[machine.tok_cursor]) == target_node
             ):
                 # COPY
                 node_id = len(machine.action_history)
                 self.node_map[nid] = node_id
                 self.node_reverse_map[node_id] = nid
+                self.expected_history.append('COPY')
                 return 'COPY'
             else:
                 # Generate
                 node_id = len(machine.action_history)
                 self.node_map[nid] = node_id
                 self.node_reverse_map[node_id] = nid
+                self.expected_history.append(target_node)
                 return target_node
 
         # Move monotonic attention
         if machine.tok_cursor < len(machine.tokens):
+            self.expected_history.append('SHIFT')
             return 'SHIFT'
 
+        self.expected_history.append('CLOSE')
         return 'CLOSE'
 
 
 class AMRStateMachine():
 
+    # inmutable configuration
+    Config = namedtuple(
+        'AMRStateMachineConfig', [
+            'reduce_nodes', 
+            'absolute_stack_pos', 
+            'use_copy'                
+        ]
+    )
+
     def __init__(self, reduce_nodes=None, absolute_stack_pos=True,
                  use_copy=True, debug=False):
-
-        # debug flag
-        self.debug = debug
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
         # Remove nodes that have all their edges created
-        self.reduce_nodes = reduce_nodes
         # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
         # rather than relative to stack top
-        self.absolute_stack_pos = absolute_stack_pos
         if not absolute_stack_pos:
             # to support align-mode. Also it may be unnecesarily confusing to
             # have to modes
             raise NotImplementedError('Deprecated relative stack indexing')
 
-        # use copy action
-        self.use_copy = use_copy
+        # inmutable config of the machine
+        self.config = AMRStateMachine.Config(
+            reduce_nodes, absolute_stack_pos, use_copy
+        )
+
+        # debug flag
+        self.debug = debug
 
         # base actions allowed
         self.base_action_vocabulary = [
@@ -449,14 +472,14 @@ class AMRStateMachine():
             # ...      # create node with ... as name (add node to stack)
             'NODE'     # other node names
         ]
-        if self.reduce_nodes:
+        if self.config.reduce_nodes:
             self.base_action_vocabulary.append([
                 'REDUCE',   # Remove node at top of the stack
                 'REDUCE2',  # Remove node at las LA/RA pointed position
                 'REDUCE3'   # Do both above
             ])
 
-        if not self.use_copy:
+        if not self.config.use_copy:
             self.base_action_vocabulary.remove('COPY')
 
     def canonical_action_to_dict(self, vocab):
@@ -537,23 +560,21 @@ class AMRStateMachine():
         return cls(**config)
 
     def save(self, config_path, state=False):
-        with open(config_path, 'w') as fid:
-            # NOTE: Add here all *non state* variables in __init__()
-            data = dict(
-                reduce_nodes=self.reduce_nodes,
-                absolute_stack_pos=self.absolute_stack_pos,
-                use_copy=self.use_copy
+
+        data = self.config._asdict()
+        # add extra state for debugging operations
+        if state:
+            data['state'] = dict(
+                tokens=self.tokens,
+                action_history=self.action_history
             )
-            if state:
-                data['state'] = dict(
-                    tokens=self.tokens,
-                    action_history=self.action_history
-                )
-                if self.gold_amr:
-                    data['state']['gold_amr'] = \
-                        penman.encode(self.gold_amr.penman)
-                    data['state']['gold_id_map'] = \
-                        dict(self.align_tracker.gold_id_map)
+            if self.gold_amr:
+                data['state']['gold_amr'] = \
+                    penman.encode(self.gold_amr.penman)
+                data['state']['gold_id_map'] = \
+                    dict(self.align_tracker.gold_id_map)
+
+        with open(config_path, 'w') as fid:
             fid.write(json.dumps(data))
 
     def __deepcopy__(self, memo):
@@ -612,6 +633,9 @@ class AMRStateMachine():
         return string
 
     def __str__(self):
+
+        if not hasattr(self, 'tokens'):
+            return 'Machine is not reset'
 
         if self.gold_amr:
             # align mode
@@ -698,7 +722,10 @@ class AMRStateMachine():
             return self._get_valid_align_actions()
 
         valid_base_actions = []
-        gen_node_actions = ['COPY', 'NODE'] if self.use_copy else ['NODE']
+        if self.config.use_copy:
+            gen_node_actions = ['COPY', 'NODE']  
+        else:
+            gen_node_actions = ['NODE']  
 
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
@@ -730,7 +757,7 @@ class AMRStateMachine():
                 and self.action_history[-1] == 'SHIFT'
             valid_base_actions.append('CLOSE')
 
-        if self.reduce_nodes:
+        if self.config.reduce_nodes:
             if len(self.node_stack) > 0:
                 valid_base_actions.append('REDUCE')
             if len(self.node_stack) > 1:
@@ -783,19 +810,19 @@ class AMRStateMachine():
         # TODO: Separate REDUCE actions into its own method
         elif action in ['REDUCE']:
             # eliminate top of the stack
-            assert self.reduce_nodes
+            assert self.config.reduce_nodes
             assert self.action_history[-1]
             self.node_stack.pop()
 
         elif action in ['REDUCE2']:
             # eliminate the other node involved in last arc not on top
-            assert self.reduce_nodes
+            assert self.config.reduce_nodes
             assert self.action_history[-1]
             fetch = arc_regex.match(self.action_history[-1])
             assert fetch
             # index = int(fetch.groups()[1])
             index = int(fetch.groups()[0])
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 # Absolute position and also node_id
                 self.node_stack.remove(index)
             else:
@@ -805,13 +832,13 @@ class AMRStateMachine():
 
         elif action in ['REDUCE3']:
             # eliminate both nodes involved in arc
-            assert self.reduce_nodes
+            assert self.config.reduce_nodes
             assert self.action_history[-1]
             fetch = arc_regex.match(self.action_history[-1])
             assert fetch
             # index = int(fetch.groups()[1])
             index = int(fetch.groups()[0])
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 # Absolute position and also node_id
                 self.node_stack.remove(index)
             else:
@@ -825,7 +852,7 @@ class AMRStateMachine():
             # Left Arc <--
             # label, index = la_regex.match(action).groups()
             index, label = la_regex.match(action).groups()
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 tgt = int(index)
             else:
                 # Relative position
@@ -839,7 +866,7 @@ class AMRStateMachine():
             # Right Arc -->
             # label, index = ra_regex.match(action).groups()
             index, label = ra_regex.match(action).groups()
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 src = int(index)
             else:
                 # Relative position
@@ -1224,23 +1251,22 @@ def oracle(args):
     else:
         corpus_align_probs = None
 
-    # Initialize machine
-    machine = AMRStateMachine(
-        reduce_nodes=args.reduce_nodes,
-        absolute_stack_pos=args.absolute_stack_positions,
-        use_copy=args.use_copy
-    )
+    # Initialize machine from parameters or config
+    if args.in_machine_config:
+        machine = AMRStateMachine.from_config(args.in_machine_config)
+    else:
+        machine = AMRStateMachine(
+            reduce_nodes=args.reduce_nodes,
+            absolute_stack_pos=args.absolute_stack_positions,
+            use_copy=args.use_copy
+        )
+
     # Save machine config
     if args.out_machine_config:
         machine.save(args.out_machine_config)
 
-    # initialize oracle
-    oracle = AMROracle(
-        reduce_nodes=args.reduce_nodes,
-        absolute_stack_pos=args.absolute_stack_positions,
-        use_copy=args.use_copy,
-        force_align_ner=args.force_align_ner
-    )
+    # initialize oracle with same config as machine
+    oracle = AMROracle(machine_config=machine.config)
 
     # will store statistics and check AMR is recovered
     ignore_indices = []
@@ -1373,8 +1399,7 @@ def main(args):
         # Run oracle and determine actions from AMR
         assert args.in_aligned_amr or (args.in_amr and args.in_alignment_probs)
         if args.out_actions:
-            # if we write the actions we must aslo save the config
-            assert args.out_machine_config
+            # if we write the actions we must aslo save the tokens
             assert args.out_tokens
         assert not args.in_tokens
         assert not args.in_actions
