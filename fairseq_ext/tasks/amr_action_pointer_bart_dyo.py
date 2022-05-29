@@ -264,12 +264,12 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             self.machine_config = {'reduce_nodes': None,
                                    'absolute_stack_pos': True}
         self.machine = AMRStateMachine(**self.machine_config)
-        self.oracle = AMROracle(**self.machine_config)
+        self.oracle = AMROracle(machine_config=self.machine.config)
 
         self.canonical_actions = self.machine.base_action_vocabulary
         self.canonical_act_ids = self.machine.canonical_action_to_dict(self.tgt_dict)
 
-    @ classmethod
+    @classmethod
     def setup_task(cls, args, **kwargs):
         """Setup the task (e.g., load dictionaries).
         Args:
