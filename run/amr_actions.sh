@@ -63,23 +63,17 @@ else
 
     python transition_amr_parser/amr_machine.py \
         --in-aligned-amr $AMR_DEV_FILE \
-        --out-machine-config $ORACLE_FOLDER/machine_config.json \
+        --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
-        --out-tokens $ORACLE_FOLDER/dev.en \
-        --absolute-stack-positions  \
-        --use-copy ${USE_COPY} \
-        # --reduce-nodes all
+        --out-tokens $ORACLE_FOLDER/dev.en 
 
     echo -e "\nTest data"
 
     python transition_amr_parser/amr_machine.py \
         --in-aligned-amr $AMR_TEST_FILE \
-        --out-machine-config $ORACLE_FOLDER/machine_config.json \
+        --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
-        --out-tokens $ORACLE_FOLDER/test.en \
-        --absolute-stack-positions  \
-        --use-copy ${USE_COPY} \
-        # --reduce-nodes all
+        --out-tokens $ORACLE_FOLDER/test.en 
 
     touch $ORACLE_FOLDER/.done
 
