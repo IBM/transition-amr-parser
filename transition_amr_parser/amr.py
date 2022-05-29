@@ -26,9 +26,6 @@ from ipdb import set_trace
 from transition_amr_parser.clbar import yellow_font
 
 
-alignment_regex = re.compile('(-?[0-9]+)-(-?[0-9]+)')
-
-
 # known annotation issues in different corpora
 ANNOTATION_ISSUES = {
     'amr2-train': [
@@ -188,10 +185,6 @@ class NodeStackErrors():
         missing_edges = [e for e in edges if e not in self.visited_edges]
         if missing_edges:
             self.offending_stacks['mising_edges'] = missing_edges
-        nodes = [nid for edge in edges for nid in [edge[0], edge[-1]]]
-        visited_nodes = [
-            nid for edge in self.visited_edges for nid in [edge[0], edge[-1]]
-        ]
 
 
 def trasverse(edges, root, downwards=True, reentrant=False):
@@ -510,130 +503,6 @@ def get_isi_str(alignments):
         return f'~{start},{end}'
 
 
-def simple_to_penman(nodes, edges, root, alignments=None, isi=True,
-                     color=False):
-
-    # quick exit
-    if nodes == {}:
-        return '(a / amr-empty)\n'
-
-    # rules to determine if a node is an attribute or variable
-    is_attribute = get_is_atribute(nodes, edges)
-
-    # ensure node name are valid
-    nodes = scape_node_names(nodes, edges, is_attribute)
-
-    # depth first trasversal, return all edges involved in paths from root to
-    # current leaf as well as detected re-entrancies or loop reentrancies this
-    # will not stop at re-entrancies but will remove mini-loops and ignore
-    # loops
-    edge_stacks, offending_stacks = trasverse(edges, root, reentrant=False)
-
-    # needed statistics
-    loop_edges = [x[-1] for x in offending_stacks['cycle']]
-    loop_nids = set([x[-1] for x in loop_edges])
-    reentrant_edges = offending_stacks['reentrant']
-    reentrant_nids = set([x[-1] for x in reentrant_edges])
-
-    penman_str = ''
-    prev_stack = None
-    do_not_close = False
-    visited_nodes = set()
-    while edge_stacks:
-
-        # for edge_stack in edge_stacks:
-        edge_stack = edge_stacks.pop(0)
-
-        # stats
-        edge = edge_stack[-1]
-        pad = '    ' * (len(set(x[0] for x in edge_stack)) - 1)
-        parent, label, nid = edge
-
-        # close parentheses when moving upwards in the tree
-        if prev_stack is not None and len(prev_stack) > len(edge_stack):
-            prev_child = None
-            # if node was re-entrant it has no termination parenthesis
-            if do_not_close:
-                do_not_close = False
-                prev_stack.pop()
-            # move upwards in the tree one depth at at a time by popping from
-            # the edge stack
-            while prev_stack != edge_stack:
-                _, _, child = prev_stack.pop()
-                if child != prev_child:
-                    penman_str += ')'
-                prev_child = child
-
-        if prev_stack is not None:
-            penman_str += '\n'
-
-        # color
-        nid_str = nid
-        if color:
-            if nid in loop_nids:
-                nid_str = "\033[91m%s\033[0m" % nid
-            elif nid in reentrant_nids:
-                nid_str = "\033[93m%s\033[0m" % nid
-            if label == ':rel':
-                label = "\033[93m%s\033[0m" % label
-
-        # node conditions
-        # special case
-        if (
-            # label in [':wiki', ':polarity', ':polite']
-            nodes[nid] in ['"-"', '"+"']
-        ):
-            nname = normalize(nodes[nid])
-        else:
-            nname = nodes[nid]
-
-        # print edge
-        if label:
-            if is_attribute[nid]:
-                # attribute
-                penman_str += f'{pad}{label} {nname}'
-                if alignments and nid in alignments:
-                    if isi:
-                        penman_str += get_isi_str(alignments[nid])
-
-                do_not_close = True
-
-            elif nid in visited_nodes:
-                # re-entrancy
-                penman_str += f'{pad}{label} {nid_str}'
-                do_not_close = True
-
-            else:
-                # normal node
-                penman_str += f'{pad}{label} ({nid_str} / {nname}'
-                if alignments and nid in alignments:
-                    if isi:
-                        penman_str += get_isi_str(alignments[nid])
-
-        else:
-            penman_str += f'({nid_str} / {nname}'
-            if alignments and nid in alignments:
-                if isi:
-                    penman_str += get_isi_str(alignments[nid])
-
-        prev_stack = edge_stack
-
-        # add this node as visited
-        visited_nodes.add(nid)
-
-    # close AMR
-    while bool(prev_stack):
-        if do_not_close:
-            do_not_close = False
-            prev_stack.pop()
-        prev_stack.pop()
-        penman_str += ')'
-        if prev_stack == []:
-            penman_str += '\n'
-
-    return penman_str
-
-
 def find_roots(edges, root):
 
     num_parents = Counter()
@@ -648,8 +517,14 @@ def find_roots(edges, root):
     heads = [n for n in nodes if num_parents[n] == 0]
     # if we have edges and no head, there is a cycle. Cut at the node with
     # highest number of children
-    if root is None and heads == [] and edges != []:
-        heads = [num_children.most_common(1)[0][0]]
+    if heads == []:
+        if root is None:
+            if edges:
+                heads = [num_children.most_common(1)[0][0]]
+            else:
+                heads = []
+        else:
+            heads = [root]
     return heads
 
 
@@ -823,7 +698,10 @@ class AMR():
 
         # if an alignments field is specified, chech if this is in replacement
         # of ISI alignment annotation
-        if 'alignments' in graph.metadata and '~' in graph.metadata['alignments']:
+        if (
+            'alignments' in graph.metadata
+            and '~' in graph.metadata['alignments']
+        ):
             alignments2 = {
                 x.split('~')[0]: [int(y) for y in x.split('~')[1].split(',')]
                 for x in graph.metadata['alignments'].split()
@@ -839,78 +717,12 @@ class AMR():
                    alignments=alignments, sentence=sentence, id=graph_id)
 
     @classmethod
-    def from_metadata(cls, penman_text):
-        """Read AMR from metadata (IBM style)"""
+    def from_metadata(cls, jamr_text):
+        """Read AMR from JAMR metadata"""
 
-        assert isinstance(penman_text, str), "Expected string with EOL"
-        assert '\n' in penman_text, "Expected string with EOL"
-
-        # Read metadata from penman
-        field_key = re.compile(f'::[A-Za-z]+')
-        metadata = defaultdict(list)
-        separator = None
-        for line in penman_text.split('\n'):
-            if line.startswith('#'):
-                line = line[2:].strip()
-                start = 0
-                for point in field_key.finditer(line):
-                    end = point.start()
-                    value = line[start:end]
-                    if value:
-                        metadata[separator].append(value)
-                    separator = line[end:point.end()][2:]
-                    start = point.end()
-                value = line[start:]
-                if value:
-                    metadata[separator].append(value)
-
-        graph_id = metadata['id'] if 'id' in metadata else None
-
-        # extract graph from meta-data
-        nodes = {}
-        alignments = {}
-        edges = []
-        tokens = None
-        sentence = None
-        root = None
-        for key, value in metadata.items():
-            if key == 'snt':
-                sentence = metadata['snt'][0].strip()
-            elif key == 'tok':
-                tokens = metadata['tok'][0].split()
-            elif key == 'edge':
-                for items in value:
-                    items = items.split('\t')
-                    if len(items) == 6:
-                        _, _, label, _, src, tgt = items
-                        edges.append((src, f':{label}', tgt))
-            elif key == 'node':
-                for items in value:
-                    items = items.split('\t')
-                    if len(items) > 3:
-                        _, node_id, node_name, alignment = items
-                        start, end = alignment_regex.match(alignment).groups()
-                        indices = list(range(int(start), int(end)))
-                        alignments[node_id] = indices
-                    else:
-                        _, node_id, node_name = items
-                        alignments[node_id] = None
-                    nodes[node_id] = node_name
-            elif key == 'root':
-                root = value[0].split('\t')[1]
-
-        # filter bad nodes (only in edges)
-        new_edges = []
-        for (s, label, t) in edges:
-            if s in nodes and t in nodes:
-                new_edges.append((s, label, t))
-            else:
-                print(yellow_font('WARNING: edge with extra node (ignored)'))
-                print((s, label, t))
-        edges = new_edges
-
-        # sanity check: there was some JAMR
-        assert bool(nodes), "JAMR notation seems empty"
+        # NOTE: This will ignore penman notation!
+        tokens, nodes, edges, root, alignments, sentence, graph_id = \
+            read_jamr_string(jamr_text)
 
         # remove quotes
         nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
@@ -922,7 +734,7 @@ class AMR():
         """
         Returns graph information in the meta-data
         """
-        return get_jamr_metadata(
+        return get_jamr_string(
             self.tokens, self.nodes, self.edges, self.root, self.alignments,
             penman=penman
         )
@@ -942,6 +754,9 @@ class AMR():
             else:
                 return 'a'
 
+        # we need constant information
+        is_attribute = get_is_atribute(self.nodes, self.edges)
+
         # determine a map from old to new ids. Importnat to sort constants in
         # the same way as from_penman code to get the same mapping
         num_constants = 0
@@ -949,7 +764,7 @@ class AMR():
         for nid, nname in sorted(self.nodes.items(), key=lambda x: x[1]):
             # parents = self.parents(nid)
             # children = self.children(nid)
-            if self.is_constant(nid):
+            if is_attribute[nid]:
                 # detect constants
                 id_map[nid] = str(num_constants)
                 num_constants += 1
@@ -980,79 +795,6 @@ class AMR():
         if self.root is not None:
             self.root = id_map[self.root]
 
-    def is_constant(self, nid):
-        '''
-        heuristic to determine if node is a constant
-
-        TODO: this is imperfect
-        '''
-        if nid not in self.nodes:
-            set_trace(context=30)
-        const_edges = [':mode', ':polite', ':wiki', ':li', ':timezone']
-        # parents whos :value child is allways constant
-        value_const_parents = ['url-entity', 'amr-unintelligible']
-        op_regex = re.compile(':op[0-9]+')
-        numeric_regex = re.compile(r'["0-9,\.:-]')
-        single_letter_regex = re.compile(r'^[A-Z]$')
-        # TODO: This may not capture all cases
-        propbank_regex = re.compile(r'[a-z-]-[0-9]+')
-        const_nodes = ['-', '+']
-
-        if self.children(nid):
-            # if it has children, it is not a constant
-            return False
-        elif (
-            numeric_regex.match(self.nodes[nid])
-            or self.nodes[nid] in const_nodes
-        ):
-            # digit or time
-            return True
-
-        elif any(e in const_edges for _, e in self.parents(nid)):
-            # parent edges of constants only
-            return True
-
-        elif any(
-            e == ':value'
-            and self.nodes[n] in value_const_parents
-            for n, e in self.parents(nid)
-        ):
-            # URL entity or amr-unintelligible values are constants
-            return True
-
-        elif any(
-            e == ':value'
-            and self.nodes[n] == 'string-entity'
-            # FIXME: Unreliable detection of propbank
-            and not propbank_regex.match(self.nodes[nid])
-            for n, e in self.parents(nid)
-        ):
-            # FIXME: string-entity seems to have no clear rule to decide
-            # between constant and variable
-            return True
-
-        elif any(
-            op_regex.match(e) and self.nodes[n] == 'name'
-            for n, e in self.parents(nid)
-        ):
-            # Named entity
-            # TODO: This only checks for name parent, not actual NER
-            return True
-        elif (
-            any(e == ':era' for _, e in self.parents(nid))
-            and self.nodes[nid] in ['AD', 'BC']
-        ):
-            # specific alphanumeric era values
-            # TODO: This is not a robust strategy
-            return True
-
-        elif single_letter_regex.match(self.nodes[nid]):
-            # single letter in caps, it also a constant
-            return True
-
-        else:
-            return False
-
     def get_metadata(self, isi=True):
 
         # metadata
@@ -1082,7 +824,10 @@ class AMR():
     def to_penman(self, isi=True, jamr=False):
 
         if jamr:
-            penman_str = self.get_jamr_metadata()
+            penman_str = get_jamr_string(
+                self.tokens, self.nodes, self.edges, self.root,
+                self.alignments, penman=penman
+            )
         else:
             penman_str = self.get_metadata(isi)
 
@@ -1096,110 +841,136 @@ class AMR():
         )
 
 
-def get_jamr_metadata(tokens, nodes, edges, root, alignments, penman=False):
-    """
-    Returns graph information in the meta-data
-
-    tokens      list(str)
-    nodes       dict(str/int: str)
-    edges       list(tuple)
-    root        str/int
-    alignments  dict(str/int: str)
-    """
-    output = ''
-    output += '# ::tok ' + (' '.join(tokens)) + '\n'
-    for n in nodes:
-        alignment = ''
-        if n in alignments and alignments[n] is not None:
-            if type(alignments[n]) == int:
-                start = alignments[n]
-                end = alignments[n] + 1
-                alignment = f'\t{start}-{end}'
-            else:
-                alignments_in_order = sorted(list(alignments[n]))
-                start = alignments_in_order[0]
-                end = alignments_in_order[-1] + 1
-                alignment = f'\t{start}-{end}'
-
-        nodes_str = nodes[n] if n in nodes else "None"
-        output += f'# ::node\t{n}\t{nodes_str}' + alignment + '\n'
-    # root
-    roots = nodes[root] if root in nodes else "None"
-    output += f'# ::root\t{root}\t{roots}\n'
-    # edges
-    for s, r, t in edges:
-        r = r.replace(':', '')
-        edges_str = nodes[s] if s in nodes else "None"
-        nodes_str = nodes[t] if t in nodes else "None"
-        output += f'# ::edge\t{edges_str}\t{r}\t' \
-                  f'{nodes_str}\t{s}\t{t}\t\n'
-
-    # format in a way that can be added to the penman class metadata
-    if penman:
-        new_output = {}
-        for item in output.split('\n'):
-            pieces = item.replace('# ::', '').split(' ')
-            if pieces == ['']:
-                continue
-            key = pieces[0]
-            rest = ' '.join(pieces[1:])
-            new_output[key] = rest
-        output = new_output
-
-    return output
+#
+# penman module code to interface with https://github.com/goodmami/penman
+#
 
 
-def add_alignments_to_penman(g, alignments, string=False, strict=True):
+def simple_to_penman(nodes, edges, root, alignments=None, isi=True,
+                     color=False):
+    '''
+    Return penman string given basic graph information
+    '''
 
-    # FIXME: strict = True
-    for (nid, label, trg) in g.attributes():
+    # quick exit
+    if nodes == {}:
+        return '(a / amr-empty)\n'
+
+    # rules to determine if a node is an attribute or variable
+    is_attribute = get_is_atribute(nodes, edges)
+
+    # ensure node name are valid
+    nodes = scape_node_names(nodes, edges, is_attribute)
+
+    # depth first trasversal, return all edges involved in paths from root to
+    # current leaf as well as detected re-entrancies or loop reentrancies this
+    # will not stop at re-entrancies but will remove mini-loops and ignore
+    # loops
+    edge_stacks, offending_stacks = trasverse(edges, root, reentrant=False)
+
+    # needed statistics
+    loop_edges = [x[-1] for x in offending_stacks['cycle']]
+    loop_nids = set([x[-1] for x in loop_edges])
+    reentrant_edges = offending_stacks['reentrant']
+    reentrant_nids = set([x[-1] for x in reentrant_edges])
+
+    penman_str = ''
+    prev_stack = None
+    do_not_close = False
+    visited_nodes = set()
+    while edge_stacks:
+
+        # for edge_stack in edge_stacks:
+        edge_stack = edge_stacks.pop(0)
+
+        # stats
+        edge = edge_stack[-1]
+        pad = '    ' * (len(set(x[0] for x in edge_stack)) - 1)
+        parent, label, nid = edge
+
+        # close parentheses when moving upwards in the tree
+        if prev_stack is not None and len(prev_stack) > len(edge_stack):
+            prev_child = None
+            # if node was re-entrant it has no termination parenthesis
+            if do_not_close:
+                do_not_close = False
+                prev_stack.pop()
+            # move upwards in the tree one depth at at a time by popping from
+            # the edge stack
+            while prev_stack != edge_stack:
+                _, _, child = prev_stack.pop()
+                if child != prev_child:
+                    penman_str += ')'
+                prev_child = child
+
+        if prev_stack is not None:
+            penman_str += '\n'
+
+        # color
+        nid_str = nid
+        if color:
+            if nid in loop_nids:
+                nid_str = "\033[91m%s\033[0m" % nid
+            elif nid in reentrant_nids:
+                nid_str = "\033[93m%s\033[0m" % nid
+            if label == ':rel':
+                label = "\033[93m%s\033[0m" % label
+
+        # node conditions
+        # special case
         if (
-            (nid, label, trg) in g.epidata
-            and (nid in alignments or not strict)
+            # label in [':wiki', ':polarity', ':polite']
+            nodes[nid] in ['"-"', '"+"']
         ):
-            g.epidata[(nid, label, trg)].append(
-                surface.Alignment(tuple(alignments[nid]), prefix='')
-            )
-
-    for (nid, label, nname) in g.instances():
-        if (
-            (nid, label, nname) in g.epidata
-            and (nid in alignments or not strict)
-        ):
-            g.epidata[(nid, label, nname)].append(
-                surface.Alignment(tuple(alignments[nid]), prefix='')
-            )
-
-    if string:
-        return penman.encode(g, indent=4) + '\n'
-    else:
-        return g
-
-
-def escape_nodes(amr):
-
-    # these symbols must be scaped with quotes, also NERs
-    must_scape_symbols = [':', '/', '(', ')']
-    ner_nids = []
-    for (source, label, target) in amr.edges:
-        if source == 'name' and label == ':name':
-            for (edge, ner_nid) in amr.children(target):
-                if re.match(':op[0-9]+', edge):
-                    ner_nids.append(ner_nid)
-    new_nodes = {}
-    for nid, nname in amr.nodes.items():
-        if nname[0] == '"' and nname[-1] == '"':
-            new_nodes[nid] = nname
-        elif any(c in nname for c in must_scape_symbols):
-            new_nodes[nid] = f'"{nname}"'
-        elif nid in ner_nids:
-            new_nodes[nid] = f'"{nname}"'
+            nname = normalize(nodes[nid])
         else:
-            new_nodes[nid] = nname
+            nname = nodes[nid]
 
-    amr.nodes = new_nodes
+        # print edge
+        if label:
+            if is_attribute[nid]:
+                # attribute
+                penman_str += f'{pad}{label} {nname}'
+                if alignments and nid in alignments:
+                    if isi:
+                        penman_str += get_isi_str(alignments[nid])
 
-    return amr
+                do_not_close = True
+
+            elif nid in visited_nodes:
+                # re-entrancy
+                penman_str += f'{pad}{label} {nid_str}'
+                do_not_close = True
+
+            else:
+                # normal node
+                penman_str += f'{pad}{label} ({nid_str} / {nname}'
+                if alignments and nid in alignments:
+                    if isi:
+                        penman_str += get_isi_str(alignments[nid])
+
+        else:
+            penman_str += f'({nid_str} / {nname}'
+            if alignments and nid in alignments:
+                if isi:
+                    penman_str += get_isi_str(alignments[nid])
+
+        prev_stack = edge_stack
+
+        # add this node as visited
+        visited_nodes.add(nid)
+
+    # close AMR
+    while bool(prev_stack):
+        if do_not_close:
+            do_not_close = False
+            prev_stack.pop()
+        prev_stack.pop()
+        penman_str += ')'
+        if prev_stack == []:
+            penman_str += '\n'
+
+    return penman_str
 
 
 def get_simple_graph(graph):
@@ -1329,148 +1100,141 @@ def get_simple_graph(graph):
     return name_to_node, edges, alignments
 
 
-def get_node_id(nids, name, node):
-    '''Get a valid node id'''
-    nid = name[0]
-    idx = 2
-    while nid in nids:
-        nid = f'{name[0]}{idx}'
-        idx += 1
-
-    nids[nid] = node
-
-    return nid
-
-
-def legacy_graph_printer(metadata, nodes, root, edges):
+def add_alignments_to_penman(g, alignments, string=False, strict=True):
     '''
-    Legacy printer from stack-LSTM, stack-Transformer and action-pointer
+    give penman.graph and a dictionary of node_id: alignment_list, add the to
+    the penman.graph, return a string if solicited
     '''
 
-    # These symbols can not be used directly for nodes
-    must_scape_symbols = [':', '/', '(', ')']
-
-    # start from meta-data
-    output = metadata
-
-    # identify nodes that should be quoted
-    # find leaf nodes
-    non_leaf_ids = set()
-    for (src, label, trg) in edges:
-        non_leaf_ids.add(src)
-    leaf_ids = set(nodes.keys()) - non_leaf_ids
-    # Find leaf nodes at end of :op or numeric ones
-    quoted_nodes = []
-    for (src, label, trg) in edges:
-        if trg not in leaf_ids:
-            continue
+    # FIXME: strict = True
+    for (nid, label, trg) in g.attributes():
         if (
-            nodes[src] == 'name'
-            and re.match(r':op[0-9]+', label.split('-')[0])
+            (nid, label, trg) in g.epidata
+            and (nid in alignments or not strict)
         ):
-            # NE Elements
-            quoted_nodes.append(trg)
+            g.epidata[(nid, label, trg)].append(
+                surface.Alignment(tuple(alignments[nid]), prefix='')
+            )
 
-    # scape all node names with must-scape symbols
-    for nid, nname in nodes.items():
-        if any(s in nname for s in must_scape_symbols):
-            # Special symbols
-            quoted_nodes.append(nid)
+    for (nid, label, nname) in g.instances():
+        if (
+            (nid, label, nname) in g.epidata
+            and (nid in alignments or not strict)
+        ):
+            g.epidata[(nid, label, nname)].append(
+                surface.Alignment(tuple(alignments[nid]), prefix='')
+            )
 
-    # Add quotes to those
-    for nid in quoted_nodes:
-        if '"' not in nodes[nid]:
-            nodes[nid] = f'"{nodes[nid]}"'
-
-    # Determine short name for variables
-    new_ids = {}
-    for n in nodes:
-        new_id = nodes[n][0] if nodes[n] else 'x'
-        if new_id.isalpha() and new_id.islower():
-            if new_id in new_ids.values():
-                j = 2
-                while f'{new_id}{j}' in new_ids.values():
-                    j += 1
-                new_id = f'{new_id}{j}'
-        else:
-            j = 0
-            while f'x{j}' in new_ids.values():
-                j += 1
-            new_id = f'x{j}'
-        new_ids[n] = new_id
-    depth = 1
-    out_nodes = {root}
-    completed = set()
-
-    # Iteratively replace wildcards in this string to create penman notation
-    amr_string = f'[[{root}]]'
-    while '[[' in amr_string:
-        tab = '      '*depth
-        for n in out_nodes.copy():
-            id = new_ids[n] if n in new_ids else 'r91'
-            concept = nodes[n] if n in new_ids and nodes[n] else 'None'
-            out_edges = sorted([e for e in edges if e[0] == n],
-                               key=lambda x: x[1])
-            targets = set(t for s, r, t in out_edges)
-            out_edges = [f'{r} [[{t}]]' for s, r, t in out_edges]
-            children = f'\n{tab}'.join(out_edges)
-            if children:
-                children = f'\n{tab}'+children
-            if n not in completed:
-                if (
-                    concept[0].isalpha()
-                    and concept not in [
-                        'imperative', 'expressive', 'interrogative'
-                    ]
-                    # TODO: Exception :era AD
-                    and concept != 'AD'
-                ) or targets or (
-                    # NOTE corner case: no child nodes, no parents either ->
-                    # just a single node (otherwise the graph will not be
-                    # connected)
-                    concept in [
-                        'imperative', 'expressive', 'interrogative', 'AD'
-                    ]
-                    and len(nodes) == 1
-                ):
-                    amr_string = amr_string.replace(
-                        f'[[{n}]]', f'({id} / {concept}{children})', 1)
-                else:
-                    amr_string = amr_string.replace(f'[[{n}]]', f'{concept}')
-                    # TODO This does affect Smatch.
-                    # amr_string = amr_string.replace(
-                    #     f'[[{n}]]', f'({id} / {concept}{children})', 1)
-                completed.add(n)
-            amr_string = amr_string.replace(f'[[{n}]]', f'{id}')
-            out_nodes.remove(n)
-            out_nodes.update(targets)
-        depth += 1
-
-    # sanity checks
-    if len(completed) < len(out_nodes):
-        raise Exception("Tried to print an uncompleted AMR")
-    if (
-        amr_string.startswith('"')
-        or amr_string[0].isdigit()
-        or amr_string[0] == '-'
-    ):
-        amr_string = '(x / '+amr_string+')'
-    if not amr_string.startswith('('):
-        amr_string = '('+amr_string+')'
-    if len(nodes) == 0:
-        amr_string = '(a / amr-empty)'
-    elif len(nodes) == 1 and '/' not in amr_string:
-        # FIXME: bad method to detect a constant as single node
-        amr_string = '(a / amr-empty)'
-    output += f'# ::short\t{str(new_ids)}\t\n'
-    output += amr_string + '\n\n'
-
-    return output
+    if string:
+        return penman.encode(g, indent=4) + '\n'
+    else:
+        return g
 
 
-def protected_tokenizer(sentence_string):
-    separator_re = re.compile(r'[\.,;:?!"\' \(\)\[\]\{\}]')
-    return simple_tokenizer(sentence_string, separator_re)
+#
+# JAMR code
+#
+
+
+alignment_regex = re.compile('(-?[0-9]+)-(-?[0-9]+)')
+
+
+def protected_tokenizer(sentence_string, simple=False):
+
+    if simple:
+        # simplest possible tokenizer
+        # split by these symbols
+        sep_re = re.compile(r'[\.,;:?!"\' \(\)\[\]\{\}]')
+        return simple_tokenizer(sentence_string, sep_re)
+    else:
+        # imitates JAMR (97% sentece acc on AMR2.0)
+        # split by these symbols
+        # TODO: Do we really need to split by - ?
+        sep_re = re.compile(r'[/~\*%\.,;:?!"\' \(\)\[\]\{\}-]')
+        return jamr_like_tokenizer(sentence_string, sep_re)
+
+
+def jamr_like_tokenizer(sentence_string, sep_re):
+
+    # quote normalization
+    sentence_string = sentence_string.replace('``', '"')
+    sentence_string = sentence_string.replace("''", '"')
+    sentence_string = sentence_string.replace("“", '"')
+
+    # currency normalization
+    # sentence_string = sentence_string.replace("£", 'GBP')
+
+    # Do not split these strings
+    protected_re = re.compile("|".join([
+        # URLs (this conflicts with many other cases, we should normalize URLs
+        # a priri both on text and AMR)
+        # r'((http|https)\:\/\/)?[a-zA-Z0-9\.\/\?\:@\-_=#]+\.([a-zA-Z]){2,6}
+        # ([a-zA-Z0-9\.\&\/\?\:@\-_=#])*',
+        #
+        r'[0-9][0-9,\.:/-]+[0-9]',         # quantities, time, dates
+        r'^[0-9][\.](?!\w)',               # enumerate
+        r'\b[A-Za-z][\.](?!\w)',           # itemize
+        r'\b([A-Z]\.)+[A-Z]?',             # acronym with periods (e.g. U.S.)
+        r'!+|\?+|-+|\.+',                  # emphatic
+        r'etc\.|i\.e\.|e\.g\.|v\.s\.|p\.s\.|ex\.',     # latin abbreviations
+        r'\b[Nn]o\.|\bUS\$|\b[Mm]r\.',     # ...
+        r'\b[Mm]s\.|\bSt\.|\bsr\.|a\.m\.',  # other abbreviations
+        r':\)|:\(',                        # basic emoticons
+        # contractions
+        r'[A-Za-z]+\'[A-Za-z]{3,}',        # quotes inside words
+        r'n\'t(?!\w)',                     # negative contraction (needed?)
+        r'\'m(?!\w)',                      # other contractions
+        r'\'ve(?!\w)',                     # other contractions
+        r'\'ll(?!\w)',                     # other contractions
+        r'\'d(?!\w)',                      # other contractions
+        # r'\'t(?!\w)'                     # other contractions
+        r'\'re(?!\w)',                     # other contractions
+        r'\'s(?!\w)',                      # saxon genitive
+        #
+        r'<<|>>',                          # weird symbols
+        #
+        r'Al-[a-zA-z]+|al-[a-zA-z]+',      # Arabic article
+        # months
+        r'Jan\.|Feb\.|Mar\.|Apr\.|Jun\.|Jul\.|Aug\.|Sep\.|Oct\.|Nov\.|Dec\.'
+    ]))
+
+    # iterate over protected sequences, tokenize unprotected and append
+    # protected strings
+    tokens = []
+    positions = []
+    start = 0
+    for point in protected_re.finditer(sentence_string):
+
+        # extract preceeding and protected strings
+        end = point.start()
+        preceeding_str = sentence_string[start:end]
+        protected_str = sentence_string[end:point.end()]
+
+        if preceeding_str:
+            # tokenize preceeding string keep protected string as is
+            for token, (start2, end2) in zip(
+                *simple_tokenizer(preceeding_str, sep_re)
+            ):
+                tokens.append(token)
+                positions.append((start + start2, start + end2))
+        tokens.append(protected_str)
+        positions.append((end, point.end()))
+
+        # move cursor
+        start = point.end()
+
+    # Termination
+    end = len(sentence_string)
+    if start < end:
+        ending_str = sentence_string[start:end]
+        if ending_str.strip():
+            for token, (start2, end2) in zip(
+                *simple_tokenizer(ending_str, sep_re)
+            ):
+                tokens.append(token)
+                positions.append((start + start2, start + end2))
+
+    return tokens, positions
 
 
 def simple_tokenizer(sentence_string, separator_re):
@@ -1508,5 +1272,129 @@ def simple_tokenizer(sentence_string, separator_re):
     return tokens, positions
 
 
-class InvalidAMRError(Exception):
-    pass
+def read_jamr_string(jamr_text):
+
+    assert isinstance(jamr_text, str), "Expected string with EOL"
+    assert '\n' in jamr_text, "Expected string with EOL"
+
+    # Read metadata from penman
+    field_key = re.compile(f'::[A-Za-z]+')
+    metadata = defaultdict(list)
+    separator = None
+    for line in jamr_text.split('\n'):
+        if line.startswith('#'):
+            line = line[2:].strip()
+            start = 0
+            for point in field_key.finditer(line):
+                end = point.start()
+                value = line[start:end]
+                if value:
+                    metadata[separator].append(value)
+                separator = line[end:point.end()][2:]
+                start = point.end()
+            value = line[start:]
+            if value:
+                metadata[separator].append(value)
+
+    graph_id = metadata['id'] if 'id' in metadata else None
+
+    # extract graph from meta-data
+    nodes = {}
+    alignments = {}
+    edges = []
+    tokens = None
+    sentence = None
+    root = None
+    for key, value in metadata.items():
+        if key == 'snt':
+            sentence = metadata['snt'][0].strip()
+        elif key == 'tok':
+            tokens = metadata['tok'][0].split()
+        elif key == 'edge':
+            for items in value:
+                items = items.split('\t')
+                if len(items) == 6:
+                    _, _, label, _, src, tgt = items
+                    edges.append((src, f':{label}', tgt))
+        elif key == 'node':
+            for items in value:
+                items = items.split('\t')
+                if len(items) > 3:
+                    _, node_id, node_name, alignment = items
+                    start, end = alignment_regex.match(alignment).groups()
+                    indices = list(range(int(start), int(end)))
+                    alignments[node_id] = indices
+                else:
+                    _, node_id, node_name = items
+                    alignments[node_id] = None
+                nodes[node_id] = node_name
+        elif key == 'root':
+            root = value[0].split('\t')[1]
+
+        # filter bad nodes (only in edges)
+        new_edges = []
+        for (s, label, t) in edges:
+            if s in nodes and t in nodes:
+                new_edges.append((s, label, t))
+            else:
+                print(yellow_font('WARNING: edge with extra node (ignored)'))
+                print((s, label, t))
+        edges = new_edges
+
+        # sanity check: there was some JAMR
+        assert bool(nodes), "JAMR notation seems empty"
+
+    return tokens, nodes, edges, root, alignments, sentence, graph_id
+
+
+def get_jamr_string(tokens, nodes, edges, root, alignments, penman=False):
+    """
+    Returns graph information in the meta-data
+
+    tokens      list(str)
+    nodes       dict(str/int: str)
+    edges       list(tuple)
+    root        str/int
+    alignments  dict(str/int: str)
+    """
+    output = ''
+    output += '# ::tok ' + (' '.join(tokens)) + '\n'
+    for n in nodes:
+        alignment = ''
+        if n in alignments and alignments[n] is not None:
+            if type(alignments[n]) == int:
+                start = alignments[n]
+                end = alignments[n] + 1
+                alignment = f'\t{start}-{end}'
+            else:
+                alignments_in_order = sorted(list(alignments[n]))
+                start = alignments_in_order[0]
+                end = alignments_in_order[-1] + 1
+                alignment = f'\t{start}-{end}'
+
+        nodes_str = nodes[n] if n in nodes else "None"
+        output += f'# ::node\t{n}\t{nodes_str}' + alignment + '\n'
+    # root
+    roots = nodes[root] if root in nodes else "None"
+    output += f'# ::root\t{root}\t{roots}\n'
+    # edges
+    for s, r, t in edges:
+        r = r.replace(':', '')
+        edges_str = nodes[s] if s in nodes else "None"
+        nodes_str = nodes[t] if t in nodes else "None"
+        output += f'# ::edge\t{edges_str}\t{r}\t' \
+                  f'{nodes_str}\t{s}\t{t}\t\n'
+
+    # format in a way that can be added to the penman class metadata
+    if penman:
+        new_output = {}
+        for item in output.split('\n'):
+            pieces = item.replace('# ::', '').split(' ')
+            if pieces == ['']:
+                continue
+            key = pieces[0]
+            rest = ' '.join(pieces[1:])
+            new_output[key] = rest
+        output = new_output
+
+    return output

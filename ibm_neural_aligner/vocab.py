@@ -1,11 +1,11 @@
 import collections
 import json
 from ipdb import set_trace
-
 from ibm_neural_aligner.vocab_definitions import (
     PADDING_IDX, PADDING_TOK, BOS_IDX, BOS_TOK, EOS_IDX, EOS_TOK, special_tokens
 )
-from transition_amr_parser.io import read_amr, protected_tokenizer
+from transition_amr_parser.amr import protected_tokenizer
+from transition_amr_parser.io import read_amr
 
 
 def get_tokens(path, jamr=False, tokenize=False):

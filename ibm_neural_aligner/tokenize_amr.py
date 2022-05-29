@@ -1,5 +1,5 @@
 import argparse
-from transition_amr_parser.io import protected_tokenizer
+from transition_amr_parser.amr import protected_tokenizer
 
 
 def parse_arguments():

@@ -1,4 +1,5 @@
-from transition_amr_parser.io import read_blocks, AMR, protected_tokenizer
+from transition_amr_parser.io import read_blocks
+from transition_amr_parser.amr import AMR, protected_tokenizer
 import re
 import penman
 import json

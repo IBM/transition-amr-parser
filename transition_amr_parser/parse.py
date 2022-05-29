@@ -26,8 +26,7 @@ from fairseq_ext.utils import (
     clean_pointer_arcs
 )
 from fairseq_ext.utils_import import import_user_module
-from transition_amr_parser.io import protected_tokenizer
-from transition_amr_parser.amr import normalize
+from transition_amr_parser.amr import normalize, protected_tokenizer
 
 
 def argument_parsing():
