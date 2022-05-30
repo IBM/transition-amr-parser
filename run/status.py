@@ -755,10 +755,25 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
         if result:
             results.append(result)
 
+    # try to get the original config from the softlink in the model folder
+    # (v0.5.1>=)
+    for result in results:
+        model_folder = result['model_folder']
+        seed = result['seed']
+        seed_folder = f'{model_folder}/-seed{seed}'
+        config_path = f'{seed_folder}/config.sh'
+        if (
+            os.readlink(config_path)
+            and os.path.isfile(f'{seed_folder}/{os.readlink(config_path)}')
+        ):
+            result['config_path'] = f'config/{os.readlink(config_path)}'
+
     if configs or (show_config and all('config_path' in r for r in results)):
         fields = ['config_path', 'best']
+        col0_right = True
     else:
         fields = ['data', 'oracle', 'features', 'model', 'best']
+        col0_right = False
     fields.extend(numeric_fields)
 
     # TODO: average over seeds
@@ -786,7 +801,7 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
             for x in numeric_fields
         }
         print_table(fields, results, formatter=formatter, do_clear=do_clear,
-                    col0_right=bool(configs))
+                    col0_right=col0_right)
 
         if configs and len(configs) == 1 and longr:
             # single model result display
