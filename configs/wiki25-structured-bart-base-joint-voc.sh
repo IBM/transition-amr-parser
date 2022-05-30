@@ -9,6 +9,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# this will be name of the model folder
+config_name=wiki25-structured-bart-base-joint-voc
+
 ##############################################################################
 # DATA
 ##############################################################################
@@ -31,7 +34,7 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 ##############################################################################
 
 # cofill: combination of JAMR and EM plus filling of missing alignments
-align_tag=cofill
+align_tag=cofill_isi
 
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
@@ -75,7 +78,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.base
+embedding_tag=${align_tag}_bart.large
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -302,7 +305,7 @@ model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_ta
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
+MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 
 ###############################################################
 # ENTITY LINKING
