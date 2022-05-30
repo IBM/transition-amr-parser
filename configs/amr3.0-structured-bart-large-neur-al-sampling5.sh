@@ -9,6 +9,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# this will be name of the model folder
+config_name=amr3.0-structured-bart-large-sampling5
+
 ##############################################################################
 # DATA
 ##############################################################################
@@ -157,9 +160,10 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-SEEDS="42 43 44"
+# SEEDS="42 43 44"
+SEEDS="42"
 MAX_EPOCH=120
-EVAL_INIT_EPOCH=71
+EVAL_INIT_EPOCH=1
 time_max_between_epochs=30
 
 # TODO: New
@@ -311,8 +315,6 @@ else
     dec_emb_init_tag=""
 fi
 
-
-
 # combine different model configuration tags to the name
 fp16_tag=""
 if [[ $use_fp16 == 1 ]]; then
@@ -322,7 +324,7 @@ model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
+MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 
 ###############################################################
 # ENTITY LINKING
@@ -343,5 +345,6 @@ LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
+# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt

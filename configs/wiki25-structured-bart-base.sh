@@ -34,7 +34,7 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 ##############################################################################
 
 # cofill: combination of JAMR and EM plus filling of missing alignments
-align_tag=cofill
+align_tag=cofill_isi
 
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
@@ -155,6 +155,7 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
+# SEEDS="42 43 44"
 SEEDS="42"
 MAX_EPOCH=10
 EVAL_INIT_EPOCH=5

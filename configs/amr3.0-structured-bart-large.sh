@@ -91,7 +91,7 @@ EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
 # Pretrained embeddings 
 PRETRAINED_EMBED=bart.large
-PRETRAINED_EMBED_DIM=1024   # used ???
+PRETRAINED_EMBED_DIM=1024
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
 # pre-stored pretrained en embeddings (not changing with oracle)
 

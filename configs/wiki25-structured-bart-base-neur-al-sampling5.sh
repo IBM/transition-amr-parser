@@ -9,6 +9,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# this will be name of the model folder
+config_name=wiki25-structured-bart-base-neur-al-sampling5
+
 ##############################################################################
 # DATA
 ##############################################################################
@@ -18,12 +21,12 @@ set -o nounset
 # This step will be ignored if the aligned train file below exists
 
 # Example AMR2.0 AMR1.0 dep-parsing CFG
-TASK_TAG=AMR3.0
+TASK_TAG=wiki25
 
-# TODO: Omit these global vars and use 
+# TODO: Omit these global vars and use
 # CORPUS_FOLDER=DATA/$TASK_TAG/corpora/
-AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt 
-AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt 
+AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt
+AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt
 AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
 ##############################################################################
@@ -44,23 +47,29 @@ ALIGN_VOCAB_AMR=$ALIGNED_FOLDER/vocab.amr.txt
 
 # TODO: Omit these and use ALIGNED_FOLDER
 AMR_TRAIN_FILE=$ALIGNED_FOLDER/train.txt
-AMR_DEV_FILE=$ALIGNED_FOLDER/dev.txt 
+AMR_DEV_FILE=$ALIGNED_FOLDER/dev.txt
 AMR_TEST_FILE=$ALIGNED_FOLDER/test.txt
 
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
-WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
+WIKI_DEV=""
+WIKI_TEST=""
 
 ##############################################################################
 # ORACLE
 ##############################################################################
 
-# oracle action sequences
-ORACLE_TAG=o10_act-states-sample_a
+# Number of alignment samples used
+NUM_ALIGNMENT_SAMPLES=5
+ALIGNMENT_FLAGS="--sample-alignments $NUM_ALIGNMENT_SAMPLES --rescale-align"
+# Use importance weighted
+IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
-# All data in this step under 
+# oracle action sequences
+ORACLE_TAG=o10_act-states-${NUM_ALIGNMENT_SAMPLES}sample_a
+
+# All data in this step under
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
 
 # Labeled SHIFT multi-task
@@ -79,15 +88,15 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.large
+embedding_tag=${align_tag}_bart.large
 
-# All data in this step under 
+# All data in this step under
 # FIXME: alig/oracle may alter text, we have to watch out for this
 EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
-# Pretrained embeddings 
-PRETRAINED_EMBED=bart.large
-PRETRAINED_EMBED_DIM=1024   # used ???
+# Pretrained embeddings
+PRETRAINED_EMBED=bart.base
+PRETRAINED_EMBED_DIM=768
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
 # pre-stored pretrained en embeddings (not changing with oracle)
 
@@ -120,7 +129,7 @@ apply_tgt_actnode_masks=0
 tgt_vocab_masks=0
 share_decoder_embed=0
 
-arch=transformer_tgt_pointer_bart_large
+arch=transformer_tgt_pointer_bart_base
 
 initialize_with_bart=1
 initialize_with_bart_enc=1
@@ -131,13 +140,13 @@ bart_emb_decoder=0
 bart_emb_decoder_input=0
 bart_emb_init_composition=1
 
-pointer_dist_decoder_selfattn_layers="11"
+pointer_dist_decoder_selfattn_layers="5"
 pointer_dist_decoder_selfattn_heads=1
 pointer_dist_decoder_selfattn_avg=0
-pointer_dist_decoder_selfattn_infer=11
+pointer_dist_decoder_selfattn_infer=5
 
 apply_tgt_src_align=1
-tgt_src_align_layers="0 1 2 3 4 5 6 7 8 9 10 11"
+tgt_src_align_layers="0 1 2 3 4 5"
 tgt_src_align_heads=2
 tgt_src_align_focus="p0c1n0 p0c0n*"
 # previous version: 'p0n1', 'p1n1' (alignment position, previous 1 position, next 1 position)
@@ -151,20 +160,23 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-SEEDS="42 43 44"
-MAX_EPOCH=120
-EVAL_INIT_EPOCH=71
-time_max_between_epochs=30
+SEEDS="42"
+MAX_EPOCH=10
+EVAL_INIT_EPOCH=5
+time_max_between_epochs=20
 
 # TODO: New
 use_fp16=1
 lr=0.0001
-max_tokens=2048
-update_freq=4
+# NOTE: These two modified to compensate for NUM_ALIGNMENT_SAMPLES
+max_tokens=$((2048 / $NUM_ALIGNMENT_SAMPLES))
+update_freq=$((4 * $NUM_ALIGNMENT_SAMPLES))
+# max_tokens=2048
+# update_freq=4
 warmup=4000
 dropout=0.2
 
-# NEW from train 
+# NEW from train
 src_roberta_emb=0
 tgt_factored_emb_out=0
 bart_emb_composition_pred=0
@@ -186,23 +198,23 @@ FAIRSEQ_TRAIN_FINETUNE_ARGS=""
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
 
-if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5 6 7 8 9 10 11" ]]; then
+if [[ $pointer_dist_decoder_selfattn_layers == "0 1 2 3 4 5" ]]; then
     lay="all"
 else
     lay=""
     for n in $pointer_dist_decoder_selfattn_layers; do
-        [[ $n < 0 || $n > 11 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
+        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'pointer_dist_decoder_selfattn_layers' input: $pointer_dist_decoder_selfattn_layers" && exit 1
         lay=$lay$(( $n + 1 ))
     done
 fi
 
 
-if [[ $tgt_src_align_layers == "0 1 2 3 4 5 6 7 8 9 10 11" ]]; then
+if [[ $tgt_src_align_layers == "0 1 2 3 4 5" ]]; then
     cam_lay="all"
 else
     cam_lay=""
     for n in $tgt_src_align_layers; do
-        [[ $n < 0 || $n > 11 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
+        [[ $n < 0 || $n > 5 ]] && echo "Invalid 'tgt_src_align_layers' input: $tgt_src_align_layers" && exit 1
         cam_lay=$cam_lay$(( $n + 1 ))
     done
 fi
@@ -302,8 +314,6 @@ else
     dec_emb_init_tag=""
 fi
 
-
-
 # combine different model configuration tags to the name
 fp16_tag=""
 if [[ $use_fp16 == 1 ]]; then
@@ -313,26 +323,22 @@ model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
+MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 
 ###############################################################
 # ENTITY LINKING
 ###############################################################
 
 # Smatch evaluation with wiki
-
-# Old scorer
-LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
-
-# BLINK
-# LINKER_CACHE_PATH=DATA/EL/BLINK/linkcache
+LINKER_CACHE_PATH=""
 
 ###############################################################
-# TESTS 
+# TESTS
 ###############################################################
 
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
+# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt

@@ -432,9 +432,9 @@ class AMRStateMachine():
     # inmutable configuration
     Config = namedtuple(
         'AMRStateMachineConfig', [
-            'reduce_nodes', 
-            'absolute_stack_pos', 
-            'use_copy'                
+            'reduce_nodes',
+            'absolute_stack_pos',
+            'use_copy'
         ]
     )
 
@@ -723,9 +723,9 @@ class AMRStateMachine():
 
         valid_base_actions = []
         if self.config.use_copy:
-            gen_node_actions = ['COPY', 'NODE']  
+            gen_node_actions = ['COPY', 'NODE']
         else:
-            gen_node_actions = ['NODE']  
+            gen_node_actions = ['NODE']
 
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
