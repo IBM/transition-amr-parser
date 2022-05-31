@@ -32,24 +32,24 @@ if [[ $use_fp16 == 1 ]]; then
 fi
 
 # create folder if missing 
-if [ ! -d "${MODEL_FOLDER}-seed${seed}/" ];then
-    mkdir -p "${MODEL_FOLDER}-seed${seed}/"
+if [ ! -d "${MODEL_FOLDER}seed${seed}/" ];then
+    mkdir -p "${MODEL_FOLDER}seed${seed}/"
 fi    
 
-if [ -f ${MODEL_FOLDER}-seed${seed}/epoch_tests/.done ];then
+if [ -f ${MODEL_FOLDER}seed${seed}/epoch_tests/.done ];then
 
     # Note that after run/status.py --final-remove this will flag but not the if below
-    echo "Model ${MODEL_FOLDER}-seed${seed}/epoch_tests/.done exists --- do nothing."
+    echo "Model ${MODEL_FOLDER}seed${seed}/epoch_tests/.done exists --- do nothing."
 
-elif [ -f ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt ]; then
+elif [ -f ${MODEL_FOLDER}seed${seed}/checkpoint${MAX_EPOCH}.pt ]; then
 
-    echo "Model ${MODEL_FOLDER}-seed${seed}/checkpoint${MAX_EPOCH}.pt already exists --- do nothing."
+    echo "Model ${MODEL_FOLDER}seed${seed}/checkpoint${MAX_EPOCH}.pt already exists --- do nothing."
 
 else
 
     # Copy variables that we will need for standalone
-    cp $DATA_FOLDER/dict.* ${MODEL_FOLDER}-seed${seed}/
-    cp $ORACLE_FOLDER/*.actions.vocab.* ${MODEL_FOLDER}-seed${seed}/
+    cp $DATA_FOLDER/dict.* ${MODEL_FOLDER}seed${seed}/
+    cp $ORACLE_FOLDER/*.actions.vocab.* ${MODEL_FOLDER}seed${seed}/
 
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then
@@ -127,8 +127,8 @@ else
                 --update-freq $update_freq \
                 --log-format json \
                 --seed $seed \
-                --save-dir ${MODEL_FOLDER}-seed${seed}/ \
-                --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16 \
+                --save-dir ${MODEL_FOLDER}seed${seed}/ \
+                --tensorboard-logdir ${MODEL_FOLDER}seed${seed}/ $fp16 \
                 $ALIGNMENT_FLAGS \
                 $IMPORTANCE_WEIGTHED_SAMPLING_FLAG \
 
@@ -201,8 +201,8 @@ else
                 --update-freq $update_freq \
                 --log-format json \
                 --seed $seed \
-                --save-dir ${MODEL_FOLDER}-seed${seed}/ \
-                --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}/ $fp16
+                --save-dir ${MODEL_FOLDER}seed${seed}/ \
+                --tensorboard-logdir ${MODEL_FOLDER}seed${seed}/ $fp16
 
         fi
 
@@ -263,12 +263,12 @@ else
             --max-tokens 3584 \
             --log-format json \
             --seed $seed \
-            --save-dir ${MODEL_FOLDER}-seed${seed} \
-            --tensorboard-logdir ${MODEL_FOLDER}-seed${seed}
+            --save-dir ${MODEL_FOLDER}seed${seed} \
+            --tensorboard-logdir ${MODEL_FOLDER}seed${seed}
 
     fi
 
     # Mark as finished
-    touch ${MODEL_FOLDER}-seed${seed}/.done
+    touch ${MODEL_FOLDER}seed${seed}/.done
 
 fi

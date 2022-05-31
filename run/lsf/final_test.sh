@@ -29,7 +29,7 @@ echo $config
 
 # Running test announcement
 printf "\n\033[93mWARNING\033[0m: Everytime you look at the test set, your corpus dies a little (by corpus overfitting)\n\n" 
-echo -e " \nbash run/ad_test.sh ${MODEL_FOLDER}-seed${SEEDS}/$DECODING_CHECKPOINT -b $BEAM_SIZE -s test\n"
+echo -e " \nbash run/ad_test.sh ${MODEL_FOLDER}seed${SEEDS}/$DECODING_CHECKPOINT -b $BEAM_SIZE -s test\n"
 read -p "Do you wish to continue? Y/[N]" answer
 [ "$answer" != "Y" ] && exit 1
 
@@ -42,7 +42,7 @@ fi
 for seed in $SEEDS;do
 
     # define seed and working dir
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     # test all available checkpoints and link the best model on dev too
     jbsub_tag="fdec-${jbsub_basename}-s${seed}-$$"

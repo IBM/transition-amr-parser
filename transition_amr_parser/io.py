@@ -97,7 +97,7 @@ def read_experiment(config):
 
     exp_data = []
     for seed in seeds:
-        seed_folder = f'{model_folder}-seed{seed}'
+        seed_folder = f'{model_folder}seed{seed}'
 
         # read info from logs
         exp_data.extend(read_train_log(seed_folder, config_name))

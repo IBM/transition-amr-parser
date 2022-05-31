@@ -52,15 +52,15 @@ jbsub_basename=$(echo $jbsub_basename | sed "s@[+]@_@g")
 for seed in $SEEDS;do
 
     # define seed and working dir
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     # create repo
     mkdir -p $checkpoints_dir   
 
     # Copy the config and soft-link it with an easy to find name
-    cp $config ${MODEL_FOLDER}-seed${seed}/
-    rm -f ${MODEL_FOLDER}-seed${seed}/config.sh
-    ln -s $(basename $config) ${MODEL_FOLDER}-seed${seed}/config.sh
+    cp $config ${MODEL_FOLDER}seed${seed}/
+    rm -f ${MODEL_FOLDER}seed${seed}/config.sh
+    ln -s $(basename $config) ${MODEL_FOLDER}seed${seed}/config.sh
 
     # Add a tag with the commit(s) used to train this model. 
     if [ "$(git status --porcelain | grep -v '^??')" == "" ];then
@@ -154,7 +154,7 @@ echo "[Training:]"
 for seed in $SEEDS;do
 
     # define seed and working dir
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     if [ ! -f "$checkpoints_dir/checkpoint${MAX_EPOCH}.pt" ];then
 
@@ -207,7 +207,7 @@ if [ "$on_the_fly_decoding" = true ];then
 
     for seed in $SEEDS;do
 
-        checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+        checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
         # test all available checkpoints and link the best model on dev too
         jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"

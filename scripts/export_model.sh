@@ -23,7 +23,7 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
-model_folder=${MODEL_FOLDER}-seed${seed}/
+model_folder=${MODEL_FOLDER}seed${seed}/
 model_name=$(basename $config .sh)
 
 # needed files
@@ -40,7 +40,7 @@ read -p "Do you wish to continue? Y/[N]" answer
 # remove optimizer from checkpoint
 python scripts/remove_optimizer_state.py $checkpoint $checkpoint
 # zip all
-zip -r ${model_name}-seed${seed}.zip \
+zip -r ${model_name}seed${seed}.zip \
     $checkpoint \
     $model_folder/config.sh \
     $model_folder/dict.actions_nopos.txt \

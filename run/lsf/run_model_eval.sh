@@ -30,7 +30,7 @@ python run/status.py -c $config \
 
 for seed in $SEEDS;do
 
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     # test all available checkpoints and link the best model on dev too
     jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"

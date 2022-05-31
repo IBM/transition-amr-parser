@@ -24,7 +24,7 @@ echo $config
 . $config 
 
 # folder of the model seed
-checkpoints_folder=${MODEL_FOLDER}-seed${seed}/
+checkpoints_folder=${MODEL_FOLDER}seed${seed}/
 
 # Evaluate all required checkpoints with EVAL_METRIC
 if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then

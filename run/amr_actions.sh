@@ -55,7 +55,7 @@ else
     # copy machine config to model config
     for seed in $SEEDS;do
         # define seed and working dir
-        checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+        checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
         cp $ORACLE_FOLDER/machine_config.json $checkpoints_dir
     done
 

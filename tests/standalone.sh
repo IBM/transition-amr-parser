@@ -20,10 +20,10 @@ set -o nounset
 sset=test
 reference_amr_wiki=$AMR_TEST_FILE_WIKI
 wiki=$LINKER_CACHE_PATH/${sset}.wiki
-checkpoint=${MODEL_FOLDER}-seed42/$DECODING_CHECKPOINT
+checkpoint=${MODEL_FOLDER}seed42/$DECODING_CHECKPOINT
 
 # where to put results
-FOLDER=${MODEL_FOLDER}-seed42/unit_test/
+FOLDER=${MODEL_FOLDER}seed42/unit_test/
 results_prefix=$FOLDER/${sset}
 
 # needs data and model

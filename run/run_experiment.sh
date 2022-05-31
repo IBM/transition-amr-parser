@@ -41,19 +41,19 @@ if [ "$align_tag" != "ibm_neural_aligner" ] && [ ! -f $ALIGNED_FOLDER/.done ];th
 fi
 
 # This will store the final model
-mkdir -p ${MODEL_FOLDER}-seed${seed}
+mkdir -p ${MODEL_FOLDER}seed${seed}
 # Copy the config and soft-link it with an easy to find name
-cp $config ${MODEL_FOLDER}-seed${seed}/
-rm -f ${MODEL_FOLDER}-seed${seed}/config.sh
-ln -s $(basename $config) ${MODEL_FOLDER}-seed${seed}/config.sh
+cp $config ${MODEL_FOLDER}seed${seed}/
+rm -f ${MODEL_FOLDER}seed${seed}/config.sh
+ln -s $(basename $config) ${MODEL_FOLDER}seed${seed}/config.sh
 
 # Add a tag with the commit(s) used to train this model. 
 if [ "$(git status --porcelain | grep -v '^??')" == "" ];then
     # no uncommited changes
-    touch "${MODEL_FOLDER}-seed${seed}/$(git log --format=format:"%h" -1)"
+    touch "${MODEL_FOLDER}seed${seed}/$(git log --format=format:"%h" -1)"
 else
     # uncommited changes
-    touch "${MODEL_FOLDER}-seed${seed}/$(git log --format=format:"%h" -1)+"
+    touch "${MODEL_FOLDER}seed${seed}/$(git log --format=format:"%h" -1)+"
 fi
 
 echo "[Aligning AMR:]"

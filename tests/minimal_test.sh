@@ -47,7 +47,7 @@ bash run/run_experiment.sh $config
 # check if final result is there
 . $config
 
-if [ -f "${MODEL_FOLDER}-seed42/beam10/valid_${DECODING_CHECKPOINT}.wiki.smatch" ];then
+if [ -f "${MODEL_FOLDER}seed42/beam10/valid_${DECODING_CHECKPOINT}.wiki.smatch" ];then
     printf "\n[\033[92mOK\033[0m] $0\n"
 else
     printf "\n[\033[91mFAILED\033[0m] $0\n"

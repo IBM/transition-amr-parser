@@ -203,7 +203,7 @@ def get_checkpoints_to_eval(config_env_vars, seed, ready=False, warnings=True):
 
     # Get variables from config
     model_folder = config_env_vars['MODEL_FOLDER']
-    seed_folder = f'{model_folder}-seed{seed}'
+    seed_folder = f'{model_folder}seed{seed}'
     max_epoch = int(config_env_vars['MAX_EPOCH'])
     eval_metric = config_env_vars['EVAL_METRIC']
     eval_init_epoch = int(config_env_vars['EVAL_INIT_EPOCH'])
@@ -237,7 +237,7 @@ def check_checkpoint_evaluation(config_env_vars, seed, seed_folder):
     deleted_checkpoints = False
     if missing_epochs:
         model_folder = config_env_vars['MODEL_FOLDER']
-        seed_folder = f'{model_folder}-seed{seed}'
+        seed_folder = f'{model_folder}seed{seed}'
         earliest_missing_epoch = min(missing_epochs)
         for n in target_epochs:
             if (
@@ -330,7 +330,7 @@ def print_status(config_env_vars, seed, do_clear=False, warnings=True):
 
         # default unfinished
         finished[seed] = False
-        seed_folder = f'{model_folder}-seed{seed}'
+        seed_folder = f'{model_folder}seed{seed}'
         max_epoch = int(config_env_vars['MAX_EPOCH'])
 
         # find checkpoints with suspiciously smaller sizes
@@ -353,10 +353,10 @@ def print_status(config_env_vars, seed, do_clear=False, warnings=True):
         eval_metric = config_env_vars['EVAL_METRIC']
         # valid_checkpoint_wiki.smatch_top5-avg.pt
         dec_final_result = (
-            f'{model_folder}-seed{seed}/beam{beam_size}/'
+            f'{model_folder}seed{seed}/beam{beam_size}/'
             f'valid_{dec_checkpoint}.{eval_metric}'
         )
-        dec_checkpoint = f'{model_folder}-seed{seed}/{dec_checkpoint}'
+        dec_checkpoint = f'{model_folder}seed{seed}/{dec_checkpoint}'
         if os.path.isfile(dec_final_result):
             finished[seed] = True
             status_lines.append(
@@ -424,7 +424,7 @@ def get_score_from_log(file_path, score_name):
 
 def get_best_checkpoints(config_env_vars, seed, target_epochs, n_best=5):
     model_folder = config_env_vars['MODEL_FOLDER']
-    seed_folder = f'{model_folder}-seed{seed}'
+    seed_folder = f'{model_folder}seed{seed}'
     validation_folder = f'{seed_folder}/epoch_tests/'
     eval_metric = config_env_vars['EVAL_METRIC']
     scores = []
@@ -486,7 +486,7 @@ def link_best_model(best_n_checkpoints, config_env_vars, seed, nbest):
     eval_metric = config_env_vars['EVAL_METRIC']
     for n, checkpoint in enumerate(best_n_checkpoints):
 
-        target_best = (f'{model_folder}-seed{seed}/'
+        target_best = (f'{model_folder}seed{seed}/'
                        f'checkpoint_{eval_metric}_best{nbest-n}.pt')
         source_best = checkpoint
 
@@ -589,7 +589,7 @@ def average_results(results, fields, average_fields, ignore_fields,
 def extract_experiment_data(config_env_vars, seed, do_test):
 
     model_folder = config_env_vars['MODEL_FOLDER']
-    seed_folder = f'{model_folder}-seed{seed}'
+    seed_folder = f'{model_folder}seed{seed}'
 
     # Get speed stats
     minutes_per_epoch, minutes_per_test = \
@@ -716,7 +716,7 @@ def get_experiment_configs(models_folder, configs, set_seed):
         for model_folder in model_folders:
 
             # check for backwars compatibility, depth two foldler structure
-            if re.match('.*-seed([0-9]+)', model_folder):
+            if re.match('.*seed([0-9]+)', model_folder):
                 # set_trace(context=30)
                 seed_folders = [model_folder]
             else:
@@ -727,7 +727,7 @@ def get_experiment_configs(models_folder, configs, set_seed):
                 if set_seed and f'seed{set_seed}' not in seed_folder:
                     continue
                 else:
-                    seed = re.match('.*-seed([0-9]+)', seed_folder).groups()[0]
+                    seed = re.match('.*seed([0-9]+)', seed_folder).groups()[0]
                 config = f'{seed_folder}/config.sh'
                 config_env_vars = read_config_variables(config)
                 # if os.path.islink(config):
@@ -760,7 +760,7 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
     for result in results:
         model_folder = result['model_folder']
         seed = result['seed']
-        seed_folder = f'{model_folder}/-seed{seed}'
+        seed_folder = f'{model_folder}/seed{seed}'
         config_path = f'{seed_folder}/config.sh'
         if (
             os.readlink(config_path)
@@ -973,7 +973,7 @@ def wait_checkpoint_ready_to_eval(args):
             if deleted_epochs:
 
                 model_folder = config_env_vars['MODEL_FOLDER']
-                seed_folder = f'{model_folder}-seed{seed}'
+                seed_folder = f'{model_folder}seed{seed}'
                 print('\nCheckpoints may have been deleted before testing or '
                       'testing failed on evaluation, missing\n')
                 for epoch in deleted_epochs:
@@ -1013,7 +1013,7 @@ def final_remove(seed, config_env_vars, remove_optimizer=True,
     model_folder = config_env_vars['MODEL_FOLDER']
     # eval_metric = config_env_vars['EVAL_METRIC']
     dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
-    seed_folder = f'{model_folder}-seed{seed}'
+    seed_folder = f'{model_folder}seed{seed}'
     dec_checkpoint = f'{seed_folder}/{dec_checkpoint}'
     # target_best = f'{seed_folder}/checkpoint_{eval_metric}_best1.pt'
 
@@ -1103,7 +1103,7 @@ def remove_corrupted_checkpoints(config, seed, num_models=2):
 
     # collect all suspicious checkpoints
     for seed in seeds:
-        seed_folder = f'{model_folder}-seed{seed}'
+        seed_folder = f'{model_folder}seed{seed}'
         print(seed_folder)
 
         # available checkpoints
