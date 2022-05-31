@@ -9,6 +9,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# this will be name of the model folder
+config_name=amr2.0-structured-bart-large-joint-voc
+
 ##############################################################################
 # DATA
 ##############################################################################
@@ -31,7 +34,7 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 ##############################################################################
 
 # cofill: combination of JAMR and EM plus filling of missing alignments
-align_tag=cofill
+align_tag=cofill_isi
 
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
@@ -52,6 +55,11 @@ WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 ##############################################################################
 # ORACLE
 ##############################################################################
+
+# Number of alignment samples used
+ALIGNMENT_FLAGS=""
+# Use importance weighted
+IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
 # oracle action sequences
 ORACLE_TAG=bartsv-nodesplit_o10_act-states
@@ -75,7 +83,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.large
+embedding_tag=${align_tag}_bart.large
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -150,7 +158,7 @@ tgt_input_src_combine="add"
 
 SEEDS="42 43 44"
 MAX_EPOCH=40
-EVAL_INIT_EPOCH=11
+EVAL_INIT_EPOCH=1
 time_max_between_epochs=30
 
 # TODO: New
@@ -300,7 +308,7 @@ model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_init_ta
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
+MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 
 ###############################################################
 # ENTITY LINKING
