@@ -23,6 +23,18 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
+# Quick exits
+# Data not extracted or aligned data not provided
+if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
+    echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
+    exit 1
+fi
+# linking cache not empty but folder does not exist
+if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
+    echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
+    exit 1
+fi 
+
 # folder of the model seed
 checkpoints_folder=${MODEL_FOLDER}seed${seed}/
 
@@ -49,6 +61,10 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
         for checkpoint in $ready_checkpoints;do
             results_prefix=$checkpoints_folder/epoch_tests/dec-$(basename $checkpoint .pt)
             bash run/test.sh $checkpoint -o $results_prefix
+
+            # clean this checkpoint. This can be helpful if we started a job
+            # with lots of pending checkpoints to evaluate
+            python run/status.py -c $config --seed $seed  --link-best --remove
         done
     done
     touch $checkpoints_folder/epoch_tests/.done

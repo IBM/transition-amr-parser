@@ -39,6 +39,16 @@ if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
     echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
     exit 1
 fi
+# linking cache not empty but folder does not exist
+if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
+    echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
+    exit 1
+fi    
+# not using neural aligner but no alignments provided
+if [ "$align_tag" != "ibm_neural_aligner" ] && [ ! -f $ALIGNED_FOLDER/.done ];then
+    echo -e "\nYou need to provide $align_tag alignments\n"
+    exit 1
+fi
 
 # Determine tools folder as the folder where this script is. This alloews its
 # use when softlinked elsewhere
