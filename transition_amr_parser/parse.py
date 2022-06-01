@@ -127,7 +127,7 @@ def load_models_and_task(args, use_cuda, task=None):
     # if `task` is not provided, it will be from the saved model args
     models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
         args.path.split(':'),
-        arg_overrides=eval(args.model_overrides),
+        arg_overrides=args.model_overrides,
         task=task,
     )
     # Optimize ensemble for generation
@@ -251,11 +251,16 @@ class AMRParser:
             args.max_tokens = 12000
 
         # load model (ensemble), further model args, and the fairseq task
+        # ensure we read from the folder where this chekpoint is regardless of
+        # what is saved on the checkpoint (we may have messed with the names)
+        args.model_overrides = {
+            'save_dir': os.path.dirname(checkpoint)
+        }
         if dict_dir is not None:
-            args.model_overrides = f'{{"data": "{dict_dir}"}}'
+            args.model_overrides['data'] = dict_dir
             # otherwise, the default dict folder is read from the model args
         use_cuda = torch.cuda.is_available() and not args.cpu
-        models, model_args, task = load_models_and_task(
+        Models, model_args, task = load_models_and_task(
             args, use_cuda, task=None
         )
         # overload some arguments

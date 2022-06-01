@@ -50,6 +50,9 @@ else
     # Copy variables that we will need for standalone
     cp $DATA_FOLDER/dict.* ${MODEL_FOLDER}seed${seed}/
     cp $ORACLE_FOLDER/*.actions.vocab.* ${MODEL_FOLDER}seed${seed}/
+    # for joint vocabulary
+    [ -f $DATA_FOLDER/actions.vocab.nodes ] \
+        && cp $DATA_FOLDER/actions.vocab.nodes ${MODEL_FOLDER}seed${seed}/
 
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then
