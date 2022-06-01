@@ -1077,12 +1077,18 @@ def remove_corrupted_checkpoints(config, seed, num_models=2):
     '''
 
     def remove_if_corrupted(path):
+        print(f'\r  load   {path}', flush=True, end='')
         try:
             load_checkpoint_ext(path)
             print(f'\r  \033[92mok\033[0m    {path}')
             return False
         except RuntimeError as exception:
-            if str(exception).startswith('unexpected EOF'):
+            if (
+                # torch 1.4
+                str(exception).startswith('unexpected EOF') 
+                # toech 1.10
+                or str(exception).startswith('PytorchStreamReader failed')
+            ):
                 print(f'\r  \033[91mbad\033[0m  {path}')
                 return True
             else:
