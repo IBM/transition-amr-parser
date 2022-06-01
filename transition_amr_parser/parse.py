@@ -260,7 +260,7 @@ class AMRParser:
             args.model_overrides['data'] = dict_dir
             # otherwise, the default dict folder is read from the model args
         use_cuda = torch.cuda.is_available() and not args.cpu
-        Models, model_args, task = load_models_and_task(
+        models, model_args, task = load_models_and_task(
             args, use_cuda, task=None
         )
         # overload some arguments
