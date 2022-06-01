@@ -1,6 +1,6 @@
 import torch
 import subprocess
-from ipdb import set_trace
+# from ipdb import set_trace
 
 
 def main():
@@ -43,16 +43,16 @@ def main():
         print("\033[93mpytorch-scatter not installed\033[0m")
         passed = False
 
-    if torch.cuda.is_available():
-        try:
-            import torch_scatter.scatter_cuda
-            print("torch_scatter.scatter_cuda works")
-        except ImportError:
-            print(
-                "\033[93mmaybe LD_LIBRARY_PATH unconfigured?, "
-                "import torch_scatter.scatter_cuda dies\033[0m"
-            )
-            passed = False
+#     if torch.cuda.is_available():
+#         try:
+#             import torch_scatter.scatter_cuda
+#             print("torch_scatter.scatter_cuda works")
+#         except ImportError:
+#             print(
+#                 "\033[93mmaybe LD_LIBRARY_PATH unconfigured?, "
+#                 "import torch_scatter.scatter_cuda dies\033[0m"
+#             )
+#             passed = False
 
     # fairseq
     try:
