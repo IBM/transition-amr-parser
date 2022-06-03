@@ -343,5 +343,6 @@ LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr2.0/
 ##### decoding configuration for the final model
 BATCH_SIZE=128
 BEAM_SIZE=10
+# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt

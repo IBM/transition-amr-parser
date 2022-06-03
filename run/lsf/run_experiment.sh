@@ -101,7 +101,7 @@ if [ ! -f "$ALIGNED_FOLDER/.done" ];then
 
 else
 
-    echo "skiping $ORACLE_FOLDER/.done"
+    printf "[\033[92m done \033[0m] $ALIGNED_FOLDER/.done\n"
 
     # resume from extracted
     align_depends=""
@@ -126,7 +126,7 @@ if [ ! -f "$ORACLE_FOLDER/.done" ];then
 
 else
 
-    echo "skiping $ORACLE_FOLDER/.done"
+    printf "[\033[92m done \033[0m] $ORACLE_FOLDER/.done\n"
 
     # resume from extracted
     prepro_depends=""
@@ -151,8 +151,8 @@ if [[ (! -f $DATA_FOLDER/.done) || (! -f $EMB_FOLDER/.done) ]]; then
 
 else
 
-    echo "skiping $EMB_FOLDER/.done"
-    echo "skiping $DATA_FOLDER/.done"
+    printf "[\033[92m done \033[0m] $EMB_FOLDER/.done\n"
+    printf "[\033[92m done \033[0m] $DATA_FOLDER/.done\n"
 
     # resume from extracted
     train_depends=""
@@ -184,7 +184,7 @@ for seed in $SEEDS;do
 
     else
 
-        echo "skiping $checkpoints_dir/.done"
+        printf "[\033[92m done \033[0m] $checkpoints_dir/.done\n"
 
         # resume from trained model, start test directly
         test_depends=""

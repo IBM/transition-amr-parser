@@ -18,7 +18,7 @@ set -o nounset
 
 # from config
 sset=test
-seed=44
+seed=42
 reference_amr_wiki=$AMR_TEST_FILE_WIKI
 wiki=$LINKER_CACHE_PATH/${sset}.wiki
 checkpoint=${MODEL_FOLDER}seed${seed}/$DECODING_CHECKPOINT
