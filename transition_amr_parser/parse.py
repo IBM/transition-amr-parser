@@ -410,6 +410,19 @@ class AMRParser:
                         post_process_action_pointer_prediction_bartsv(
                             hypo, self.tgt_dict
                         )
+
+                    # FIXME: hypo['state_machine'].machine.action_history !=
+                    # actions
+                    # we need to recompute the state machine after fixing
+                    # actions due to the extra reformer machine
+                    # this prevents using the latest machine features
+                    hypo['state_machine'].machine.reset(
+                         hypo['state_machine'].machine.tokens
+                    )
+                    for action in actions:
+                        hypo['state_machine'].machine.update(action)
+                    hypo['state_machine'] = hypo['state_machine'].machine
+
                 else:
                     # BART
                     actions_nopos, actions_pos, actions = \
