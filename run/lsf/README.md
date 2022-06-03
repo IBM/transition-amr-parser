@@ -1,12 +1,12 @@
 ## Training a full model
 
 This code is intended to train models from scratch on the CCC cluster but can
-be repurposed for other task managers e.e. slurm. You can do a mini run to
+be repurposed for other task managers e.g. slurm. You can do a mini run to
 check how this all works under
 
     bash tests/minimal_test_lsf.sh
 
-First of all make sure you have installed according to README.mb. Be sure to
+First of all make sure you have installed according to README.md. Be sure to
 activate your environment in `set_environment.sh` since this is called by the
 different scripts
 
