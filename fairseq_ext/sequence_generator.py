@@ -10,6 +10,7 @@ from copy import deepcopy
 import json
 import os
 import re
+import warnings
 from ipdb import set_trace
 from collections import defaultdict, Counter
 
@@ -708,7 +709,6 @@ class SequenceGenerator(object):
                         tgt_actions_nodemask[:, :-1] = 1
                     # NOTE we need to run the state machine; here just leave a warning instead of stopping the program
                     # for debugging convenience under different setups, even if the generated pointers are not valid
-                    import warnings
                     warnings.warn('actions to node mask not provided; the pointer values may not be valid.')
 
             # 2) get the argmax and max out of the pointer (tgt attention) distribution constraint to the above mask
@@ -757,13 +757,11 @@ class SequenceGenerator(object):
                 tgt_pointers_valid[tgt_actions_nodemask_any] = pointer_argmax[tgt_actions_nodemask_any]
                 tgt_pointers[valid_bbsz_mask, step + 1] = tgt_pointers_valid
 
-
             # 3) use the pointer log probs to modify the next ARC ('LA', 'RA', 'LA(root)') actions scores
             # for rows with valid pointer value, modify the arc action scores;
             # for rows with no valid pointer value, set the arc action scores to -inf to block
             if modify_arcact_score:
                 # NOTE for either we use '>LA(root)' or not in our oracle for handling root node
-
                 arc_action_ids = list(set().union(*[canonical_act_ids[act] for act in ['>LA', '>RA', '>LA(root)']
                                                     if act in canonical_act_ids]))
                 lprobs_arcs = lprobs[:, arc_action_ids]
@@ -878,6 +876,10 @@ class SequenceGenerator(object):
                 # on the the source sequences, and we finish generation of an action sequence only when we have
                 # processed all the source words
                 #raise ValueError('max step reached; we should set proper max step value so that this does not happen.')
+
+                warnings.warn('max step reached; we should set proper max step value so that this does not happen. '
+                              'OR: the generation is stuck at some repetitive patterns.')
+
                 # make probs contain cumulative scores for each hypothesis
                 lprobs.add_(scores[:, step - 1].unsqueeze(-1))
 
@@ -1024,7 +1026,7 @@ class SequenceGenerator(object):
 
             valid_bbsz_mask = active_mask_selected.lt(cand_size)    # size (bsz, beam_size)
             if not valid_bbsz_mask.any(dim=1).all():
-                # if we are in align model, locate the first infringing machine
+                # if we are in align mode, locate the first infringing machine
                 if any(bool(m.gold_amr) for m in amr_state_machines):
                     for i, m in enumerate(amr_state_machines):
                         if not valid_bbsz_mask[i].item():
