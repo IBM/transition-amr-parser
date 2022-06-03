@@ -5,7 +5,7 @@ Neural transition-based parser for Abstract Meaning Representation (AMR) produci
 
 ### Structured-BART 
 
-Current version (`0.5.1`). Structured-BART [(Zhou et al 2020b)](https://openreview.net/forum?id=qjDQCHLXCNj) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. Its yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble) on the AMR2.0 test-set without graph recategorization or external dependencies, excluding wikification. It also produces accurate word to node alignments. As of this writing, this is the best AMR parser published as per AMR2.0 test set scores, the standard benchmark.
+Current version (`0.5.2`). Structured-BART [(Zhou et al 2020b)](https://aclanthology.org/2021.emnlp-main.507/) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. It yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble). This version introduces the ibm-neural-aligner [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) yielding a base AMR3.0 performance of `82.7` (`83.1` with latent alignment training). Structured-BART is also used for [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) which yields a new single model SoTA of `85.7` for AMR2.0 and `84.1` for AMR3.0 by introducing Smatch-based ensemble distillation.
 
 ### Action Pointer
 
@@ -25,7 +25,7 @@ IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wik
 
 ## Installation
 
-The code needs Pytorch `1.4` and fairseq `0.10.2`. We tested it with Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
+The code needs Pytorch `1.10` and fairseq `0.10.2`. We tested it with Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
 
 ```bash
 # inside set_environment.sh
@@ -47,8 +47,7 @@ git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
 git checkout <branch>     # for e.g. action-pointer, ignore for current version
 . set_environment.sh      # see above
-pip install --editable .  
-pip install torch-scatter==1.3.2
+pip install --editable .   
 ```
 
 To test if install worked
@@ -58,12 +57,6 @@ bash tests/correctly_installed.sh
 To do a mini-test with 25 annotated sentences that we provide. This should take 10 minutes. It wont learn anything but at least will run all stages.
 ```bash
 bash tests/minimal_test.sh
-```
-
-If you want to align AMR data, the neural aligner requires a separate allennlp install to extract ELMO
-
-```bash
-bash align_cfg/install.sh
 ```
 
 See [here](scripts/README.md#install-details) for more install details
@@ -80,11 +73,11 @@ python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.
 If you have a trained aligner model, copy it to the aligner folder
 
 ``` 
-mkdir -p DATA/AMR2.0/aligned/align_cfg/
-cp /path/to/model.best.val_1_recall.pt DATA/AMR2.0/aligned/align_cfg/
-cp /path/to/flags.json DATA/AMR2.0/aligned/align_cfg/
-cp /path/to/vocab.text.2021-06-30.txt DATA/AMR2.0/aligned/align_cfg/
-cp /path/to/vocab.amr.2021-06-30.txt DATA/AMR2.0/aligned/align_cfg/
+mkdir -p DATA/AMR2.0/aligned/ibm_neural_aligner/
+cp /path/to/model.best.val_1_recall.pt DATA/AMR2.0/aligned/ibm_neural_aligner/
+cp /path/to/flags.json DATA/AMR2.0/aligned/ibm_neural_aligner/
+cp /path/to/vocab.text.2021-06-30.txt DATA/AMR2.0/aligned/ibm_neural_aligner/
+cp /path/to/vocab.amr.2021-06-30.txt DATA/AMR2.0/aligned/ibm_neural_aligner/
 ``` 
 
 You will also need to unzip the precomputed BLINK cache. See issues in this repository to get the cache file (or the link above for IBM-ers).
