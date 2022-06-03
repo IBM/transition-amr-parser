@@ -9,6 +9,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# this will be name of the model folder
+config_name=wiki25-structured-bart-base
+
 ##############################################################################
 # DATA
 ##############################################################################
@@ -31,7 +34,7 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 ##############################################################################
 
 # cofill: combination of JAMR and EM plus filling of missing alignments
-align_tag=cofill
+align_tag=cofill_isi
 
 # All data in this step under (TODO)
 ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
@@ -52,6 +55,11 @@ WIKI_TEST=""
 ##############################################################################
 # ORACLE
 ##############################################################################
+
+# Number of alignment samples used
+ALIGNMENT_FLAGS=""
+# Use importance weighted
+IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
 # oracle action sequences
 ORACLE_TAG=o10_act-states
@@ -75,7 +83,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.base
+embedding_tag=${align_tag}_bart.large
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -147,12 +155,11 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
+# SEEDS="42 43 44"
 SEEDS="42"
 MAX_EPOCH=10
 EVAL_INIT_EPOCH=5
 time_max_between_epochs=20
-# MAX_EPOCH=100
-# EVAL_INIT_EPOCH=60
 
 # TODO: New
 use_fp16=1
@@ -309,14 +316,14 @@ model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
+MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 
 ###############################################################
 # ENTITY LINKING
 ###############################################################
 
 # Smatch evaluation with wiki
-LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
+LINKER_CACHE_PATH=""
 
 ###############################################################
 # TESTS 

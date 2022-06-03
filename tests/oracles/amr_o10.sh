@@ -5,9 +5,9 @@ set -o pipefail
 gold_amr=$1
 set -o nounset 
 
-oracle_folder=DATA/AMR2.0/oracles/o10_pinitos/
+oracle_folder=DATA/unit_test_$(basename $(dirname $gold_amr))/
 mkdir -p $oracle_folder 
-
+ 
 # get actions from oracle
 python transition_amr_parser/amr_machine.py \
     --in-aligned-amr $gold_amr \
@@ -16,6 +16,7 @@ python transition_amr_parser/amr_machine.py \
     --out-tokens $oracle_folder/train.tokens \
     --use-copy 1 \
     --absolute-stack-positions  \
+    # --if-oracle-error stop
     # --reduce-nodes all
 
 # play actions on state machine
@@ -26,5 +27,10 @@ python transition_amr_parser/amr_machine.py \
     --out-amr $oracle_folder/train_oracle.amr
 
 # score
-echo "Conmputing Smatch (make take long for 1K or more sentences)"
-smatch.py -r 10 --significant 4 -f $gold_amr $oracle_folder/train_oracle.amr
+echo "Computing Smatch (make take long for 1K or more sentences)"
+python scripts/smatch_aligner.py \
+    --in-amr $oracle_folder/train_oracle.amr \
+    --in-reference-amr $gold_amr \
+    # --stop-if-different
+
+printf "[\033[92m OK \033[0m] $0\n"

@@ -4,7 +4,7 @@ set -o pipefail
 
 # Argument handling
 # First argument must be checkpoint
-HELP="\nbash $0 <checkpoint> <tokenized_sentences< [-s <max_split_size>]\n"
+HELP="\nbash $0 <checkpoint> <tokenized_sentences> [-s <max_split_size>]\n"
 [ -z "$1" ] && echo -e "$HELP" && exit 1
 [ -z "$2" ] && echo -e "$HELP" && exit 1
 first_path=$(echo $1 | sed 's@:.*@@g')

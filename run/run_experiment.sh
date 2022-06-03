@@ -29,42 +29,52 @@ if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
     echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
     exit 1
 fi
-# Aligned data not provided, but alignment tools not installed
-if [ ! -f "${ALIGNED_FOLDER}train.txt" ] && [ ! -f "preprocess/kevin/run.sh" ];then
-    echo -e "\nNeeds ${ALIGNED_FOLDER}train.txt or installing aligner\n"
-    exit 1
-fi    
 # linking cache not empty but folder does not exist
 if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
     echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
     exit 1
 fi    
-
-# Aligned data not provided, but alignment tools not installed
-if [ ! -f "${ALIGNED_FOLDER}train.txt" ] && [ ! -f "preprocess/kevin/run.sh" ];then
-    echo -e "\nNeeds ${ALIGNED_FOLDER}train.txt or installing aligner\n"
+# not using neural aligner but no alignments provided
+if [ "$align_tag" != "ibm_neural_aligner" ] && [ ! -f $ALIGNED_FOLDER/.done ];then
+    echo -e "\nYou need to provide $align_tag alignments\n"
     exit 1
-fi    
+fi
 
-## This will store the final model
-mkdir -p ${MODEL_FOLDER}-seed${seed}
-cp $config ${MODEL_FOLDER}-seed${seed}/config.sh
+# This will store the final model
+mkdir -p ${MODEL_FOLDER}seed${seed}
+# Copy the config and soft-link it with an easy to find name
+cp $config ${MODEL_FOLDER}seed${seed}/
+rm -f ${MODEL_FOLDER}seed${seed}/config.sh
+ln -s $(basename $config) ${MODEL_FOLDER}seed${seed}/config.sh
+
+# Add a tag with the commit(s) used to train this model. 
+if [ "$(git status --porcelain | grep -v '^??')" == "" ];then
+    # no uncommited changes
+    touch "${MODEL_FOLDER}seed${seed}/$(git log --format=format:"%h" -1)"
+else
+    # uncommited changes
+    touch "${MODEL_FOLDER}seed${seed}/$(git log --format=format:"%h" -1)+"
+fi
+
+echo "[Aligning AMR:]"
+mkdir -p $ALIGNED_FOLDER
+bash run/train_aligner.sh $config
 
 echo "[Building oracle actions:]"
 mkdir -p $ORACLE_FOLDER
 # TODO: replace by task agnostic oracle creation
-bash run/aa_amr_actions.sh $config
+bash run/amr_actions.sh $config
 
 echo "[Preprocessing data:]"
 mkdir -p $DATA_FOLDER
-bash run/ab_preprocess.sh $config
+bash run/preprocess.sh $config
 
 [ "$on_the_fly_decoding" = true ] \
     && echo "[Decoding and computing smatch (on the fly):]" \
     && bash run/run_model_eval.sh $config $seed &
 
 echo "[Training:]"
-bash run/ac_train.sh $config $seed 
+bash run/train.sh $config $seed 
 
 [ "$on_the_fly_decoding" = false ] \
     && echo "[Decoding and computing smatch:]" \

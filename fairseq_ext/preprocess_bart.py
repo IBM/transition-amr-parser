@@ -26,6 +26,27 @@ from fairseq_ext import options
 from fairseq_ext.extract_bart.binarize_encodings import make_bart_encodings
 
 
+def add_sampling_vocabulary(tgt_dict, trainpref):
+    # Fix to avoid unseen symbols whne sampling alignments. Arc directions and
+    # what is COPY-ed may change
+
+    # FIXME: ugly and local way
+    from transition_amr_parser.io import read_amr
+    amr_path = f'{os.path.dirname(trainpref)}/ref_train.amr'
+    assert os.path.exists(amr_path)
+    for amr in read_amr(amr_path):
+        for node_name in amr.nodes.values():
+            tgt_dict.add_symbol(node_name.replace('"', ''))
+
+    for action in tgt_dict.symbols:
+        # Ensure every right arc has a left arc in case
+        # sampling inverses it
+        if action.startswith('>LA'):
+            tgt_dict.add_symbol('>RA' + action[3:])
+        elif action.startswith('>RA'):
+            tgt_dict.add_symbol('>LA' + action[3:])
+
+
 def main(args):
     import_user_module(args)
 
@@ -137,6 +158,9 @@ def main(args):
                 else:
                     assert args.trainpref, "--trainpref must be set if --tgtdict is not specified"
                     tgt_dict = build_dictionary([train_path(args.target_lang_nopos)], tgt=True)
+                    if args.task.endswith('dyo'):
+                        add_sampling_vocabulary(tgt_dict, args.trainpref)
+
             else:
                 tgt_dict = None
 
@@ -267,6 +291,11 @@ def main(args):
                     os.path.join(os.path.dirname(pref), split_amr),
                     os.path.join(args.destdir, f'{split}.aligned.gold-amr')
                 )
+                if split == 'train':
+                    shutil.copyfile(
+                        os.path.join(os.path.dirname(pref), 'alignment.trn.align_dist.npy'),
+                        os.path.join(args.destdir, 'alignment.trn.align_dist.npy')
+                    )
 
     # save action states information to assist training with auxiliary info
     # assume one training file, one validation file, and one test file

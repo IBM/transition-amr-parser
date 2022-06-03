@@ -244,6 +244,12 @@ def collate(
         gold_amrs = None
     else:
         gold_amrs = [gold_amrs[i] for i in sort_order]
+    # alignment probabilities
+    align_probs = [s['align_probs'] for s in samples]
+    if align_probs[0] is None:
+        align_probs = None
+    else:
+        align_probs = [align_probs[i] for i in sort_order]
 
     # batch variables
     batch = {
@@ -271,7 +277,8 @@ def collate(
         'target': target,
         'tgt_pos': tgt_pos,
         # gold AMR with alignments (to enable running oracle on the fly)
-        'gold_amrs': gold_amrs
+        'gold_amrs': gold_amrs,
+        'align_probs': align_probs
     }
     if prev_output_tokens is not None:
         batch['net_input']['prev_output_tokens'] = prev_output_tokens
@@ -310,6 +317,8 @@ class AMRActionPointerGoldAMRDataset(FairseqDataset):
                  tgt_pos_sizes=None,
                  # gold AMR with alignments (to enable running oracle on the fly)
                  gold_amrs=None,
+                 # alignment probabilities for sampling
+                 corpus_align_probs=None,
                  # core state info
                  tgt_vocab_masks=None,
                  tgt_actnode_masks=None,    # for the valid pointer positions
@@ -353,6 +362,7 @@ class AMRActionPointerGoldAMRDataset(FairseqDataset):
         self.tgt_pos_sizes = tgt_pos_sizes
 
         self.gold_amrs = gold_amrs
+        self.corpus_align_probs = corpus_align_probs
 
         # additional dataset variables
 
@@ -427,6 +437,8 @@ class AMRActionPointerGoldAMRDataset(FairseqDataset):
         tgt_pos_item = self.tgt_pos[index]
 
         gold_amr_item = self.gold_amrs[index] if self.gold_amrs is not None else None
+        align_probs_item = self.corpus_align_probs[index] \
+            if self.corpus_align_probs is not None else None
 
         src_wordpieces_item = self.src_wordpieces[index].type(torch.long)    # TODO type conversion here is needed
         src_wp2w_item = self.src_wp2w[index].type(torch.long)
@@ -553,6 +565,7 @@ class AMRActionPointerGoldAMRDataset(FairseqDataset):
             'tgt_pos': tgt_pos_item,
             # gold AMR with alignments (to enable running oracle on the fly)
             'gold_amr': gold_amr_item,
+            'align_probs': align_probs_item,
             # AMR actions states (tied with the tgt output side)
             'tgt_vocab_masks': tgt_vocab_mask_item,
             'tgt_actnode_masks': tgt_actnode_mask_item,

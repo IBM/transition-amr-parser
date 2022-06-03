@@ -1,4 +1,3 @@
-from collections import defaultdict, Counter
 import json
 import argparse
 import os
@@ -6,16 +5,27 @@ from functools import partial
 import re
 from copy import deepcopy
 from itertools import chain
+from collections import defaultdict, Counter, namedtuple
 
 from tqdm import tqdm
 import numpy as np
 from transition_amr_parser.io import (
     AMR,
-    read_amr,
+    read_blocks,
     read_tokenized_sentences,
-    write_tokenized_sentences
+    write_tokenized_sentences,
+    read_neural_alignments
 )
-from transition_amr_parser.clbar import yellow_font, clbar
+# from transition_amr_parser.amr_aligner import get_ner_ids
+from transition_amr_parser.gold_subgraph_align import (
+    AlignModeTracker, check_gold_alignment
+)
+from transition_amr_parser.amr import normalize, create_valid_amr
+# TODO: Remove this dependency
+import penman
+from transition_amr_parser.clbar import (
+    yellow_font, green_font, red_background, clbar
+)
 from ipdb import set_trace
 
 # change the format of pointer string from LA(label;pos) -> LA(pos,label)
@@ -27,32 +37,36 @@ ra_nopointer_regex = re.compile(r'>RA\((.*)\)')
 arc_nopointer_regex = re.compile(r'>[RL]A\((.*)\)')
 
 
-def red_background(string):
-    return "\033[101m%s\033[0m" % string
-
-
 def graph_alignments(unaligned_nodes, amr):
     """
-    Shallow alignment fixer: Inherit the alignment of the last child or first
+    Shallow alignment fixer: Inherit the alignment of the FIRST child or first
     parent. If none of these is aligned the node is left unaligned
     """
 
+    # scan first for all children-based alignments
     fix_alignments = {}
     for (src, _, tgt) in amr.edges:
         if (
             src in unaligned_nodes
-            and amr.alignments[tgt] is not None
+            and amr.alignments.get(tgt, None) is not None
             and max(amr.alignments[tgt])
-                > fix_alignments.get(src, 0)
+                > fix_alignments.get(src, -1)
         ):
             # # debug: to justify to change 0 to -1e6 for a test data corner
             # case; see if there are other cases affected
             # if max(amr.alignments[tgt]) <= fix_alignments.get(src, 0):
             #     breakpoint()
             fix_alignments[src] = max(amr.alignments[tgt])
-        elif (
+
+    # exit if any fix (to try again recursively to fix another one)
+    if len(fix_alignments):
+        return fix_alignments
+
+    # then parent-based ones
+    for (src, _, tgt) in amr.edges:
+        if (
             tgt in unaligned_nodes
-            and amr.alignments[src] is not None
+            and amr.alignments.get(src, None) is not None
             and min(amr.alignments[src])
                 < fix_alignments.get(tgt, 1e6)
         ):
@@ -61,14 +75,29 @@ def graph_alignments(unaligned_nodes, amr):
     return fix_alignments
 
 
-def fix_alignments(gold_amr):
+def graph_vicinity_align(gold_amr):
+    '''
+    Fix unaligned nodes by graph vicinity
+    '''
 
-    # Fix unaligned nodes by graph vicinity
+    # easy fix, where no alignments is admissible
+    if (
+        gold_amr.alignments is None
+        and len(gold_amr.nodes) == 1
+        and len(gold_amr.tokens) == 1
+    ):
+        single_nid = list(gold_amr.nodes.keys())[0]
+        gold_amr.alignments = {single_nid: [0]}
+        return gold_amr, set([single_nid])
+
+    elif gold_amr.alignments is None:
+        raise Exception("Expected alignments in AMR")
+
     unaligned_nodes = set(gold_amr.nodes) - set(gold_amr.alignments)
     unaligned_nodes |= \
         set(nid for nid, pos in gold_amr.alignments.items() if pos is None)
     unaligned_nodes = sorted(list(unaligned_nodes))
-    unaligned_nodes_original = sorted(list(unaligned_nodes))
+    unaligned_nodes_original = list(unaligned_nodes)
 
     if not unaligned_nodes:
         # no need to do anything
@@ -81,6 +110,7 @@ def fix_alignments(gold_amr):
         return gold_amr, []
 
     # Align unaligned nodes by using graph vicinnity greedily (1 hop at a time)
+    count = 0
     while unaligned_nodes:
         fix_alignments = graph_alignments(unaligned_nodes, gold_amr)
         for nid in unaligned_nodes:
@@ -89,48 +119,113 @@ def fix_alignments(gold_amr):
                 unaligned_nodes.remove(nid)
 
         # debug: avoid infinite loop for AMR2.0 test data with bad alignments
-        if not fix_alignments:
-            # breakpoint()
-            print(red_background('hard fix on 0th token for fix_alignments'))
-            for k, v in list(gold_amr.alignments.items()):
-                if v is None:
-                    gold_amr.alignments[k] = [0]
+        count += 1
+        if count == 1000:
+            msg = 'hard fix on 0th token for fix_alignments'
+            print(f'\n{red_background(msg)}\n')
+            for nid in gold_amr.nodes:
+                if (
+                    nid not in gold_amr.alignments
+                    or gold_amr.alignments[nid] == []
+                ):
+                    gold_amr.alignments[nid] = [0]
             break
 
     return gold_amr, unaligned_nodes_original
 
 
-def normalize(token):
-    """
-    Normalize token or node
-    """
-    if token == '"':
-        return token
+def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
+    # this contains p(node, token_pos | tokens)
+    node_token_joint = alignment_probs['p_node_and_token']
+    # summing we can get p(node | tokens)
+    node_marginal = node_token_joint.sum(1, keepdims=True)
+    # p(token_pos | nodes, tokens)
+    #    = p(node, token_pos | tokens) / p(node | tokens)
+    token_posterior = node_token_joint / node_marginal
+
+    # sharpen / flatten by temperature
+    if temperature > 0:
+        phi = token_posterior**(1. / temperature)
+        token_posterior2 = phi / phi.sum(1, keepdims=True)
     else:
-        return token.replace('"', '')
+        num_tokens, num_nodes = token_posterior.shape
+        token_posterior2 = np.zeros((num_tokens, num_nodes))
+        token_posterior2[np.arange(num_tokens), token_posterior.argmax(1)] = 1
+        # FIXME: this sanity check shows node order is dict order and not that
+        # on node_short_id
+        # for counts aligner fails in two (27503)
+#         assert [y for x in gold_amr.alignments.values() for y in x] \
+#             == list(token_posterior2.argmax(1)), \
+#             "--in-aligned-amr and --in-aligned-probs have different argmax"
+
+    if gold_amr.alignments is None:
+        gold_amr.alignments = {}
+
+    # FIXME: See above
+    # for idx, node_id in enumerate(alignment_probs['node_short_id']):
+    align_info = dict(node_idx=[], token_idx=[], p=[])
+
+    # This is because numpy casts as float64 anyway. See:
+    # https://github.com/numpy/numpy/issues/8317
+    token_posterior2 = token_posterior2.astype(np.float64) \
+        / token_posterior2.astype(np.float64).sum(-1, keepdims=True)
+    for idx, node_id in enumerate(gold_amr.alignments.keys()):
+        alignment = np.random.multinomial(1, token_posterior2[idx, :]).argmax()
+        gold_amr.alignments[node_id] = [alignment]
+
+        align_info['node_idx'].append(idx)
+        align_info['token_idx'].append(alignment)
+        align_info['p'].append(token_posterior2[idx, alignment])
+
+    assert set(gold_amr.alignments.keys()) <= set(gold_amr.nodes.keys()), \
+        'node ids from graph and alignment probabilities do not match' \
+        ', maybe read JAMR format when alignments are PENMAN?'
+
+    assert (
+        set([y for x in gold_amr.alignments.values() for y in x])
+        <= set(range(len(gold_amr.tokens)))
+    ), 'Alignment token positions out of bounds with respect to given tokens'
+
+    return gold_amr, align_info
 
 
 class AMROracle():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
-                 use_copy=True):
+    def __init__(
+        self,
+        machine_config,
+        alignment_sampling_temperature=1.0,  # temperature if sampling
+        force_align_ner=False                # align NER parents to first child
+    ):
 
-        # Remove nodes that have all their edges created
-        self.reduce_nodes = reduce_nodes
-        # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
-        # rather than relative to end of self.node_stack
-        self.absolute_stack_pos = absolute_stack_pos
+        # inmutable config from state machine
+        self.machine_config = machine_config
 
-        # use copy action
-        self.use_copy = use_copy
+        if not machine_config.absolute_stack_pos:
+            raise NotImplementedError()
 
-    def reset(self, gold_amr):
+        self.alignment_sampling_temperature = alignment_sampling_temperature
+        self.force_align_ner = force_align_ner
 
-        # Force align missing nodes and store names for stats
-        self.gold_amr, self.unaligned_nodes = fix_alignments(gold_amr)
+    def reset(self, gold_amr, alignment_probs=None,
+              alignment_sampling_temp=1.0):
 
-        # will store alignments by token
-        # TODO: This should store alignment probabilities
+        # if probabilties provided sample alignments from them
+        self.align_info = None
+        if alignment_probs:
+            gold_amr, align_info = sample_alignments(
+                gold_amr, alignment_probs, alignment_sampling_temp)
+            self.align_info = align_info
+
+        # Force align unaligned nodes and store names for stats
+        self.gold_amr, self.unaligned_nodes = graph_vicinity_align(gold_amr)
+
+        if self.force_align_ner:
+            raise NotImplementedError()
+            # align parents in NERs to first child
+
+        # will store node-id by token they align to
+        # TODO: no order of nodes enforced (?), see TODO below
         align_by_token_pos = defaultdict(list)
         for node_id, token_pos in self.gold_amr.alignments.items():
             node = normalize(self.gold_amr.nodes[node_id])
@@ -143,6 +238,8 @@ class AMROracle():
                 align_by_token_pos[token_pos[0]].append(node_id)
         self.align_by_token_pos = align_by_token_pos
 
+        # get gold node-id to decoded node-id map ()
+        # TODO: Previous order expected to be the generation order
         node_id_2_node_number = {}
         for token_pos in sorted(self.align_by_token_pos.keys()):
             for node_id in self.align_by_token_pos[token_pos]:
@@ -167,13 +264,15 @@ class AMROracle():
             new_edges_for_node = []
             for (_, idx) in edges:
                 new_edges_for_node.append(
-                    self.pend_edges_by_node[node_id][idx])
+                    self.pend_edges_by_node[node_id][idx]
+                )
             self.pend_edges_by_node[node_id] = new_edges_for_node
 
         # Will store gold_amr.nodes.keys() and edges as we predict them
         self.node_map = {}
         self.node_reverse_map = {}
         self.predicted_edges = []
+        self.expected_history = []
 
     def get_arc_action(self, machine):
 
@@ -189,11 +288,12 @@ class AMROracle():
                 and self.node_map[tgt] in machine.node_stack[:-1]
             ):
                 # LA <--
-                if self.absolute_stack_pos:
+                if self.machine_config.absolute_stack_pos:
                     # node position is just position in action history
                     index = self.node_map[tgt]
                 else:
                     # stack position 0 is closest to current node
+                    raise NotImplementedError()
                     index = machine.node_stack.index(self.node_map[tgt])
                     index = len(machine.node_stack) - index - 2
                 # Remove this edge from for both involved nodes
@@ -202,7 +302,7 @@ class AMROracle():
                 # return [f'LA({label[1:]};{index})'], [1.0]
                 # NOTE include the relation marker ':' in action names
                 assert label[0] == ':'
-                return [f'>LA({index},{label})'], [1.0]
+                return f'>LA({index},{label})'
 
             elif (
                 self.node_map[tgt] == top_node_id
@@ -210,11 +310,12 @@ class AMROracle():
             ):
                 # RA -->
                 # note stack position 0 is closest to current node
-                if self.absolute_stack_pos:
+                if self.machine_config.absolute_stack_pos:
                     # node position is just position in action history
                     index = self.node_map[src]
                 else:
                     # Relative node position
+                    raise NotImplementedError()
                     index = machine.node_stack.index(self.node_map[src])
                     index = len(machine.node_stack) - index - 2
                 # Remove this edge from for both involved nodes
@@ -223,7 +324,7 @@ class AMROracle():
                 # return [f'RA({label[1:]};{index})'], [1.0]
                 # NOTE include the relation marker ':' in action names
                 assert label[0] == ':'
-                return [f'>RA({index},{label})'], [1.0]
+                return f'>RA({index},{label})'
 
     def get_reduce_action(self, machine, top=True):
         """
@@ -250,7 +351,11 @@ class AMROracle():
         gold_node_id = self.node_reverse_map[node_id]
         return self.pend_edges_by_node[gold_node_id] == []
 
-    def get_actions(self, machine):
+    def get_action(self, machine):
+
+        # sanity check: machine is on current oracle path
+        if self.expected_history != machine.action_history:
+            raise Exception('Machine did not follow this oracle')
 
         # Label node as root
         if (
@@ -259,26 +364,31 @@ class AMROracle():
             and self.node_reverse_map[machine.node_stack[-1]] ==
                 self.gold_amr.root
         ):
-            return ['ROOT'], [1.0]
+            self.expected_history.append('ROOT')
+            return 'ROOT'
 
         # REDUCE in stack after are LA/RA that completes all edges for an node
-        if self.reduce_nodes == 'all':
+        if self.machine_config.reduce_nodes == 'all':
             arc_reduce_no_top = self.get_reduce_action(machine, top=False)
             arc_reduce_top = self.get_reduce_action(machine, top=True)
             if arc_reduce_no_top and arc_reduce_top:
                 # both nodes invoved
-                return ['REDUCE3'], [1.0]
+                self.expected_history.append('REDUCE3')
+                return 'REDUCE3'
             elif arc_reduce_top:
                 # top of the stack node
-                return ['REDUCE'], [1.0]
+                self.expected_history.append('REDUCE')
+                return 'REDUCE'
             elif arc_reduce_no_top:
                 # the other node
-                return ['REDUCE2'], [1.0]
+                self.expected_history.append('REDUCE2')
+                return 'REDUCE2'
 
         # Return action creating next pending edge last node in stack
         if len(machine.node_stack) > 1:
             arc_action = self.get_arc_action(machine)
             if arc_action:
+                self.expected_history.append(arc_action)
                 return arc_action
 
         # Return action creating next node aligned to current cursor
@@ -291,37 +401,63 @@ class AMROracle():
             target_node = normalize(self.gold_amr.nodes[nid])
 
             if (
-                self.use_copy and
+                self.machine_config.use_copy and
                 normalize(machine.tokens[machine.tok_cursor]) == target_node
             ):
                 # COPY
-                return [('COPY', nid)], [1.0]
+                node_id = len(machine.action_history)
+                self.node_map[nid] = node_id
+                self.node_reverse_map[node_id] = nid
+                self.expected_history.append('COPY')
+                return 'COPY'
             else:
                 # Generate
-                return [(target_node, nid)], [1.0]
+                node_id = len(machine.action_history)
+                self.node_map[nid] = node_id
+                self.node_reverse_map[node_id] = nid
+                self.expected_history.append(target_node)
+                return target_node
 
         # Move monotonic attention
         if machine.tok_cursor < len(machine.tokens):
-            return ['SHIFT'], [1.0]
+            self.expected_history.append('SHIFT')
+            return 'SHIFT'
 
-        return ['CLOSE'], [1.0]
+        self.expected_history.append('CLOSE')
+        return 'CLOSE'
 
 
 class AMRStateMachine():
 
-    def __init__(self, reduce_nodes=None, absolute_stack_pos=False,
-                 use_copy=True):
+    # inmutable configuration
+    Config = namedtuple(
+        'AMRStateMachineConfig', [
+            'reduce_nodes',
+            'absolute_stack_pos',
+            'use_copy'
+        ]
+    )
+
+    def __init__(self, reduce_nodes=None, absolute_stack_pos=True,
+                 use_copy=True, debug=False):
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
         # Remove nodes that have all their edges created
-        self.reduce_nodes = reduce_nodes
         # e.g. LA(<label>, <pos>) <pos> is absolute position in sentence,
         # rather than relative to stack top
-        self.absolute_stack_pos = absolute_stack_pos
+        if not absolute_stack_pos:
+            # to support align-mode. Also it may be unnecesarily confusing to
+            # have to modes
+            raise NotImplementedError('Deprecated relative stack indexing')
 
-        # use copy action
-        self.use_copy = use_copy
+        # inmutable config of the machine
+        self.config = AMRStateMachine.Config(
+            reduce_nodes, absolute_stack_pos, use_copy
+        )
+
+        # debug flag
+        self.debug = debug
 
         # base actions allowed
         self.base_action_vocabulary = [
@@ -336,14 +472,14 @@ class AMRStateMachine():
             # ...      # create node with ... as name (add node to stack)
             'NODE'     # other node names
         ]
-        if self.reduce_nodes:
+        if self.config.reduce_nodes:
             self.base_action_vocabulary.append([
                 'REDUCE',   # Remove node at top of the stack
                 'REDUCE2',  # Remove node at las LA/RA pointed position
                 'REDUCE3'   # Do both above
             ])
 
-        if not self.use_copy:
+        if not self.config.use_copy:
             self.base_action_vocabulary.remove('COPY')
 
     def canonical_action_to_dict(self, vocab):
@@ -370,20 +506,27 @@ class AMRStateMachine():
             if cano_act in self.base_action_vocabulary:
                 vocab_act_count += 1
                 canonical_act_ids.setdefault(cano_act, []).append(i)
-        # print for debugging
-        # print(f'{vocab_act_count} / {len(vocab)} tokens in action vocabulary
-        # mapped to canonical actions.')
         return canonical_act_ids
 
-    def reset(self, tokens):
+    def reset(self, tokens, gold_amr=None, reject_align_samples=False):
         '''
         Reset state variables and set a new sentence
+
+        Use gold_amr for align mode
+
+        reject_align_samples = True raises BadAlignModeSample if sample does
+        not satisfy contraints
         '''
+
+        assert tokens is not None, \
+            "State machine requires sentence to be tokenized"
+
         # state
         self.tokens = list(tokens)
         self.tok_cursor = 0
         self.node_stack = []
         self.action_history = []
+
         # AMR as we construct it
         # NOTE: We will use position of node generating action in action
         # history as node_id
@@ -397,20 +540,42 @@ class AMRStateMachine():
         # state info useful in the model
         self.actions_tokcursor = []
 
+        # align mode
+        self.gold_amr = gold_amr
+        if gold_amr:
+            # this will track the node alignments between
+            self.align_tracker = AlignModeTracker(
+                gold_amr,
+                reject_samples=reject_align_samples
+            )
+            self.align_tracker.update(self)
+
     @classmethod
     def from_config(cls, config_path):
         with open(config_path) as fid:
             config = json.loads(fid.read())
+        # remove state
+        if 'state' in config:
+            del config['state']
         return cls(**config)
 
-    def save(self, config_path):
+    def save(self, config_path, state=False):
+
+        data = self.config._asdict()
+        # add extra state for debugging operations
+        if state:
+            data['state'] = dict(
+                tokens=self.tokens,
+                action_history=self.action_history
+            )
+            if self.gold_amr:
+                data['state']['gold_amr'] = \
+                    penman.encode(self.gold_amr.penman)
+                data['state']['gold_id_map'] = \
+                    dict(self.align_tracker.gold_id_map)
+
         with open(config_path, 'w') as fid:
-            # NOTE: Add here all *non state* variables in __init__()
-            fid.write(json.dumps(dict(
-                reduce_nodes=self.reduce_nodes,
-                absolute_stack_pos=self.absolute_stack_pos,
-                use_copy=self.use_copy
-            )))
+            fid.write(json.dumps(data))
 
     def __deepcopy__(self, memo):
         """
@@ -431,11 +596,66 @@ class AMRStateMachine():
             #     setattr(result, k, deepcopy(v, memo))
             setattr(result, k, deepcopy(v, memo))
             # print(k, time.time() - start)
-        # import ipdb; ipdb.set_trace(context=30)
         return result
 
+    def state_str(self, node_map=None):
+        '''
+        Return string representing machine state
+        '''
+        string = ' '.join(self.tokens[:self.tok_cursor])
+        if self.tok_cursor < len(self.tokens):
+            string += f' \033[7m{self.tokens[self.tok_cursor]}\033[0m '
+            string += ' '.join(self.tokens[self.tok_cursor+1:]) + '\n\n'
+        else:
+            string += '\n\n'
+
+        # string += ' '.join(self.action_history) + '\n\n'
+        for action in self.action_history:
+            if action in ['SHIFT', 'ROOT', 'CLOSE'] or action.startswith('>'):
+                string += f'{action} '
+            else:
+                string += f'\033[7m{action}\033[0m '
+        string += '\n\n'
+
+        if self.edges:
+            # This can die with cicles saying its a disconnected graph
+            amr_str = self.get_amr(node_map=node_map).to_penman()
+        else:
+            # invalid AMR
+            amr_str = '\n'.join(
+                f'({nid} / {nname})' for nid, nname in self.nodes.items()
+            )
+        amr_str = '\n'.join(
+            x for x in amr_str.split('\n') if x and x[0] != '#'
+        )
+        string += f'{amr_str}\n\n'
+
+        return string
+
+    def __str__(self):
+
+        if not hasattr(self, 'tokens'):
+            return 'Machine is not reset'
+
+        if self.gold_amr:
+            # align mode
+            # create a node map relating decoded and gold ids with color code
+            dec2gold = self.align_tracker.get_flat_map()
+            node_map = {
+                k: green_font(f'{k}-{dec2gold[k][0]}')
+                if k in dec2gold else yellow_font(k)
+                for k in self.nodes
+            }
+            tracker = self.align_tracker
+            return f'{self.state_str(node_map)}\n{tracker.__str__()}'
+        else:
+            return self.state_str()
+
     def get_current_token(self):
-        return self.tokens[self.tok_cursor]
+        if self.tok_cursor >= len(self.tokens):
+            return None
+        else:
+            return self.tokens[self.tok_cursor]
 
     def get_base_action(self, action):
         """Get the base action form, by stripping the labels, etc."""
@@ -448,10 +668,64 @@ class AMRStateMachine():
             return action[:3]
         return 'NODE'
 
+    def _get_valid_align_actions(self):
+        '''Get actions that generate given gold AMR'''
+
+        # return arc actions if any
+        # corresponding possible decoded edges
+        arc_actions = []
+        for (s, gold_e_label, t) in self.align_tracker.get_missing_edges(self):
+            if s in self.node_stack[:-1] and t == self.node_stack[-1]:
+                # right arc stack --> top
+                action = f'>RA({s},{gold_e_label})'
+            else:
+                # left arc stack <-- top
+                action = f'>LA({t},{gold_e_label})'
+            if action not in arc_actions:
+                arc_actions.append(action)
+
+        if arc_actions:
+            # TODO: Pointer and label can only be enforced independently, which
+            # means that if we hae two diffrent arcs to choose from, we could
+            # make a mistake. We need to enforce an arc order.
+            return arc_actions
+
+        # otherwise choose between producing a gold node and shifting (if
+        # possible)
+        valid_base_actions = []
+        for nname in self.align_tracker.get_missing_nnames():
+            if normalize(nname) == self.get_current_token():
+                valid_base_actions.append('COPY')
+            else:
+                valid_base_actions.append(normalize(nname))
+        if self.tok_cursor < len(self.tokens):
+            valid_base_actions.append('SHIFT')
+
+        if valid_base_actions == []:
+            # if no possible option, just close
+            return ['CLOSE']
+        else:
+            return valid_base_actions
+
     def get_valid_actions(self, max_1root=True):
 
+        # debug
+        if self.debug:
+            os.system('clear')
+            print(self)
+            set_trace()
+            print()
+
+        if self.gold_amr:
+
+            # align mode (we know the AMR)
+            return self._get_valid_align_actions()
+
         valid_base_actions = []
-        gen_node_actions = ['COPY', 'NODE'] if self.use_copy else ['NODE']
+        if self.config.use_copy:
+            gen_node_actions = ['COPY', 'NODE']
+        else:
+            gen_node_actions = ['NODE']
 
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
@@ -483,9 +757,7 @@ class AMRStateMachine():
                 and self.action_history[-1] == 'SHIFT'
             valid_base_actions.append('CLOSE')
 
-        if self.reduce_nodes:
-            raise NotImplementedError
-
+        if self.config.reduce_nodes:
             if len(self.node_stack) > 0:
                 valid_base_actions.append('REDUCE')
             if len(self.node_stack) > 1:
@@ -505,9 +777,27 @@ class AMRStateMachine():
 
         assert not self.is_closed
 
+        # FIXME: Align mode can not allow '<unk>' node names but we need a
+        # handling of '<unk>' that works with other NN vocabularies
+        if self.gold_amr and action == '<unk>':
+            valid_actions = ' '.join(self.get_valid_actions())
+            raise Exception(
+                f'{valid_actions} is an <unk> action: you can not use align '
+                'mode enforcing actions not in the vocabulary'
+            )
+
         self.actions_tokcursor.append(self.tok_cursor)
 
         if re.match(r'CLOSE', action):
+
+            if self.gold_amr:
+                # sanity check, we got the exact same AMR
+                check_gold_alignment(
+                    self,
+                    trace=False,
+                    reject_samples=self.align_tracker.reject_samples
+                )
+
             self.is_closed = True
 
         elif re.match(r'ROOT', action):
@@ -517,21 +807,22 @@ class AMRStateMachine():
             # Move source pointer
             self.tok_cursor += 1
 
+        # TODO: Separate REDUCE actions into its own method
         elif action in ['REDUCE']:
             # eliminate top of the stack
-            assert self.reduce_nodes
+            assert self.config.reduce_nodes
             assert self.action_history[-1]
             self.node_stack.pop()
 
         elif action in ['REDUCE2']:
             # eliminate the other node involved in last arc not on top
-            assert self.reduce_nodes
+            assert self.config.reduce_nodes
             assert self.action_history[-1]
             fetch = arc_regex.match(self.action_history[-1])
             assert fetch
             # index = int(fetch.groups()[1])
             index = int(fetch.groups()[0])
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 # Absolute position and also node_id
                 self.node_stack.remove(index)
             else:
@@ -541,13 +832,13 @@ class AMRStateMachine():
 
         elif action in ['REDUCE3']:
             # eliminate both nodes involved in arc
-            assert self.reduce_nodes
+            assert self.config.reduce_nodes
             assert self.action_history[-1]
             fetch = arc_regex.match(self.action_history[-1])
             assert fetch
             # index = int(fetch.groups()[1])
             index = int(fetch.groups()[0])
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 # Absolute position and also node_id
                 self.node_stack.remove(index)
             else:
@@ -561,20 +852,21 @@ class AMRStateMachine():
             # Left Arc <--
             # label, index = la_regex.match(action).groups()
             index, label = la_regex.match(action).groups()
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 tgt = int(index)
             else:
                 # Relative position
                 index = len(self.node_stack) - int(index) - 2
                 tgt = self.node_stack[index]
             src = self.node_stack[-1]
+            # assert tgt in self.node_stack
             self.edges.append((src, f'{label}', tgt))
 
         elif ra_regex.match(action):
             # Right Arc -->
             # label, index = ra_regex.match(action).groups()
             index, label = ra_regex.match(action).groups()
-            if self.absolute_stack_pos:
+            if self.config.absolute_stack_pos:
                 src = int(index)
             else:
                 # Relative position
@@ -601,13 +893,54 @@ class AMRStateMachine():
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
 
+        # Update align mode tracker after machine state has been updated
+        if self.gold_amr:
+            self.align_tracker.update(self)
+
+        # in align mode we can not predict ROOT in situ, but its determined
+        # from alignments when available
+        if self.gold_amr and self.root is None:
+
+            # map from decoded nodes to gold nodes
+            gold2dec = self.align_tracker.get_flat_map(reverse=True)
+
+            if self.gold_amr.root in gold2dec:
+                # this will not work for partial AMRs
+                self.root = gold2dec[self.gold_amr.root]
+
         # Action for each time-step
         self.action_history.append(action)
 
-    def get_annotation(self):
-        amr = AMR(self.tokens, self.nodes, self.edges, self.root,
-                  alignments=self.alignments, clean=True, connect=True)
-        return amr.__str__()
+    def get_amr(self, node_map=None):
+
+        # ensure AMR is valid
+        tokens, nodes, edges, root, alignments = create_valid_amr(
+            self.tokens, self.nodes, self.edges, self.root, self.alignments
+        )
+
+        # create an AMR class
+        amr = AMR(tokens, nodes, edges, root, alignments=alignments)
+
+        # use valid node names
+        if node_map is None:
+            node_map = amr.get_node_id_map()
+        amr.remap_ids(node_map)
+
+        return amr
+
+    def get_annotation(self, node_map=None, jamr=False, isi=True):
+
+        if self.gold_amr:
+            assert self.gold_amr.penman, "Align mode requires AMR.from_penman"
+            assert not jamr, "Align dows not support --jamr write"
+            assert isi, "Align mode requires ISI"
+
+            # just add alignments to existing penman
+            return self.align_tracker.add_alignments_to_penman(self)
+
+        else:
+            amr = self.get_amr(node_map=node_map)
+            return amr.to_penman(jamr=jamr, isi=isi)
 
 
 def get_ngram(sequence, order):
@@ -619,9 +952,11 @@ def get_ngram(sequence, order):
 
 class Stats():
 
-    def __init__(self, ignore_indices, ngram_stats=False, breakpoint=False):
+    def __init__(self, ignore_indices, ngram_stats=False, breakpoint=False,
+                 if_oracle_error=None):
         self.index = 0
         self.ignore_indices = ignore_indices
+        self.if_oracle_error = if_oracle_error
         # arc generation stats
         self.stack_size_count = Counter()
         self.pointer_positions_count = Counter()
@@ -687,38 +1022,56 @@ class Stats():
             self.fourgram_count.update(get_ngram(actions, 4))
 
         # breakpoint if AMR does not match
-        self.stop_if_error(oracle, machine)
+        if self.if_oracle_error is not None:
+            self.check_error(oracle, machine)
 
         # update counter
         self.index += 1
 
-    def stop_if_error(self, oracle, machine):
+    def check_error(self, oracle, machine):
 
         # Check node name match
         for nid, node_name in oracle.gold_amr.nodes.items():
             node_name_machine = machine.nodes[oracle.node_map[nid]]
             if normalize(node_name_machine) != normalize(node_name):
-                set_trace(context=30)
-                print()
+                if self.if_oracle_error == 'stop':
+                    set_trace(context=30)
+                    print()
+                elif self.if_oracle_error == 'raise':
+                    print(machine)
+                    raise Exception('Oracle does not match')
 
         # Check mapped edges match
         mapped_gold_edges = []
         for (s, label, t) in oracle.gold_amr.edges:
             if s not in oracle.node_map or t not in oracle.node_map:
-                set_trace(context=30)
+                if self.if_oracle_error == 'stop':
+                    set_trace(context=30)
+                    print()
+                elif self.if_oracle_error == 'raise':
+                    print(machine)
+                    raise Exception('Oracle does not match')
                 continue
             mapped_gold_edges.append(
                 (oracle.node_map[s], label, oracle.node_map[t])
             )
         if sorted(machine.edges) != sorted(mapped_gold_edges):
-            set_trace(context=30)
-            print()
+            if self.if_oracle_error == 'stop':
+                set_trace(context=30)
+                print()
+            elif self.if_oracle_error == 'raise':
+                print(machine)
+                raise Exception('Oracle does not match')
 
         # Check root matches
         mapped_root = oracle.node_map[oracle.gold_amr.root]
         if machine.root != mapped_root:
-            set_trace(context=30)
-            print()
+            if self.if_oracle_error == 'stop':
+                set_trace(context=30)
+                print()
+            elif self.if_oracle_error == 'raise':
+                print(machine)
+                raise Exception('Oracle does not match')
 
     def display(self):
 
@@ -728,9 +1081,10 @@ class Stats():
             f'{num_processed}/{self.index} ({perc:.1f} %)'
             f' exact match of AMR graphs (non printed)'
         )
-        print(yellow_font(
-            f'{len(self.ignore_indices)} sentences ignored for stats'
-        ))
+        if self.ignore_indices:
+            print(yellow_font(
+                f'{len(self.ignore_indices)} sentences ignored for stats'
+            ))
 
         num_copy = self.action_count['COPY']
         perc = num_copy * 100. / self.node_count
@@ -771,7 +1125,8 @@ def peel_pointer(action, pad=-1):
     if arc_regex.match(action):
         # LA(pos,label) or RA(pos,label)
         action, properties = action.split('(')
-        properties = properties[:-1]    # remove the ')' at last position
+        # remove the ')' at last position
+        properties = properties[:-1]
         # split to pointer value and label
         properties = properties.split(',')
         pos = int(properties[0].strip())
@@ -786,8 +1141,8 @@ def peel_pointer(action, pad=-1):
 class StatsForVocab:
     """
     Collate stats for predicate node names with their frequency, and list of
-    all the other action symbols.  For arc actions, pointers values are
-    stripped.  The results stats (from training data) are going to decide which
+    all the other action symbols. For arc actions, pointers values are
+    stripped. The results stats (from training data) are going to decide which
     node names (the frequent ones) to be added to the vocabulary used in the
     model.
     """
@@ -804,7 +1159,21 @@ class StatsForVocab:
         self.right_arcs = Counter()
         self.control = Counter()
 
+        # node stack stats (candidate pool for the pointer)
+        self.node_stack_corpus = []
+
     def update(self, action, machine):
+
+        # new sentence
+        if len(machine.action_history) == 1:
+            self.node_stack_corpus.append([])
+        # update stats for node stack size
+        # if we have an arc action, store pool size
+        if action.startswith('>LA') or action.startswith('>RA'):
+            # store for current sentence
+            pool_size = len(machine.node_stack) - 1
+            self.node_stack_corpus[-1].append(pool_size)
+
         if self.no_close:
             if action in ['CLOSE', '_CLOSE_']:
                 return
@@ -826,16 +1195,24 @@ class StatsForVocab:
             self.nodes.update([action])
 
     def display(self):
-        print('Total number of different node names:')
+
+        # Uniform Pointer Perplexity
+        node_stack_corpus = [x for x in self.node_stack_corpus if x]
+        UPP_sents = list(map(np.mean, node_stack_corpus))
+        print(
+            f'Average Node Memory Size: {np.mean(UPP_sents):.2f}'
+            f' (max {np.max(UPP_sents):.2f} at sent {np.argmax(UPP_sents)})'
+        )
+        print('Total number of different node names: ', end='')
         print(len(list(self.nodes.keys())))
-        print('Most frequent node names:')
-        print(self.nodes.most_common(20))
-        print('Most frequent left arc actions:')
-        print(self.left_arcs.most_common(20))
-        print('Most frequent right arc actions:')
-        print(self.right_arcs.most_common(20))
-        print('Other control actions:')
-        print(self.control)
+        # print('Most frequent node names:')
+        # print(self.nodes.most_common(20))
+        # print('Most frequent left arc actions:')
+        # print(self.left_arcs.most_common(20))
+        # print('Most frequent right arc actions:')
+        # print(self.right_arcs.most_common(20))
+        # print('Other control actions:')
+        # print(self.control)
 
     def write(self, path_prefix):
         """
@@ -858,76 +1235,72 @@ class StatsForVocab:
 
 def oracle(args):
 
-    # Read AMR
-    amrs = read_amr(args.in_aligned_amr, ibm_format=True)
+    if args.jamr:
+        raise Exception('--jamr format is deprecated')
 
-    # broken annotations that we ignore in stats
-    # 'DATA/AMR2.0/aligned/cofill/train.txt'
-    ignore_indices = [
-        8372,   # (49, ':time', 49), (49, ':condition', 49)
-        17055,  # (3, ':mod', 7), (3, ':mod', 7)
-        27076,  # '0.0.2.1.0.0' is on ::edges but not ::nodes
-        # for AMR 3.0 data: DATA/AMR3.0/aligned/cofill/train.txt
-        # self-loop:
-        # "# ::edge vote-01 condition vote-01 0.0.2 0.0.2",
-        # "# ::edge vote-01 time vote-01 0.0.2 0.0.2"
-        9296,
-    ]
-    # NOTE we add indices to ignore for both amr2.0 and amr3.0 in the same list
-    # and used for both oracles, since: this would NOT change the oracle
-    # actions, but only ignore sanity checks and displayed stats after oracle
-    # run
+    # Read AMR as a generator with tqdm progress bar
+    amr_file = args.in_amr if args.in_amr else args.in_aligned_amr
+    tqdm_amrs = read_blocks(amr_file)
+    print(f'Gold AMRs: {amr_file}')
+    tqdm_amrs.set_description(f'Computing oracle')
 
-    # Initialize machine
-    machine = AMRStateMachine(
-        reduce_nodes=args.reduce_nodes,
-        absolute_stack_pos=args.absolute_stack_positions,
-        use_copy=args.use_copy
-    )
+    # read AMR alignments if provided
+    if args.in_alignment_probs:
+        corpus_align_probs = read_neural_alignments(args.in_alignment_probs)
+        assert len(corpus_align_probs) == len(tqdm_amrs)
+    else:
+        corpus_align_probs = None
+
+    # Initialize machine from parameters or config
+    if args.in_machine_config:
+        machine = AMRStateMachine.from_config(args.in_machine_config)
+    else:
+        machine = AMRStateMachine(
+            reduce_nodes=args.reduce_nodes,
+            absolute_stack_pos=args.absolute_stack_positions,
+            use_copy=args.use_copy
+        )
+
     # Save machine config
-    machine.save(args.out_machine_config)
+    if args.out_machine_config:
+        machine.save(args.out_machine_config)
 
-    # initialize oracle
-    oracle = AMROracle(
-        reduce_nodes=args.reduce_nodes,
-        absolute_stack_pos=args.absolute_stack_positions,
-        use_copy=args.use_copy
-    )
+    # initialize oracle with same config as machine
+    oracle = AMROracle(machine_config=machine.config)
 
     # will store statistics and check AMR is recovered
-    stats = Stats(ignore_indices, ngram_stats=False)
+    ignore_indices = []
+    stats = Stats(ignore_indices, ngram_stats=False,
+                  if_oracle_error=args.if_oracle_error)
     stats_vocab = StatsForVocab(no_close=False)
-    for idx, amr in tqdm(enumerate(amrs), desc='Oracle'):
+    for idx, penman_str in enumerate(tqdm_amrs):
 
-        # debug
-        # print(idx)    # 96 for AMR2.0 test data infinit loop
-        # if idx == 96:
-        #     breakpoint()
+        # read into AMR class (this looses epigraph data and attribute info)
+        amr = AMR.from_penman(penman_str)
 
         # spawn new machine for this sentence
         machine.reset(amr.tokens)
 
         # initialize new oracle for this AMR
-        oracle.reset(amr)
+        if corpus_align_probs:
+            # sampling of alignments
+            oracle.reset(amr, alignment_probs=corpus_align_probs[idx],
+                         alignment_sampling_temp=args.alignment_sampling_temp)
+        else:
+            oracle.reset(amr)
 
         # proceed left to right throught the sentence generating nodes
         while not machine.is_closed:
 
-            # get valid actions
-            _ = machine.get_valid_actions()
+            # oracle action given machine state
+            action = oracle.get_action(machine)
 
-            # oracle
-            actions, scores = oracle.get_actions(machine)
-            # actions = [a for a in actions if a in valid_actions]
-            # most probable
-            action = actions[np.argmax(scores)]
-
-            # if it is node generation, keep track of original id in gold amr
-            if isinstance(action, tuple):
-                action, gold_node_id = action
-                node_id = len(machine.action_history)
-                oracle.node_map[gold_node_id] = node_id
-                oracle.node_reverse_map[node_id] = gold_node_id
+            # sanity check action is valide
+            if (
+                action not in machine.get_valid_actions()
+                and 'NODE' not in machine.get_valid_actions()
+            ):
+                raise Exception(f'Invalid action {action}')
 
             # update machine,
             machine.update(action)
@@ -951,16 +1324,18 @@ def oracle(args):
     stats.display()
 
     # save action sequences and tokens
-    write_tokenized_sentences(
-        args.out_actions,
-        stats.action_sequences,
-        '\t'
-    )
-    write_tokenized_sentences(
-        args.out_tokens,
-        stats.tokens,
-        '\t'
-    )
+    if args.out_actions:
+        write_tokenized_sentences(
+            args.out_actions,
+            stats.action_sequences,
+            '\t'
+        )
+    if args.out_tokens:
+        write_tokenized_sentences(
+            args.out_tokens,
+            stats.tokens,
+            '\t'
+        )
 
     # save action vocabulary stats
     # debug
@@ -997,11 +1372,12 @@ def play(args):
         assert machine.is_closed
 
         # print AMR
-        annotations.append(machine.get_annotation())
+        annotations.append(machine.get_annotation(isi=not args.no_isi))
 
     with open(args.out_amr, 'w') as fid:
         for annotation in annotations:
-            fid.write(annotation)
+            fid.write(f'{annotation}\n')
+        print(f'Oracle AMRs: {args.out_amr}')
 
 
 def main(args):
@@ -1016,28 +1392,61 @@ def main(args):
         assert args.out_amr
         assert not args.out_actions
         assert not args.in_aligned_amr
+        assert not args.force_align_ner
         play(args)
 
-    elif args.in_aligned_amr:
+    elif args.in_aligned_amr or args.in_amr:
         # Run oracle and determine actions from AMR
-        assert args.in_aligned_amr
-        assert args.out_actions
-        assert args.out_tokens
-        assert args.out_machine_config
+        assert args.in_aligned_amr or (args.in_amr and args.in_alignment_probs)
+        if args.out_actions:
+            # if we write the actions we must aslo save the tokens
+            assert args.out_tokens
         assert not args.in_tokens
         assert not args.in_actions
         oracle(args)
 
+    else:
+        raise Exception('Needs --in-actions or --in-*amr')
+
 
 def argument_parser():
 
-    parser = argparse.ArgumentParser(description='Aligns AMR to its sentence')
+    parser = argparse.ArgumentParser(
+        description='Produces oracle sequences given AMR alignerd to sentence'
+    )
     # Single input parameters
     parser.add_argument(
         "--in-aligned-amr",
         help="In file containing AMR in penman format AND IBM graph notation "
              "(::node, etc). Graph read from the latter and not penman",
         type=str
+    )
+    parser.add_argument(
+        "--in-amr",
+        help="In file containing AMR in penman format, requires "
+             "--in-alignment-probs",
+        type=str
+    )
+    parser.add_argument(
+        "--jamr",
+        help="Read AMR and alignments from JAMR and not PENMAN",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--in-alignment-probs",
+        help="Alignment probabilities produced by ibm_neural_aligner/main.py",
+        type=str
+    )
+    parser.add_argument(
+        "--alignment-sampling-temp",
+        help="Temperature for sampling alignments",
+        default=1.0,
+        type=float,
+    )
+    parser.add_argument(
+        "--force-align-ner",
+        help="(<tag> :name name :opx <token>) allways aligned to token",
+        action='store_true'
     )
     # ORACLE
     parser.add_argument(
@@ -1094,9 +1503,19 @@ def argument_parser():
         type=str,
     )
     parser.add_argument(
+        "--no-isi",
+        help="Write ISI alignments in # ::alignments field",
+        type=str,
+    )
+    parser.add_argument(
         "--in-machine-config",
         help="configuration for state machine in config format",
         type=str,
+    )
+    parser.add_argument(
+        "--if-oracle-error",
+        help="choose action to do if oracle does not match gold",
+        choices=['stop', 'raise'],
     )
     args = parser.parse_args()
     return args

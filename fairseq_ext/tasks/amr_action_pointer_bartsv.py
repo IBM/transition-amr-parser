@@ -244,16 +244,28 @@ class AMRActionPointerBARTSVParsingTask(FairseqTask):
         assert args.target_lang == 'actions', 'target extension must be "actions"'
         args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
         args.target_lang_pos = 'actions_pos'
+
+        # FIXME: This is still not robust
+        if hasattr(args, 'save_dir'):
+            # standalone mode
+            dict_path = args.save_dir
+        else:
+            # training mode
+            dict_path = paths[0]
+
+        src_dict = cls.load_dictionary(os.path.join(dict_path, 'dict.{}.txt'.format(args.source_lang)))
+        tgt_dict = cls.load_dictionary(os.path.join(dict_path, 'dict.{}.txt'.format(args.target_lang_nopos)))
+
         args.target_lang_vocab_nodes = 'actions.vocab.nodes'
         args.target_lang_vocab_others = 'actions.vocab.others'
-        src_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.source_lang)))
-        # tgt_dict = cls.load_dictionary(os.path.join(paths[0], 'dict.{}.txt'.format(args.target_lang_nopos)))
+        src_dict = cls.load_dictionary(os.path.join(dict_path, 'dict.{}.txt'.format(args.source_lang)))
+        # tgt_dict = cls.load_dictionary(os.path.join(dict_path, 'dict.{}.txt'.format(args.target_lang_nopos)))
 
         # NOTE rebuild the dictionary every time
         tgt_dict = cls.build_dictionary_bart_extend(
             node_freq_min=args.node_freq_min,
-            node_file_path=os.path.join(paths[0], args.target_lang_vocab_nodes),
-            others_file_path=os.path.join(paths[0], args.target_lang_vocab_others)
+            node_file_path=os.path.join(dict_path, args.target_lang_vocab_nodes),
+            others_file_path=os.path.join(dict_path, args.target_lang_vocab_others)
             )
 
         # TODO target dictionary 'actions_nopos' is hard coded now; change it later

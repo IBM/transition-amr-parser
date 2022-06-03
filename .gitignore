@@ -5,18 +5,21 @@ scripts/local_variables.sh
 set_environment.sh
 
 # data
+media/
 PROGRESS*
 DATA*
-*oracles/
 EXP*
 checkpoints*
 amr_corpus*
 *.orig
 *.zip
+*.json
 #!EXPR
 */gigaword_ref.txt
 file.amr
 fairseq_ext/tests_data/*
+*.npy
+*.npy.*
 
 # run scripts logs
 logs*
@@ -66,5 +69,6 @@ jbsub_logs/
 
 # vim
 .vim/
+ctags
 *.swp
 ctags

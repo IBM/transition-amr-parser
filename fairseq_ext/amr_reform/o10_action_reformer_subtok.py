@@ -260,7 +260,11 @@ class AMRActionReformerSubtok:
         # import ipdb; ipdb.set_trace(context=30)
         return result
 
-    def reset(self, tokens):
+    def reset(self, tokens, gold_amr=None):
+
+        assert gold_amr is None, "align-model for joint-voc not supported"
+        self.gold_amr = None
+
         self.machine.reset(tokens)
         # model decoding input and output
         self.actions_nopos_in = []

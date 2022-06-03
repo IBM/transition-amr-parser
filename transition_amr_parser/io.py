@@ -1,36 +1,332 @@
 import re
+import os
+from glob import glob
 import json
 import subprocess
 import xml.etree.ElementTree as ET
 from tqdm import tqdm
+import numpy as np
 from collections import Counter
 from transition_amr_parser.amr import AMR
+from dateutil.parser import parse
 
 
-def read_amr(file_path, ibm_format=False, tokenize=False, bar=True):
+def get_score_from_log(file_path, score_name):
+
+    smatch_results_re = re.compile(r'^F-score: ([0-9\.]+)')
+
+    results = [None]
+
+    if 'smatch' in score_name:
+        regex = smatch_results_re
+    else:
+        raise Exception(f'Unknown score type {score_name}')
+
     with open(file_path) as fid:
-        raw_amr = []
-        raw_amrs = []
-        if bar:
-            bar = tqdm
+        for line in fid:
+            if regex.match(line):
+                results = regex.match(line).groups()
+                results = [100*float(x) for x in results]
+                break
+
+    return results
+
+
+def read_train_log(seed_folder, config_name):
+
+    train_info_regex = re.compile(
+        r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) '
+        r'\| INFO \| train \| (.*)'
+    )
+    valid_info_regex = re.compile(
+        r'([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) '
+        r'\| INFO \| valid \| (.*)'
+    )
+
+    seed_data = []
+    for log_file in glob(f'{seed_folder}/tr-*.stdout'):
+        with open(log_file) as fid:
+            for line in fid:
+                if train_info_regex.match(line):
+                    date_str, json_info = \
+                        train_info_regex.match(line).groups()
+                    item = json.loads(json_info)
+                    item['timestamp'] = parse(date_str)
+                    item['experiment_key'] = config_name
+                    item['set'] = 'train'
+                    item['name'] = config_name
+                    seed_data.append(item)
+
+                elif valid_info_regex.match(line):
+                    date_str, json_info = \
+                        valid_info_regex.match(line).groups()
+                    item = json.loads(json_info)
+                    item['timestamp'] = parse(date_str)
+                    item['experiment_key'] = config_name
+                    item['set'] = 'valid'
+                    item['name'] = config_name
+                    seed_data.append(item)
+
+    # TODO: compute time between epochs
+    train_seed_data = [x for x in seed_data if 'train_nll_loss' in x]
+    train_data_sort = sorted(train_seed_data, key=lambda x: x['epoch'])
+    if train_data_sort == []:
+        return []
+    train_data_sort[0]['epoch_time'] = None
+    prev = [train_data_sort[0]['epoch'], train_data_sort[0]['timestamp']]
+    new_data = [train_data_sort[0]]
+    for item in train_data_sort[1:]:
+        time_delta = item['timestamp'] - prev[1]
+        epoch_delta = item['epoch'] - prev[0]
+        if epoch_delta:
+            item['epoch_time'] = time_delta.total_seconds() / epoch_delta
+            prev = [item['epoch'], item['timestamp']]
         else:
-            def bar(x, desc=None): return x
-        for line in bar(fid.readlines(), desc='Reading AMR'):
-            if line.strip() == '':
-                if ibm_format:
-                    # From ::node, ::edge etc
-                    raw_amrs.append(
-                        AMR.from_metadata(raw_amr, tokenize=tokenize)
-                    )
-                else:
-                    # From penman
-                    raw_amrs.append(
-                        AMR.from_penman(raw_amr, tokenize=tokenize)
-                    )
-                raw_amr = []
+            item['epoch_time'] = 0
+        new_data.append(item)
+
+    return new_data
+
+
+def read_experiment(config):
+
+    config_name = os.path.basename(config)
+    config_env_vars = read_config_variables(config)
+    model_folder = config_env_vars['MODEL_FOLDER']
+    seeds = config_env_vars['SEEDS'].split()
+
+    exp_data = []
+    for seed in seeds:
+        seed_folder = f'{model_folder}seed{seed}'
+
+        # read info from logs
+        exp_data.extend(read_train_log(seed_folder, config_name))
+
+        # read validation decoding scores
+        eval_metric = config_env_vars['EVAL_METRIC']
+        validation_folder = f'{seed_folder}/epoch_tests/'
+        for epoch in range(int(config_env_vars['MAX_EPOCH'])):
+            results_file = \
+                f'{validation_folder}/dec-checkpoint{epoch}.{eval_metric}'
+            if os.path.isfile(results_file):
+                score = get_score_from_log(results_file, eval_metric)[0]
+                exp_data.append({
+                    'epoch': epoch,
+                    'epoch_time': None,
+                    'set': 'valid-dec',
+                    'score': score,
+                    'experiment_key': config_name,
+                    'name': config_name
+                })
+
+    return exp_data
+
+
+def write_neural_alignments(out_alignment_probs, aligned_amrs, joints):
+    assert len(aligned_amrs) == len(joints)
+    with open(out_alignment_probs, 'w') as fid:
+        for index in range(len(joints)):
+            # index, nodes, node ids, tokens
+            fid.write(f'{index}\n')
+            nodes = ' '.join(aligned_amrs[index].nodes.values())
+            fid.write(f'{nodes}\n')
+            ids = ' '.join(aligned_amrs[index].nodes.keys())
+            fid.write(f'{ids}\n')
+            tokens = ' '.join(aligned_amrs[index].tokens)
+            fid.write(f'{tokens}\n')
+            # probabilities
+            num_tokens, num_nodes = joints[index].shape
+            for j in range(num_nodes):
+                for i in range(num_tokens):
+                    fid.write(f'{j} {i} {joints[index][i, j]:e}\n')
+            fid.write(f'\n')
+
+
+def read_neural_alignments_from_memmap(path, corpus):
+    # TODO: Verify hash, which ensures dataset and node order is the same.
+    sizes = list(map(lambda x: len(x.tokens) * len(x.nodes), corpus))
+    assert all([size > 0 for size in sizes])
+    total_size = sum(sizes)
+    offsets = np.zeros(len(corpus), dtype=np.int)
+    offsets[1:] = np.cumsum(sizes[:-1])
+
+    np_align_dist = np.memmap(path, dtype=np.float32, shape=(total_size, 1), mode='r')
+    align_dist = np.zeros((total_size, 1), dtype=np.float32)
+    align_dist[:] = np_align_dist[:]
+
+    alignments = []
+    for idx, amr in enumerate(corpus):
+        offset = offsets[idx]
+        size = sizes[idx]
+        assert size == len(amr.tokens) * len(amr.nodes)
+
+        p_node_and_token = align_dist[offset:offset+size].reshape(len(amr.nodes), len(amr.tokens))
+        example_id = idx
+        node_short_id = None
+        text_tokens = None
+
+        alignments.append(dict(
+            example_id=example_id,
+            node_short_id=node_short_id,
+            text_tokens=text_tokens,
+            p_node_and_token=p_node_and_token
+        ))
+
+    return alignments
+
+
+def read_neural_alignments(alignments_file):
+
+    alignments = []
+    sentence_alignment = []
+    with open(alignments_file, 'r') as fid:
+        for line in fid:
+            line = line.strip()
+            if line == '':
+
+                # example_id
+                # node_names
+                # node_short_id
+                # text_tokens
+                # i j posterior[i, j]
+
+                example_id, node_names, node_short_id, text_tokens = \
+                    sentence_alignment[:4]
+
+                # FIXME: Some node name have "some space" need to be saped
+                # num_nodes = len(node_names.split())
+                num_nodes = len(node_short_id.split())
+                num_tokens = len(text_tokens.split())
+                p_node_and_token = np.zeros((num_nodes, num_tokens))
+                node_indices = set()
+                token_indices = set()
+                for pair in sentence_alignment[4:]:
+                    node_idx, token_idx, prob = pair.split()
+                    node_idx, token_idx = int(node_idx), int(token_idx)
+                    p_node_and_token[node_idx, token_idx] = float(prob)
+                    node_indices.add(node_idx)
+                    token_indices.add(token_idx)
+
+                # sanity check
+                assert list(node_indices) == list(range(num_nodes))
+                assert list(token_indices) == list(range(num_tokens))
+                # assert len(node_short_id.split()) == len(node_names.split())
+
+                alignments.append(dict(
+                    example_id=example_id,
+                    node_short_id=node_short_id.split(),
+                    # node_names=node_names.split(),
+                    text_tokens=text_tokens.split(),
+                    p_node_and_token=p_node_and_token
+                ))
+                sentence_alignment = []
             else:
-                raw_amr.append(line)
-    return raw_amrs
+                sentence_alignment.append(line)
+
+    return alignments
+
+
+def read_amr(file_path, jamr=False, generate=False):
+    if generate:
+        # yields each AMR, faster but non sequential
+        return amr_generator(file_path, jamr=jamr)
+    else:
+        return amr_iterator(file_path, jamr=jamr)
+
+
+def amr_iterator(file_path, jamr=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
+    '''
+
+    amrs = []
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
+
+        if jamr:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            amrs.append(AMR.from_metadata(raw_amr))
+        else:
+            # from penman
+            amrs.append(AMR.from_penman(raw_amr))
+
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
+
+    return amrs
+
+
+def amr_generator(file_path, jamr=False):
+    '''
+    Read AMRs in PENMAN+ISI-alignments or JAMR+alignments (ibm_format=True)
+
+    (tokenize is deprecated)
+    '''
+
+    # loop over blocks separated by whitespace
+    tqdm_iterator = read_blocks(file_path)
+    num_amr = len(tqdm_iterator)
+    for index, raw_amr in enumerate(tqdm_iterator):
+
+        if jamr:
+            # From JAMR plus IBMs alignment format (DEPRECATED)
+            yield AMR.from_metadata(raw_amr)
+        else:
+            # From penman
+            yield AMR.from_penman(raw_amr)
+
+        tqdm_iterator.set_description(f'Reading AMRs {index+1}/{num_amr}')
+
+
+def generate_blocks(file_path, bar=True, desc=None):
+    '''
+    Reads text file, returns chunks separated by empty line
+    '''
+
+    # to measure progress with a generator get the size first
+    if bar:
+        with open(file_path) as fid:
+            num_blocks = len([x for x in fid])
+
+    # display a progress bar
+    def pbar(x):
+        if bar:
+            return tqdm(x, desc=desc, total=num_blocks)
+        else:
+            return x
+
+    # read blocks
+    with open(file_path) as fid:
+        block = ''
+        for line in pbar(fid):
+            if line.strip() == '':
+                yield block
+                block = ''
+            else:
+                block += line
+
+
+def read_blocks(file_path, return_tqdm=True):
+    '''
+    Reads text file, returns chunks separated by empty line
+    '''
+
+    # read blocks
+    with open(file_path) as fid:
+        block = ''
+        blocks = []
+        for line in fid:
+            if line.strip() == '':
+                blocks.append(block)
+                block = ''
+            else:
+                block += line
+
+    if return_tqdm:
+        return tqdm(blocks, leave=False)
+    else:
+        return blocks
 
 
 def read_frame(xml_file):

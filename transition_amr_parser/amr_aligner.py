@@ -10,6 +10,7 @@ from functools import wraps
 # pip install penman spacy ipdb numpy
 import numpy as np
 try:
+    # version?
     import spacy
     from spacy.tokens.doc import Doc
 except ImportError as e:
@@ -18,7 +19,7 @@ except ImportError as e:
 
 # pip install matplotlib
 from transition_amr_parser.plots import plot_graph
-from transition_amr_parser.io import read_amr
+from transition_amr_parser.io import read_amr, write_neural_alignments
 from transition_amr_parser.clbar import clbar
 # for debugging
 from ipdb import set_trace
@@ -84,13 +85,72 @@ class NoTokenizer(object):
 
 
 try:
-    lemmatizer = spacy.load('en', disable=['parser', 'ner'])
+    lemmatizer = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
 except OSError:
     # Assume the problem was the spacy models were not downloaded
     from spacy.cli.download import download
-    download('en')
-    lemmatizer = spacy.load('en', disable=['parser', 'ner'])
+    download('en_core_web_sm')
+    lemmatizer = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
 lemmatizer.tokenizer = NoTokenizer(lemmatizer.vocab)
+
+
+def constrain_posterior(amr, align_posterior):
+    '''
+    amr:              transition_amr_parser.io.AMR
+    align_posterior:  array.shape (len(amr.tokens), len(amr.nodes)) with
+                      amr.nodes order for dim 1
+    '''
+
+    # get map from node id to posterior node index
+    nid2idx = {nid: i for i, nid in enumerate(amr.nodes.keys())}
+    # idx2nid = {v: k for k, v in nid2idx.items()}
+
+    # expected positions
+    exp_pos = (
+        np.arange(len(amr.tokens))[:, None] * align_posterior
+    ).sum(0)
+
+    # Realign named entities
+    for ner in get_ner_ids(amr):
+        # all nodes inherit alignment posterior of the left-most :opN
+        ref_id = sorted(ner['children_ids'], key=lambda x: x[1])[0][0]
+        for nid in [ner['id'], ner['name_id']]:
+            align_posterior[:, nid2idx[nid]] = \
+                align_posterior[:, nid2idx[ref_id]]
+
+    # Realign uniform posteriors by using child posterior
+    max_p = align_posterior.max(0, keepdims=True)
+    for node_pos, max_rep in enumerate((max_p == align_posterior).sum(0)):
+        if max_rep > 1:
+            node_id = list(amr.nodes.keys())[node_pos]
+            children = amr.children(node_id)
+            if len(children) > 1:
+                # average with left-most (expected position) children
+                left_child = sorted(
+                    children,
+                    key=lambda x: exp_pos[nid2idx[x[0]]]
+                )[0]
+                rid = nid2idx[left_child[0]]
+                align_posterior[:, node_pos] += align_posterior[:, rid]
+                align_posterior[:, node_pos] *= 0.5
+
+    # Realign uniform posteriors by using parent posterior
+    max_p = align_posterior.max(0, keepdims=True)
+    for node_pos, max_rep in enumerate((max_p == align_posterior).sum(0)):
+        if max_rep > 1:
+            node_id = list(amr.nodes.keys())[node_pos]
+            parents = amr.parents(node_id)
+            if len(parents) > 1:
+                # average with left-most (expected position) parents
+                left_parent = sorted(
+                    parents,
+                    key=lambda x: exp_pos[nid2idx[x[0]]]
+                )[0]
+                rid = nid2idx[left_parent[0]]
+                align_posterior[:, node_pos] += align_posterior[:, rid]
+                align_posterior[:, node_pos] *= 0.5
+
+    return align_posterior
 
 
 def get_sparse_prob_indices(probs, alpha=0.0):
@@ -114,6 +174,29 @@ def get_sparse_prob_indices(probs, alpha=0.0):
     else:
         cut_index = search[0]
         return indices[:cut_index + 1]
+
+
+def get_ner_ids(amr):
+
+    ners = []
+    for node_id in amr.nodes.keys():
+        if (
+            amr.nodes[node_id] == 'name'
+            and any([x[1] == ':name' for x in amr.parents(node_id)])
+        ):
+            # all nodes below the "name" node
+            child_nodes = amr.children(node_id)
+            # parent node of "name" node (NER tag)
+            tag_id = [e[0] for e in amr.parents(node_id) if e[1] == ':name'][0]
+            ner_alignments = [x for x in child_nodes if x[1].startswith(':op')]
+            ner_alignments = sorted(ner_alignments, key=lambda x: x[1])
+            ners.append({
+                'id': tag_id,
+                'name_id': node_id,
+                'children_ids': ner_alignments
+            })
+
+    return ners
 
 
 class AMRAligner():
@@ -233,6 +316,7 @@ class AMRAligner():
             nodeid2token = {}
 
         # Note down tokens that are aligned with probability 1 to a node
+        # TODO: Not in use right now, eliminate?
         token_hard_aligned = dict()
         for nid, tokens in nodeid2token.items():
             if len(tokens) == 1:
@@ -285,23 +369,25 @@ class AMRAligner():
 
     def get_alignment_posterior(self, amr, cache_key=None):
 
-        # Likelihood of node y_j being produced by each token x_{a_j}
+        # Likelihoods of node y_j being produced by each token x_{a_j}
         # shape = (len(amr.tokens), len(amr.nodes))
         # prob_node_by_token_sen[t_pos, :] = p(y= : | x_{a_j}) w/ a_j = t_pos
         prob_node_by_token_sent = \
             self.get_alignment_likelihood(amr, cache_key=cache_key)
+
         # prior of alignment a_j = i given tokens x. Simplified to depend only
         # on token
         # p(a_j = t_pos | x) ~= p(x_{t_pos} aligns to something)
         # shape = len(amr.tokens)
         prob_token = self.get_alignment_prior(amr)
 
-        # joint distribution
+        # joint distribution of tokens and nodes
         # p(y_j = :, x_{:}) = joint[:, :]
         # shape = (len(amr.tokens), len(amr.nodes))
         joint = prob_node_by_token_sent * prob_token[:, None]
+
         # node prior by marginalizing tokens
-        # p(y_j = :)
+        # p(y_j | x) = sum_{t_pos} p(y_j | x_{t_pos}) p(t_pos | x)
         # shape = (len(amr.nodes))
         node_likelihood = joint.sum(axis=0, keepdims=True)
 
@@ -309,6 +395,7 @@ class AMRAligner():
         node_likelihood[node_likelihood == 0] = 1e-8
 
         # Bayes rule
+        # p(a_j = t_pos | y_j, x)
         alignment_posterior = joint / node_likelihood
 
         if np.isnan(alignment_posterior).any():
@@ -417,51 +504,17 @@ class AMRAligner():
         # Get hard alignments either from posterior or likelihood
         # these alignments are node name to token name so they can be ambiguous
         # if multiple tokens or node names are in the graph
-        if likelihood:
-            node2token = self.align_from_likelihood(amr, cache_key=cache_key)
-        else:
-            node2token, alignment_posterior = self.align_from_posterior(
-                amr, cache_key=cache_key
-            )
-
-        # some alignments are unreliable, ignore them when doing disambiguation
-        unaligned_node_ids = [
-            node_id
-            for node_id, node_name in amr.nodes.items()
-            if node_name in self.ignore_nodes
-            or any(reg.match(node_name) for reg in self.ignore_node_regex)
-        ]
-        # disambiguate alignments by greedily minimizing aligned token distance
-        # between neigbouring nodes. Do not use certain nodes for this as it
-        # can be missleading
-        node2token_fixes = graph_vicinity_resolver(
-            amr,
-            node2token,
-            ignore_relative_ids=unaligned_node_ids
+        # TODO: Deprecate loglik
+        # node2token = self.align_from_likelihood(amr, cache_key=cache_key)
+        node2token, align_posterior, likelihood = self.align_from_posterior(
+            amr, cache_key=cache_key
         )
-        node2token.update(node2token_fixes)
-
-        # some nodes are unaligned and then aligned to last child of first
-        # parent
-        graph_fixes, unaligned_node_ids2 = graph_vicinity_aligner(
-            amr, node2token, unaligned_node_ids
-        )
-        node2token.update(graph_fixes)
-
-        # format alignments to meet e.g. stack-Transformer needs
-        if aformat == 'stack':
-
-            node2token = self.format_alignments_for_stack(
-                amr, node2token, unaligned_node_ids,
-            )
-
-        else:
-            # experimental format
-            pass
 
         # consolidate all alignments together
         # TODO: Printer should admit a list of alignments
-        return {key: value[0][0] for key, value in node2token.items()}
+        node2token = {key: value[0][0] for key, value in node2token.items()}
+
+        return node2token, align_posterior * likelihood
 
     def format_alignments_for_stack(self, amr, nodeid2token,
                                     unaligned_node_ids):
@@ -490,11 +543,6 @@ class AMRAligner():
                 tokens2node[(token_pos, token_name)].append(
                     [nid, amr.nodes[nid], score]
                 )
-
-        #
-        # token2pos = {token: i for i, token in enumerate(amr.tokens)}
-        # node2id = {nid: i for i, nid in enumerate(amr.nodes.keys())}
-        # al_posterior = self.get_alignment_posterior(amr)[0]
 
         # Assign closest token left-to right
         overlapping_alignments = [
@@ -1028,16 +1076,16 @@ IGNORE_REGEX = [
 ]
 
 
-def save_aligned(amrs, original_tokens, indices, amr_aligner, out_aligned_amr,
-                 compare, aformat):
+def align_and_score(amrs, original_tokens, indices, amr_aligner, compare):
 
     # compare with previous alignments
     alignment_match_counts = Counter()
     final_amrs = []
+    final_joint = []
     for index in tqdm(indices, desc='Aligning data'):
 
         amr = amrs[index]
-        alignments = amr_aligner.align(amr, cache_key=index, aformat=aformat)
+        alignments, joint = amr_aligner.align(amr, cache_key=index)
 
         if compare:
             # update comparison stats
@@ -1053,6 +1101,9 @@ def save_aligned(amrs, original_tokens, indices, amr_aligner, out_aligned_amr,
         # overwrite alignments
         amr.alignments = {k: [v] for k, v in alignments.items()}
         final_amrs.append(amr)
+
+        # store joint distribution of token positions and nodes
+        final_joint.append(joint)
 
     if compare:
         clbar(alignment_match_counts.most_common(50), ylim=(0, 0.1), norm=True)
@@ -1176,10 +1227,21 @@ def main(args):
         visual_eval(amr_aligner, eval_indices, amrs, args.compare,
                     args.alignment_format)
 
-    # add or replace alignments
+    # get final alignments and score if solicted
     if args.out_aligned_amr or args.compare:
-        save_aligned(amrs, original_tokens, indices, amr_aligner,
-                     args.out_aligned_amr, args.compare, args.alignment_format)
+        aligned_amrs, joints = align_and_score(
+            amrs, original_tokens, indices, amr_aligner, args.compare)
+
+    # store alignments to disk
+    if args.out_aligned_amr:
+        # AMR in penman + JAMR notation
+        with open(args.out_aligned_amr, 'w') as fid:
+            for amr in aligned_amrs:
+                fid.write(f'{amr.to_jamr()}')
+
+    if args.out_alignment_probs:
+        # write joint probabilities
+        write_neural_alignments(args.out_alignment_probs, aligned_amrs, joints)
 
 
 def argument_parser():
@@ -1201,6 +1263,11 @@ def argument_parser():
         "--out-aligned-amr",
         help="Out File containing AMR in penman format AND IBM graph notation "
              "(::node, etc). Graph read from the latter and not penman",
+        type=str
+    )
+    parser.add_argument(
+        "--out-alignment-probs",
+        help="Alignment probabilities in formaty used by neural aligner",
         type=str
     )
     parser.add_argument(

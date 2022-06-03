@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # Argument handling
     in_amr, in_propbank_json = sys.argv[1:]
 
-    corpus = read_amr(in_amr)
+    amrs = read_amr(in_amr)
     with open(in_propbank_json) as fid:
         propbank = json.loads(fid.read())
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     amr_alerts = defaultdict(list)
     sid = 0
     num_preds = 0
-    for amr in tqdm(corpus.amrs):
+    for amr in tqdm(amrs):
         predicate_ids = [
             k for k, v in amr.nodes.items() if pred_regex.match(v)
         ]

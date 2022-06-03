@@ -1,23 +1,26 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.5.1'
+VERSION = '0.5.2'
 
 # this is what usually goes on requirements.txt
 install_requires = [
-    'torch==1.4',
-    #'torch-scatter==1.3.2',
+    'torch==1.10.1',
+    'torch-scatter==2.0.9',
     'tqdm',
     'fairseq==0.10.2',
     'packaging',
     'requests',
+    # for data (ELMO embeddings)
+    'h5py',
+    'python-dateutil',
     # for scoring
     'penman',
-    'smatch==1.0.4',
+    # needs tools to be importable > 1.0.4
+    'smatch',
     # for debugging
     'ipdb',
     'line_profiler',
     'pyinstrument'
-    # 'tensorboardX',
 ]
 
 setup(
@@ -27,7 +30,6 @@ setup(
     py_modules=['transition_amr_parser'],
     entry_points={
         'console_scripts': [
-            # standalone parsing only supported in v0.4.2 and below (for now)
             'amr-parse = transition_amr_parser.parse:main',
             'amr-machine = transition_amr_parser.amr_machine:main',
         ]

@@ -45,9 +45,9 @@ To install clone and pip install
 ```bash
 git clone git@github.ibm.com:mnlp/transition-amr-parser.git
 cd transition-amr-parser
-git checkout <branch>    # for e.g. action-pointer, ignore for current version
-. set_environment.sh     # see above
-pip install .            # use --editable if to modify code
+git checkout <branch>     # for e.g. action-pointer, ignore for current version
+. set_environment.sh      # see above
+pip install --editable .  
 pip install torch-scatter==1.3.2
 ```
 
@@ -60,10 +60,10 @@ To do a mini-test with 25 annotated sentences that we provide. This should take 
 bash tests/minimal_test.sh
 ```
 
-If you want to align AMR data, the aligner uses additional tools that can be donwloaded and installed with
+If you want to align AMR data, the neural aligner requires a separate allennlp install to extract ELMO
 
 ```bash
-bash preprocess/install_alignment_tools.sh
+bash align_cfg/install.sh
 ```
 
 See [here](scripts/README.md#install-details) for more install details
@@ -76,6 +76,16 @@ You first need to pre-process and align the data. For AMR2.0 do
 . set_environment.sh
 python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
+
+If you have a trained aligner model, copy it to the aligner folder
+
+``` 
+mkdir -p DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/model.best.val_1_recall.pt DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/flags.json DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/vocab.text.2021-06-30.txt DATA/AMR2.0/aligned/align_cfg/
+cp /path/to/vocab.amr.2021-06-30.txt DATA/AMR2.0/aligned/align_cfg/
+``` 
 
 You will also need to unzip the precomputed BLINK cache. See issues in this repository to get the cache file (or the link above for IBM-ers).
 

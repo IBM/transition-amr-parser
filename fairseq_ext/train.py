@@ -71,6 +71,10 @@ logger = logging.getLogger("fairseq_cli.train")
 
 
 def main(args):
+
+    if not torch.cuda.is_available():
+        args.fp16 = False
+
     import_user_module(args)
 
     assert (
@@ -111,9 +115,7 @@ def main(args):
         )
     )
 
-    # breakpoint()
-
-    # ========== initialize the model with pretrained BART parameters ==========
+    # initialize the model with pretrained BART parameters
     # for shared embeddings and subtoken split for amr nodes
     if 'bartsv' in args.arch:
 
@@ -160,7 +162,6 @@ def main(args):
             logger.info('-' * 10 + ' initialize extended target embeddings with compositional embeddings '
                         'from BART vocabulary ' + '-' * 10)
 
-            # breakpoint()
             symbols = [task.target_dictionary[idx] for idx in range(bart_vocab_size, len(task.target_dictionary))]
             mapper = MapAvgEmbeddingBART(task.bart,
                                          task.bart.model.decoder.embed_tokens)

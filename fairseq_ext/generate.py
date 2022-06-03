@@ -274,11 +274,8 @@ def main(args):
                         if not tgt_dict[hypo['tokens'][0]].startswith(tgt_dict.bpe.INIT):
                             error_stats['num_sub_start'] += 1
 
-                        try:
-                            actions_nopos, actions_pos, actions = post_process_action_pointer_prediction_bartsv(hypo,
+                        actions_nopos, actions_pos, actions = post_process_action_pointer_prediction_bartsv(hypo,
                                                                                                                 tgt_dict)
-                        except:
-                            breakpoint()
                     else:
                         actions_nopos, actions_pos, actions = post_process_action_pointer_prediction(hypo, tgt_dict)
 

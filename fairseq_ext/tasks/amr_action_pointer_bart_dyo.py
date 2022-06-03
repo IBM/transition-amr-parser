@@ -31,7 +31,7 @@ from fairseq_ext.amr_spec.action_info_binarize import (
     load_actstates_fromfile
 )
 from fairseq_ext.binarize import binarize_file
-from transition_amr_parser.io import read_amr
+from transition_amr_parser.io import read_amr, read_neural_alignments, read_neural_alignments_from_memmap
 from transition_amr_parser.amr_machine import AMRStateMachine, AMROracle, peel_pointer
 from fairseq_ext.amr_spec.action_info import get_actions_states
 from fairseq_ext.data.data_utils import collate_tokens
@@ -113,7 +113,20 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
 
     # gold AMR with alignments (to enable running oracle on the fly)
     aligned_amr_path = os.path.join(data_path, f'{split}.aligned.gold-amr')
-    gold_amrs = read_amr2(aligned_amr_path, ibm_format=True)
+    gold_amrs = read_amr(aligned_amr_path)
+    # read alignment probabilities
+    if split == 'train':
+        amr_align_probs_path = os.path.join(data_path, 'alignment.trn.pretty')
+        amr_align_probs_npy_path = os.path.join(data_path, 'alignment.trn.align_dist.npy')
+        if os.path.exists(amr_align_probs_npy_path):
+            corpus_align_probs = read_neural_alignments_from_memmap(amr_align_probs_npy_path, gold_amrs)
+
+        else:
+            corpus_align_probs = read_neural_alignments(amr_align_probs_path)
+            assert len(gold_amrs) == len(corpus_align_probs), \
+                "Different number of AMR and probabilities"
+    else:
+        corpus_align_probs = None
 
     # build dataset
     dataset = AMRActionPointerDataset(src_tokens=src_tokens,
@@ -142,6 +155,7 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
                                       tgt_actedge_directions=tgt_actstates.get('tgt_actedge_directions', None),
                                       # gold AMR with alignments (to enable running oracle on the fly)
                                       gold_amrs=gold_amrs,
+                                      corpus_align_probs=corpus_align_probs,
                                       # batching
                                       left_pad_source=True,
                                       left_pad_target=False,
@@ -221,6 +235,16 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                             help='Starting number of updates for the first run of on-the-fly oracle')
         parser.add_argument('--on-the-fly-oracle-run-freq', default=1, type=int,
                             help='Number of updates until next run of on-the-fly oracle')
+        parser.add_argument('--sample-alignments', default=1, type=int,
+                            help='Number of samples from alignments (default=1).')
+        parser.add_argument('--alignment-sampling-temp', default=1, type=float,
+                            help="Temperature for alignment sampling.")
+        parser.add_argument('--rescale-align', action='store_true',
+                            help='If true, then rescale loss by number of samples.')
+        parser.add_argument('--importance-weighted-align', action='store_true',
+                            help='If true, then use importance weighted loss.')
+        parser.add_argument('--importance-weighted-temp', default=1, type=float,
+                            help='Temperature for importance weights. Higher values give more uniform weighting.')
 
     def __init__(self, args, src_dict=None, tgt_dict=None, bart=None, machine_config_file=None):
         super().__init__(args)
@@ -240,12 +264,12 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             self.machine_config = {'reduce_nodes': None,
                                    'absolute_stack_pos': True}
         self.machine = AMRStateMachine(**self.machine_config)
-        self.oracle = AMROracle(**self.machine_config)
+        self.oracle = AMROracle(machine_config=self.machine.config)
 
         self.canonical_actions = self.machine.base_action_vocabulary
         self.canonical_act_ids = self.machine.canonical_action_to_dict(self.tgt_dict)
 
-    @ classmethod
+    @classmethod
     def setup_task(cls, args, **kwargs):
         """Setup the task (e.g., load dictionaries).
         Args:
@@ -498,17 +522,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             # valid_actions = machine.get_valid_actions()
 
             # oracle
-            actions, scores = oracle.get_actions(machine)
-            # actions = [a for a in actions if a in valid_actions]
-            # most probable
-            action = actions[np.argmax(scores)]
-
-            # if it is node generation, keep track of original id in gold amr
-            if isinstance(action, tuple):
-                action, gold_node_id = action
-                node_id = len(machine.action_history)
-                oracle.node_map[gold_node_id] = node_id
-                oracle.node_reverse_map[node_id] = gold_node_id
+            action = oracle.get_action(machine)
 
             # update machine
             machine.update(action)
@@ -652,7 +666,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         return data_samples
 
-    def run_oracle_get_data(self, aligned_amr, machine, oracle) -> Tuple[List[str], Dict, Dict]:
+    def run_oracle_get_data(self, aligned_amr, align_probs, machine, oracle) -> Tuple[List[str], Dict, Dict]:
         """Run oracle for a gold AMR graph with alignments, get the needed parser states at the same time, and
         numericalize the data into Tensors finally.
 
@@ -668,7 +682,11 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         machine.reset(aligned_amr.tokens)
 
         # initialize new oracle for this AMR
-        oracle.reset(aligned_amr)
+        oracle.reset(aligned_amr, alignment_probs=align_probs,
+            alignment_sampling_temp=self.args.alignment_sampling_temp)
+
+        # token indices for nodes, and probabilities
+        align_info = oracle.align_info
 
         # store needed parser states
         allowed_cano_actions = []
@@ -682,16 +700,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             token_cursors.append(machine.tok_cursor)
 
             # oracle
-            actions, scores = oracle.get_actions(machine)
-            # most probable
-            action = actions[np.argmax(scores)]
-
-            # if it is node generation, keep track of original id in gold amr
-            if isinstance(action, tuple):
-                action, gold_node_id = action
-                node_id = len(machine.action_history)
-                oracle.node_map[gold_node_id] = node_id
-                oracle.node_reverse_map[node_id] = gold_node_id
+            action = oracle.get_action(machine)
 
             # check if valid
             assert machine.get_base_action(
@@ -747,19 +756,21 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                           'token_cursors': token_cursors}
 
         # convert state vectors to tensors
-        allowed_cano_actions = actions_states['allowed_cano_actions']
-        del actions_states['allowed_cano_actions']
-        vocab_mask = torch.zeros(len(allowed_cano_actions), len(self.tgt_dict), dtype=torch.uint8)
-        for i, act_allowed in enumerate(allowed_cano_actions):
-            # vocab_ids_allowed = list(set().union(*[set(canonical_act_ids[act]) for act in act_allowed]))
-            # this is a bit faster than above
-            vocab_ids_allowed = list(
-                itertools.chain.from_iterable(
-                    [self.canonical_act_ids[act] for act in act_allowed]
-                )
-            )
-            vocab_mask[i][vocab_ids_allowed] = 1
-        data_piece['tgt_vocab_masks'] = vocab_mask
+        if self.args.apply_tgt_vocab_masks:
+            allowed_cano_actions = actions_states['allowed_cano_actions']
+            del actions_states['allowed_cano_actions']
+            vocab_mask = torch.zeros(len(allowed_cano_actions), len(self.tgt_dict), dtype=torch.uint8)
+            for i, act_allowed in enumerate(allowed_cano_actions):
+                # vocab_ids_allowed = list(set().union(*[set(canonical_act_ids[act]) for act in act_allowed]))
+                # this is a bit faster than above
+                vocab_ids_allowed = []
+                for act in act_allowed:
+                    vocab_ids_allowed.extend([j for j in self.canonical_act_ids[act]])
+                vocab_mask[i][vocab_ids_allowed] = 1
+            data_piece['tgt_vocab_masks'] = vocab_mask
+
+        else:
+            data_piece['tgt_vocab_masks'] = None
 
         for k, v in actions_states.items():
             data_key = names_states2data[k]
@@ -785,6 +796,9 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
                     append_eos=False,
                     reverse_order=False
                 ).long()    # NOTE default return type here is torch.int32, conversion to long is needed
+
+            elif not self.args.apply_tgt_vocab_masks and k == 'allowed_cano_actions':
+                data_piece[data_key] = None
             else:
                 data_piece[data_key] = torch.tensor(v)    # int64
 
@@ -796,11 +810,19 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # remove the last CLOSE in the action states
         for k, v in data_piece.items():
             if k in names_data:
-                data_piece[k] = v[:-1]
+                if v is None:
+                    data_piece[k] = None
+                else:
+                    data_piece[k] = v[:-1]
+
+        # add align_info
+        if align_info is not None:
+            for k, v in align_info.items():
+                data_piece['align_info_{}'.format(k)] = v
 
         return actions, actions_states, data_piece
 
-    def run_oracle_get_data_batch(self, aligned_amrs) -> Tuple[List[List[str]], List[Dict]]:
+    def run_oracle_get_data_batch(self, aligned_amrs, align_probs, sample) -> Tuple[List[List[str]], List[Dict], Dict]:
         """Run oracle on the fly and get needed parser states and numerical Tensor data for each batch.
 
         Args:
@@ -811,15 +833,79 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         """
         action_sequences = []
         data_samples = []
-        # for amr in tqdm(aligned_amrs, desc='dynamic_oracle'):
-        for amr in aligned_amrs:
-            # get the action sequence
-            actions, actions_states, data_piece = self.run_oracle_get_data(amr, self.machine, self.oracle)
-            action_sequences.append(actions)
-            # append the numerical data for one sentence/amr
-            data_samples.append(data_piece)
 
-        return action_sequences, data_samples
+        if self.args.sample_alignments <= 1:
+            sample_new = sample
+
+            for index, amr in enumerate(aligned_amrs):
+                # get alignment probabilities if available
+                aprobs = align_probs[index] if align_probs else None
+                # get the action sequence
+                actions, actions_states, data_piece = self.run_oracle_get_data(
+                    amr, aprobs, self.machine, self.oracle)
+                action_sequences.append(actions)
+                # append the numerical data for one sentence/amr
+                data_samples.append(data_piece)
+
+        else:
+            device = sample['id'].device
+
+            def make_new(obj):
+                obj_new = {}
+
+                for k, v in obj.items():
+                    if k == 'net_input':
+                        continue
+                    assert not isinstance(v, dict)
+                    if isinstance(v, torch.Tensor):
+                        shape = list(v.shape)
+                        shape[0] = shape[0] * self.args.sample_alignments
+                        obj_new[k] = torch.empty(shape, dtype=v.dtype, device=device)
+                    elif isinstance(v, (list, tuple)):
+                        obj_new[k] = []
+                    else:
+                        obj_new[k] = v
+
+                return obj_new
+
+            sofar = 0
+
+            def update_new_obj(obj, obj_new, i):
+                for k, v in obj.items():
+                    if k == 'net_input':
+                        continue
+                    assert not isinstance(v, dict)
+                    if isinstance(v, torch.Tensor):
+                        obj_new[k][sofar] = obj[k][i]
+                    elif isinstance(v, (list, tuple)):
+                        obj_new[k].append(obj[k][i])
+                    else:
+                        continue
+
+            sample_new = make_new(sample)
+            sample_new['net_input'] = make_new(sample['net_input'])
+
+            for index, amr in enumerate(aligned_amrs):
+                # get alignment probabilities if available
+                aprobs = align_probs[index] if align_probs else None
+
+                for _ in range(self.args.sample_alignments):
+                    # get the action sequence
+                    actions, actions_states, data_piece = self.run_oracle_get_data(
+                        amr, aprobs, self.machine, self.oracle)
+                    action_sequences.append(actions)
+                    # append the numerical data for one sentence/amr
+                    data_samples.append(data_piece)
+                    # update sample
+                    update_new_obj(sample, sample_new, index)
+                    update_new_obj(sample['net_input'], sample_new['net_input'], index)
+                    # add alignment lprob
+                    if 'lp_align' not in sample_new:
+                        sample_new['lp_align'] = []
+                    sample_new['lp_align'].append(np.log(data_piece['align_info_p']).sum().item())
+                    sofar += 1
+
+        return action_sequences, data_samples, sample_new
 
     def collate_sample_data(self, data_samples):
         """Collate a batch of data instances, only for the target related data.
@@ -886,7 +972,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
             return merged
 
         if collate_tgt_states:
-            tgt_vocab_masks = merge_tgt_vocab_masks()
+            if data_samples[0]['tgt_vocab_masks'] is not None:
+                tgt_vocab_masks = merge_tgt_vocab_masks()
+            else:
+                tgt_vocab_masks = None
             tgt_actnode_masks = merge('tgt_actnode_masks', pad_idx=0)
             tgt_src_cursors = merge('tgt_src_cursors')
         else:
@@ -925,7 +1014,10 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # ===== move to device
         device = sample['id'].device
         # device = sample['net_input']['src_wordpieces'].device
-        sample_new = utils.move_to_cuda(sample_tgt, device)
+        if device.type != 'cpu':
+            sample_new = utils.move_to_cuda(sample_tgt, device)
+        else:
+            sample_new = sample_tgt
 
         # ===== combine with the src data to generate the complete new sample batch
         for k, v in sample.items():
@@ -967,7 +1059,13 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
 
         # run oracle, extract parser states, convert everything to tensors
         # start = time.time()
-        action_sequences, data_samples = self.run_oracle_get_data_batch(sample['gold_amrs'])
+        action_sequences, data_samples, sample_new = self.run_oracle_get_data_batch(
+            sample['gold_amrs'],
+            sample.get('align_probs', None),
+            sample,
+        )
+        # Need to update sample if duplicating batch items (e.g. for importance sampling).
+        sample = sample_new
         # print('time for running oracle and getting data', time.time() - start)
 
         # collate tensors into batch, with paddings
@@ -1031,6 +1129,7 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # breakpoint()
         # substitute with new sample for training
         sample = sample_new
+        sample['sample_alignments'] = self.args.sample_alignments
         # ==================================================================
 
         # NOTE detect_anomaly() would raise an error for fp16 training due to overflow, which is automatically handled
@@ -1040,6 +1139,9 @@ class AMRActionPointerBARTDyOracleParsingTask(FairseqTask):
         # if torch.isnan(loss):
         #     import ipdb; ipdb.set_trace(context=30)
         #     loss, sdample_size, logging_output = criterion(model, sample)
+
+        if self.args.rescale_align:
+            loss = loss / self.args.sample_alignments
 
         if ignore_grad:
             loss *= 0

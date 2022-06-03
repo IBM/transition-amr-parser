@@ -23,9 +23,13 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
+# MANUAL OVERRIDE !!
+# BEAM_SIZE=1
+# DECODING_CHECKPOINT=checkpoint_wiki.smatch_best1.pt
+
 # Running test announcement
-printf "\n\033[93mWARNING\033[0m: Everytime you look at the test set, yout corpus dies a little (by corpus overfitting)\n\n" 
-echo -e " \nbash run/ad_test.sh ${MODEL_FOLDER}-seed{$SEEDS}/$DECODING_CHECKPOINT -b $BEAM_SIZE -s test\n"
+printf "\n\033[93mWARNING\033[0m: Everytime you look at the test set, your corpus dies a little (by corpus overfitting)\n\n" 
+echo -e " \nbash run/ad_test.sh ${MODEL_FOLDER}seed${SEEDS}/$DECODING_CHECKPOINT -b $BEAM_SIZE -s test\n"
 read -p "Do you wish to continue? Y/[N]" answer
 [ "$answer" != "Y" ] && exit 1
 
@@ -38,7 +42,7 @@ fi
 for seed in $SEEDS;do
 
     # define seed and working dir
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     # test all available checkpoints and link the best model on dev too
     jbsub_tag="fdec-${jbsub_basename}-s${seed}-$$"
@@ -46,7 +50,7 @@ for seed in $SEEDS;do
           -name "$jbsub_tag" \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-          /bin/bash run/ad_test.sh ${checkpoints_dir}/$DECODING_CHECKPOINT \
+          /bin/bash run/test.sh ${checkpoints_dir}/$DECODING_CHECKPOINT \
             -b $BEAM_SIZE \
             -s test
 

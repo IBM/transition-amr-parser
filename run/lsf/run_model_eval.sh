@@ -23,6 +23,18 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
+# Quick exits
+# Data not extracted or aligned data not provided
+if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
+    echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
+    exit 1
+fi
+# linking cache not empty but folder does not exist
+if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
+    echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
+    exit 1
+fi 
+
 # wait until first checkpoint is available for any of the seeds. 
 # Clean-up checkpoints and inform of status in the meanwhile
 python run/status.py -c $config \
@@ -30,7 +42,7 @@ python run/status.py -c $config \
 
 for seed in $SEEDS;do
 
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     # test all available checkpoints and link the best model on dev too
     jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"

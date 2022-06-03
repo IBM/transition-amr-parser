@@ -23,8 +23,20 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
+# Quick exits
+# Data not extracted or aligned data not provided
+if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
+    echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
+    exit 1
+fi
+# linking cache not empty but folder does not exist
+if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
+    echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
+    exit 1
+fi 
+
 # folder of the model seed
-checkpoints_folder=${MODEL_FOLDER}-seed${seed}/
+checkpoints_folder=${MODEL_FOLDER}seed${seed}/
 
 # Evaluate all required checkpoints with EVAL_METRIC
 if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
@@ -48,10 +60,18 @@ if [ ! -f "$checkpoints_folder/epoch_tests/.done" ];then
         # run test for these checkpoints
         for checkpoint in $ready_checkpoints;do
             results_prefix=$checkpoints_folder/epoch_tests/dec-$(basename $checkpoint .pt)
-            bash run/ad_test.sh $checkpoint -o $results_prefix
+            bash run/test.sh $checkpoint -o $results_prefix
+
+            # clean this checkpoint. This can be helpful if we started a job
+            # with lots of pending checkpoints to evaluate
+            python run/status.py -c $config --seed $seed  --link-best --remove
         done
     done
     touch $checkpoints_folder/epoch_tests/.done
+
+else
+
+    printf "[\033[92m done \033[0m] $checkpoints_folder/epoch_tests/.done\n"
     
 fi
 
@@ -97,4 +117,4 @@ fi
     && echo -e "Missing $checkpoints_folder/$DECODING_CHECKPOINT" \
     && exit 1
 mkdir -p $checkpoints_folder/beam${BEAM_SIZE}/
-bash run/ad_test.sh $checkpoints_folder/$DECODING_CHECKPOINT -b $BEAM_SIZE
+bash run/test.sh $checkpoints_folder/$DECODING_CHECKPOINT -b $BEAM_SIZE

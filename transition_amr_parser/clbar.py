@@ -22,8 +22,16 @@ from datetime import datetime
 import numpy as np
 
 
+def red_background(string):
+    return "\033[101m%s\033[0m" % string
+
+
 def yellow_font(string):
     return "\033[93m%s\033[0m" % string
+
+
+def green_font(string):
+    return "\033[92m%s\033[0m" % string
 
 
 def print_log(module, string):
@@ -82,7 +90,9 @@ def clbar(
     # print list of tuples
     # determine variables to fit data to command line
     x_data, y_data = zip(*xy)
-    width = max([len(x) if x is not None else len('None') for x in x_data])
+    width = max([
+        len(str(x)) if x is not None else len('None') for x in x_data
+    ])
     number_width = max([len(f'{y}') for y in y_data])
     # max and min values
     if ylim[1] is not None:

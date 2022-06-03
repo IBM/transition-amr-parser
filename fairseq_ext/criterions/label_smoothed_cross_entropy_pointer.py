@@ -40,6 +40,53 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
     return loss, nll_loss
 
 
+def safe_mask(tensor, mask, default_val=0):
+    """
+    Returns a new tensor of shape `tensor.shape` such that values where
+    mask is True are values from tensor, and `default_val` otherwise.
+    """
+    new_tensor = torch.full(tensor.shape, default_val, dtype=tensor.dtype, device=tensor.device)
+    new_tensor[mask] = tensor[mask]
+    return new_tensor
+
+
+def label_smoothed_nll_loss_enhanced(lprobs, target, epsilon, ignore_index=None, reduce=True):
+    """
+    Same as `label_smoothed_nll_loss` except supports reduce=True. Might be slower due to different
+    approach to masking.
+    """
+    assert lprobs.dim() == 3
+
+    batch_size, seq_length, vocab_size = lprobs.shape
+    if target.dim() == lprobs.dim() - 1:
+        target = target.unsqueeze(-1)
+
+    if ignore_index is not None and ignore_index < 0:
+        # Need this condition, since gather fails for values < 0.
+        mask = target != ignore_index
+        index = safe_mask(target, mask, default_val=0)
+        nll_loss = -lprobs.gather(dim=-1, index=index)
+    else:
+        nll_loss = -lprobs.gather(dim=-1, index=target)
+    smooth_loss = -safe_mask(lprobs, lprobs != float("-Inf"), default_val=0).sum(dim=-1, keepdim=True)
+
+    if ignore_index is not None:
+        mask = target != ignore_index
+        nll_loss = safe_mask(nll_loss, mask, default_val=0)
+        smooth_loss = safe_mask(smooth_loss, mask, default_val=0)
+
+    if reduce:
+        nll_loss = nll_loss.sum()
+        smooth_loss = smooth_loss.sum()
+    else:
+        nll_loss = nll_loss.view(batch_size, seq_length).sum(1)
+        smooth_loss = smooth_loss.view(batch_size, seq_length).sum(1)
+
+    eps_i = epsilon / lprobs.size(-1)
+    loss = (1. - epsilon) * nll_loss + eps_i * smooth_loss
+    return loss, nll_loss
+
+
 def label_smoothed_nll_loss_pointer(lprobs, target, epsilon, ignore_index=None, reduce=True):
     if target.dim() == lprobs.dim() - 1:
         target = target.unsqueeze(-1)
@@ -103,12 +150,46 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
         3) logging outputs to display while training
         """
         net_output = model(**sample['net_input'])
-        loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)
-        loss_pos, nll_loss_pos = self.compute_pointer_loss(net_output, sample, reduce=reduce)
-        # import pdb; pdb.set_trace()
-        loss = loss_seq + self.loss_coef * loss_pos
-        # loss = loss_seq
-        nll_loss = nll_loss_seq + self.loss_coef * nll_loss_pos
+
+        def compute_importance_weighted_p(log_p_token, log_p_pointer, log_q):
+            log_p = log_p_token + self.loss_coef * log_p_pointer
+            with torch.no_grad():
+                log_w = log_p.detach() - log_q.detach() # extra cautious with detach.
+                w_tilde = (log_w / self.args.importance_weighted_temp).softmax(-1)
+            # NOTE: Since we don't backprop through q, it's okay to use log_p instead of log_w.
+            new_p = w_tilde * log_p
+            return new_p
+
+        sample_alignments = sample.get('sample_alignments', 1)
+        if sample_alignments > 1 and self.args.importance_weighted_align:
+            k = sample_alignments
+            batch_size = sample['target'].shape[0] // k
+            loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=False)
+            loss_pos, nll_loss_pos = self.compute_pointer_loss(net_output, sample, reduce=False)
+
+            loss_seq = loss_seq.view(batch_size, k)
+            nll_loss_seq = nll_loss_seq.view(batch_size, k)
+            loss_pos = loss_pos.view(batch_size, k)
+            nll_loss_pos = nll_loss_pos.view(batch_size, k)
+
+            # Importance weights.
+            log_q = torch.tensor(sample['lp_align'], dtype=torch.float, device=loss_seq.device).view(batch_size, k)
+            loss = -compute_importance_weighted_p(-loss_seq, -loss_pos, log_q).sum()
+            nll_loss = -compute_importance_weighted_p(-nll_loss_seq, -nll_loss_pos, log_q).sum()
+
+            # Used for logging.
+            loss_seq = loss_seq.sum()
+            nll_loss_seq = nll_loss_seq.sum()
+            loss_pos = loss_pos.sum()
+            nll_loss_pos = nll_loss_pos.sum()
+
+        else:
+            loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)
+            loss_pos, nll_loss_pos = self.compute_pointer_loss(net_output, sample, reduce=reduce)
+
+            loss = loss_seq + self.loss_coef * loss_pos
+            nll_loss = nll_loss_seq + self.loss_coef * nll_loss_pos
+
         # TODO use different normalization factor for two types of losses
         sample_size = sample['target'].size(0) if self.args.sentence_avg else sample['ntokens']
         logging_output = {
@@ -126,15 +207,23 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
 
     def compute_loss(self, model, net_output, sample, reduce=True):
         lprobs = model.get_normalized_probs(net_output, log_probs=True)
-        lprobs = lprobs.view(-1, lprobs.size(-1))
-        target = model.get_targets(sample, net_output).view(-1, 1)
-        loss, nll_loss = label_smoothed_nll_loss(
-            lprobs, target, self.eps, ignore_index=self.padding_idx, reduce=reduce,
-        )
+        target = model.get_targets(sample, net_output)
+
+        if reduce:
+            lprobs = lprobs.view(-1, lprobs.size(-1))
+            target = target.view(-1, 1)
+            loss, nll_loss = label_smoothed_nll_loss(
+                lprobs, target, self.eps, ignore_index=self.padding_idx, reduce=reduce,
+            )
+        else:
+            loss, nll_loss = label_smoothed_nll_loss_enhanced(
+                lprobs, target, self.eps, ignore_index=self.padding_idx, reduce=reduce,
+            )
+
         return loss, nll_loss
 
     def compute_pointer_loss(self, net_output, sample, reduce=True):
-        target_pos = sample['tgt_pos'].view(-1, 1)
+        target_pos = sample['tgt_pos']
         # shift the pointer value 1 to the right as it's for the input with the first token </s>
         # while keeping the pointer positions unchanged as it's for the output
         if self.shift_pointer_value:
@@ -143,7 +232,6 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
         # NOTE in above 0 is a valid pos value
         loss_all, nll_loss_all = [], []
         for attn in net_output[1]['attn_all']:
-            attn = attn.contiguous().view(-1, attn.size(-1))    # size (bsz, tgt_len * tgt_len)
             # attn = attn.float()
             # this is for numerical stability; otherwise log backward will get nan
             attn = attn.float().clamp(min=1e-8)
@@ -155,7 +243,16 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
             # attn = torch.log(attn).float()
             # NOTE dtype transfer is needed for float16 training
             # NOTE we do not want to do label smoothing for pointer (right?)
-            loss, nll_loss = label_smoothed_nll_loss_pointer(attn, target_pos, 0, ignore_index=-1, reduce=reduce)
+            if reduce:
+                attn = attn.contiguous().view(-1, attn.size(-1))    # size (bsz, tgt_len * tgt_len)
+                target_pos = target_pos.view(-1, 1)
+                loss, nll_loss = label_smoothed_nll_loss_pointer(attn, target_pos, 0, ignore_index=-1, reduce=reduce)
+            else:
+                # TODO:
+                bsz, tgt_len, tgt_len2 = attn.shape
+                assert tgt_len == tgt_len2
+                assert target_pos.shape == (bsz, tgt_len)
+                loss, nll_loss = label_smoothed_nll_loss_enhanced(attn, target_pos, 0, ignore_index=-1, reduce=reduce)
             loss_all.append(loss)
             nll_loss_all.append(nll_loss)
         loss = sum(loss_all) / len(loss_all)

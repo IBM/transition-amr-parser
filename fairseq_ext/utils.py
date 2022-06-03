@@ -2,6 +2,11 @@ import time
 import math
 
 from fairseq.tokenizer import tokenize_line
+from fairseq.checkpoint_utils import load_checkpoint_to_cpu, torch_persistent_save
+from fairseq.file_io import PathManager
+from fairseq.utils import move_to_cpu
+from fairseq_ext.utils_import import import_user_module
+
 
 # from fairseq_ext.amr_reform.o10_action_reformer_subtok import AMRActionReformerSubtok
 
@@ -149,3 +154,38 @@ def time_since(start):
             return '%dm %ds' % (m, s)
     else:
         return '%dh %dm %ds' % (h, m, s)
+
+
+def load_checkpoint_ext(checkpoint_path):
+    '''
+    To import models, we need to indicate the location of custom code
+    '''
+    class ARGS():
+        def __init__(self):
+            self.user_dir = 'fairseq_ext/'
+    import_user_module(ARGS())
+    state = load_checkpoint_to_cpu(checkpoint_path)
+    return load_checkpoint_to_cpu(checkpoint_path)
+
+
+def remove_optimizer_state(checkpoint_path, out_checkpoint_path=None):
+    '''
+    Given a fairseq model checkpoint, remove the optimizer state to reduce
+    space
+    '''
+
+    if out_checkpoint_path is None:
+        out_checkpoint_path = checkpoint_path
+
+    class ARGS():
+        def __init__(self):
+            self.user_dir = 'fairseq_ext/'
+
+    import_user_module(ARGS())
+    print(f'loading {checkpoint_path}')
+    state = load_checkpoint_to_cpu(checkpoint_path)
+
+    state['last_optimizer_state'] = None
+    print(f'saving {out_checkpoint_path}')
+    with PathManager.open(out_checkpoint_path, "wb") as f:
+        torch_persistent_save(move_to_cpu(state), f)

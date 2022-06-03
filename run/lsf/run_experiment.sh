@@ -39,16 +39,16 @@ if [ ! -f "$AMR_TRAIN_FILE_WIKI" ] && [ ! -f "$ALIGNED_FOLDER/train.txt" ];then
     echo -e "\nNeeds $AMR_TRAIN_FILE_WIKI or $ALIGNED_FOLDER/train.txt\n" 
     exit 1
 fi
-# Aligned data not provided, but alignment tools not installed
-if [ ! -f "${ALIGNED_FOLDER}train.txt" ] && [ ! -f "preprocess/kevin/run.sh" ];then
-    echo -e "\nNeeds ${ALIGNED_FOLDER}train.txt or installing aligner\n"
-    exit 1
-fi    
 # linking cache not empty but folder does not exist
 if [ "$LINKER_CACHE_PATH" != "" ] && [ ! -d "$LINKER_CACHE_PATH" ];then
     echo -e "\nNeeds linking cache $LINKER_CACHE_PATH\n"
     exit 1
 fi    
+# not using neural aligner but no alignments provided
+if [ "$align_tag" != "ibm_neural_aligner" ] && [ ! -f $ALIGNED_FOLDER/.done ];then
+    echo -e "\nYou need to provide $align_tag alignments\n"
+    exit 1
+fi
 
 # Determine tools folder as the folder where this script is. This alloews its
 # use when softlinked elsewhere
@@ -62,15 +62,51 @@ jbsub_basename=$(echo $jbsub_basename | sed "s@[+]@_@g")
 for seed in $SEEDS;do
 
     # define seed and working dir
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     # create repo
     mkdir -p $checkpoints_dir   
 
-    # copy config and store in model folder
-    cp $config $checkpoints_dir/config.sh
+    # Copy the config and soft-link it with an easy to find name
+    cp $config ${MODEL_FOLDER}seed${seed}/
+    rm -f ${MODEL_FOLDER}seed${seed}/config.sh
+    ln -s $(basename $config) ${MODEL_FOLDER}seed${seed}/config.sh
+
+    # Add a tag with the commit(s) used to train this model. 
+    if [ "$(git status --porcelain | grep -v '^??')" == "" ];then
+        # no uncommited changes
+        touch "$checkpoints_dir/$(git log --format=format:"%h" -1)"
+    else
+        # uncommited changes
+        touch "$checkpoints_dir/$(git log --format=format:"%h" -1)+"
+    fi
 
 done
+
+echo "[Aligning AMR:]"
+if [ ! -f "$ALIGNED_FOLDER/.done" ];then
+
+    mkdir -p "$ALIGNED_FOLDER"
+
+    # Run preprocessing
+    jbsub_tag="al-${jbsub_basename}-$$"
+    jbsub -cores "1+1" -mem 50g -q x86_24h -require v100 \
+          -name "$jbsub_tag" \
+          -out $ALIGNED_FOLDER/${jbsub_tag}-%J.stdout \
+          -err $ALIGNED_FOLDER/${jbsub_tag}-%J.stderr \
+          /bin/bash run/train_aligner.sh $config
+
+    # train will wait for this to start
+    align_depends="-depend $jbsub_tag"
+
+else
+
+    printf "[\033[92m done \033[0m] $ALIGNED_FOLDER/.done\n"
+
+    # resume from extracted
+    align_depends=""
+
+fi
 
 # preprocessing
 echo "[Building oracle actions:]"
@@ -80,16 +116,17 @@ if [ ! -f "$ORACLE_FOLDER/.done" ];then
     jbsub_tag="or-${jbsub_basename}-$$"
     jbsub -cores "1+1" -mem 50g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
+          $align_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
           -err $ORACLE_FOLDER/${jbsub_tag}-%J.stderr \
-          /bin/bash run/aa_amr_actions.sh $config
+          /bin/bash run/amr_actions.sh $config
 
     # train will wait for this to start
     prepro_depends="-depend $jbsub_tag"
 
 else
 
-    echo "skiping $ORACLE_FOLDER/.done"
+    printf "[\033[92m done \033[0m] $ORACLE_FOLDER/.done\n"
 
     # resume from extracted
     prepro_depends=""
@@ -107,15 +144,15 @@ if [[ (! -f $DATA_FOLDER/.done) || (! -f $EMB_FOLDER/.done) ]]; then
           $prepro_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
           -err $ORACLE_FOLDER/${jbsub_tag}-%J.stderr \
-          /bin/bash run/ab_preprocess.sh $config
+          /bin/bash run/preprocess.sh $config
 
     # train will wait for this to start
     train_depends="-depend $jbsub_tag"
 
 else
 
-    echo "skiping $EMB_FOLDER/.done"
-    echo "skiping $DATA_FOLDER/.done"
+    printf "[\033[92m done \033[0m] $EMB_FOLDER/.done\n"
+    printf "[\033[92m done \033[0m] $DATA_FOLDER/.done\n"
 
     # resume from extracted
     train_depends=""
@@ -127,7 +164,7 @@ echo "[Training:]"
 for seed in $SEEDS;do
 
     # define seed and working dir
-    checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+    checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
     if [ ! -f "$checkpoints_dir/checkpoint${MAX_EPOCH}.pt" ];then
 
@@ -140,14 +177,14 @@ for seed in $SEEDS;do
               $train_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
               -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
-              /bin/bash run/ac_train.sh $config "$seed"
+              /bin/bash run/train.sh $config "$seed"
 
         # testing will wait for training to be finished
         test_depends="-depend $jbsub_tag"
 
     else
 
-        echo "skiping $checkpoints_dir/.done"
+        printf "[\033[92m done \033[0m] $checkpoints_dir/.done\n"
 
         # resume from trained model, start test directly
         test_depends=""
@@ -180,7 +217,7 @@ if [ "$on_the_fly_decoding" = true ];then
 
     for seed in $SEEDS;do
 
-        checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+        checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
 
         # test all available checkpoints and link the best model on dev too
         jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
