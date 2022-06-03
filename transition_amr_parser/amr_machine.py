@@ -859,7 +859,7 @@ class AMRStateMachine():
                 index = len(self.node_stack) - int(index) - 2
                 tgt = self.node_stack[index]
             src = self.node_stack[-1]
-            assert tgt in self.node_stack
+            # assert tgt in self.node_stack
             self.edges.append((src, f'{label}', tgt))
 
         elif ra_regex.match(action):
