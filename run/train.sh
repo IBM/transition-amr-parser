@@ -53,6 +53,8 @@ else
     # for joint vocabulary
     [ -f $DATA_FOLDER/actions.vocab.nodes ] \
         && cp $DATA_FOLDER/actions.vocab.nodes ${MODEL_FOLDER}seed${seed}/
+    [ -f $DATA_FOLDER/actions.vocab.others ] \
+        && cp $DATA_FOLDER/actions.vocab.others ${MODEL_FOLDER}seed${seed}/
 
     # if [[ $arch == "transformer_tgt_pointer" ]]; then
     if [[ $arch != *"graph"* ]]; then
