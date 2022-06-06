@@ -24,7 +24,7 @@ echo $config
 . $config
 
 model_folder=${MODEL_FOLDER}seed${seed}/
-model_name=$(basename $config .sh)
+model_name=$config_name
 
 # needed files
 checkpoint=$model_folder/$DECODING_CHECKPOINT
