@@ -50,6 +50,11 @@ git checkout <branch>     # for e.g. action-pointer, ignore for current version
 pip install --editable .   
 ```
 
+it installs correctly both on OSX and Linux (RHEL). For linux it may be
+easier to pre-install with conda targeting your architecture, for example
+
+    conda install -y pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=11.3 -c pytorch -c conda-forge
+
 To test if install worked
 ```bash
 bash tests/correctly_installed.sh
