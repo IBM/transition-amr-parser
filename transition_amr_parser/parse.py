@@ -66,8 +66,13 @@ def argument_parsing():
     parser.add_argument(
         '-c', '--in-checkpoint',
         type=str,
-        required=True,
         help='one fairseq model checkpoint (or various, separated by :)'
+    )
+    parser.add_argument(
+        '-m', '--model-name',
+        type=str,
+        help='name of model config (instead of checkpoint) and optionally'
+             'seed separated by : e.g. amr2.0-structured-bart-large:42'
     )
     parser.add_argument(
         '-o', '--out-amr',
@@ -116,6 +121,9 @@ def argument_parsing():
         bool(args.in_tokenized_sentences) or bool(args.in_amr)
     ) or bool(args.service), \
         "Must either specify --in-tokenized-sentences or set --service"
+
+    if not (bool(args.model_name) ^ bool(args.in_checkpoint)):
+        raise Exception("Use either --model-name or --in-checkpoint")
 
     return args
 
@@ -239,19 +247,23 @@ class AMRParser:
         '''
         Initialize model from config file and seed
         '''
-        # check if space to store models is defined as systems variable
+        # locate model config assuming it is contained in DATA inside repo
+        # folder
+        # TODO: Use environment variable to define storage place
         repo_folder = os.path.realpath(f'{__file__}/../../')
         config_path = f'{repo_folder}/configs/{model_name}.sh'
         config_path = os.path.realpath(config_path)
-        assert os.path.isfile(config_path)
+        if not os.path.isfile(config_path):
+            raise Exception(f'{config_path} is not an existing model config')
 
+        # locate model folder from config
         config_env_vars = read_config_variables(config_path)
         model_folder = config_env_vars['MODEL_FOLDER']
         model_folder = f'{repo_folder}/{model_folder}'
         if not os.path.isdir(model_folder):
-            raise Exception('Missing model {model_name}, is it available?')
-        assert os.path.isdir(model_folder), f'Missing model {model_folder}'
+            raise Exception('Missing model {model_folder}, is it available?')
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
+
         # get first checkpoint if no seed specified
         if seed is None:
             checkpoints = []
@@ -427,6 +439,8 @@ class AMRParser:
         return batches
 
     def parse_batch(self, sample, to_amr=True):
+        # TODO: pass arbitrary machines in generator to enable inspector and
+        # other
         hypos = self.task.inference_step(
             self.generator, self.models, sample, self.args, prefix_tokens=None
         )
@@ -604,12 +618,30 @@ def main():
 
     # load parser
     start = time.time()
-    parser = AMRParser.from_checkpoint(
-        args.in_checkpoint,
-        roberta_cache_path=args.roberta_cache_path,
-        inspector=inspector,
-        beam=args.beam
-    )
+    if args.model_name:
+        # load from name and optionally seed
+        items = args.model_name.split(':')
+        model_name = items[0]
+        if len(items) > 1:
+            seed = items[1]
+            parser = AMRParser.load(
+                model_name, seed=seed,
+                roberta_cache_path=args.roberta_cache_path,
+                inspector=inspector, beam=args.beam
+            )
+        else:
+            parser = AMRParser.load(
+                model_name, roberta_cache_path=args.roberta_cache_path,
+                inspector=inspector, beam=args.beam
+            )
+    else:
+        # load from checkpoint and files in its folder
+        parser = AMRParser.from_checkpoint(
+            args.in_checkpoint,
+            roberta_cache_path=args.roberta_cache_path,
+            inspector=inspector,
+            beam=args.beam
+        )
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to load parser: {time_secs}')
