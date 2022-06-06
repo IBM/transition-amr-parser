@@ -19,7 +19,9 @@ from fairseq_ext import options
 from fairseq_ext.extract_bart.sentence_encoding import SentenceEncodingBART
 from fairseq_ext.extract_bart.binarize_encodings import get_scatter_indices
 from fairseq_ext.data.amr_action_pointer_dataset import collate
-from transition_amr_parser.io import read_tokenized_sentences, read_amr
+from transition_amr_parser.io import (
+    read_tokenized_sentences, read_amr, read_config_variables
+)
 from fairseq_ext.utils import (
     post_process_action_pointer_prediction,
     post_process_action_pointer_prediction_bartsv,
@@ -233,6 +235,40 @@ class AMRParser:
         return default_args
 
     @classmethod
+    def load(cls, model_name, seed=None, **kwargs):
+        '''
+        Initialize model from config file and seed
+        '''
+        # check if space to store models is defined as systems variable
+        repo_folder = os.path.realpath(f'{__file__}/../../')
+        config_path = f'{repo_folder}/configs/{model_name}.sh'
+        config_path = os.path.realpath(config_path)
+        assert os.path.isfile(config_path)
+
+        config_env_vars = read_config_variables(config_path)
+        model_folder = config_env_vars['MODEL_FOLDER']
+        model_folder = f'{repo_folder}/{model_folder}'
+        if not os.path.isdir(model_folder):
+            raise Exception('Missing model {model_name}, is it available?')
+        assert os.path.isdir(model_folder), f'Missing model {model_folder}'
+        dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
+        # get first checkpoint if no seed specified
+        if seed is None:
+            checkpoints = []
+            for seedf in os.listdir(f'{model_folder}'):
+                checkpoint = f'{model_folder}{seedf}/{dec_checkpoint}'
+                if os.path.isfile(checkpoint):
+                    checkpoints.append(checkpoint)
+            if len(checkpoints) > 1:
+                print('More than one seed picking {checkpoints[0]}')
+            assert checkpoints, f'No completed checkpoints in {model_folder}'
+            checkpoint = checkpoints[0]
+        else:
+            checkpoint = f'{model_folder}seed{seed}/{dec_checkpoint}'
+            assert os.path.isfile(checkpoint), f"{checkpoint} missing"
+        return cls.from_checkpoint(checkpoint, **kwargs)
+
+    @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
                         inspector=None, beam=1):
@@ -444,6 +480,13 @@ class AMRParser:
                 })
 
         return predictions
+
+    def tokenize(self, sentence):
+        assert isinstance(sentence, str)
+        return protected_tokenizer(sentence)
+
+    def parse_sentence(self, tokens, **kwargs):
+        return self.parse_sentences([tokens], **kwargs)
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
                         gold_amrs=None, beam=1):
