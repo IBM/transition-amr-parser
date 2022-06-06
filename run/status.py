@@ -766,7 +766,7 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
             os.readlink(config_path)
             and os.path.isfile(f'{seed_folder}/{os.readlink(config_path)}')
         ):
-            result['config_path'] = f'config/{os.readlink(config_path)}'
+            result['config_path'] = f'configs/{os.readlink(config_path)}'
 
     if configs or (show_config and all('config_path' in r for r in results)):
         fields = ['config_path', 'best']
@@ -1085,7 +1085,7 @@ def remove_corrupted_checkpoints(config, seed, num_models=2):
         except RuntimeError as exception:
             if (
                 # torch 1.4
-                str(exception).startswith('unexpected EOF') 
+                str(exception).startswith('unexpected EOF')
                 # toech 1.10
                 or str(exception).startswith('PytorchStreamReader failed')
             ):
