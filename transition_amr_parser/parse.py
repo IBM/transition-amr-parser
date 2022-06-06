@@ -661,7 +661,13 @@ def main():
         signal.signal(signal.SIGTERM, ordered_exit)
 
         while True:
-            sentence = input("Write sentence:\n")
+            try:
+                sentence = input("Write sentence:\n")
+            except EOFError:
+                # user pressing C-D
+                print("\nStopped by user\n")
+                exit(0)
+
             os.system('clear')
             if not sentence.strip():
                 continue
@@ -736,8 +742,9 @@ def main():
         print(f'{sents_per_second:.2f} sentences / second')
 
         # save file
-        with open(args.out_amr, 'w') as fid:
-            fid.write('\n'.join(result[0]))
+        if args.out_amr:
+            with open(args.out_amr, 'w') as fid:
+                fid.write('\n'.join(result[0]))
 
 
 if __name__ == '__main__':
