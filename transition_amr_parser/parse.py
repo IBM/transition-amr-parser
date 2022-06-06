@@ -114,6 +114,12 @@ def argument_parsing():
         action='store_true',
         default=False
     )
+    parser.add_argument(
+        "--fp16",
+        help="breakpoint after each action",
+        action='store_true',
+        default=False
+    )
     args = parser.parse_args()
 
     # sanity checks
@@ -627,12 +633,13 @@ def main():
             parser = AMRParser.load(
                 model_name, seed=seed,
                 roberta_cache_path=args.roberta_cache_path,
-                inspector=inspector, beam=args.beam
+                inspector=inspector, beam=args.beam,
+                fp16=args.fp16
             )
         else:
             parser = AMRParser.load(
                 model_name, roberta_cache_path=args.roberta_cache_path,
-                inspector=inspector, beam=args.beam
+                inspector=inspector, beam=args.beam, fp16=args.fp16
             )
     else:
         # load from checkpoint and files in its folder
@@ -640,7 +647,7 @@ def main():
             args.in_checkpoint,
             roberta_cache_path=args.roberta_cache_path,
             inspector=inspector,
-            beam=args.beam
+            beam=args.beam, fp16=args.fp16
         )
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))

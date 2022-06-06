@@ -40,9 +40,20 @@ read -p "Do you wish to continue? Y/[N]" answer
 # remove optimizer from checkpoint
 python scripts/remove_optimizer_state.py $checkpoint $checkpoint
 # zip all
-zip -r ${model_name}seed${seed}.zip \
-    $checkpoint \
-    $model_folder/config.sh \
-    $model_folder/dict.actions_nopos.txt \
-    $model_folder/dict.en.txt \
-    $model_folder/machine_config.json
+if [ -f "$model_folder/actions.vocab.nodes" ];then
+    zip -r ${model_name}-seed${seed}.zip \
+        $checkpoint \
+        $model_folder/config.sh \
+        $model_folder/dict.actions_nopos.txt \
+        $model_folder/actions.vocab.nodes \
+        $model_folder/actions.vocab.others \
+        $model_folder/dict.en.txt \
+        $model_folder/machine_config.json
+else
+    zip -r ${model_name}seed${seed}.zip \
+        $checkpoint \
+        $model_folder/config.sh \
+        $model_folder/dict.actions_nopos.txt \
+        $model_folder/dict.en.txt \
+        $model_folder/machine_config.json
+fi

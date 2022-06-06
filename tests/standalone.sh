@@ -16,16 +16,17 @@ set -o nounset
 # load config
 . $config
 
-# from config
+# rest, from config
 sset=test
-seed=42
+seed=44
+
 reference_amr_wiki=$AMR_TEST_FILE_WIKI
 wiki=$LINKER_CACHE_PATH/${sset}.wiki
 checkpoint=${MODEL_FOLDER}seed${seed}/$DECODING_CHECKPOINT
 
 # where to put results
-FOLDER=${MODEL_FOLDER}seed${seed}/unit_test/
-results_prefix=$FOLDER/${sset}
+FOLDER=${MODEL_FOLDER}seed${seed}/beam${BEAM_SIZE}/
+results_prefix=$FOLDER/${sset}_$DECODING_CHECKPOINT
 
 # needs data and model
 [ ! -f "$checkpoint" ] \
@@ -36,10 +37,6 @@ results_prefix=$FOLDER/${sset}
 [ -d "$FOLDER" ] && rm -R  $FOLDER/
 mkdir -p $FOLDER
 
-# beam size
-beam_size=10
-batch_size=64
-
 [ ! -f "$reference_amr_wiki" ] \
     && echo "$reference_amr_wiki" \
     && exit 1
@@ -49,8 +46,8 @@ batch_size=64
 #        | sed 's@# ::tok @@g' > ${results_prefix}.tokens
 #    
 #    # run first seed of model
-#    echo "amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
-#    amr-parse --beam ${beam_size} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
+#    echo "amr-parse --beam ${BEAM_SIZE} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
+#    amr-parse --beam ${BEAM_SIZE} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
  
 
 # extract sentences from test
@@ -58,10 +55,9 @@ grep '# ::snt ' $reference_amr_wiki \
     | sed 's@# ::snt @@g' > ${results_prefix}.sentences
 
 # run first seed of model
-echo "amr-parse --beam ${beam_size} --batch-size ${batch_size} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
-amr-parse --beam ${beam_size} --batch-size ${batch_size} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
+echo "amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
+amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
     
-
 # GRAPH POST-PROCESSING
 
 if [ "$LINKER_CACHE_PATH" == "" ];then
