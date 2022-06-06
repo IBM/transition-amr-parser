@@ -445,6 +445,13 @@ class AMRParser:
 
         return predictions
 
+    def tokenize(self, sentence):
+        assert isinstance(sentence, str)
+        return protected_tokenizer(sentence)
+
+    def parse_sentence(self, tokens, **kwargs):
+        return self.parse_sentences([tokens], **kwargs)
+
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
                         gold_amrs=None, beam=1):
         """parse a list of sentences.
