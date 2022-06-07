@@ -1307,6 +1307,7 @@ def make_doc_amrs(corefs, amrs, coref=True,chains=True):
             doc_amr = doc_amr + amrs[sid]
         doc_amr.amr_id = doc_id
         doc_amr.doc_file = fname
+        #sanity check
         for e in doc_amr.edges:
             if ':' not in e[1]:
                 print("BEFORE COREF MISSING COLON ",e)
@@ -1315,10 +1316,12 @@ def make_doc_amrs(corefs, amrs, coref=True,chains=True):
                 doc_amr.add_corefs(doc_corefs)
             else:
                 doc_amr.add_edges(doc_corefs)
-       
+        #sanity check       
         for e in doc_amr.edges:
             if ':' not in e[1]:
                 print("AFTER COREF MISSING COLON ",e)
+        #replace penman
+        doc_amr.penman = None
         doc_amrs[doc_id] = doc_amr
 
     return doc_amrs
@@ -1482,17 +1485,18 @@ def oracle(args):
         tqdm_amrs_str = read_blocks(amr_file)
         # amrs = read_amr_penman(tqdm_amrs_str)
         amrs = read_amr_penman(tqdm_amrs_str)
-        
-        plain_doc_amrs = make_doc_amrs(corefs,amrs,coref=False).values()
         damrs = []
+        
+        # plain_doc_amrs = make_doc_amrs(corefs,amrs,coref=False).values()
+        
         if args.out_amr is None:
             args.out_amr = args.out_actions.rstrip('.actions')+'_'+args.norm+'.docamr'
-        with open(args.out_amr+".nocoref", 'w') as fid:
-            for amr in plain_doc_amrs:
-                damr = deepcopy(amr)
-                connect_sen_amrs(damr)
-                damr.normalize(args.norm)
-                fid.write(damr.__str__())        
+        # with open(args.out_amr+".nocoref", 'w') as fid:
+        #     for amr in plain_doc_amrs:
+        #         damr = deepcopy(amr)
+        #         connect_sen_amrs(damr)
+        #         damr.normalize(args.norm)
+        #         fid.write(damr.__str__())        
         # use corefs to merge sentence level AMRs into Documentr level AMRs
         amrs = make_doc_amrs(corefs,amrs).values()
        
@@ -1503,7 +1507,11 @@ def oracle(args):
                 damr.normalize(args.norm)
                 
                 damr = make_pairwise_edges(damr)
-                damr.alignments['d'] = [len(damr.tokens)-1]
+                damr.penman = penman.decode(damr.to_penman())
+                document_top,top_rel,top_name = damr.penman.triples[0]
+                assert top_name=='document'
+                damr.alignments[document_top] = [len(damr.tokens)-1]
+                damr.check_connectivity()
                 damrs.append(damr)
                 fid.write(damr.__str__())
   
