@@ -3,7 +3,7 @@ set -o pipefail
 if [ -z $1 ];then 
 
     # Standard mini-test with wiki25
-    config=configs/wiki25-structured-bart-base-neur-al-sampling.sh 
+    config=configs/wiki25-structured-bart-base-neur-al-sampling5.sh
 
     ELMO_WEIGHTS="DATA/wiki25/aligned/ibm_neural_aligner/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
 
