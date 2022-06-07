@@ -1058,18 +1058,17 @@ class AMR_doc(AMR):
     #     return meta_data + penman.encode(self.penman) + '\n\n'
     def __str__(self):
         
-        self.penman = self.to_penman()
-        self.check_connectivity()
+        self.penman_str = self.to_penman()
         meta_data = ""
         if self.amr_id:
             meta_data  = '# ::id ' + self.amr_id + '\n'
         if self.doc_file:
             meta_data += '# ::doc_file ' + self.doc_file + '\n'
-        meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
+        # meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
         #sanity check
-        p = penman.decode(self.penman)
+        p = penman.decode(self.penman_str)
 
-        return meta_data + self.penman + '\n\n'
+        return meta_data + self.penman_str + '\n\n'
 
 
     #=====================================================================
