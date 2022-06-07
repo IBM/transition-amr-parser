@@ -928,19 +928,19 @@ class AMRStateMachine():
 
         return amr
 
-    def get_annotation(self, node_map=None, jamr=False, isi=True):
+    def get_annotation(self, node_map=None, jamr=False, no_isi=False):
 
         if self.gold_amr:
             assert self.gold_amr.penman, "Align mode requires AMR.from_penman"
             assert not jamr, "Align dows not support --jamr write"
-            assert isi, "Align mode requires ISI"
+            assert not no_isi, "Align mode requires ISI"
 
             # just add alignments to existing penman
             return self.align_tracker.add_alignments_to_penman(self)
 
         else:
             amr = self.get_amr(node_map=node_map)
-            return amr.to_penman(jamr=jamr, isi=isi)
+            return amr.to_penman(jamr=jamr, isi=not no_isi)
 
 
 def get_ngram(sequence, order):
@@ -1372,7 +1372,7 @@ def play(args):
         assert machine.is_closed
 
         # print AMR
-        annotations.append(machine.get_annotation(isi=not args.no_isi))
+        annotations.append(machine.get_annotation(no_isi=args.no_isi))
 
     with open(args.out_amr, 'w') as fid:
         for annotation in annotations:
