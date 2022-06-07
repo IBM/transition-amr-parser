@@ -120,6 +120,19 @@ def argument_parsing():
         action='store_true',
         default=False
     )
+    parser.add_argument(
+        "--jamr",
+        help="Add JAMR graph representation on meta-data",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--no-isi",
+        help="Store ISI alignments in ::alignments field rather than node "
+             "names. This helps with Smatch not supporting ISI",
+        action='store_true',
+        default=False
+    )
     args = parser.parse_args()
 
     # sanity checks
@@ -509,7 +522,7 @@ class AMRParser:
         return self.parse_sentences([tokens], **kwargs)
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
-                        gold_amrs=None, beam=1):
+                        gold_amrs=None, beam=1, jamr=False, no_isi=False):
         """parse a list of sentences.
 
         Args:
@@ -553,11 +566,12 @@ class AMRParser:
             if not self.to_amr:
                 continue
 
-            # FIXME: Entropic
             for index, pred_dict in enumerate(predictions):
                 sample_id = pred_dict['sample_id']
                 amr_annotations[sample_id] = \
-                    pred_dict['machine'].get_annotation()
+                    pred_dict['machine'].get_annotation(
+                        jamr=jamr, no_isi=no_isi
+                    )
 
         # return the AMRs in order
         results = []
@@ -682,7 +696,7 @@ def main():
                 tokens,
                 batch_size=args.batch_size,
                 roberta_batch_size=args.roberta_batch_size,
-                beam=args.beam
+                beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
             )
             #
             os.system('clear')
@@ -732,7 +746,9 @@ def main():
             batch_size=args.batch_size,
             roberta_batch_size=args.roberta_batch_size,
             gold_amrs=gold_amrs,
-            beam=args.beam
+            beam=args.beam,
+            jamr=args.jamr,
+            no_isi=args.no_isi
         )
         end = time.time()
         time_secs = timedelta(seconds=float(end-start))
