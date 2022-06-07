@@ -69,6 +69,9 @@ def main():
     reject_samples = False
 
     # read AMR instantiate state machine and rules
+    if len(sys.argv) != 2:
+        print(f'\n{__file__} <path to amr>\n')
+        exit(1)
     amrs = read_amr(sys.argv[1], generate=True)
     machine = AMRStateMachine()
     if surface_rules:
@@ -132,7 +135,10 @@ def main():
                     amr_size_by_id[amr.penman.metadata['id']] = \
                         len(machine.gold_amr.nodes)
 
-                if rejection_index_count[amr.penman.metadata['id']] > MAX_REJECTIONS:
+                if (
+                    rejection_index_count[amr.penman.metadata['id']]
+                    > MAX_REJECTIONS
+                ):
 
                     # exit or trace
                     force_exit = True
@@ -180,15 +186,22 @@ def main():
     # store data
     sampling_debug_data = dict(
         rejection_reason_count=rejection_reason_count,
-        amr_size_by_id= amr_size_by_id
+        amr_size_by_id=amr_size_by_id
     )
-    with open('test_align_mode_stats.json', 'w')  as fid:
+    with open('test_align_mode_stats.json', 'w') as fid:
         fid.write(json.dumps(sampling_debug_data))
 
-    print('\n'.join([f'{k} {len(set(v))}' for k, v in rejection_reason_count.items()]))
+    print('\n'.join([
+        f'{k} {len(set(v))}' for k, v in rejection_reason_count.items()
+    ]))
 
-    did_not_complete = [id for id, c in rejection_index_count.items() if c == MAX_REJECTIONS + 1]
-    did_not_complete = sorted(did_not_complete, key=lambda x: amr_size_by_id[x])
+    did_not_complete = [
+        id for id, c in rejection_index_count.items()
+        if c == MAX_REJECTIONS + 1
+    ]
+    did_not_complete = sorted(
+        did_not_complete, key=lambda x: amr_size_by_id[x]
+    )
     print(f'Failed {len(did_not_complete)}')
     print(' '.join(did_not_complete))
 
@@ -198,8 +211,7 @@ def main():
     precision = num_hits / num_tries
     recall = num_hits / num_gold
     fscore = 2 * (precision * recall) / (precision + recall)
-    print(precision, recall, fscore)
-    set_trace(context=30)
+    print(f'{precision:.4f}, {recall:.4f}, {fscore:.4f}')
     print()
 
 
