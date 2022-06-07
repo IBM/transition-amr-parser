@@ -16,9 +16,10 @@ set -o nounset
 # load config
 . $config
 
+# use first seed
+seed=$(echo $SEEDS | sed 's@ .*@@g')
 # rest, from config
 sset=test
-seed=44
 
 reference_amr_wiki=$AMR_TEST_FILE_WIKI
 wiki=$LINKER_CACHE_PATH/${sset}.wiki
