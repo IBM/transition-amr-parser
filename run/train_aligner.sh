@@ -34,13 +34,13 @@ if [ -f $ALIGNED_FOLDER/.done.preprocess ]; then
 else
 
     # remove wiki
-    python preprocess/remove_wiki.py \
+    python scripts/remove_wiki.py \
         $AMR_TRAIN_FILE_WIKI \
         ${AMR_TRAIN_FILE_WIKI}.no_wiki
-    python preprocess/remove_wiki.py \
+    python scripts/remove_wiki.py \
         $AMR_DEV_FILE_WIKI \
         ${AMR_DEV_FILE_WIKI}.no_wiki
-    python preprocess/remove_wiki.py \
+    python scripts/remove_wiki.py \
         $AMR_TEST_FILE_WIKI \
         ${AMR_TEST_FILE_WIKI}.no_wiki
 
