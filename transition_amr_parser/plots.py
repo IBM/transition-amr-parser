@@ -1,8 +1,10 @@
 from collections import defaultdict
+from ipdb import set_trace
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    print('\nYou need to install matplotlib for plotting\n')
+    # be silent here as this is optional
+    pass
 
 
 def convert_format(amr):
@@ -56,17 +58,18 @@ def get_paths_to_root(surface_aligned_nodes, node_ids, edges):
     return paths_to_root, root_ids
 
 
-def plot_graph(tokens, nodes, edges, aligned_token_by_node, mark_ids=None, plot_now=True):
+def plot_graph(
+        tokens, nodes, edges, aligned_token_by_node,
+        mark_ids=None, plot_now=True, figsize=(5, 5), paper_height=200
+    ):
 
     assert isinstance(tokens, list)
     assert isinstance(nodes, dict)
     assert isinstance(edges, list)
     assert isinstance(aligned_token_by_node, dict)
 
-    paper_height = 100
-
     # plotting
-    fig, ax = plt.subplots(figsize=(5, 5))
+    fig, ax = plt.subplots(figsize=figsize)
 
     # determine positions of surface tokens in plot. All furtehr plotting
     # uses this as reference
@@ -113,8 +116,16 @@ def plot_graph(tokens, nodes, edges, aligned_token_by_node, mark_ids=None, plot_
             elif node_id in position_cache:
                 position = position_cache[node_id]
             else:
+                alignments = aligned_token_by_node[node_id]
+                if len(alignments) > 1:
+                    pos_x = token_plot_x[alignments[0]]
+                    pos_x += token_plot_x[alignments[-1]]
+                    pos_x *= 0.5
+                else:
+                    pos_x = token_plot_x[alignments[0]]
+
                 position = (
-                    token_plot_x[aligned_token_by_node[node_id]],
+                    pos_x,
                     sentence_y + alignment_width_y + vertical_warp * depth
                 )
                 position_cache[node_id] = position

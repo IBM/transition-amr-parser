@@ -24,6 +24,7 @@ from penman.layout import Push
 from penman import surface
 from ipdb import set_trace
 from transition_amr_parser.clbar import yellow_font
+from transition_amr_parser.plots import plot_graph
 
 
 # known annotation issues in different corpora
@@ -742,6 +743,13 @@ class AMR():
     def __str__(self):
         return self.to_penman()
 
+    def plot(self, **kwargs):
+        # This requires matplotlib to be installed, check
+        # transition_amr_parser/plots.py for arguments
+        plot_graph(
+            self.tokens, self.nodes, self.edges, self.alignments, **kwargs
+        )
+
     def get_node_id_map(self):
         ''' Redo the ids of a graph to ensure they are valid '''
 
@@ -826,7 +834,7 @@ class AMR():
         if jamr:
             penman_str = get_jamr_string(
                 self.tokens, self.nodes, self.edges, self.root,
-                self.alignments, penman=penman
+                self.alignments, penman=False
             )
         else:
             penman_str = self.get_metadata(isi)
