@@ -23,6 +23,9 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
+if [! -z $FAIRSEQ_SKIP_ARGS];then
+    FAIRSEQ_SKIP_ARGS=""
+fi
 
 ##### TRAINING
 
@@ -143,6 +146,7 @@ else
             # python -m ipdb fairseq_ext/train.py \
             python fairseq_ext/train.py \
                 $DATA_FOLDER \
+                $FAIRSEQ_SKIP_ARGS \
                 --emb-dir $EMB_FOLDER \
                 --user-dir fairseq_ext \
                 --task $TASK \
