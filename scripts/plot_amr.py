@@ -4,12 +4,11 @@
 # FIXME: Variable names messy
 from random import shuffle
 import argparse
-from transition_amr_parser.io import read_amr, read_endpoint_amr
+from transition_amr_parser.io import read_amr
 from transition_amr_parser.amr_latex import (
     get_tikz_latex,
     save_graphs_to_tex,
 )
-from ipdb import set_trace
 
 
 def argument_parser():
@@ -110,11 +109,7 @@ def skip_amr(amr, args):
 def main(args):
 
     # argument handling
-    if args.in_amr.endswith('json'):
-        # assumed JSON from endpoint
-        amrs = read_endpoint_amr(args.in_amr)
-    else:
-        amrs = read_amr(args.in_amr, ibm_format=args.jamr)
+    amrs = read_amr(args.in_amr, jamr=args.jamr)
 
     print(f'Read {args.in_amr}')
     num_amrs = len(amrs)
