@@ -20,7 +20,7 @@ from transition_amr_parser.docamr_io import AMR_doc,process_corefs,read_amr, rea
 from transition_amr_parser.gold_subgraph_align import (
     AlignModeTracker, check_gold_alignment
 )
-from transition_amr_parser.amr import normalize, create_valid_amr
+from transition_amr_parser.amr import normalize, create_valid_amr, force_rooted_connected_graph
 # TODO: Remove this dependency
 import penman
 from transition_amr_parser.clbar import (
@@ -361,11 +361,7 @@ class AMROracle():
         return self.pend_edges_by_node[gold_node_id] == []
 
     def get_actions(self, machine):
-        #NEW_ACTION
-        # # new sentence in document
-        # if machine.tok_cursor < len(machine.tokens):
-        #     if machine.tokens[machine.tok_cursor] == '<next_sent>':
-        #         return ['NEXT_SENTENCE'], [1.0]
+       
         # Label node as root
         if (
             machine.node_stack
@@ -418,6 +414,12 @@ class AMROracle():
         if machine.tok_cursor < len(machine.tokens):
             return ['SHIFT'], [1.0]
 
+        #NEW_ACTION
+        # # new sentence in document
+        if machine.tok_cursor < len(machine.tokens):
+            if machine.tok_cursor in machine.sentence_ends:
+                return ['CLOSE_SENTENCE'], [1.0]
+                
         return ['CLOSE'], [1.0]
 
 
@@ -521,19 +523,22 @@ class AMRStateMachine():
         # history as node_id
         self.nodes = {}
         self.edges = []
-        self.roots = []
         self.root = None
         self.alignments = defaultdict(list)
         # set to true when machine finishes
         self.is_closed = False
         # for multi senetence action sequences
         #NEW_ACTION
-        # self.sentence_reset()
+        self.sentence_roots = []
+        self.sentence_ends = []
 
-        # def sentence_reset(self):
-        #     self.root = None
-        #     self.sentence_nodes = []
+        #track sent ends
+        for idx,tok in enumerate(self.tokens):
+            if tok=='<next_sent>':
+                self.sentence_ends.append(idx-1)
+                #del self.tokens[idx]
 
+        self.sentence_reset()
 
         # state info useful in the model
         self.actions_tokcursor = []
@@ -547,6 +552,16 @@ class AMRStateMachine():
                 reject_samples=reject_align_samples
             )
             self.align_tracker.update(self)
+
+    def sentence_reset(self):
+        self.sentence_nodes = {}
+        self.sentence_edges = []
+        self.root = None
+    
+    def connect_sentences(self,root_id):
+        for idx,n in enumerate(self.sentence_roots):
+            self.edges.append((root_id, ':snt'+str(idx), n))
+        
 
     @classmethod
     def from_config(cls, config_path):
@@ -713,20 +728,20 @@ class AMRStateMachine():
             set_trace()
             print()
 
+        #TODO if doc_closing_mode:
+            #force actions
+
         if self.gold_amr:
 
             # align mode (we know the AMR)
             return self._get_valid_align_actions()
 
-        valid_base_actions = []
+        valid_base_actions = ['CLOSE_SENTENCE']
         gen_node_actions = ['COPY', 'NODE'] if self.use_copy else ['NODE']
 
         if self.tok_cursor < len(self.tokens):
             valid_base_actions.append('SHIFT')
             valid_base_actions.extend(gen_node_actions)
-        #NEW_ACTION
-        # if self.tok_cursor < len(self.tokens) and self.tokens[self.tok_cursor] == '<next_sent>':
-        #         return ['NEXT_SENTENCE']
 
         if (
             self.action_history
@@ -749,19 +764,20 @@ class AMRStateMachine():
             else:
                 valid_base_actions.append('ROOT')
         
-        # if (
-        #     self.action_history 
-        #     and self.get_base_action(self.action_history[-1]) != 'ROOT' 
-        #     and len(self.sentence_nodes) >= 1 and len(self.node_stack) >= 2 
-        #     and 'NEXT_SENTENCE' in self.action_history 
-        #     and '<unk>' not in valid_base_actions
-        #     ):
-        #     valid_base_actions.extend(coref_actions)
+
+        #NEW ACTION
+        # if self.tok_cursor in self.sentence_ends:
+        #     valid_base_actions.append('CLOSE_SENTENCE')
+
+        # if len(self.sentence_nodes) > 0 and self.root is None:
+        #     valid_base_actions.append('ROOT')
 
         if self.tok_cursor == len(self.tokens):
             assert not valid_base_actions \
                 and self.action_history[-1] == 'SHIFT'
+            #TODO add document closing
             valid_base_actions.append('CLOSE')
+            
 
         if self.reduce_nodes:
             if len(self.node_stack) > 0:
@@ -805,6 +821,13 @@ class AMRStateMachine():
                 )
 
             self.is_closed = True
+            # if len(self.sentence_roots) > 1:
+            #     #document node creation
+            #     node_id = len(self.action_history)
+            #     self.nodes[node_id] = 'document'
+            #     self.node_stack.append(node_id)
+            #     self.alignments[node_id].append(self.tok_cursor)
+            #     self.connect_sentences(root_id = node_id)
 
         elif re.match(r'ROOT', action):
             self.root = self.node_stack[-1]
@@ -812,15 +835,18 @@ class AMRStateMachine():
         elif action in ['SHIFT']:
             # Move source pointer
             self.tok_cursor += 1
-        #NEW_ACTION
-        # elif action in ['NEXT_SENTENCE']:
-        #     while self.tok_cursor < len(self.tokens) and self.tokens[self.tok_cursor] != '<next_sent>':
-        #         self.cursor += 1
-        #     # Move source pointer                                         
-        #     self.tok_cursor += 1
-        #     # save current sentence nodes and root
-        #     self.connect_sentence_graph()
-        #     self.sentence_reset()
+        
+        #NEW_ACTION FIXME
+        elif action in ['CLOSE_SENTENCE']:
+            while self.tok_cursor < len(self.tokens) and self.tok_cursor not in self.sentence_ends:
+                self.cursor += 1
+            # Move source pointer                                         
+            self.tok_cursor += 1
+            # save current sentence nodes and root
+            self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root)
+            self.edges.extend(self.sentence_edges)
+            self.sentence_roots.append(self.root)
+            self.sentence_reset()
 
         # TODO: Separate REDUCE actions into its own method
         elif action in ['REDUCE']:
@@ -874,7 +900,9 @@ class AMRStateMachine():
                 index = len(self.node_stack) - int(index) - 2
                 tgt = self.node_stack[index]
             src = self.node_stack[-1]
-            self.edges.append((src, f'{label}', tgt))
+            #self.edges.append((src, f'{label}', tgt))
+            #NEW_ACTION
+            self.sentence_edges.append((src, f'{label}', tgt))
 
         elif ra_regex.match(action):
             # Right Arc -->
@@ -887,7 +915,9 @@ class AMRStateMachine():
                 index = len(self.node_stack) - int(index) - 2
                 src = self.node_stack[index]
             tgt = self.node_stack[-1]
-            self.edges.append((src, f'{label}', tgt))
+            #self.edges.append((src, f'{label}', tgt))
+            #NEW_ACTION
+            self.sentence_edges.append((src, f'{label}', tgt))
 
         # Node generation
         elif action == 'COPY':
@@ -897,8 +927,8 @@ class AMRStateMachine():
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
             #NEW_ACTION
-            # for keeping each sentence's nodes separate
-            # self.sentence_nodes.append(node_id)
+            #for keeping each sentence's nodes separate
+            self.sentence_nodes[node_id]= self.nodes[node_id]
 
         else:
 
@@ -910,8 +940,9 @@ class AMRStateMachine():
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
             #NEW_ACTION
-            # for keeping each sentence's nodes separate
-            # self.sentence_nodes.append(node_id)
+            #for keeping each sentence's nodes separate
+            self.sentence_nodes[node_id] = self.nodes[node_id]
+            
 
         # Update align mode tracker after machine state has been updated
         if self.gold_amr:
@@ -931,60 +962,60 @@ class AMRStateMachine():
         # Action for each time-step
         self.action_history.append(action)
 
-    def connect_sentence_graph(self):
+    # def connect_sentence_graph(self):
 
-        #import ipdb ; ipdb.set_trace()
-        if not self.sentence_nodes:
-            return
+    #     #import ipdb ; ipdb.set_trace()
+    #     if not self.sentence_nodes:
+    #         return
 
-        sen_nodes = self.sentence_nodes
-        sen_root  = self.root
+    #     sen_nodes = self.sentence_nodes
+    #     sen_root  = self.root
         
-        descendents = {n: {n} for n in sen_nodes}
-        potential_roots = [n for n in sen_nodes]
-        for x, r, y in self.edges:
-            if y in potential_roots and (x not in potential_roots or x not in descendents[y]):
-                potential_roots.remove(y)
-            if x in sen_nodes and y in sen_nodes:
-                descendents[x].update(descendents[y])
-            for n in descendents:
-                if x in descendents[n]:
-                    descendents[n].update(descendents[x])
+    #     descendents = {n: {n} for n in sen_nodes}
+    #     potential_roots = [n for n in sen_nodes]
+    #     for x, r, y in self.edges:
+    #         if y in potential_roots and (x not in potential_roots or x not in descendents[y]):
+    #             potential_roots.remove(y)
+    #         if x in sen_nodes and y in sen_nodes:
+    #             descendents[x].update(descendents[y])
+    #         for n in descendents:
+    #             if x in descendents[n]:
+    #                 descendents[n].update(descendents[x])
 
-        for node in potential_roots.copy():
-            for other_node in sen_nodes:
-                if node != other_node and node in descendents[other_node]:
-                    potential_roots.remove(node)
-                    break
+    #     for node in potential_roots.copy():
+    #         for other_node in sen_nodes:
+    #             if node != other_node and node in descendents[other_node]:
+    #                 potential_roots.remove(node)
+    #                 break
                     
-        disconnected = potential_roots.copy()
-        for n in potential_roots.copy():
-            if len([e for e in self.edges if e[0] == n]) == 0:
-                potential_roots.remove(n)
+    #     disconnected = potential_roots.copy()
+    #     for n in potential_roots.copy():
+    #         if len([e for e in self.edges if e[0] == n]) == 0:
+    #             potential_roots.remove(n)
 
-        #if len(disconnected) > 1:
-        #    import ipdb; ipdb.set_trace()
+    #     #if len(disconnected) > 1:
+    #     #    import ipdb; ipdb.set_trace()
                 
-        # assign root
-        if potential_roots:
-            if sen_root is None or sen_root not in potential_roots:
-                sen_root = potential_roots[0]
-            disconnected.remove(sen_root)
-        else:
-            if sen_root is None and len(sen_nodes):
-                sen_root = max(sen_nodes,
-                            key=lambda x: len([e for e in self.edges if e[0] == x])
-                            - len([e for e in self.edges if e[2] == x]))
-        # connect graph
-        if len(disconnected) > 0 and sen_root is not None:
-            for n in disconnected:
-                if n != sen_root:
-                    self.edges.append((sen_root, ":rel", n))
+    #     # assign root
+    #     if potential_roots:
+    #         if sen_root is None or sen_root not in potential_roots:
+    #             sen_root = potential_roots[0]
+    #         disconnected.remove(sen_root)
+    #     else:
+    #         if sen_root is None and len(sen_nodes):
+    #             sen_root = max(sen_nodes,
+    #                         key=lambda x: len([e for e in self.edges if e[0] == x])
+    #                         - len([e for e in self.edges if e[2] == x]))
+    #     # connect graph
+    #     if len(disconnected) > 0 and sen_root is not None:
+    #         for n in disconnected:
+    #             if n != sen_root:
+    #                 self.edges.append((sen_root, ":rel", n))
 
-        self.roots.append(sen_root)
-        self.sidx2nodes[sen_root] = sen_nodes[:]
-        for node in sen_nodes:
-            self.nodes2sidx[node] = sen_root
+    #     self.roots.append(sen_root)
+    #     self.sidx2nodes[sen_root] = sen_nodes[:]
+    #     for node in sen_nodes:
+    #         self.nodes2sidx[node] = sen_root
             
    
     def get_amr(self, node_map=None):
@@ -1508,9 +1539,9 @@ def oracle(args):
                 
                 damr = make_pairwise_edges(damr)
                 damr.penman = penman.decode(damr.to_penman())
-                document_top,top_rel,top_name = damr.penman.triples[0]
-                assert top_name=='document'
-                damr.alignments[document_top] = [len(damr.tokens)-1]
+                # document_top,top_rel,top_name = damr.penman.triples[0]
+                # assert top_name=='document'
+                # damr.alignments[document_top] = [len(damr.tokens)-1]
                 damr.check_connectivity()
                 damrs.append(damr)
                 fid.write(damr.__str__())
