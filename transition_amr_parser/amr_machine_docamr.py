@@ -417,7 +417,7 @@ class AMROracle():
         #NEW_ACTION
         # # new sentence in document
         if machine.tok_cursor < len(machine.tokens):
-            if machine.tok_cursor in machine.sentence_ends:
+            if machine.tok_cursor in self.gold_amr.sentence_ends:
                 return ['CLOSE_SENTENCE'], [1.0]
                 
         return ['CLOSE'], [1.0]
@@ -445,9 +445,6 @@ class AMRStateMachine():
 
         # use copy action
         self.use_copy = use_copy
-        self.ignore_coref = ignore_coref
-        self.norm = norm
-
 
         # base actions allowed
         self.base_action_vocabulary = [
@@ -530,13 +527,7 @@ class AMRStateMachine():
         # for multi senetence action sequences
         #NEW_ACTION
         self.sentence_roots = []
-        self.sentence_ends = []
 
-        #track sent ends
-        for idx,tok in enumerate(self.tokens):
-            if tok=='<next_sent>':
-                self.sentence_ends.append(idx-1)
-                #del self.tokens[idx]
 
         self.sentence_reset()
 
@@ -810,7 +801,7 @@ class AMRStateMachine():
 
         self.actions_tokcursor.append(self.tok_cursor)
 
-        if re.match(r'CLOSE', action):
+        if action == 'CLOSE':
 
             if self.gold_amr:
                 # sanity check, we got the exact same AMR
@@ -838,9 +829,7 @@ class AMRStateMachine():
         
         #NEW_ACTION FIXME
         elif action in ['CLOSE_SENTENCE']:
-            while self.tok_cursor < len(self.tokens) and self.tok_cursor not in self.sentence_ends:
-                self.cursor += 1
-            # Move source pointer                                         
+            # Move source pointer (SHIFT)                                         
             self.tok_cursor += 1
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root)
