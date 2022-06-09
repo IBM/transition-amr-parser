@@ -181,7 +181,7 @@ class AMR_doc(AMR):
     verbose = True
     
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, nvars = None,sentence=None, id=None):
+                 alignments=None, nvars = None,sentence=None, id=None,sentence_ends=None):
         super().__init__(tokens, nodes, edges, root, penman,
                  alignments, sentence, id)
         sid = id
@@ -190,6 +190,8 @@ class AMR_doc(AMR):
             AMR_doc.id_counter += 1
         self.sid = sid
         self.nvars = nvars
+        #for doc-amr tok <next_sent> removed and last tok of sents tracked here
+        self.sentence_ends = sentence_ends
         
 
         self.roots = []
@@ -911,8 +913,15 @@ class AMR_doc(AMR):
             if isinstance(nvar, str):
                 nvars[nvar] = nvar
 
+        sentence_ends = []
+        #track sent ends indices
+        for idx,tok in enumerate(tokens):
+            if tok=='<next_sent>':
+                sentence_ends.append(idx-1)
+                del tokens[idx]
+
         return cls(tokens, nodes, edges, graph.top, penman=graph,
-                   alignments=alignments, sentence=sentence, id=graph_id, nvars=nvars)
+                   alignments=alignments, sentence=sentence, id=graph_id, nvars=nvars,sentence_ends=sentence_ends)
 
         
     
