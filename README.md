@@ -1,7 +1,7 @@
 Transition-based AMR Parser
 ============================
 
-Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. For trained checkpoints see [here](https://github.ibm.com/mnlp/transition-amr-parser#trained-checkpoints)
+Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. For trained checkpoints see [here](#trained-checkpoints)
 
 ### Structured-BART 
 
@@ -85,6 +85,13 @@ To launch train/test use (this will also run the aligner)
 bash run/run_experiment.sh configs/amr2.0-structured-bart-large-sep-voc.sh
 ```
 
+training will store all checkpoints by default. You can launch a paralel job
+that will perform evaluation and delete checkpoints not int the top 5
+
+```
+bash run/run_model_eval.sh configs/amr2.0-structured-bart-large-sep-voc.sh
+```
+
 you can check training status with
 
 ```
@@ -92,6 +99,8 @@ python run/status.py -c configs/amr2.0-structured-bart-large-sep-voc.sh
 ```
 
 use `--results` to check for scores once models are finished.
+
+We include code to launch paralel jobs in the LSF job schedules. This can be adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
 
 ## Decode with Pre-trained model
 
