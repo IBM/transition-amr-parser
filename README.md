@@ -101,11 +101,13 @@ To use from the command line with a trained model do
 amr-parse -c $in_checkpoint -i $input_file -o file.amr
 ```
 
-It will parse each line of `$input_file` separately (assumed tokenized).
-`$in_checkpoint` is the Pytorch checkpoint of a trained model. The `file.amr`
-will contain the PENMAN notation AMR with additional alignment information as
-comments. Use the flag `--service` together with `-c` for an iterative parsing
-mode.
+It will parse each line of `$input_file` separately. It assumes tokenization,
+use `--tokenize` otherwise. Once a model is unzipped, `-m <config>` can be used
+instead of `-c`. The `file.amr` will contain the PENMAN notation with ISI
+alignment annotations (`<node name>~<token position>`). Note that Smatch does
+not support ISI and gives worse results. Use `--no-isi` to store alignments in
+`::alignments` meta data. Also use `--jamr` to add JAMR annotations in
+meta-data.
 
 To use from other Python code with a trained model do
 
@@ -120,7 +122,7 @@ print(''.join(annotations[0][0]))
 
 ## Trained checkpoints
 
-We offer some trained checkpoints on demand. These can be download from the AWS by using
+We offer some trained checkpoints on demand. These can be download from AWS by using
 
     pip install awscli
     aws --endpoint-url=$URL s3 cp s3://mnlp-models-amr/<config>-seed<N>.zip .
@@ -130,10 +132,11 @@ you will need access keys and URL. We provide these on an individual basis (send
 
 Current available parsers are
 
-|  paper                                                          |  config                                                | Smatch (beam 10) |
-|:---------------------------------------------------------------:|:------------------------------------------------------:|:----------------:|
-| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr2.0-structured-bart-large-joint-voc-neur-al-seed42  |   84.0           |
-| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr3.0-structured-bart-large-joint-voc-neur-al-seed42  |   82.6           |
+|  paper                                                          |  config-seed42                                                   | beam    | Smatch  |
+|:---------------------------------------------------------------:|:----------------------------------------------------------------:|:-------:|:-------:|
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr2.0-structured-bart-large-joint-voc-neur-al-seed42            |   10    |   84.0  |
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr3.0-structured-bart-large-joint-voc-neur-al-seed42            |   10    |   82.6  |
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR     | amr3.0-structured-bart-large-joint-voc-neur-al-sampling5-seed42  |   1     |   82.9  |
 
 we also provide the trained `ibm-neural-aligner` under names `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`.
 
