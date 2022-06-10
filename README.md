@@ -1,11 +1,11 @@
 Transition-based AMR Parser
 ============================
 
-Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. Note that, as of now, Structured-BART does not support standalone parsing mode. Use the `action-pointer` branch to get a parser that can work standalone.
+Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. 
 
 ### Structured-BART 
 
-Current version (`0.5.2`). Structured-BART [(Zhou et al 2021b)](https://aclanthology.org/2021.emnlp-main.507/) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. It yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble). This version introduces the ibm-neural-aligner [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) yielding a base AMR3.0 performance of `82.7` (`83.1` with latent alignment training). Structured-BART is also used for [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) which yields a new single model SoTA of `85.7` for AMR2.0 and `84.1` for AMR3.0 by introducing Smatch-based ensemble distillation.
+Current version (`0.5.2`). Structured-BART [(Zhou et al 2021b)](https://aclanthology.org/2021.emnlp-main.507/) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. It yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble). Version `0.5.2` introduces the ibm-neural-aligner [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) yielding a base AMR3.0 performance of `82.7` (`83.1` with latent alignment training). Structured-BART is also used for [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) which yields a new single model SoTA of `85.7` for AMR2.0 and `84.1` for AMR3.0 by introducing Smatch-based ensemble distillation.
 
 ### Action Pointer
 
@@ -116,3 +116,22 @@ annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits'
 # Penman notation
 print(''.join(annotations[0][0]))
 ```
+
+## Trained checkpoints
+
+We offer some trained checkpoints on demand. These can be download from the AWS by using
+
+    pip install awscli
+    aws --endpoint-url=$URL s3 cp s3://mnlp-models-amr/<config>-seed<N>.zip .
+
+you will need access keys and URL. We provide these on an individual basis (sends us an email). For updates on available models see [here](https://twitter.com/RamonAstudill12).
+
+Current available models are
+
+|  paper                                                      |  config                                                | test Smatch |
+|:-----------------------------------------------------------:|:------------------------------------------------------:|:-----------:|
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464)    | amr3.0-structured-bart-large-joint-voc-neur-al-seed42  |   83.0      |
+
+a fast way to test models as used in the endpoint/Docker is
+
+    bash tests/standalone.sh configs/<config>.sh

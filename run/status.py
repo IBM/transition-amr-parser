@@ -769,7 +769,7 @@ def display_results(models_folder, configs, set_seed, seed_average, do_test,
             result['config_path'] = f'configs/{os.readlink(config_path)}'
 
     if configs or (show_config and all('config_path' in r for r in results)):
-        fields = ['config_path', 'best']
+        fields = ['config_path', 'seed', 'best']
         col0_right = True
     else:
         fields = ['data', 'oracle', 'features', 'model', 'best']
