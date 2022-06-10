@@ -100,7 +100,8 @@ python run/status.py -c configs/amr2.0-structured-bart-large-sep-voc.sh
 
 use `--results` to check for scores once models are finished.
 
-We include code to launch paralel jobs in the LSF job schedules. This can be adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
+We include code to launch paralel jobs in the LSF job schedules. This can be
+adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
 
 ## Decode with Pre-trained model
 
@@ -141,11 +142,11 @@ you will need access keys and URL. We provide these on an individual basis (send
 
 Current available parsers are
 
-|  paper                                                          |  config-seed42                                                   | beam    | Smatch  |
-|:---------------------------------------------------------------:|:----------------------------------------------------------------:|:-------:|:-------:|
-| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr2.0-structured-bart-large-joint-voc-neur-al-seed42            |   10    |   84.0  |
-| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr3.0-structured-bart-large-joint-voc-neur-al-seed42            |   10    |   82.6  |
-| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR     | amr3.0-structured-bart-large-joint-voc-neur-al-sampling5-seed42  |   1     |   82.9  |
+|  paper                                                          |  config-seed42                                         | beam    | Smatch  |
+|:---------------------------------------------------------------:|:------------------------------------------------------:|:-------:|:-------:|
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr2.0-structured-bart-large-neur-al-seed42            |   10    |   84.0  |
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr3.0-structured-bart-large-neur-al-seed42            |   10    |   82.6  |
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR     | amr3.0-structured-bart-large-neur-al-sampling5-seed42  |   1     |   82.9  |
 
 we also provide the trained `ibm-neural-aligner` under names `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`.
 
