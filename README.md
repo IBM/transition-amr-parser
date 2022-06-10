@@ -1,7 +1,7 @@
 Transition-based AMR Parser
 ============================
 
-Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. 
+Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. For trained checkpoints see [here](https://github.ibm.com/mnlp/transition-amr-parser#trained-checkpoints)
 
 ### Structured-BART 
 
@@ -112,7 +112,8 @@ To use from other Python code with a trained model do
 ```python
 from transition_amr_parser.parse import AMRParser
 parser = AMRParser.from_checkpoint(in_checkpoint)
-annotations = parser.parse_sentences([['The', 'boy', 'travels'], ['He', 'visits', 'places']])
+tokens = parser.tokenize('The boy travels. He visits places')
+annotations = parser.parse_sentence(tokens)
 # Penman notation
 print(''.join(annotations[0][0]))
 ```
@@ -123,15 +124,19 @@ We offer some trained checkpoints on demand. These can be download from the AWS 
 
     pip install awscli
     aws --endpoint-url=$URL s3 cp s3://mnlp-models-amr/<config>-seed<N>.zip .
+    unzip <config>-seed<N>.zip
 
-you will need access keys and URL. We provide these on an individual basis (sends us an email). For updates on available models see [here](https://twitter.com/RamonAstudill12).
+you will need access keys and URL. We provide these on an individual basis (sends us an email). For updates on available models see [here](https://twitter.com/RamonAstudill12). After unzipping, parsers should also be available by name from any folder as `AMRParser.load('<config>')`
 
-Current available models are
+Current available parsers are
 
-|  paper                                                      |  config                                                | test Smatch |
-|:-----------------------------------------------------------:|:------------------------------------------------------:|:-----------:|
-| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464)    | amr3.0-structured-bart-large-joint-voc-neur-al-seed42  |   83.0      |
+|  paper                                                          |  config                                                | Smatch (beam 10) |
+|:---------------------------------------------------------------:|:------------------------------------------------------:|:----------------:|
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr2.0-structured-bart-large-joint-voc-neur-al-seed42  |   84.0           |
+| [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr3.0-structured-bart-large-joint-voc-neur-al-seed42  |   82.6           |
 
-a fast way to test models as used in the endpoint/Docker is
+we also provide the trained `ibm-neural-aligner` under names `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`.
+
+Note that we allways report average of three seeds in paper while these are individual models. A fast way to test models as used in the endpoint/Docker is
 
     bash tests/standalone.sh configs/<config>.sh
