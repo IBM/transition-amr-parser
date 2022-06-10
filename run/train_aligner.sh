@@ -33,6 +33,10 @@ if [ -f $ALIGNED_FOLDER/.done.preprocess ]; then
 
 else
 
+    # when ran isolated we need to create this ourselves
+    echo "mkdir -p $ALIGNED_FOLDER"
+    mkdir -p $ALIGNED_FOLDER
+
     # remove wiki
     python scripts/remove_wiki.py \
         $AMR_TRAIN_FILE_WIKI \

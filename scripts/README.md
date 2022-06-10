@@ -1,22 +1,16 @@
-## Install Details
-
-If you use conda, this may make your installation easier
-
-```
-conda install -y pytorch==1.4.0 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch
-```
-
 ## Plot AMRs
 
-This requires an extra `pip install matplotlib`. Then you can plot random or
-target aligned AMRs (following sentence order)
+To plot in LaTex using tikz, you can use
 
 ```
-python scripts/plot_amr.py --in-amr DATA/wiki25.jkaln
+python scripts/plot_amr.py --in-amr DATA/wiki25.jkaln --out-amr tmp.tex
 ```
 
 Use `--indices` to select AMRs by the order they appear in the file. See
 `--has-*` flags to select by graph properties
+
+To plot using matplotlib (for e.g. notebooks) you can use `AMR.plot()` in the
+AMR class
 
 ## Understanding the Oracle
 
@@ -47,20 +41,3 @@ python scripts/sanity_check.py /path/to/amr2.0/train.txt DATA/probank_amr2.0.jso
 322 predicate not in propbank
 25 missing required role
 ```
-
-## Additional Gold Path based metric
-
-This computes scores based on how many full paths in the gold AMR appear
-in the predicted AMR. It has specific flags fow KBQA AMR metrics
-
-To just extract the paths do
-```
-python scripts/gold_path_metric.py --in-amr /path/to/file.amr --out-paths file.paths
-```
-
-To compute path precision
-```
-python scripts/gold_path_metric.py --in-amr /path/to/file.amr --gold-amr /path/to/gold.amr
-```
-
-To restrict to paths involving unknowns and named entities (KBQA) user the `--kb-only` flag

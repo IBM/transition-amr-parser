@@ -5,7 +5,7 @@ Neural transition-based parser for Abstract Meaning Representation (AMR) produci
 
 ### Structured-BART 
 
-Current version (`0.5.2`). Structured-BART [(Zhou et al 2020b)](https://aclanthology.org/2021.emnlp-main.507/) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. It yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble). This version introduces the ibm-neural-aligner [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) yielding a base AMR3.0 performance of `82.7` (`83.1` with latent alignment training). Structured-BART is also used for [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) which yields a new single model SoTA of `85.7` for AMR2.0 and `84.1` for AMR3.0 by introducing Smatch-based ensemble distillation.
+Current version (`0.5.2`). Structured-BART [(Zhou et al 2021b)](https://aclanthology.org/2021.emnlp-main.507/) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. It yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble). This version introduces the ibm-neural-aligner [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) yielding a base AMR3.0 performance of `82.7` (`83.1` with latent alignment training). Structured-BART is also used for [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) which yields a new single model SoTA of `85.7` for AMR2.0 and `84.1` for AMR3.0 by introducing Smatch-based ensemble distillation.
 
 ### Action Pointer
 
@@ -64,8 +64,6 @@ To do a mini-test with 25 annotated sentences that we provide. This should take 
 bash tests/minimal_test.sh
 ```
 
-See [here](scripts/README.md#install-details) for more install details
-
 ## Training a model
 
 You first need to pre-process and align the data. For AMR2.0 do
@@ -74,16 +72,6 @@ You first need to pre-process and align the data. For AMR2.0 do
 . set_environment.sh
 python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
-
-If you have a trained aligner model, copy it to the aligner folder
-
-``` 
-mkdir -p DATA/AMR2.0/aligned/ibm_neural_aligner/
-cp /path/to/model.best.val_1_recall.pt DATA/AMR2.0/aligned/ibm_neural_aligner/
-cp /path/to/flags.json DATA/AMR2.0/aligned/ibm_neural_aligner/
-cp /path/to/vocab.text.2021-06-30.txt DATA/AMR2.0/aligned/ibm_neural_aligner/
-cp /path/to/vocab.amr.2021-06-30.txt DATA/AMR2.0/aligned/ibm_neural_aligner/
-``` 
 
 You will also need to unzip the precomputed BLINK cache. See issues in this repository to get the cache file (or the link above for IBM-ers).
 
