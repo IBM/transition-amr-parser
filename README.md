@@ -137,6 +137,6 @@ Current available parsers are
 
 we also provide the trained `ibm-neural-aligner` under names `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`.
 
-Note that we allways report average of three seeds in paper while these are individual models. A fast way to test models as used in the endpoint/Docker is
+Note that we allways report average of three seeds in papers while these are individual models. A fast way to test models standalone is
 
     bash tests/standalone.sh configs/<config>.sh
