@@ -50,7 +50,7 @@ if [ -f "$model_folder/actions.vocab.nodes" ];then
         $model_folder/dict.en.txt \
         $model_folder/machine_config.json
 else
-    zip -r ${model_name}seed${seed}.zip \
+    zip -r ${model_name}-seed${seed}.zip \
         $checkpoint \
         $model_folder/config.sh \
         $model_folder/dict.actions_nopos.txt \
