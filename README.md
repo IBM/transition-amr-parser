@@ -123,11 +123,17 @@ To use from other Python code with a trained model do
 
 ```python
 from transition_amr_parser.parse import AMRParser
-parser = AMRParser.from_checkpoint(in_checkpoint)
-tokens = parser.tokenize('The boy travels. He visits places')
-annotations = parser.parse_sentence(tokens)
-# Penman notation
-print(''.join(annotations[0][0]))
+parser = AMRParser.from_checkpoint(checkpoint_path)
+tokens, positions = parser.tokenize('The girl travels and visits places')
+annotations, decoding_data = parser.parse_sentence(tokens)
+# Print Penman 
+print(annotations[0])
+# transition_amr_parser.amr:AMR from transition_amr_parser.amr_machine:AMRStateMAchine
+amr = decoding_data[0]['machine'].get_amr()
+# print into Penman w/o JAMR, ISIR
+print(amr.to_penman(jamr=False, no_isi=False))
+# matplotlib graph plot
+amr.plot()
 ```
 
 ## Trained checkpoints
