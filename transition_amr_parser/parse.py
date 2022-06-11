@@ -519,7 +519,8 @@ class AMRParser:
         return protected_tokenizer(sentence)
 
     def parse_sentence(self, tokens, **kwargs):
-        return self.parse_sentences([tokens], **kwargs)
+        annotations, decoding_data = self.parse_sentences([tokens], **kwargs)
+        return annotations[0], decoding_data[0]
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
                         gold_amrs=None, beam=1, jamr=False, no_isi=False):
