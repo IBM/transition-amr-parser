@@ -6,7 +6,6 @@ from collections import defaultdict
 from ipdb import set_trace
 from transition_amr_parser.io import read_blocks
 from transition_amr_parser.amr import AMR, get_is_atribute, normalize
-# this requires local smatch installed --editable and touch smatch/__init__.py
 from transition_amr_parser.clbar import yellow_font
 from smatch import get_best_match, compute_f
 from smatch import amr

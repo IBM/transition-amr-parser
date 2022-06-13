@@ -79,7 +79,7 @@ The most common problem is that you hit your space quota and code dies halfway
 while writing a checkpoint. You need to know how to check your quota to avoid
 this. Also the jobs doing evaluation also take care of removing checkpoints. If
 these die then your space can finish quickly. This should not happen and it is
-best to fins the reason why this happened before relaunching evaluation. You
+best to find the reason why this happened before relaunching evaluation. You
 can do this with
 
     bash run/lsf/run_model_eval.sh configs/amr2.0-structured-bart-large-neur-al.sh

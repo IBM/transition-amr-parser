@@ -10,7 +10,7 @@ set -o pipefail
 set -o nounset
 
 # this will be name of the model folder
-config_name=amr3.0-structured-bart-large-sampling5
+config_name=amr3.0-structured-bart-large-neur-al-sampling5
 
 ##############################################################################
 # DATA
@@ -344,7 +344,7 @@ LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 
 ##### decoding configuration for the final model
 BATCH_SIZE=128
-BEAM_SIZE=10
+BEAM_SIZE=1
 # Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
