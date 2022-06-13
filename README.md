@@ -87,7 +87,7 @@ bash run/run_experiment.sh configs/amr2.0-structured-bart-large.sh
 
 Training will store and evaluate all checkpoints by default (see config's
 `EVAL_INIT_EPOCH`) and select the one with best dev Smatch. This needs a lot of
-space but you can launch a paralel job that will perform evaluation and delete
+space but you can launch a parallel job that will perform evaluation and delete
 Checkpoints not in the top `5` 
 
 ```
@@ -102,7 +102,7 @@ python run/status.py -c configs/amr2.0-structured-bart-large.sh
 
 use `--results` to check for scores once models are finished.
 
-We include code to launch paralel jobs in the LSF job schedules. This can be
+We include code to launch parallel jobs in the LSF job schedules. This can be
 adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
 
 ## Decode with Pre-trained model
