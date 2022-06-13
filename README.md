@@ -85,7 +85,7 @@ To launch train/test use (this will also run the aligner)
 bash run/run_experiment.sh configs/amr2.0-structured-bart-large.sh
 ```
 
-Training will store and evaluate all checkpoints by default (see configs
+Training will store and evaluate all checkpoints by default (see config's
 `EVAL_INIT_EPOCH`) and select the one with best dev Smatch. This needs a lot of
 space but you can launch a paralel job that will perform evaluation and delete
 Checkpoints not in the top `5` 
