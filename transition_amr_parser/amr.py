@@ -1139,6 +1139,35 @@ def add_alignments_to_penman(g, alignments, string=False, strict=True):
         return g
 
 
+def smatch_triples_from_penman(graph, label):
+    '''
+    Return the triples needed by the smatch functions from penman graph
+
+    since smatch requires a mapping to forman <fixed letter><number>, return
+    a dictionary that inverst this mapping
+    '''
+
+    id_map = {}
+    # instances
+    instances = []
+    for n, x in enumerate(graph.instances()):
+        id_map[n] = x.source
+        instances.append(('instance', f'{label}{n}', x.target))
+    reverse_map = {v: f'{label}{k}' for k, v in id_map.items()}
+    # attributes
+    attributes = [('TOP', reverse_map[graph.top], 'top')]
+    for x in graph.attributes():
+        attributes.append((x.role[1:], reverse_map[x.source], x.target))
+    # relations
+    relations = []
+    for x in graph.edges():
+        relations.append(
+            (x.role[1:], reverse_map[x.source], reverse_map[x.target])
+        )
+
+    return instances, attributes, relations, id_map
+
+
 #
 # JAMR code
 #

@@ -125,14 +125,15 @@ To use from other Python code with a trained model do
 from transition_amr_parser.parse import AMRParser
 parser = AMRParser.from_checkpoint(checkpoint_path)
 tokens, positions = parser.tokenize('The girl travels and visits places')
+# use parse_sentences() for a batch of sentences
 annotations, decoding_data = parser.parse_sentence(tokens)
 # Print Penman 
-print(annotations[0])
+print(annotations)
 # transition_amr_parser.amr:AMR from transition_amr_parser.amr_machine:AMRStateMAchine
-amr = decoding_data[0]['machine'].get_amr()
-# print into Penman w/o JAMR, ISIR
-print(amr.to_penman(jamr=False, no_isi=False))
-# matplotlib graph plot
+amr = decoding_data['machine'].get_amr()
+# print into Penman w/o JAMR, ISI
+print(amr.to_penman(jamr=False, isi=True))
+# graph plot (needs matplotlib)
 amr.plot()
 ```
 
