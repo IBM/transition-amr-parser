@@ -156,7 +156,6 @@ MAX_EPOCH=10
 EVAL_INIT_EPOCH=5
 time_max_between_epochs=20
 # MAX_EPOCH=100
-# EVAL_INIT_EPOCH=60
 
 # TODO: New
 use_fp16=1

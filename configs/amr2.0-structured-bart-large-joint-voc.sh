@@ -91,7 +91,7 @@ EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
 # Pretrained embeddings 
 PRETRAINED_EMBED=bart.large
-PRETRAINED_EMBED_DIM=1024   # used ???
+PRETRAINED_EMBED_DIM=1024
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
 # pre-stored pretrained en embeddings (not changing with oracle)
 
@@ -156,9 +156,10 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-SEEDS="42 43 44"
+# SEEDS="42 43 44"
+SEEDS="42"
 MAX_EPOCH=40
-EVAL_INIT_EPOCH=1
+EVAL_INIT_EPOCH=11
 time_max_between_epochs=30
 
 # TODO: New
