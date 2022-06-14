@@ -5,11 +5,37 @@ import subprocess
 from collections import defaultdict
 from ipdb import set_trace
 from transition_amr_parser.io import read_blocks
-from transition_amr_parser.amr import AMR, get_is_atribute, normalize
+from transition_amr_parser.amr import (
+    AMR, get_is_atribute, normalize, smatch_triples_from_penman
+)
 from transition_amr_parser.clbar import yellow_font
 from smatch import get_best_match, compute_f
 from smatch import amr
 import smatch
+import penman
+
+
+def smatch_triples_from_penman(graph, label):
+
+    id_map = {}
+    # instances
+    instances = []
+    for n, x in enumerate(graph.instances()):
+        id_map[n] = x.source
+        instances.append(('instance', f'{label}{n}', x.target))
+    reverse_map = {v: f'{label}{k}' for k, v in id_map.items()}
+    # attributes
+    attributes = [('TOP', reverse_map[graph.top], 'top')]
+    for x in graph.attributes():
+        attributes.append((x.role[1:], reverse_map[x.source], x.target))
+    # relations
+    relations = []
+    for x in graph.edges():
+        relations.append(
+            (x.role[1:], reverse_map[x.source], reverse_map[x.target])
+        )
+
+    return instances, attributes, relations, id_map
 
 
 def format_penman(x):
@@ -20,7 +46,7 @@ def format_penman(x):
     return lines.replace('\n', '')
 
 
-def protected_read(penman, index, prefix):
+def original_triples(penman, index, prefix):
 
     fpenman = format_penman(penman)
 
@@ -36,7 +62,10 @@ def protected_read(penman, index, prefix):
     # prefix name as per original code
     damr.rename_node(prefix)
 
-    return damr, ids
+    # instances, attributes and relations
+    instance, attributes, relation = damr.get_triples()
+
+    return instance, attributes, relation, ids
 
 
 def vimdiff(penman1, penman2):
@@ -192,17 +221,28 @@ def main(args):
     for index in tqdm(range(len(penmans))):
 
         gold_penman = gold_penmans[index]
-        penman = penmans[index]
+        dec_penman = penmans[index]
 
-        # FIXME:
-        # Seems not to be reading :mod 277703234 in dev[97]
-        # read and format. Keep original ids for later reconstruction
-        amr1, ids_a = protected_read(gold_penman, index, "a")
-        amr2, ids_b = protected_read(penman, index, "b")
+        if False:
 
-        # use smatch code to align nodes
-        (instance1, attributes1, relation1) = amr1.get_triples()
-        (instance2, attributes2, relation2) = amr2.get_triples()
+            # get triples from amr.AMR.parse_AMR_line
+            # Seems not to be reading :mod 277703234 in dev[97]
+            # read and format. Keep original ids for later reconstruction
+            instance1, attributes1, relation1, ids_a = \
+                original_triples(gold_penman, index, "a")
+            instance2, attributes2, relation2, ids_b = \
+                original_triples(dec_penman, index, "b")
+
+        else:
+
+            # get triples from goodmami's penman
+            gold_graph = penman.decode(gold_penman.split('\n'))
+            instance1, attributes1, relation1, ids_a = \
+                smatch_triples_from_penman(gold_graph, "a")
+            dec_graph = penman.decode(dec_penman.split('\n'))
+            instance2, attributes2, relation2, ids_b = \
+                smatch_triples_from_penman(dec_graph, "b")
+
         best_mapping, best_match_num = get_best_match(
             instance1, attributes1, relation1,
             instance2, attributes2, relation2,
@@ -251,8 +291,8 @@ def main(args):
             )
         ):
             print(gold_penman)
-            print(penman)
-            vimdiff(gold_penman, penman)
+            print(dec_penman)
+            vimdiff(gold_penman, dec_penman)
 
         # accumulate statistics for corpus-level normalization
         statistics.append([best_match_num, test_triple_num, gold_triple_num])
@@ -266,6 +306,7 @@ def main(args):
     test_triple_num = sum([t[1] for t in statistics])
     gold_triple_num = sum([t[2] for t in statistics])
     corpus_score = compute_f(best_match_num, test_triple_num, gold_triple_num)
+    print(f'hits: {best_match_num} tries: {test_triple_num} gold: {gold_triple_num}')
     print(f'Smatch: {corpus_score[2]:.4f}')
 
 

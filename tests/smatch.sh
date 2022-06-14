@@ -8,7 +8,9 @@ set -o nounset
 python scripts/smatch_aligner.py \
     --in-amr DATA/AMR2.0/corpora/dev.txt \
     --in-reference-amr DATA/AMR2.0/corpora/dev.txt \
-    --stop-if-different
+    # --stop-if-different
+
+exit
 
 # DOES NOT PASS Smatch test (due to Smatch read BUGs)
 # bolt12_10511_2844.2 ignores :mod "A"

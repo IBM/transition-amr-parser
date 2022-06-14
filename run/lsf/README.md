@@ -1,4 +1,3 @@
-## Training a full model
 
 This code is intended to train models from scratch on the CCC cluster but can
 be repurposed for other task managers e.g. slurm. You can do a mini run to
