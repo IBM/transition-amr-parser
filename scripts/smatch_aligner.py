@@ -1,4 +1,3 @@
-from tqdm import tqdm
 import numpy as np
 import argparse
 import re
@@ -31,7 +30,13 @@ def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
     num_examples = counts1.shape[0]
 
     # reference score
-    reference_score = scorer(*list(counts1.sum(0)))[2]
+    score1 = scorer(*list(counts1.sum(0)))[2]
+    score2 = scorer(*list(counts2.sum(0)))[2]
+
+    if score1 < score2:
+        reference_score = score1
+    else:
+        reference_score = score2
 
     # scores for random swaps
     better = 0
@@ -42,7 +47,7 @@ def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
         swapped_counts = swap * counts1 + (1 - swap) * counts2
         swapped_score = scorer(*list(swapped_counts.sum(0)))[2]
 
-        # assign a point if score improves
+        # assign a point if the worse model gets better by mixing
         if swapped_score > reference_score:
             better += 1
 
@@ -299,7 +304,6 @@ class Stats():
 
         return p_value
 
-
     def compute_corpus_scores(self):
 
         # TODO: Save scores and alignments
@@ -497,7 +501,7 @@ def argument_parser():
     parser.add_argument(
         "--bootstrap-test-restarts",
         help="Number of re-starts in significance test",
-        default=1000,
+        default=10000,
         type=int
     )
 
