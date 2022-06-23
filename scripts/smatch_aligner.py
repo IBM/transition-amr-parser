@@ -16,13 +16,12 @@ import smatch
 import penman
 
 
-def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=10):
+def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
     '''
-    for Smatch scorer
+    counts are a lists of lists of counts. Outer list is examples, inner
+    example counts
 
-    scorer = compute_f
-
-    Counts contain [<number of hits>, <number of tries>, <number of gold>]
+    scorer takes the sum of counts (as many items as inner list len())
     '''
 
     assert len(counts1) == len(counts2)
@@ -37,6 +36,7 @@ def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=10):
     # scores for random swaps
     better = 0
     for _ in range(restarts):
+
         # score of random paired swap
         swap = (np.random.randn(num_examples) > 0).astype(float)[:, None]
         swapped_counts = swap * counts1 + (1 - swap) * counts2
@@ -46,7 +46,7 @@ def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=10):
         if swapped_score > reference_score:
             better += 1
 
-    p = 1 - better * 1.0 / restarts
+    p = 1 - (better * 1.0 / restarts)
 
     return p
 
@@ -237,44 +237,6 @@ class Stats():
         sorted_ids_b = [ids_b[i] if i != -1 else i for i in best_mapping]
         best_id_map = dict(zip(ids_a, sorted_ids_b))
 
-    assert len(gold_penmans) == len(penmans)
-
-    statistics = []
-    sentence_smatch = []
-    node_id_maps = []
-    for index in tqdm(range(len(penmans))):
-
-        gold_penman = gold_penmans[index]
-        dec_penman = penmans[index]
-
-        if False:
-
-            # get triples from amr.AMR.parse_AMR_line
-            # Seems not to be reading :mod 277703234 in dev[97]
-            # read and format. Keep original ids for later reconstruction
-            instance1, attributes1, relation1, ids_a = \
-                original_triples(gold_penman, index, "a")
-            instance2, attributes2, relation2, ids_b = \
-                original_triples(dec_penman, index, "b")
-
-        else:
-
-            # get triples from goodmami's penman
-            gold_graph = penman.decode(gold_penman.split('\n'))
-            instance1, attributes1, relation1, ids_a = \
-                smatch_triples_from_penman(gold_graph, "a")
-            dec_graph = penman.decode(dec_penman.split('\n'))
-            instance2, attributes2, relation2, ids_b = \
-                smatch_triples_from_penman(dec_graph, "b")
-
-        best_mapping, best_match_num = get_best_match(
-            instance1, attributes1, relation1,
-            instance2, attributes2, relation2,
-            "a", "b"
-        )
-        # IMPORTANT: Reset cache
-        smatch.match_triple_dict = {}
-
         # use smatch code to compute partial scores
         test_triple_num = len(instance1) + len(attributes1) + len(relation1)
         gold_triple_num = len(instance2) + len(attributes2) + len(relation2)
@@ -335,8 +297,8 @@ class Stats():
                 self.bootstrap_test_restarts
             )
 
-        set_trace(context=30)
-        print()
+        return p_value
+
 
     def compute_corpus_scores(self):
 
@@ -368,7 +330,7 @@ class Stats():
 
         # score strings
         rows = [
-            ['model', '#triples', '#tries', '#hits',  'P',   'R',  'Smatch']
+            ['model', '#hits', '#gold', '#tries',  'P',   'R',  'Smatch']
         ]
         for i in range(num_amrs):
             p, r, smatch = corpus_scores[i]
@@ -379,6 +341,7 @@ class Stats():
         # widths
         widths = [max(len(r[n]) for r in rows) for n in range(len(rows[0]))]
         # padded display
+        string = ''
         for i, row in enumerate(rows):
             padded_row = []
             for n, col in enumerate(row):
@@ -386,10 +349,20 @@ class Stats():
                     padded_row.append(f'{col:<{widths[n]}}')
                 else:
                     padded_row.append(f'{col:^{widths[n]}}')
-            print(' '.join(padded_row))
+            string += ' '.join(padded_row) + '\n'
 
         if self.bootstrap_test:
-            self.bootstrap_test_all_pairs()
+            p_value = self.bootstrap_test_all_pairs()
+            string += '\nboostrap paired randomized test\n'
+            for (i, j), p in p_value.items():
+                if self.amr_labels:
+                    label_i = self.amr_labels[i]
+                    label_j = self.amr_labels[j]
+                    string += f'({label_i}, {label_j}) {p:.3f}\n'
+                else:
+                    string += f'({i}, {j}) {p:.3f}\n'
+
+        return string
 
 
 def main(args):
@@ -487,13 +460,15 @@ def argument_parser():
     parser.add_argument(
         "--in-reference-amr",
         help="file with reference AMRs in penman format",
-        type=str
+        type=str,
+        required=True
     )
     parser.add_argument(
         "--in-amrs",
         help="one or more files with AMRs in penman format to evaluate",
         nargs='+',
-        type=str
+        type=str,
+        required=True
     )
     parser.add_argument(
         "--amr-labels",
@@ -522,7 +497,7 @@ def argument_parser():
     parser.add_argument(
         "--bootstrap-test-restarts",
         help="Number of re-starts in significance test",
-        default=10,
+        default=1000,
         type=int
     )
 
