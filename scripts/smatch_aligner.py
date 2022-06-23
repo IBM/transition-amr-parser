@@ -237,6 +237,44 @@ class Stats():
         sorted_ids_b = [ids_b[i] if i != -1 else i for i in best_mapping]
         best_id_map = dict(zip(ids_a, sorted_ids_b))
 
+    assert len(gold_penmans) == len(penmans)
+
+    statistics = []
+    sentence_smatch = []
+    node_id_maps = []
+    for index in tqdm(range(len(penmans))):
+
+        gold_penman = gold_penmans[index]
+        dec_penman = penmans[index]
+
+        if False:
+
+            # get triples from amr.AMR.parse_AMR_line
+            # Seems not to be reading :mod 277703234 in dev[97]
+            # read and format. Keep original ids for later reconstruction
+            instance1, attributes1, relation1, ids_a = \
+                original_triples(gold_penman, index, "a")
+            instance2, attributes2, relation2, ids_b = \
+                original_triples(dec_penman, index, "b")
+
+        else:
+
+            # get triples from goodmami's penman
+            gold_graph = penman.decode(gold_penman.split('\n'))
+            instance1, attributes1, relation1, ids_a = \
+                smatch_triples_from_penman(gold_graph, "a")
+            dec_graph = penman.decode(dec_penman.split('\n'))
+            instance2, attributes2, relation2, ids_b = \
+                smatch_triples_from_penman(dec_graph, "b")
+
+        best_mapping, best_match_num = get_best_match(
+            instance1, attributes1, relation1,
+            instance2, attributes2, relation2,
+            "a", "b"
+        )
+        # IMPORTANT: Reset cache
+        smatch.match_triple_dict = {}
+
         # use smatch code to compute partial scores
         test_triple_num = len(instance1) + len(attributes1) + len(relation1)
         gold_triple_num = len(instance2) + len(attributes2) + len(relation2)
