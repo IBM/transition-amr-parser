@@ -1,10 +1,11 @@
 from tqdm import tqdm
+import numpy as np
 import argparse
 import re
 import subprocess
 from collections import defaultdict
 from ipdb import set_trace
-from transition_amr_parser.io import read_blocks
+from transition_amr_parser.io import read_blocks, read_penmans
 from transition_amr_parser.amr import (
     AMR, get_is_atribute, normalize, smatch_triples_from_penman
 )
@@ -15,38 +16,49 @@ import smatch
 import penman
 
 
-def smatch_triples_from_penman(graph, label):
+def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=10):
+    '''
+    for Smatch scorer
 
-    id_map = {}
-    # instances
-    instances = []
-    for n, x in enumerate(graph.instances()):
-        id_map[n] = x.source
-        instances.append(('instance', f'{label}{n}', x.target))
-    reverse_map = {v: f'{label}{k}' for k, v in id_map.items()}
-    # attributes
-    attributes = [('TOP', reverse_map[graph.top], 'top')]
-    for x in graph.attributes():
-        attributes.append((x.role[1:], reverse_map[x.source], x.target))
-    # relations
-    relations = []
-    for x in graph.edges():
-        relations.append(
-            (x.role[1:], reverse_map[x.source], reverse_map[x.target])
-        )
+    scorer = compute_f
 
-    return instances, attributes, relations, id_map
+    Counts contain [<number of hits>, <number of tries>, <number of gold>]
+    '''
 
+    assert len(counts1) == len(counts2)
 
-def format_penman(x):
-    # remove comments
-    lines = '\n'.join([x for x in x.split('\n') if x and x[0] != '#'])
-    # remove ISI alignments if any
-    lines = re.sub(r'\~[0-9,]+', '', lines)
-    return lines.replace('\n', '')
+    counts1 = np.array(counts1)
+    counts2 = np.array(counts2)
+    num_examples = counts1.shape[0]
+
+    # reference score
+    reference_score = scorer(*list(counts1.sum(0)))[2]
+
+    # scores for random swaps
+    better = 0
+    for _ in range(restarts):
+        # score of random paired swap
+        swap = (np.random.randn(num_examples) > 0).astype(float)[:, None]
+        swapped_counts = swap * counts1 + (1 - swap) * counts2
+        swapped_score = scorer(*list(swapped_counts.sum(0)))[2]
+
+        # assign a point if score improves
+        if swapped_score > reference_score:
+            better += 1
+
+    p = 1 - better * 1.0 / restarts
+
+    return p
 
 
 def original_triples(penman, index, prefix):
+
+    def format_penman(x):
+        # remove comments
+        lines = '\n'.join([x for x in x.split('\n') if x and x[0] != '#'])
+        # remove ISI alignments if any
+        lines = re.sub(r'\~[0-9,]+', '', lines)
+        return lines.replace('\n', '')
 
     fpenman = format_penman(penman)
 
@@ -204,58 +216,44 @@ def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
     return best_match_num2, test_triple_num2, gold_triple_num2
 
 
-def main(args):
+class Stats():
 
-    # read files
-    gold_penmans = read_blocks(args.in_reference_amr, return_tqdm=False)
-    penmans = read_blocks(args.in_amr, return_tqdm=False)
+    def __init__(self, amr_labels, bootstrap_test, bootstrap_test_restarts):
 
-    # set global in module
-    smatch.iteration_num = args.r + 1
+        self.amr_labels = amr_labels
+        self.bootstrap_test = bootstrap_test
+        self.bootstrap_test_restarts = bootstrap_test_restarts
+        # will hold a list of dictionaries with individual and cross AMR stats
+        # keys are amr_labels or just integers
+        self.statistics = []
 
-    assert len(gold_penmans) == len(penmans)
+    def update(self, sent_idx, amr_idx, best_mapping, best_match_num, items_a,
+               items_b):
 
-    statistics = []
-    sentence_smatch = []
-    node_id_maps = []
-    for index in tqdm(range(len(penmans))):
+        instance1, attributes1, relation1, ids_a = items_a
+        instance2, attributes2, relation2, ids_b = items_b
 
-        gold_penman = gold_penmans[index]
-        dec_penman = penmans[index]
+        # compute alignments using the original ids
+        sorted_ids_b = [ids_b[i] if i != -1 else i for i in best_mapping]
+        best_id_map = dict(zip(ids_a, sorted_ids_b))
 
-        if False:
-
-            # get triples from amr.AMR.parse_AMR_line
-            # Seems not to be reading :mod 277703234 in dev[97]
-            # read and format. Keep original ids for later reconstruction
-            instance1, attributes1, relation1, ids_a = \
-                original_triples(gold_penman, index, "a")
-            instance2, attributes2, relation2, ids_b = \
-                original_triples(dec_penman, index, "b")
-
-        else:
-
-            # get triples from goodmami's penman
-            gold_graph = penman.decode(gold_penman.split('\n'))
-            instance1, attributes1, relation1, ids_a = \
-                smatch_triples_from_penman(gold_graph, "a")
-            dec_graph = penman.decode(dec_penman.split('\n'))
-            instance2, attributes2, relation2, ids_b = \
-                smatch_triples_from_penman(dec_graph, "b")
-
-        best_mapping, best_match_num = get_best_match(
-            instance1, attributes1, relation1,
-            instance2, attributes2, relation2,
-            "a", "b"
-        )
-        # IMPORTANT: Reset cache
-        smatch.match_triple_dict = {}
         # use smatch code to compute partial scores
         test_triple_num = len(instance1) + len(attributes1) + len(relation1)
         gold_triple_num = len(instance2) + len(attributes2) + len(relation2)
 
-        # store sentence-level normalized score
-        score = compute_f(best_match_num, test_triple_num, gold_triple_num)
+        # data structure with statistics
+        amr_statistics = dict(
+            best_id_map=best_id_map, best_match_num=best_match_num,
+            test_triple_num=test_triple_num, gold_triple_num=gold_triple_num
+        )
+
+        if len(self.statistics) - 1 == sent_idx:
+            # append to existing sentence
+            assert amr_idx not in self.statistics[sent_idx]
+            self.statistics[sent_idx][amr_idx] = amr_statistics
+        else:
+            # start new sentence
+            self.statistics.append({amr_idx: amr_statistics})
 
         # sanity check valid match number
         if (
@@ -263,51 +261,186 @@ def main(args):
             or best_match_num > test_triple_num
         ):
             print(yellow_font(
-                f'WARNING: Sentence {index} has Smatch above 100% '
+                f'WARNING: Sentence {sent_idx} has Smatch above 100% '
                 f'({best_match_num}, {test_triple_num}, {gold_triple_num})'
             ))
 
-        # compute alignments using the original ids
-        # {id_amr1 (gold): id_amr2 (decoded)}
-        sorted_ids_b = [ids_b[i] for i in best_mapping]
-        best_id_map = dict(zip(ids_a, sorted_ids_b))
+    def bootstrap_test_all_pairs(self):
 
-#         # compute scores ourselves and compare against smatch computation
-#         ref = (
-#             best_match_num,
-#             (instance2, attributes2, relation2),
-#             (instance1, attributes1, relation1)
-#         )
-#         num_hits, num_guess, num_gold = compute_score_ourselves(
-#             gold_penman, penman, best_id_map, None
-#         )
+        num_amrs = len(self.statistics[0])
 
-        # stop if score is not perfect
-        if (
-            args.stop_if_different
-            and (
-                best_match_num < gold_triple_num
-                or test_triple_num < gold_triple_num
+        # get all AMR pairings and run a test for each
+        pairs = []
+        for i in range(num_amrs):
+            for j in range(num_amrs):
+                if j > i:
+                    pairs.append((i, j))
+
+        # run over every pair
+        p_value = {}
+        for i, j in pairs:
+            p_value[(i, j)] = run_bootstrap_paired_test(
+                # F-measure
+                compute_f,
+                # counts
+                [(
+                    amrs[i]['best_match_num'],
+                    amrs[i]['test_triple_num'],
+                    amrs[i]['gold_triple_num']
+                ) for amrs in self.statistics],
+                [(
+                    amrs[j]['best_match_num'],
+                    amrs[j]['test_triple_num'],
+                    amrs[j]['gold_triple_num']
+                ) for amrs in self.statistics],
+                # number of restarts
+                self.bootstrap_test_restarts
             )
-        ):
-            print(gold_penman)
-            print(dec_penman)
-            vimdiff(gold_penman, dec_penman)
 
-        # accumulate statistics for corpus-level normalization
-        statistics.append([best_match_num, test_triple_num, gold_triple_num])
-        sentence_smatch.append(score)
-        node_id_maps.append(best_id_map)
+        set_trace(context=30)
+        print()
 
-    # TODO: Save scores and alignments
+    def compute_corpus_scores(self):
 
-    # final score
-    best_match_num = sum([t[0] for t in statistics])
-    test_triple_num = sum([t[1] for t in statistics])
-    gold_triple_num = sum([t[2] for t in statistics])
-    corpus_score = compute_f(best_match_num, test_triple_num, gold_triple_num)
-    print(f'hits: {best_match_num} tries: {test_triple_num} gold: {gold_triple_num}')
-    print(f'Smatch: {corpus_score[2]:.4f}')
+        # TODO: Save scores and alignments
+        # store sentence-level normalized score
+        # score = compute_f(best_match_num, test_triple_num, gold_triple_num)
+
+        # cumulative score
+        num_amrs = len(self.statistics[0])
+        counts = [[0, 0, 0] for _ in range(num_amrs)]
+        for amrs in self.statistics:
+            for amr_idx, stats in amrs.items():
+                counts[amr_idx][0] += stats['best_match_num']
+                counts[amr_idx][1] += stats['test_triple_num']
+                counts[amr_idx][2] += stats['gold_triple_num']
+
+        return counts, [compute_f(*amr_counts) for amr_counts in counts]
+
+    def __str__(self):
+
+        # compute aggregate stats and corpus-level normalization
+        counts, corpus_scores = self.compute_corpus_scores()
+
+        num_amrs = len(self.statistics[0])
+        if self.amr_labels:
+            labels = self.amr_labels
+        else:
+            labels = [i for i in range(num_amrs)]
+
+        # score strings
+        rows = [
+            ['model', '#triples', '#tries', '#hits',  'P',   'R',  'Smatch']
+        ]
+        for i in range(num_amrs):
+            p, r, smatch = corpus_scores[i]
+            rows.append([
+                f'{labels[i]}', f'{counts[i][0]}', f'{counts[i][1]}',
+                f'{counts[i][2]}', f'{p:.3f}', f'{r:.3f}', f'{smatch:.3f}'
+            ])
+        # widths
+        widths = [max(len(r[n]) for r in rows) for n in range(len(rows[0]))]
+        # padded display
+        for i, row in enumerate(rows):
+            padded_row = []
+            for n, col in enumerate(row):
+                if n == 0:
+                    padded_row.append(f'{col:<{widths[n]}}')
+                else:
+                    padded_row.append(f'{col:^{widths[n]}}')
+            print(' '.join(padded_row))
+
+        if self.bootstrap_test:
+            self.bootstrap_test_all_pairs()
+
+
+def main(args):
+
+    # read files
+    gold_penmans = read_blocks(args.in_reference_amr, return_tqdm=False)
+    corpus_penmans = read_penmans(args.in_amrs)
+    assert len(gold_penmans) == len(corpus_penmans)
+
+    # initialize class storing stats
+    stats = Stats(
+        args.amr_labels,
+        args.bootstrap_test,
+        args.bootstrap_test_restarts
+    )
+
+    # set global in module
+    smatch.iteration_num = args.r + 1
+
+    # loop over each reference sentence and one or more decoded AMRs
+    for sent_index, dec_penmans in enumerate(corpus_penmans):
+
+        # reference
+        gold_penman = gold_penmans[sent_index]
+
+        if args.penman_reader:
+
+            # get triples from goodmami's penman
+            gold_graph = penman.decode(gold_penman.split('\n'))
+            instance1, attributes1, relation1, ids_a = \
+                smatch_triples_from_penman(gold_graph, "a")
+
+        else:
+
+            # get triples from amr.AMR.parse_AMR_line
+            # Seems not to be reading :mod 277703234 in dev[97]
+            # read and format. Keep original ids for later reconstruction
+            items_a = original_triples(gold_penman, sent_index, "a")
+
+        # loop over one or more decoded AMRs for same reference
+        for amr_index, dec_penman in enumerate(dec_penmans):
+
+            if args.penman_reader:
+
+                # get triples from goodmami's penman
+                dec_graph = penman.decode(dec_penman.split('\n'))
+                items_b = smatch_triples_from_penman(dec_graph, "b")
+
+            else:
+
+                # get triples from amr.AMR.parse_AMR_line
+                # Seems not to be reading :mod 277703234 in dev[97]
+                # read and format. Keep original ids for later reconstruction
+                items_b = original_triples(dec_penman, sent_index, "b")
+
+            # compute scores and update stats
+            instance1, attributes1, relation1, ids_a = items_a
+            instance2, attributes2, relation2, ids_b = items_b
+
+            # align triples using Smatch's solllution
+            best_mapping, best_match_num = get_best_match(
+                instance1, attributes1, relation1,
+                instance2, attributes2, relation2,
+                "a", "b"
+            )
+            # IMPORTANT: Reset cache
+            smatch.match_triple_dict = {}
+
+            # update stats
+            stats.update(
+                sent_index, amr_index, best_mapping, best_match_num,
+                items_a, items_b
+            )
+
+    print(stats)
+    set_trace(context=30)
+    print()
+
+#             # stop if score is not perfect
+#             if (
+#                 args.stop_if_different
+#                 and (
+#                     best_match_num < gold_triple_num
+#                     or test_triple_num < gold_triple_num
+#                 )
+#             ):
+#                 print(gold_penman)
+#                 print(dec_penman)
+#                 vimdiff(gold_penman, dec_penman)
 
 
 def argument_parser():
@@ -319,8 +452,15 @@ def argument_parser():
         type=str
     )
     parser.add_argument(
-        "--in-amr",
-        help="file with AMRs in penman format",
+        "--in-amrs",
+        help="one or more files with AMRs in penman format to evaluate",
+        nargs='+',
+        type=str
+    )
+    parser.add_argument(
+        "--amr-labels",
+        help="Labels for --in-amrs files",
+        nargs='+',
         type=str
     )
     parser.add_argument(
@@ -329,6 +469,25 @@ def argument_parser():
         type=int,
         default=10
     )
+    # flags
+    parser.add_argument(
+        "--penman-reader",
+        help="Read AMR into triples throgh goodmami's penman module rather"
+             " than the smatch code",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--bootstrap-test",
+        help="Smatch Significance test, requires more than one AMR to eval.",
+        action='store_true'
+    )
+    parser.add_argument(
+        "--bootstrap-test-restarts",
+        help="Number of re-starts in significance test",
+        default=10,
+        type=int
+    )
+
     # flags
     parser.add_argument(
         "--stop-if-different",
