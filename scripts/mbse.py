@@ -35,7 +35,7 @@ def counts_from_alignments(graph_a, graph_b, best_id_map):
     triples_b = get_triples(graph_b)
 
     best_rev_id_map = {v: k for k, v in best_id_map.items()}
-    hits = {'instances': 0, 'attributes':0, 'relations': 0}
+    hits = {'instances': 0, 'attributes': 0, 'relations': 0}
 
     # sanity check
     for part in triples_b.keys():
@@ -136,7 +136,7 @@ def get_triples(graph):
         triples['attributes'][nid].append((role, normalize(nname)))
     triples['attributes'] = dict(triples['attributes'])
     # include root
-    triples['attributes'][graph.top] = ('top', 'TOP')
+    triples['attributes'][graph.top] = [('top', 'TOP')]
 
     # edges
     for src, role, trg in graph.edges():
@@ -177,7 +177,7 @@ def get_aligned_triples(pivot_index, graphs, pairs):
         # include root
         aligned_triples[(id_map[graph.top], 'top', 'TOP')].append(True)
         # edges
-        for src, role, trg  in graph.edges():
+        for src, role, trg in graph.edges():
             aligned_triples[(id_map[src], id_map[trg])].append(
                 (nodes[src], role, nodes[trg])
             )
