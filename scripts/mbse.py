@@ -24,6 +24,12 @@ def argument_parser():
         required=True,
         type=str
     )
+    parser.add_argument(
+        "-r", # "--iteration-num",
+        help="number of re-starts for Smatch",
+        default=10,
+        type=int
+    )
     args = parser.parse_args()
     return args
 
@@ -250,6 +256,9 @@ def graphene_candidates(graphs, pairs):
 
 
 def main(args):
+
+    # set number of re-starts in Smatch
+    smatch.iteration_num = args.r + 1
 
     # generator
     tqdm_amrs = read_penmans(args.in_amrs)
