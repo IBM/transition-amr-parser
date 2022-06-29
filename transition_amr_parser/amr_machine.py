@@ -511,7 +511,7 @@ class AMRStateMachine():
                 canonical_act_ids.setdefault(cano_act, []).append(i)
         return canonical_act_ids
 
-    def reset(self, tokens, gold_amr=None, reject_align_samples=False):
+    def reset(self, tokens, gold_amr=None, reject_align_samples=False, force_actions=None):
         '''
         Reset state variables and set a new sentence
 
@@ -731,6 +731,8 @@ class AMRStateMachine():
 
             # align mode (we know the AMR)
             return self._get_valid_align_actions()
+
+        gen_node_actions = ['COPY', 'NODE'] if self.config.use_copy else ['NODE']
         
         if not self.in_free_zone:            
             # force decode (we know partial actions sequence)
@@ -751,10 +753,6 @@ class AMRStateMachine():
             return ret_actions
         
         valid_base_actions = []
-        if self.config.use_copy:
-            gen_node_actions = ['COPY', 'NODE']
-        else:
-            gen_node_actions = ['NODE']
 
         if self.tok_cursor < len(self.tokens):
             if not self.force_actions or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1:
@@ -805,7 +803,7 @@ class AMRStateMachine():
         return actions_nodemask
 
     def update(self, action):
-
+        
         assert not self.is_closed
 
         # FIXME: Align mode can not allow '<unk>' node names but we need a
@@ -819,6 +817,20 @@ class AMRStateMachine():
 
         self.actions_tokcursor.append(self.tok_cursor)
 
+        #if force decoding, either move action cursor or shift future pointers
+        if self.force_actions:
+            if (len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 0 and
+                action == self.force_actions[self.tok_cursor][self.action_cursor]):
+                self.action_cursor += 1
+            elif (len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1 and
+                  self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_any,self.wild_arc] and
+                  action == self.force_actions[self.tok_cursor][self.action_cursor+1]):
+                self.action_cursor += 2
+            else:
+                #if new action is inserted
+                #future nodes will shift
+                self.increment_future_pointers()
+                
         if re.match(r'CLOSE', action):
 
             if self.gold_amr:
