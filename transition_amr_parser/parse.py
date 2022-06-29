@@ -771,7 +771,9 @@ def main():
         )
         end = time.time()
         time_secs = timedelta(seconds=float(end-start))
-        sents_per_second = num_sent / time_secs.seconds
+        sents_per_second = num_sent
+        if time_secs.seconds > 0:
+            sents_per_second = num_sent / time_secs.seconds
         print(f'Total time taken to parse {num_sent} sentences ', end='')
         print(f'at batch size {args.batch_size}: {time_secs} ', end='')
         print(f'{sents_per_second:.2f} sentences / second')
