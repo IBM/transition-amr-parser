@@ -97,3 +97,23 @@ to find the best checkpoint and remove checkpoints not in the top n-best, but
 it may come handy to run this yourself at some point. It is already a bad
 state of affairs if some checkpoint got deleted without being evaluated, but
 you can always ignore this by adding `--ignore-missing-checkpoints`
+
+## Parsing Large Corpora
+
+calling this script on a login node
+
+```
+bash run/lsf/parse.sh <path to checkpoint> <large file with sentences> [-s chunk size]
+```
+
+will split your data into chunks of `<chunk size>` and launch a paralell job for each. Results for each chunk are stored in
+
+```
+<large file with sentences>.split_<alphabetic string>
+```
+
+once all jobs are completed to recompose, just do
+
+```
+cat <large file with sentences>.split_* > <output_amr_file>
+```
