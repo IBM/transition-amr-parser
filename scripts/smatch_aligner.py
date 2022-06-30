@@ -396,8 +396,7 @@ def main(args):
 
             # get triples from goodmami's penman
             gold_graph = penman.decode(gold_penman.split('\n'))
-            instance1, attributes1, relation1, ids_a = \
-                smatch_triples_from_penman(gold_graph, "a")
+            items_a = smatch_triples_from_penman(gold_graph, "a")
 
         else:
 
@@ -442,20 +441,6 @@ def main(args):
             )
 
     print(stats)
-    set_trace(context=30)
-    print()
-
-#             # stop if score is not perfect
-#             if (
-#                 args.stop_if_different
-#                 and (
-#                     best_match_num < gold_triple_num
-#                     or test_triple_num < gold_triple_num
-#                 )
-#             ):
-#                 print(gold_penman)
-#                 print(dec_penman)
-#                 vimdiff(gold_penman, dec_penman)
 
 
 def argument_parser():
