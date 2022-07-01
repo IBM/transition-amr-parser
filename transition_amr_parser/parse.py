@@ -59,6 +59,12 @@ def argument_parsing():
         help='Beam decoding size'
     )
     parser.add_argument(
+        '--nbest',
+        type=int,
+        default=1,
+        help='Number of results per sentence'
+    )
+    parser.add_argument(
         '--service',
         action='store_true',
         help='Prompt user for sentences'
@@ -302,7 +308,7 @@ class AMRParser:
     @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
-                        inspector=None, beam=1):
+                        inspector=None, beam=1, nbest=1):
         '''
         Initialize model from checkpoint
         '''
@@ -332,6 +338,7 @@ class AMRParser:
         )
         # overload some arguments
         args.beam = beam
+        args.nbest = nbest
 
         # load pretrained Roberta model for source embeddings
         if model_args.pretrained_embed_dim == 768:
@@ -463,14 +470,13 @@ class AMRParser:
         hypos = self.task.inference_step(
             self.generator, self.models, sample, self.args, prefix_tokens=None
         )
-        assert self.args.nbest == 1, \
-            'Currently we only support outputing the top predictions'
 
         predictions = []
         for i, sample_id in enumerate(sample['id'].tolist()):
             src_tokens = sample['src_sents'][i]
             target_tokens = None
 
+            sample_predictions = []
             for j, hypo in enumerate(hypos[i][:self.args.nbest]):
                 # args.nbest is default 1, i.e. saving only the top predictions
                 if 'bartsv' in self.model_args.arch:
@@ -502,7 +508,7 @@ class AMRParser:
                 if self.args.clean_arcs:    # this is 0 by default
                     actions_nopos, actions_pos, actions, invalid_idx = \
                         clean_pointer_arcs(actions_nopos, actions_pos, actions)
-                predictions.append({
+                sample_predictions.append({
                     'actions_nopos': actions_nopos,
                     'actions_pos': actions_pos,
                     'actions': actions,
@@ -511,6 +517,9 @@ class AMRParser:
                     'sample_id': sample_id,
                     'machine': hypo['state_machine']
                 })
+
+            # update sample predictions
+            predictions.append(sample_predictions)
 
         return predictions
 
@@ -567,17 +576,25 @@ class AMRParser:
             if not self.to_amr:
                 continue
 
-            for index, pred_dict in enumerate(predictions):
-                sample_id = pred_dict['sample_id']
-                amr_annotations[sample_id] = \
-                    pred_dict['machine'].get_annotation(
-                        jamr=jamr, no_isi=no_isi
+            for index, sample_predictions in enumerate(predictions):
+                sample_amr_annotations = []
+                for pred_dict in sample_predictions:
+                    sample_id = pred_dict['sample_id']
+                    sample_amr_annotations.append(
+                        pred_dict['machine'].get_annotation(
+                            jamr=jamr, no_isi=no_isi
+                        )
                     )
+                amr_annotations[sample_id] = sample_amr_annotations
 
         # return the AMRs in order
+        # TODO: For backwards compatibility squeeze the size 1 list for nbest=1
         results = []
         for i in range(0, len(batch)):
-            results.append(amr_annotations[i])
+            if len(amr_annotations[i]) == 1:
+                results.append(amr_annotations[i][0])
+            else:
+                results.append(amr_annotations[i])
 
         return results, predictions
 
@@ -662,7 +679,7 @@ def main():
             args.in_checkpoint,
             roberta_cache_path=args.roberta_cache_path,
             inspector=inspector,
-            beam=args.beam, fp16=args.fp16
+            beam=args.beam, nbest=args.nbest, fp16=args.fp16
         )
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
@@ -702,7 +719,13 @@ def main():
             #
             os.system('clear')
             print('\n')
-            print(''.join(result[0]))
+            if args.nbest > 1:
+                for candidate in result:
+                    print(''.join(candidate[0]))
+                    print()
+
+            else:
+                print(''.join(result[0]))
 
     else:
 
@@ -755,13 +778,19 @@ def main():
         time_secs = timedelta(seconds=float(end-start))
         sents_per_second = num_sent / time_secs.seconds
         print(f'Total time taken to parse {num_sent} sentences ', end='')
+        print(f'beam {args.beam} n-best {args.nbest}')
         print(f'at batch size {args.batch_size}: {time_secs} ', end='')
         print(f'{sents_per_second:.2f} sentences / second')
 
         # save file
         if args.out_amr:
-            with open(args.out_amr, 'w') as fid:
-                fid.write('\n'.join(result[0]))
+            if args.nbest == 1:
+                with open(args.out_amr, 'w') as fid:
+                    fid.write('\n'.join(result[0]))
+            else:
+                for index in range(args.nbest):
+                    with open(f'{args.out_amr}.{index}', 'w') as fid:
+                        fid.write('\n'.join(result[0][index]))
 
 
 if __name__ == '__main__':
