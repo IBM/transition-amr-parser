@@ -65,6 +65,11 @@ def argument_parsing():
         help='Number of results per sentence'
     )
     parser.add_argument(
+        '--sampling',
+        action='store_true',
+        help='sample instead of argmax'
+    )
+    parser.add_argument(
         '--service',
         action='store_true',
         help='Prompt user for sentences'
@@ -286,7 +291,7 @@ class AMRParser:
         model_folder = config_env_vars['MODEL_FOLDER']
         model_folder = f'{repo_folder}/{model_folder}'
         if not os.path.isdir(model_folder):
-            raise Exception('Missing model {model_folder}, is it available?')
+            raise Exception(f'Missing model {model_folder}, is it available?')
         dec_checkpoint = config_env_vars['DECODING_CHECKPOINT']
 
         # get first checkpoint if no seed specified
@@ -297,7 +302,7 @@ class AMRParser:
                 if os.path.isfile(checkpoint):
                     checkpoints.append(checkpoint)
             if len(checkpoints) > 1:
-                print('More than one seed picking {checkpoints[0]}')
+                print(f'More than one seed picking {checkpoints[0]}')
             assert checkpoints, f'No completed checkpoints in {model_folder}'
             checkpoint = checkpoints[0]
         else:
@@ -308,7 +313,7 @@ class AMRParser:
     @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
-                        inspector=None, beam=1, nbest=1):
+                        inspector=None, beam=1, nbest=1, sampling=False):
         '''
         Initialize model from checkpoint
         '''
@@ -337,8 +342,10 @@ class AMRParser:
             args, use_cuda, task=None
         )
         # overload some arguments
+        # SequenceGenerator args: sampling_topk sampling_topp temperature
         args.beam = beam
         args.nbest = nbest
+        args.sampling = sampling
 
         # load pretrained Roberta model for source embeddings
         if model_args.pretrained_embed_dim == 768:
@@ -662,24 +669,31 @@ def main():
         model_name = items[0]
         if len(items) > 1:
             seed = items[1]
-            parser = AMRParser.load(
-                model_name, seed=seed,
-                roberta_cache_path=args.roberta_cache_path,
-                inspector=inspector, beam=args.beam,
-                fp16=args.fp16
-            )
         else:
-            parser = AMRParser.load(
-                model_name, roberta_cache_path=args.roberta_cache_path,
-                inspector=inspector, beam=args.beam, fp16=args.fp16
-            )
+            seed = None
+        # load from model/config name
+        parser = AMRParser.load(
+            model_name,
+            seed=seed,
+            roberta_cache_path=args.roberta_cache_path,
+            inspector=inspector,
+            # selected fairseq decoder arguments
+            beam=args.beam,
+            nbest=args.nbest,
+            fp16=args.fp16,
+            sampling=args.sampling
+        )
     else:
         # load from checkpoint and files in its folder
         parser = AMRParser.from_checkpoint(
             args.in_checkpoint,
             roberta_cache_path=args.roberta_cache_path,
             inspector=inspector,
-            beam=args.beam, nbest=args.nbest, fp16=args.fp16
+            # selected fairseq decoder arguments
+            beam=args.beam,
+            nbest=args.nbest,
+            fp16=args.fp16,
+            sampling=args.sampling
         )
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
@@ -790,7 +804,7 @@ def main():
             else:
                 for index in range(args.nbest):
                     with open(f'{args.out_amr}.{index}', 'w') as fid:
-                        fid.write('\n'.join(result[0][index]))
+                        fid.write('\n'.join([x[index] for x in result[0]]))
 
 
 if __name__ == '__main__':
