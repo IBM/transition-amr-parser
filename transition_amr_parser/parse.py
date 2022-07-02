@@ -65,9 +65,9 @@ def argument_parsing():
         help='Number of results per sentence'
     )
     parser.add_argument(
-        '--sampling',
-        action='store_true',
-        help='sample instead of argmax'
+        '--num-samples',
+        type=int,
+        help='number of samples, if unset there is no sampling'
     )
     parser.add_argument(
         '--service',
@@ -154,6 +154,10 @@ def argument_parsing():
 
     if not (bool(args.model_name) ^ bool(args.in_checkpoint)):
         raise Exception("Use either --model-name or --in-checkpoint")
+    # num samples replaces beam search
+    if args.num_samples:
+        assert args.nbest == 1
+        assert args.beam == 1
 
     return args
 
@@ -313,7 +317,7 @@ class AMRParser:
     @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
-                        inspector=None, beam=1, nbest=1, sampling=False):
+                        inspector=None, beam=1, nbest=1, num_samples=False):
         '''
         Initialize model from checkpoint
         '''
@@ -345,7 +349,8 @@ class AMRParser:
         # SequenceGenerator args: sampling_topk sampling_topp temperature
         args.beam = beam
         args.nbest = nbest
-        args.sampling = sampling
+        if num_samples is not None:
+            args.sampling = True
 
         # load pretrained Roberta model for source embeddings
         if model_args.pretrained_embed_dim == 768:
@@ -681,7 +686,7 @@ def main():
             beam=args.beam,
             nbest=args.nbest,
             fp16=args.fp16,
-            sampling=args.sampling
+            num_samples=args.num_samples
         )
     else:
         # load from checkpoint and files in its folder
@@ -693,7 +698,7 @@ def main():
             beam=args.beam,
             nbest=args.nbest,
             fp16=args.fp16,
-            sampling=args.sampling
+            num_samples=args.num_samples
         )
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
@@ -723,6 +728,10 @@ def main():
                 tokens = [protected_tokenizer(sentence)[0]]
             else:
                 tokens = [sentence.split()]
+
+            # duplicate if sampling
+            assert args.num_samples is None, \
+                "Sampling not supported in --service mode"
 
             result = parser.parse_sentences(
                 tokens,
@@ -775,6 +784,14 @@ def main():
                     args.in_tokenized_sentences
                 )
 
+        num_sentences = len(tokenized_sentences)
+        if args.num_samples is not None:
+            tokenized_sentences = [
+                tsent
+                for tsent in tokenized_sentences
+                for _ in range(args.num_samples)
+            ]
+
         # Parse sentences
         num_sent = len(tokenized_sentences)
         print(f'Parsing {num_sent} sentences')
@@ -798,13 +815,25 @@ def main():
 
         # save file
         if args.out_amr:
-            if args.nbest == 1:
+            if args.nbest == 1 and args.num_samples is None:
                 with open(args.out_amr, 'w') as fid:
                     fid.write('\n'.join(result[0]))
+
+            elif args.num_samples is not None:
+
+                # write each corpus samples in a different file
+                for j in range(args.num_samples):
+                    with open(f'{args.out_amr}.{j}', 'w') as fid:
+                        fid.write('\n'.join([
+                            result[0][i + j * args.num_samples]
+                            for i in range(num_sentences)
+                        ]))
             else:
-                for index in range(args.nbest):
-                    with open(f'{args.out_amr}.{index}', 'w') as fid:
-                        fid.write('\n'.join([x[index] for x in result[0]]))
+
+                # write each nbest in a different file
+                for j in range(args.nbest):
+                    with open(f'{args.out_amr}.{j}', 'w') as fid:
+                        fid.write('\n'.join([x[j] for x in result[0]]))
 
 
 if __name__ == '__main__':
