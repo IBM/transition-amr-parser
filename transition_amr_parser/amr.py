@@ -336,10 +336,12 @@ def scape_node_names(nodes, edges, is_attribute):
             # already quoted, ensure no quotes inside
             nname[1:-1].replace('"', '')
         elif len(nname.split()) > 1:
-            # multi-token expression
+            # multi-token expression, ensure no quotes
+            nname.replace('"', '')
             nname = f'"{nname}"'
         elif any(c in nname for c in AMR.reserved_amr_chars):
-            # reserved chars, need to be scaped
+            # reserved chars, need to be scaped, ensure no quotes
+            nname.replace('"', '')
             nname = f'"{nname}"'
         elif nname in isolated_scaped_chars:
             # some chars, if they appear in isolation, need to be scaped
