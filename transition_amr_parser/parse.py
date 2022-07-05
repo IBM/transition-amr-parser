@@ -91,6 +91,16 @@ def argument_parsing():
         help='File to store AMR in PENNMAN format'
     )
     parser.add_argument(
+        '--out-actions',
+        type=str,
+        help='File containing parser actions'
+    )
+    parser.add_argument(
+        '--out-tokens',
+        type=str,
+        help='File containing parser input tokens'
+    )
+    parser.add_argument(
         '--in-machine-config',
         type=str,
         help='Path to machine config file'
@@ -572,7 +582,7 @@ class AMRParser:
         data_iterator = self.get_iterator(data, batch_size)
 
         # Loop over batches of sentences
-        amr_annotations = {}
+        completed_machines = {}
         for sample in tqdm(data_iterator, desc='decoding'):
             # move to device
             sample = utils.move_to_cuda(sample) if self.use_cuda else sample
@@ -588,27 +598,32 @@ class AMRParser:
             if not self.to_amr:
                 continue
 
-            for index, sample_predictions in enumerate(predictions):
-                sample_amr_annotations = []
-                for pred_dict in sample_predictions:
-                    sample_id = pred_dict['sample_id']
-                    sample_amr_annotations.append(
-                        pred_dict['machine'].get_annotation(
-                            jamr=jamr, no_isi=no_isi
-                        )
-                    )
-                amr_annotations[sample_id] = sample_amr_annotations
+            # collects all sentences x candidates for this batch
+            for index, nbest in enumerate(predictions):
+                sample_id = nbest[0]['sample_id']
+                completed_machines[sample_id] = [c['machine'] for c in nbest]
 
         # return the AMRs in order
         # TODO: For backwards compatibility squeeze the size 1 list for nbest=1
-        results = []
+        annotations = []
+        machines = []
         for i in range(0, len(batch)):
-            if len(amr_annotations[i]) == 1:
-                results.append(amr_annotations[i][0])
-            else:
-                results.append(amr_annotations[i])
 
-        return results, predictions
+            machine_nbest = completed_machines[i]
+
+            if len(machine_nbest) == 1:
+                annotations.append(
+                    machine_nbest[0].get_annotation(jamr=jamr, no_isi=no_isi)
+                )
+                machines.append(machine_nbest[0])
+            else:
+                annotations.append(
+                    m.get_annotation(jamr=jamr, no_isi=no_isi)
+                    for m in machine_nbest
+                )
+                machines.append(machine_nbest)
+
+        return annotations, machines
 
 
 def simple_inspector(machine):
@@ -654,6 +669,116 @@ def sanity_check_vocabulary_for_alignment(tokens, gold_amrs, tgt_dict):
                 )
 
 
+def save_multiple_files(args, num_sentences, out_path, string_list):
+
+    if args.nbest == 1 and args.num_samples is None:
+
+        # one single output per input
+        with open(out_path, 'w') as fid:
+            fid.write('\n'.join(string_list))
+        print(out_path)
+
+    elif args.num_samples is not None:
+
+        # write each corpus samples in a different file
+        for j in range(args.num_samples):
+            with open(f'{out_path}.{j}', 'w') as fid:
+                fid.write('\n'.join([
+                    string_list[j + i * args.num_samples]
+                    for i in range(num_sentences)
+                ]))
+            print(f'{out_path}.{j}')
+    else:
+
+        # write each nbest in a different file
+        for j in range(args.nbest):
+            with open(f'{out_path}.{j}', 'w') as fid:
+                fid.write('\n'.join([x[j] for x in string_list]))
+            print(f'{out_path}.{j}')
+
+
+def load_parser(args, inspector):
+
+    if args.model_name:
+        # load from name and optionally seed
+        items = args.model_name.split(':')
+        model_name = items[0]
+        if len(items) > 1:
+            seed = items[1]
+        else:
+            seed = None
+        # load from model/config name
+        return AMRParser.load(
+            model_name,
+            seed=seed,
+            roberta_cache_path=args.roberta_cache_path,
+            inspector=inspector,
+            # selected fairseq decoder arguments
+            beam=args.beam,
+            nbest=args.nbest,
+            fp16=args.fp16,
+            num_samples=args.num_samples
+        )
+    else:
+        # load from checkpoint and files in its folder
+        return AMRParser.from_checkpoint(
+            args.in_checkpoint,
+            roberta_cache_path=args.roberta_cache_path,
+            inspector=inspector,
+            # selected fairseq decoder arguments
+            beam=args.beam,
+            nbest=args.nbest,
+            fp16=args.fp16,
+            num_samples=args.num_samples
+        )
+
+
+def run_service(args, parser):
+
+    # set orderd exit
+    signal.signal(signal.SIGINT, ordered_exit)
+    signal.signal(signal.SIGTERM, ordered_exit)
+
+    while True:
+        try:
+            sentence = input("Write sentence:\n")
+        except EOFError:
+            # user pressing C-D
+            print("\nStopped by user\n")
+            exit(0)
+
+        os.system('clear')
+        if not sentence.strip():
+            continue
+
+        if args.tokenize:
+            # jamr-like tokenization
+            tokens = [protected_tokenizer(sentence)[0]]
+        else:
+            tokens = [sentence.split()]
+
+        # duplicate if sampling
+        assert args.num_samples is None, \
+            "Sampling not supported in --service mode"
+
+        result = parser.parse_sentences(
+            tokens,
+            batch_size=args.batch_size,
+            roberta_batch_size=args.roberta_batch_size,
+            beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
+        )
+        #
+        os.system('clear')
+        print('\n')
+        if args.nbest > 1:
+            for candidate in result:
+                print(''.join(candidate[0]))
+                print()
+
+        else:
+            print(''.join(result[0]))
+
+
 def main():
 
     # argument handling
@@ -668,91 +793,22 @@ def main():
 
     # load parser
     start = time.time()
-    if args.model_name:
-        # load from name and optionally seed
-        items = args.model_name.split(':')
-        model_name = items[0]
-        if len(items) > 1:
-            seed = items[1]
-        else:
-            seed = None
-        # load from model/config name
-        parser = AMRParser.load(
-            model_name,
-            seed=seed,
-            roberta_cache_path=args.roberta_cache_path,
-            inspector=inspector,
-            # selected fairseq decoder arguments
-            beam=args.beam,
-            nbest=args.nbest,
-            fp16=args.fp16,
-            num_samples=args.num_samples
-        )
-    else:
-        # load from checkpoint and files in its folder
-        parser = AMRParser.from_checkpoint(
-            args.in_checkpoint,
-            roberta_cache_path=args.roberta_cache_path,
-            inspector=inspector,
-            # selected fairseq decoder arguments
-            beam=args.beam,
-            nbest=args.nbest,
-            fp16=args.fp16,
-            num_samples=args.num_samples
-        )
+    parser = load_parser(args, inspector)
     end = time.time()
     time_secs = timedelta(seconds=float(end-start))
     print(f'Total time taken to load parser: {time_secs}')
 
-    # TODO: max batch sizes could be computed from max sentence length
     if args.service:
 
-        # set orderd exit
-        signal.signal(signal.SIGINT, ordered_exit)
-        signal.signal(signal.SIGTERM, ordered_exit)
-
-        while True:
-            try:
-                sentence = input("Write sentence:\n")
-            except EOFError:
-                # user pressing C-D
-                print("\nStopped by user\n")
-                exit(0)
-
-            os.system('clear')
-            if not sentence.strip():
-                continue
-
-            if args.tokenize:
-                # jamr-like tokenization
-                tokens = [protected_tokenizer(sentence)[0]]
-            else:
-                tokens = [sentence.split()]
-
-            # duplicate if sampling
-            assert args.num_samples is None, \
-                "Sampling not supported in --service mode"
-
-            result = parser.parse_sentences(
-                tokens,
-                batch_size=args.batch_size,
-                roberta_batch_size=args.roberta_batch_size,
-                beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
-            )
-            #
-            os.system('clear')
-            print('\n')
-            if args.nbest > 1:
-                for candidate in result:
-                    print(''.join(candidate[0]))
-                    print()
-
-            else:
-                print(''.join(result[0]))
+        # command line parsing service
+        run_service(args, parser)
 
     else:
 
+        # TODO: max batch sizes could be computed from max sentence length
+
         if args.in_amr:
+
             gold_amrs = read_amr(args.in_amr)
             if args.tokenize:
                 # jamr-like tokenization
@@ -796,7 +852,7 @@ def main():
         num_sent = len(tokenized_sentences)
         print(f'Parsing {num_sent} sentences')
         start = time.time()
-        result = parser.parse_sentences(
+        annotations, machines = parser.parse_sentences(
             tokenized_sentences,
             batch_size=args.batch_size,
             roberta_batch_size=args.roberta_batch_size,
@@ -813,27 +869,28 @@ def main():
         print(f'at batch size {args.batch_size}: {time_secs} ', end='')
         print(f'{sents_per_second:.2f} sentences / second')
 
-        # save file
+        # save AMR
         if args.out_amr:
-            if args.nbest == 1 and args.num_samples is None:
-                with open(args.out_amr, 'w') as fid:
-                    fid.write('\n'.join(result[0]))
+            save_multiple_files(args, num_sentences, args.out_amr, annotations)
 
-            elif args.num_samples is not None:
-
-                # write each corpus samples in a different file
-                for j in range(args.num_samples):
-                    with open(f'{args.out_amr}.{j}', 'w') as fid:
-                        fid.write('\n'.join([
-                            result[0][i + j * args.num_samples]
-                            for i in range(num_sentences)
-                        ]))
+        # save tokenized sentence
+        if args.out_tokens:
+            if args.nbest > 1:
+                tokens = [[' '.join(m.tokens) for m in nbest] for nbest in machines]
             else:
+                tokens = [' '.join(m.tokens) for m in machines]
+            save_multiple_files(args, num_sentences, args.out_tokens, tokens)
 
-                # write each nbest in a different file
-                for j in range(args.nbest):
-                    with open(f'{args.out_amr}.{j}', 'w') as fid:
-                        fid.write('\n'.join([x[j] for x in result[0]]))
+        # save actions
+        if args.out_actions:
+            if args.nbest > 1:
+                actions = [
+                    [' '.join(m.action_history) for m in nbest]
+                    for nbest in machines
+                ]
+            else:
+                actions = [' '.join(m.action_history) for m in machines]
+            save_multiple_files(args, num_sentences, args.out_actions, actions)
 
 
 if __name__ == '__main__':
