@@ -327,6 +327,10 @@ def scape_node_names(nodes, edges, is_attribute):
     isolated_scaped_chars = ['-', '+']
     new_nodes = {}
     for nid, nname in nodes.items():
+
+        if ':' in nname:
+            set_trace(context=30)
+
         if nname == '"':
             # FIXME: This should be solved at machine level
             # just a single quote, invalid, put some dummy symbol
@@ -334,14 +338,14 @@ def scape_node_names(nodes, edges, is_attribute):
             # raise Exception('Quotes can not be a single AMR node')
         elif nname[0] == '"' and nname[-1] == '"':
             # already quoted, ensure no quotes inside
-            nname[1:-1].replace('"', '')
+            nname = nname[1:-1].replace('"', '')
         elif len(nname.split()) > 1:
             # multi-token expression, ensure no quotes
-            nname.replace('"', '')
+            nname = nname.replace('"', '')
             nname = f'"{nname}"'
         elif any(c in nname for c in AMR.reserved_amr_chars):
             # reserved chars, need to be scaped, ensure no quotes
-            nname.replace('"', '')
+            nname = nname.replace('"', '')
             nname = f'"{nname}"'
         elif nname in isolated_scaped_chars:
             # some chars, if they appear in isolation, need to be scaped
