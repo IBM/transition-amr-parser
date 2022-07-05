@@ -40,7 +40,8 @@ def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
 
     # scores for random swaps
     better = 0
-    for _ in range(restarts):
+    score_differences = np.zeros(restarts)
+    for i in range(restarts):
 
         # score of random paired swap
         swap = (np.random.randn(num_examples) > 0).astype(float)[:, None]
@@ -50,10 +51,11 @@ def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
         # assign a point if the worse model gets better by mixing
         if swapped_score > reference_score:
             better += 1
+        score_differences[i] = swapped_score - reference_score
 
     p = 1 - (better * 1.0 / restarts)
 
-    return p
+    return p, score_differences
 
 
 def original_triples(penman, index, prefix):
@@ -223,11 +225,13 @@ def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
 
 class Stats():
 
-    def __init__(self, amr_labels, bootstrap_test, bootstrap_test_restarts):
+    def __init__(self, amr_labels, bootstrap_test, bootstrap_test_restarts,
+                 out_boostrap_png):
 
         self.amr_labels = amr_labels
         self.bootstrap_test = bootstrap_test
         self.bootstrap_test_restarts = bootstrap_test_restarts
+        self.out_boostrap_png = out_boostrap_png
         # will hold a list of dictionaries with individual and cross AMR stats
         # keys are amr_labels or just integers
         self.statistics = []
@@ -283,8 +287,9 @@ class Stats():
 
         # run over every pair
         p_value = {}
+        delta = {}
         for i, j in pairs:
-            p_value[(i, j)] = run_bootstrap_paired_test(
+            p_value[(i, j)], delta[(i, j)] = run_bootstrap_paired_test(
                 # F-measure
                 compute_f,
                 # counts
@@ -299,8 +304,28 @@ class Stats():
                     amrs[j]['gold_triple_num']
                 ) for amrs in self.statistics],
                 # number of restarts
-                self.bootstrap_test_restarts
+                restarts=self.bootstrap_test_restarts
             )
+
+        if self.out_boostrap_png:
+
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(10, 10))
+            num_cols = min(4, len(delta.keys()))
+            num_rows = np.ceil(len(delta.keys()) / num_cols)
+            index = 0
+            nbins = 100
+            for (i, j) in delta.keys():
+                plt.subplot(int(num_rows), int(num_cols), index + 1)
+                plt.hist(delta[(i, j)], bins=nbins)
+                plt.plot([0, 0], [0, 50], 'r--')
+                if self.amr_labels:
+                    plt.title(f'({self.amr_labels[i]}, {self.amr_labels[j]})')
+                else:
+                    plt.title(f'({i}, {j})')
+                index += 1
+            print(f'wrote {self.out_boostrap_png}')
+            plt.savefig(self.out_boostrap_png)
 
         return p_value
 
@@ -380,7 +405,8 @@ def main(args):
     stats = Stats(
         args.amr_labels,
         args.bootstrap_test,
-        args.bootstrap_test_restarts
+        args.bootstrap_test_restarts,
+        args.out_boostrap_png
     )
 
     # set global in module
@@ -489,7 +515,11 @@ def argument_parser():
         default=10000,
         type=int
     )
-
+    parser.add_argument(
+        "--out-boostrap-png",
+        help="Plots for the boostrap test.",
+        type=str
+    )
     # flags
     parser.add_argument(
         "--stop-if-different",
