@@ -6,7 +6,7 @@ from collections import defaultdict
 from ipdb import set_trace
 from transition_amr_parser.io import read_blocks, read_penmans
 from transition_amr_parser.amr import (
-    AMR, get_is_atribute, normalize, smatch_triples_from_penman
+    get_is_atribute, smatch_triples_from_penman
 )
 from transition_amr_parser.clbar import yellow_font
 from smatch import get_best_match, compute_f
@@ -110,117 +110,6 @@ def get_triples(amr):
             relations[source].append((target, label))
 
     return attributes, relations
-
-
-def compute_score_ourselves(gold_penman, penman, alignments, ref=None):
-
-    gold_amr = AMR.from_penman(gold_penman)
-    amr = AMR.from_penman(penman)
-
-    is_attribute = get_is_atribute(amr.nodes, amr.edges)
-
-    # nodes + edges + root
-    # gold
-    gold_vars = [n for n in gold_amr.nodes if n in alignments]
-    gold_attributes = [e for e in gold_amr.edges if e[2] not in alignments]
-    gold_relations = [e for e in gold_amr.edges if e[2] in alignments]
-    # decoded
-    dec_vars = [n for n in amr.nodes if not is_attribute[n]]
-    dec_attributes = [e for e in amr.edges if is_attribute[e[2]]]
-    dec_relations = [e for e in amr.edges if not is_attribute[e[2]]]
-    # add root to attributes
-    gold_triple_num2 = \
-        len(gold_vars) + len(gold_attributes) + len(gold_relations) + 1
-    test_triple_num2 = \
-        len(dec_vars) + len(dec_attributes) + len(dec_relations) + 1
-
-    # node hits
-    node_hits = 0
-    for gid, nid in alignments.items():
-
-        # nodes (instances differ)
-        if gold_amr.nodes[gid] != amr.nodes[nid]:
-            set_trace(context=30)
-            print()
-        else:
-            node_hits += 1
-
-    # relations / attribute hits
-    relation_hits = 0
-    attribute_hits = 0
-    # keep a list from which we can remove nodes to avoid double count. Also
-    # replace attriburte ids by node names, as node ids for attributes is juts
-    # afeature of our internal format
-    dec_edges = [
-        (s, l, normalize(amr.nodes[t])) if is_attribute[t] else (s, l, t)
-        for (s, l, t) in amr.edges
-    ]
-    for gid, nid in alignments.items():
-        for gtgt, label in gold_amr.children(gid):
-
-            # attributes are not aligned, but names should match
-            # if gold_is_attribute[gtgt]:  # this is an imperfect heuristic
-            if gtgt not in alignments:
-                child_id = normalize(gold_amr.nodes[gtgt])
-            else:
-                child_id = alignments[gtgt]
-
-            # edeges may be also inverted
-            direct_edge = (nid, label, child_id)
-            if label.endswith('-of'):
-                inverse_edge = (child_id, f'{label[:-3]}', nid)
-            else:
-                inverse_edge = (child_id, f'{label}-of', nid)
-
-            if direct_edge in dec_edges:
-                if gtgt not in alignments:
-                    attribute_hits += 1
-                else:
-                    relation_hits += 1
-                # remove to avoid double count
-                # FIXME: Should we also remove the inverse or count by separate
-                dec_edges.remove(direct_edge)
-
-            elif inverse_edge in dec_edges:
-                if gtgt not in alignments:
-                    attribute_hits += 1
-                else:
-                    relation_hits += 1
-                # remove to avoid double count
-                dec_edges.remove(inverse_edge)
-
-            else:
-                # missing relation
-                set_trace(context=30)
-                print()
-
-    # add root as extra attribute
-    if gold_amr.root == amr.root:
-        attribute_hits += 1
-
-    best_match_num2 = node_hits + attribute_hits + relation_hits
-
-    if ref:
-
-        best_match_num, triples2, triples1 = ref
-        instance2, attributes2, relation2 = triples2
-        instance1, attributes1, relation1 = triples1
-
-        test_triple_num = len(instance1) + len(attributes1) + len(relation1)
-        gold_triple_num = len(instance2) + len(attributes2) + len(relation2)
-
-        # our counts differ
-        if best_match_num2 != best_match_num:
-            set_trace(context=30)
-            print()
-        if test_triple_num2 != test_triple_num:
-            set_trace(context=30)
-            print()
-        if gold_triple_num2 != gold_triple_num:
-            set_trace(context=30)
-            print()
-
-    return best_match_num2, test_triple_num2, gold_triple_num2
 
 
 class Stats():
