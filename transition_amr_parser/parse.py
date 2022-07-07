@@ -70,6 +70,13 @@ def argument_parsing():
         help='number of samples, if unset there is no sampling'
     )
     parser.add_argument(
+        '--sampling-topp',
+        default=-1,
+        type=float,
+        help='sample from the smallest set whose cumulative probability mass '
+             'exceeds p for next words (fairseq option)'
+    )
+    parser.add_argument(
         '--service',
         action='store_true',
         help='Prompt user for sentences'
@@ -168,6 +175,9 @@ def argument_parsing():
     if args.num_samples:
         assert args.nbest == 1
         assert args.beam == 1
+
+    if args.sampling_topp != -1:
+        assert args.num_samples
 
     return args
 
@@ -327,7 +337,8 @@ class AMRParser:
     @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
-                        inspector=None, beam=1, nbest=1, num_samples=False):
+                        inspector=None, beam=1, nbest=1, num_samples=False,
+                        sampling_topp=-1):
         '''
         Initialize model from checkpoint
         '''
@@ -359,6 +370,7 @@ class AMRParser:
         # SequenceGenerator args: sampling_topk sampling_topp temperature
         args.beam = beam
         args.nbest = nbest
+        args.sampling_topp = sampling_topp
         if num_samples is not None:
             args.sampling = True
 
@@ -717,6 +729,8 @@ def load_parser(args, inspector):
             beam=args.beam,
             nbest=args.nbest,
             fp16=args.fp16,
+            sampling_topp=sampling_topp,
+            # this is not, but implies --sampling
             num_samples=args.num_samples
         )
     else:
@@ -729,6 +743,8 @@ def load_parser(args, inspector):
             beam=args.beam,
             nbest=args.nbest,
             fp16=args.fp16,
+            sampling_topp=args.sampling_topp,
+            # this is not, but implies --sampling
             num_samples=args.num_samples
         )
 
@@ -876,7 +892,9 @@ def main():
         # save tokenized sentence
         if args.out_tokens:
             if args.nbest > 1:
-                tokens = [[' '.join(m.tokens) for m in nbest] for nbest in machines]
+                tokens = [
+                    [' '.join(m.tokens) for m in nbest] for nbest in machines
+                ]
             else:
                 tokens = [' '.join(m.tokens) for m in machines]
             save_multiple_files(args, num_sentences, args.out_tokens, tokens)
