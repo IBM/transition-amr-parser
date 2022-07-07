@@ -27,12 +27,7 @@ AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt
 AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
 ## DOC AMR ARGS
-MODE="doc"
-TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
-DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
-TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
-FOF_PATH=<path_to_AMR3.0 annotations and coref xml files>
-NORM="no-merge"
+MODE="sen"
 
 
 ##############################################################################
@@ -49,14 +44,14 @@ ALIGNED_FOLDER=DATA/$TASK_TAG/aligned/${align_tag}/
 
 # TODO: Omit these and use ALIGNED_FOLDER
 AMR_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added.txt
-AMR_DEV_FILE=$ALIGNED_FOLDER/train_id-added.txt 
+AMR_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
 AMR_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-# WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
-# WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
+WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
+WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
 ##############################################################################
 # ORACLE
@@ -191,6 +186,7 @@ dyo_run_freq=1
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
 FAIRSEQ_TRAIN_FINETUNE_ARGS=""
 FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
+
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
