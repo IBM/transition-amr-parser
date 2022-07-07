@@ -328,6 +328,12 @@ def scape_node_names(nodes, edges, is_attribute):
     new_nodes = {}
     for nid, nname in nodes.items():
 
+        # forbid use of \
+        if nname == '\\':
+            nname = '_'
+        elif '\\' in nname:
+            nname = nname.replace('\\', '')
+
         if nname == '"':
             # FIXME: This should be solved at machine level
             # just a single quote, invalid, put some dummy symbol
