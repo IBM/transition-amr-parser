@@ -23,13 +23,14 @@ from fairseq_ext.utils import (post_process_action_pointer_prediction,
 
 
 class Examples():
-    def __init__(self, path, results_path, gen_subset, nbest):
+    def __init__(self, path, results_path, gen_subset, nbest,avoid_indices=None):
         self.examples = []
         self.path = path    # model path
         self.results_path = results_path    # save prefix
         self.gen_subset = gen_subset
         self.nbest = nbest
         self.sample_ids = []
+        self.avoid_indices=avoid_indices
 
     def append(self, example):
         self.examples.append(example)
@@ -38,7 +39,12 @@ class Examples():
         # Get unique sample ids
         sample_ids = sorted(set([x['sample_id'] for x in self.examples]))
         # make sure no id is missing
-        assert list(range(max(sample_ids) + 1)) == sample_ids
+        #FIXME compensating of temp removal of index 34
+        checklist = list(range(max(sample_ids) + 1))
+        if self.avoid_indices is not None and len(self.avoid_indices)>0:
+            for ai in self.avoid_indices:
+                checklist.remove(ai)
+        assert checklist  == sample_ids
 
         # Collect example per id
         results = defaultdict(list)
@@ -182,6 +188,7 @@ def main(args):
         num_shards=args.num_shards,
         shard_id=args.shard_id,
         num_workers=args.num_workers,
+        avoid_indices=args.avoid_indices
         # large_sent_first=False        # not in fairseq
     ).next_epoch_itr(shuffle=False)
 
@@ -197,7 +204,7 @@ def main(args):
     num_sentences = 0
     has_target = True
 
-    examples = Examples(args.path, args.results_path, args.gen_subset, args.nbest)
+    examples = Examples(args.path, args.results_path, args.gen_subset, args.nbest,args.avoid_indices)
 
     error_stats = {'num_sub_start': 0}
 

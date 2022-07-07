@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import argparse
+from email.policy import default
 
 import torch
 import sys
@@ -294,6 +295,8 @@ def add_dataset_args(parser, train=False, gen=False):
     parser.add_argument('--dataset-impl', metavar='FORMAT',
                         choices=get_available_dataset_impl(),
                         help='output dataset implementation')
+    group.add_argument('--avoid-indices',nargs="+",type=int, help='indices to avoid',default=[])
+
     if train:
         group.add_argument('--train-subset', default='train', metavar='SPLIT',
                            choices=['train', 'valid', 'test'],
