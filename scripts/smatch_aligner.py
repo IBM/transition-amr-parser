@@ -220,8 +220,16 @@ def main(args):
     node_id_maps = []
     for index in tqdm(range(len(penmans))):
 
+<<<<<<< HEAD
         gold_penman = gold_penmans[index]
         dec_penman = penmans[index]
+=======
+        if args.penman_reader:
+
+            # get triples from goodmami's penman
+            gold_graph = penman.decode(gold_penman.split('\n'))
+            items_a = smatch_triples_from_penman(gold_graph, "a")
+>>>>>>> a0872c90... Fix --penman-reader option
 
         if False:
 
@@ -299,6 +307,7 @@ def main(args):
         sentence_smatch.append(score)
         node_id_maps.append(best_id_map)
 
+<<<<<<< HEAD
     # TODO: Save scores and alignments
 
     # final score
@@ -308,6 +317,9 @@ def main(args):
     corpus_score = compute_f(best_match_num, test_triple_num, gold_triple_num)
     print(f'hits: {best_match_num} tries: {test_triple_num} gold: {gold_triple_num}')
     print(f'Smatch: {corpus_score[2]:.4f}')
+=======
+    print(stats)
+>>>>>>> a0872c90... Fix --penman-reader option
 
 
 def argument_parser():
