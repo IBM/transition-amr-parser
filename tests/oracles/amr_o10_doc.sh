@@ -5,11 +5,11 @@ set -o pipefail
 gold_amr=$1
 set -o nounset 
 
-oracle_folder=DATA/AMR3.0/oracles/o10_pinitos_doc_test/
+oracle_folder=DATA/AMR3.0/oracles/o10_pinitos_doc_v0.2/
 mkdir -p $oracle_folder 
  
 # get actions from oracle
-python transition_amr_parser/amr_machine_docamr.py \
+python python transition_amr_parser/amr_machine.py \
     --in-aligned-amr $gold_amr \
     --out-machine-config $oracle_folder/machine_config.json \
     --out-actions $oracle_folder/train.actions \
@@ -18,11 +18,11 @@ python transition_amr_parser/amr_machine_docamr.py \
     --absolute-stack-positions \
     --coref-fof DATA/AMR3.0/coref/train_coref.fof \
     --norm no-merge \
-    --fof-path <path to AMR3.0> /
+    --fof-path <path to AMR3.0> 
     # --reduce-nodes all
 
 # play actions on state machine
-python transition_amr_parser/amr_machine_docamr.py \
+python transition_amr_parser/amr_machine.py \
     --in-machine-config $oracle_folder/machine_config.json \
     --in-tokens $oracle_folder/train.tokens \
     --in-actions $oracle_folder/train.actions \
