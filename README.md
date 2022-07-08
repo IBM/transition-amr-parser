@@ -82,25 +82,27 @@ unzip /path/to/linkcache.zip
 To launch train/test use (this will also run the aligner)
 
 ```
-bash run/run_experiment.sh configs/amr2.0-structured-bart-large-sep-voc.sh
+bash run/run_experiment.sh configs/amr2.0-structured-bart-large.sh
 ```
 
-training will store all checkpoints by default. You can launch a paralel job
-that will perform evaluation and delete checkpoints not int the top 5
+Training will store and evaluate all checkpoints by default (see config's
+`EVAL_INIT_EPOCH`) and select the one with best dev Smatch. This needs a lot of
+space but you can launch a parallel job that will perform evaluation and delete
+Checkpoints not in the top `5` 
 
 ```
-bash run/run_model_eval.sh configs/amr2.0-structured-bart-large-sep-voc.sh
+bash run/run_model_eval.sh configs/amr2.0-structured-bart-large.sh
 ```
 
 you can check training status with
 
 ```
-python run/status.py -c configs/amr2.0-structured-bart-large-sep-voc.sh
+python run/status.py -c configs/amr2.0-structured-bart-large.sh
 ```
 
 use `--results` to check for scores once models are finished.
 
-We include code to launch paralel jobs in the LSF job schedules. This can be
+We include code to launch parallel jobs in the LSF job schedules. This can be
 adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
 
 ## Decode with Pre-trained model
@@ -125,14 +127,15 @@ To use from other Python code with a trained model do
 from transition_amr_parser.parse import AMRParser
 parser = AMRParser.from_checkpoint(checkpoint_path)
 tokens, positions = parser.tokenize('The girl travels and visits places')
+# use parse_sentences() for a batch of sentences
 annotations, decoding_data = parser.parse_sentence(tokens)
 # Print Penman 
-print(annotations[0])
+print(annotations)
 # transition_amr_parser.amr:AMR from transition_amr_parser.amr_machine:AMRStateMAchine
-amr = decoding_data[0]['machine'].get_amr()
-# print into Penman w/o JAMR, ISIR
-print(amr.to_penman(jamr=False, no_isi=False))
-# matplotlib graph plot
+amr = decoding_data['machine'].get_amr()
+# print into Penman w/o JAMR, ISI
+print(amr.to_penman(jamr=False, isi=True))
+# graph plot (needs matplotlib)
 amr.plot()
 ```
 

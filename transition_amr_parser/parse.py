@@ -48,6 +48,11 @@ def argument_parsing():
         help='AMR in Penman format to align'
     )
     parser.add_argument(
+        '--in-actions',
+        type=str,
+        help='action sequence (per token) for force decoding'
+    )    
+    parser.add_argument(
         '--tokenize',
         action='store_true',
         help='Tokenize with a jamr-like tokenizer input sentences or AMR'
@@ -408,7 +413,7 @@ class AMRParser:
         return bart_data
 
     def convert_sentences_to_data(self, sentences, batch_size,
-                                  roberta_batch_size, gold_amrs=None):
+                                  roberta_batch_size, gold_amrs=None, force_actions=None):
 
         assert gold_amrs is None or len(sentences) == len(gold_amrs)
 
@@ -429,7 +434,8 @@ class AMRParser:
                 'src_wp2w': word2piece_scattered_indices,
                 # original source tokens
                 'src_tokens': tokenize_line(sentence),
-                'gold_amr': None if gold_amrs is None else gold_amrs[index]
+                'gold_amr': None if gold_amrs is None else gold_amrs[index],
+                'force_actions': None if force_actions is None else force_actions[index]
             })
         return data
 
@@ -452,6 +458,11 @@ class AMRParser:
                 # This also relies on ID bing the relative index as set above
                 batch['gold_amr'] = [
                     samples[id]['gold_amr'] for id in batch['id']
+                ]
+            if any(a.get('force_actions', None) is not None for a in sample):
+                # This also relies on ID bing the relative index as set above
+                batch['force_actions'] = [
+                    samples[id]['force_actions'] for id in batch['id']
                 ]
 
             batches.append(batch)
@@ -519,10 +530,11 @@ class AMRParser:
         return protected_tokenizer(sentence)
 
     def parse_sentence(self, tokens, **kwargs):
-        return self.parse_sentences([tokens], **kwargs)
+        annotations, decoding_data = self.parse_sentences([tokens], **kwargs)
+        return annotations[0], decoding_data[0]
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
-                        gold_amrs=None, beam=1, jamr=False, no_isi=False):
+                        gold_amrs=None, force_actions=None, beam=1, jamr=False, no_isi=False):
         """parse a list of sentences.
 
         Args:
@@ -545,7 +557,8 @@ class AMRParser:
             sentences,
             batch_size,
             roberta_batch_size,
-            gold_amrs=gold_amrs
+            gold_amrs=gold_amrs,
+            force_actions=force_actions
         )
         data_iterator = self.get_iterator(data, batch_size)
 
@@ -736,7 +749,12 @@ def main():
                 tokenized_sentences = read_tokenized_sentences(
                     args.in_tokenized_sentences
                 )
-
+        if args.in_actions:
+            with open(args.in_actions) as fact:
+                force_actions = [eval(line.strip())+[[]] for line in fact]
+        else:
+            force_actions = None
+            
         # Parse sentences
         num_sent = len(tokenized_sentences)
         print(f'Parsing {num_sent} sentences')
@@ -746,13 +764,16 @@ def main():
             batch_size=args.batch_size,
             roberta_batch_size=args.roberta_batch_size,
             gold_amrs=gold_amrs,
+            force_actions=force_actions,
             beam=args.beam,
             jamr=args.jamr,
             no_isi=args.no_isi
         )
         end = time.time()
         time_secs = timedelta(seconds=float(end-start))
-        sents_per_second = num_sent / time_secs.seconds
+        sents_per_second = num_sent
+        if time_secs.seconds > 0:
+            sents_per_second = num_sent / time_secs.seconds
         print(f'Total time taken to parse {num_sent} sentences ', end='')
         print(f'at batch size {args.batch_size}: {time_secs} ', end='')
         print(f'{sents_per_second:.2f} sentences / second')

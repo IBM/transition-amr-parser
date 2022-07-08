@@ -234,6 +234,9 @@ class SequenceGenerator(object):
                     # align mode
                     sm.reset(tokens=sample['src_sents'][i],
                              gold_amr=sample['gold_amr'][i])
+                elif 'force_actions' in sample:
+                    sm.reset(tokens=sample['src_sents'][i],
+	                     force_actions=sample['force_actions'][i])
                 else:
                     # normal mode
                     sm.reset(tokens=sample['src_sents'][i])
@@ -530,6 +533,12 @@ class SequenceGenerator(object):
                             new_act = f'>{arc}({label})'
                             vocab_ids_allowed.add(self.tgt_dict.index(new_act))
                             constrain_pointer[j.item()][int(index)].append(new_act)
+                        elif re.match(r'>[LR]A\(([0-9]+)\)', act):
+                            arc, index = re.match(r'>([LR]A)\(([0-9]+)\)', act).groups()
+                            vocab_ids_allowed |= set(canonical_act_ids['>'+arc])
+                            for act_id in canonical_act_ids['>'+arc]:
+                                new_act = self.tgt_dict[act_id]
+                                constrain_pointer[j.item()][int(index)].append(new_act)
                         else:
                             # non canonincal actions (explicit node names)
                             vocab_ids_allowed.add(self.tgt_dict.index(act))
@@ -725,9 +734,9 @@ class SequenceGenerator(object):
                         continue
                     num_valid = len([1 for x in constrain_pointer[j].values() if x])
                     for i in range(seqlen - 1):
-                        if constrain_pointer[j][i]:
-                            pointer_probs[j, i+1] =  1 / num_valid
-                        else:
+                        if not constrain_pointer[j][i]:
+                        #    pointer_probs[j, i+1] =  1 / num_valid
+                        #else:
                             pointer_probs[j, i+1] = 0
 
             # TODO: most probable pointing determines valid label choice
@@ -782,7 +791,8 @@ class SequenceGenerator(object):
                             idx = self.tgt_dict.index(action)
                             save_action_lprobs.append((idx, lprobs[j, idx].item()))
                         # all other actions are forbidden
-                        lprobs[j, :] = -math.inf
+                        #lprobs[j, :] = -math.inf
+                        lprobs[j,arc_action_ids] = -math.inf
                         for idx, lprob in save_action_lprobs:
                             lprobs[j, idx] = lprob
 

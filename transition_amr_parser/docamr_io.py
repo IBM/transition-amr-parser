@@ -911,8 +911,15 @@ class AMR_doc(AMR):
             if isinstance(nvar, str):
                 nvars[nvar] = nvar
 
+        sentence_ends = []
+        #track sent ends indices
+        for idx,tok in enumerate(tokens):
+            if tok=='<next_sent>':
+                sentence_ends.append(idx-1)
+                del tokens[idx]
+
         return cls(tokens, nodes, edges, graph.top, penman=graph,
-                   alignments=alignments, sentence=sentence, id=graph_id, nvars=nvars)
+                   alignments=alignments, sentence=sentence, id=graph_id, nvars=nvars,sentence_ends=sentence_ends)
 
         
     
@@ -1058,18 +1065,17 @@ class AMR_doc(AMR):
     #     return meta_data + penman.encode(self.penman) + '\n\n'
     def __str__(self):
         
-        self.penman = self.to_penman()
-        self.check_connectivity()
+        self.penman_str = self.to_penman()
         meta_data = ""
         if self.amr_id:
             meta_data  = '# ::id ' + self.amr_id + '\n'
         if self.doc_file:
             meta_data += '# ::doc_file ' + self.doc_file + '\n'
-        meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
+        # meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
         #sanity check
-        p = penman.decode(self.penman)
+        p = penman.decode(self.penman_str)
 
-        return meta_data + self.penman + '\n\n'
+        return meta_data + self.penman_str + '\n\n'
 
 
     #=====================================================================
