@@ -784,7 +784,6 @@ class AMRStateMachine():
                 ret_actions = [self.force_actions[self.tok_cursor][self.action_cursor]]
             return ret_actions
         
-        valid_base_actions = []
 
         if self.tok_cursor < len(self.tokens):
             if not self.force_actions or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1:
@@ -1502,7 +1501,6 @@ def oracle(args):
             #     if gold_node_id in oracle.gold_amr.nvars:
             #         node_var = oracle.gold_amr.nvars[gold_node_id]
     
-
             # update machine,
             machine.update(action)
             # machine.node_action_vars.append(node_var)
@@ -1628,7 +1626,7 @@ def argument_parser():
              "--in-alignment-probs",
         type=str
     )
-    
+
     parser.add_argument(
         "--jamr",
         help="Read AMR and alignments from JAMR and not PENMAN",
