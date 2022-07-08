@@ -528,9 +528,23 @@ def find_roots(edges, root):
             heads = [root]
     return heads
 
+def check_if_coref_edge(head, edges,rel):
+    for e in edges:
+        if head==e[0] and e[1]==rel:
+            return (e[2],e[1],e[0])
+    return None
 
-def force_rooted_connected_graph(nodes, edges, root):
+def force_rooted_connected_graph(nodes, edges, root , prune=False):
 
+#prune edges with nodes that are not present in the sentence nodes in case of doc-amr
+    if prune:
+        new_edges =[]
+        for (s,l,t) in edges:
+            if (s not in nodes) or (t not in nodes):
+                continue
+            else:
+                new_edges.append((s,l,t))
+        edges = new_edges
     # locate all heads of the entire graph (there should be only one)
     heads = find_roots(edges, root)
 
@@ -683,6 +697,11 @@ class AMR():
         else:
             sentence = None
 
+        if 'sentence_ends' in graph.metadata:
+                    sentence_ends = graph.metadata['sentence_ends'].split()
+                    sentence_ends = [int(x) for x in sentence_ends]
+
+
         # wipe out JAMR notation from metadata since it can become inconsistent
         # also remove unsupported "alignments" field
         delete_keys = []
@@ -715,7 +734,7 @@ class AMR():
         nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
 
         return cls(tokens, nodes, edges, graph.top, penman=graph,
-                   alignments=alignments, sentence=sentence, id=graph_id)
+                   alignments=alignments, sentence=sentence, id=graph_id,sentence_ends=sentence_ends)
 
     @classmethod
     def from_metadata(cls, jamr_text):
@@ -735,9 +754,10 @@ class AMR():
         """
         Returns graph information in the meta-data
         """
+        snt_ends = self.sentence_ends if hasattr(self,'sentence_ends') else None
         return get_jamr_string(
             self.tokens, self.nodes, self.edges, self.root, self.alignments,
-            penman=penman
+            penman=penman,sentence_ends=snt_ends
         )
 
     def __str__(self):
@@ -813,6 +833,11 @@ class AMR():
             if self.tokens:
                 tokens_str = ' '.join(self.tokens)
                 metadata_str += f'# ::tok {tokens_str}\n'
+            if hasattr(self, 'sentence_ends'):
+                if self.sentence_ends is not None and len(self.sentence_ends)>0:
+                    ends_str = [str(x) for x in self.sentence_ends]
+                    ends_str = ' '.join(ends_str)
+                    metadata_str += f'# ::sentence_ends {ends_str}\n'
         else:
             metadata_str = '\n'.join([
                 f'# ::{k} {v}' for k, v in self.penman.metadata.items()
