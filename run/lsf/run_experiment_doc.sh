@@ -211,7 +211,7 @@ if [ "$on_the_fly_decoding" = true ];then
 
         # test all available checkpoints and link the best model on dev too
         jbsub_tag="tdec-doc-${jbsub_basename}-s${seed}-$$"
-        jbsub -cores 1+1 -mem 250g -q x86_24h -require v100 \
+        jbsub -cores 1+1 -mem 150g -q x86_24h -require v100 \
               -name "$jbsub_tag" \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
               -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
