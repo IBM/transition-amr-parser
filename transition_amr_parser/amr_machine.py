@@ -47,12 +47,13 @@ def graph_alignments(unaligned_nodes, amr):
 
     # scan first for all children-based alignments
     fix_alignments = {}
-    for (src, _, tgt) in amr.edges:
+    for (src, rel, tgt) in amr.edges:
         if (
             src in unaligned_nodes
             and amr.alignments.get(tgt, None) is not None
             and max(amr.alignments[tgt])
                 > fix_alignments.get(src, -1)
+            and rel not in [':coref-edge',':part-of',':subset-of']
         ):
             # # debug: to justify to change 0 to -1e6 for a test data corner
             # case; see if there are other cases affected
