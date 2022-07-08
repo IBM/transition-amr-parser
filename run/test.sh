@@ -38,6 +38,10 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
+if [! -z $FAIRSEQ_SKIP_ARGS];then
+    FAIRSEQ_SKIP_ARGS=""
+fi
+
 # set data split parameters 
 if [ $data_split2 == "dev" ]; then
     data_split=valid
@@ -95,7 +99,8 @@ if [ ! -f "${results_prefix}.actions" ];then
         --remove-bpe \
         --path $checkpoint \
         --quiet \
-        --results-path $results_prefix 
+        --results-path $results_prefix \
+        $FAIRSEQ_SKIP_ARGS 
 
 fi
 
