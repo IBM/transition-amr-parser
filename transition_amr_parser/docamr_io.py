@@ -9,6 +9,7 @@ from collections import Counter, defaultdict
 from transition_amr_parser.clbar import yellow_font
 from transition_amr_parser.amr import AMR
 from ipdb import set_trace
+from copy import deepcopy
 
 def normalize(token):
     """
@@ -181,7 +182,7 @@ class AMR_doc(AMR):
     verbose = True
     
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, nvars = None,sentence=None, id=None):
+                 alignments=None, nvars = None,sentence=None, id=None,sentence_ends=None):
         super().__init__(tokens, nodes, edges, root, penman,
                  alignments, sentence, id)
         sid = id
@@ -190,6 +191,9 @@ class AMR_doc(AMR):
             AMR_doc.id_counter += 1
         self.sid = sid
         self.nvars = nvars
+        #for doc-amr tok <next_sent> removed and last tok of sents tracked here
+        
+        self.sentence_ends = sentence_ends
         
 
         self.roots = []
@@ -204,6 +208,35 @@ class AMR_doc(AMR):
                 if self.nvars[nid] != None:
                     self.nvars2nodes[self.nvars[nid]] = nid
         self._cache_key = None
+
+    def fix_alignments(self,removed_idx):
+        for node_id,align in self.alignments.items():
+            if align is not None:
+                num_decr = len([rm for rm in removed_idx if align[0]>rm])
+                if num_decr>0:
+                    lst = [x-num_decr for x in align]
+                    self.alignments[node_id] = lst 
+
+
+    def get_sen_ends(self):
+        self.sentence_ends = []
+        removed_idx = []
+        new_tokens = []
+        for idx,tok in enumerate(self.tokens):
+            if tok=='<next_sent>':
+                self.sentence_ends.append(len(new_tokens)-1)
+                removed_idx.append(idx)
+            else:
+                new_tokens.append(tok)
+        self.tokens = new_tokens
+        self.fix_alignments(removed_idx)
+    #FIXME
+    def remove_unicode(self):
+        for idx,tok in enumerate(self.tokens):
+            new_tok = tok.encode("ascii", "ignore")
+            self.tokens[idx] = new_tok.decode()
+            if self.tokens[idx]=='':
+                self.tokens[idx]='.'
 
     def __add__(self, other):
         
@@ -911,12 +944,17 @@ class AMR_doc(AMR):
             if isinstance(nvar, str):
                 nvars[nvar] = nvar
 
-        sentence_ends = []
-        #track sent ends indices
-        for idx,tok in enumerate(tokens):
-            if tok=='<next_sent>':
-                sentence_ends.append(idx-1)
-                del tokens[idx]
+        if 'sentence_ends' in graph.metadata:
+            sentence_ends = graph.metadata['sentence_ends'].split()
+            sentence_ends = [int(x) for x in sentence_ends]
+        else:
+            sentence_ends = []
+        
+        # #track sent ends indices
+        # for idx,tok in enumerate(tokens):
+        #     if tok=='<next_sent>':
+        #         sentence_ends.append(idx-1)
+        #         del tokens[idx]
 
         return cls(tokens, nodes, edges, graph.top, penman=graph,
                    alignments=alignments, sentence=sentence, id=graph_id, nvars=nvars,sentence_ends=sentence_ends)
@@ -1071,11 +1109,15 @@ class AMR_doc(AMR):
             meta_data  = '# ::id ' + self.amr_id + '\n'
         if self.doc_file:
             meta_data += '# ::doc_file ' + self.doc_file + '\n'
+        if self.sentence_ends and len(self.sentence_ends)>0:
+            snt_ends_str = [str(x) for x in self.sentence_ends]
+            meta_data+= '# ::sentence_ends ' + ' '.join(snt_ends_str) + '\n'
+
         # meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
         #sanity check
         p = penman.decode(self.penman_str)
 
-        return meta_data + self.penman_str + '\n\n'
+        return meta_data + self.penman_str + '\n'
 
 
     #=====================================================================
@@ -1449,4 +1491,156 @@ def chain2triples(chain):
 
     return (triples, ref_node)
 
+def make_doc_amrs(corefs, amrs, coref=True,chains=True):
+    doc_amrs = {}
+
+    desc = "making doc-level AMRs"
+    if not coref:
+        desc += " (without corefs)"
+    for doc_id in tqdm(corefs, desc=desc):
+        (doc_corefs,doc_sids,fname) = corefs[doc_id]
+        if doc_sids[0] not in amrs:
+            import ipdb; ipdb.set_trace()
+        doc_amr = deepcopy(amrs[doc_sids[0]])
+        for sid in doc_sids[1:]:
+            if sid not in amrs:
+                import ipdb; ipdb.set_trace()
+            if amrs[sid].root is None:
+                continue
+            doc_amr = doc_amr + amrs[sid]
+        doc_amr.amr_id = doc_id
+        doc_amr.doc_file = fname
+        #sanity check
+        for e in doc_amr.edges:
+            if ':' not in e[1]:
+                print("BEFORE COREF MISSING COLON ",e)
+        if coref:
+            if chains:
+                doc_amr.add_corefs(doc_corefs)
+            else:
+                doc_amr.add_edges(doc_corefs)
+        #sanity check       
+        for e in doc_amr.edges:
+            if ':' not in e[1]:
+                print("AFTER COREF MISSING COLON ",e)
+        #replace penman
+        doc_amr.penman = None
+        doc_amrs[doc_id] = doc_amr
+
+    return doc_amrs
+
+
+def recent_member_by_sent(chain,sid,doc_id):
+    def get_sid_fromstring(string):
+         
+        sid = [int(s) for s in re.findall(r'\d+', string)]
+        assert len(sid)==1
+        return sid[0]
+
+    sid = get_sid_fromstring(sid)    
+    diff = lambda chain : abs(get_sid_fromstring(chain[0].split('.')[0]) - sid)
+    ent = min(chain, key=diff)
+    if get_sid_fromstring(ent[0].split('.')[0]) > sid:
+        print(doc_id," closest sent is higher than connecting node ",ent[0],sid)
+    return ent[0]
+
+    
+
+def recent_member_by_align(chain,src_align,doc_id,rel=None):
+ 
+    diff = lambda chain : abs(chain[1]-src_align)
+    ent = min(chain, key=diff)
+    if ent[1]>= src_align:
+        print(doc_id," coref edge missing ",ent[1],src_align,rel)      
+    return ent[0]
+
+#convert v0 coref edge to connect to most recent sibling in the chain
+def make_pairwise_edges(damr):
+    
+    ents_chain = defaultdict(list)
+    edges_to_delete = []
+    nodes_to_delete = []
+    doc_id = damr.amr_id
+    # damr.edges.sort(key = lambda x: x[0])
+    for idx,e in enumerate(damr.edges):
+        if e[1] == ':coref-of':
+            # if len(ents[e[2]])==0:
+                #damr.edges[idx] = (e[0],':coref-edge',ents[e[2]][-1])
+            # else:
+            edges_to_delete.append(e)
+
+            if e[0] in damr.alignments and damr.alignments[e[0]] is not None:
+                ents_chain[e[2]].append((e[0],damr.alignments[e[0]][0]))
+            else:
+                #FIXME adding the src node of a coref edge with no alignments member of chain with closest sid
+                # print(doc_id + '  ',e[0],' alignments is None  src node in coref edge, not adding it ')
+                sid = e[0].split('.')[0]
+                if len(ents_chain[e[2]]) >0 :
+                    ent = recent_member_by_sent(ents_chain[e[2]],sid,doc_id)
+                    damr.edges[idx] = (e[0],':coref-edge',ent)
+                #FIXME
+                else:
+                    print("coref edge missing, empty chain, edge not added")
+                
+            assert e[2].startswith('rel')
+       
+
+    
+    #adding coref edges between most recent sibling in chain    
+    for cents in ents_chain.values():
+        cents.sort(key=lambda x:x[1])
+        for idx in range(0,len(cents)-1):
+            damr.edges.append((cents[idx+1][0],':coref-edge',cents[idx][0]))
+
+    for e in edges_to_delete:
+        while e in damr.edges:
+            damr.edges.remove(e)
+
+    #connecting all other edges involving chain to most recent member in the chain
+    for idx,e in enumerate(damr.edges):
+        #Both src and target are coref nodes
+        if e[0] in ents_chain and e[2] in ents_chain:
+            damr.edges[idx] = (ents_chain[e[0]][-1][0],e[1],ents_chain[e[2]][-1][0])
+        
+        elif e[2] in ents_chain.keys():
+            #src node is a normal amr node
+            if e[0] in damr.alignments and damr.alignments[e[0]] is not None:
+                ent = recent_member_by_align(ents_chain[e[2]],damr.alignments[e[0]][0],doc_id,e[1])
+                
+            else:
+                #FIXME assigning src node with no alignments to the recent member by sent in the coref chain
+                # print(doc_id + '  ',e[0],' alignments is None ')
+                sid = e[0].split('.')[0]
+                ent = recent_member_by_sent(ents_chain[e[2]],sid,doc_id)
+            damr.edges[idx] = (e[0],e[1],ent)
+
+        elif e[0] in ents_chain.keys():
+            if e[2] in damr.alignments and damr.alignments[e[2]] is not None:
+                ent = recent_member_by_align(ents_chain[e[0]],damr.alignments[e[2]][0],doc_id,e[1])
+            else:
+                #FIXME assigning tgt node with no alignments to the recent member by sent in the coref chain
+                # print(doc_id + '  ',e[0],' alignments is None ')
+                sid = e[2].split('.')[0]
+                ent = recent_member_by_sent(ents_chain[e[0]],sid,doc_id)
+        
+            damr.edges[idx] = (ent,e[1],e[2])
+
+       
+    for n in ents_chain.keys():
+        while n in damr.nodes:
+            del damr.nodes[n]
+    
+        
+    
+    return damr
+
+def connect_sen_amrs(amr):
+
+    if len(amr.roots) <= 1:
+        return
+
+    node_id = amr.add_node("document")
+    amr.root = str(node_id)
+    for (i,root) in enumerate(amr.roots):
+        amr.edges.append((amr.root, ":snt"+str(i+1), root))
 
