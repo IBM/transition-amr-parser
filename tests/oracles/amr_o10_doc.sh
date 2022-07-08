@@ -5,11 +5,11 @@ set -o pipefail
 gold_amr=$1
 set -o nounset 
 
-oracle_folder=DATA/AMR3.0/oracles/o10_pinitos_doc_v0.2/
+oracle_folder=DATA/AMR3.0/oracles/o10_pinitos_doc_test_v0.2/
 mkdir -p $oracle_folder 
  
 # get actions from oracle
-python python transition_amr_parser/amr_machine.py \
+python transition_amr_parser/amr_machine.py \
     --in-aligned-amr $gold_amr \
     --out-machine-config $oracle_folder/machine_config.json \
     --out-actions $oracle_folder/train.actions \
