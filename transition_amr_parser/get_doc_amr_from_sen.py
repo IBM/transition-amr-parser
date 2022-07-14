@@ -32,12 +32,12 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,out_amr,norm='no_merge'):
             damr.normalize(norm)
             
             damr = make_pairwise_edges(damr)
-            damr.penman = penman.decode(damr.to_penman())
             #get sentence ends indices
             damr.get_sen_ends()
             #FIXME remove unicode in every token of sentence
             damr.remove_unicode()
             #manually aligning document top to last token
+            damr.penman = penman.decode(damr.to_penman())
             document_top,top_rel,top_name = damr.penman.triples[0]
             assert top_name=='document'
             damr.alignments[document_top] = [len(damr.tokens)-1]
