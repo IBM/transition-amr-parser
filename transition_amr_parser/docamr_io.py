@@ -7,7 +7,7 @@ import copy
 from penman import surface
 from collections import Counter, defaultdict
 from transition_amr_parser.clbar import yellow_font
-from transition_amr_parser.amr import AMR
+from transition_amr_parser.amr import AMR,get_simple_graph
 from ipdb import set_trace
 from copy import deepcopy
 
@@ -1109,9 +1109,9 @@ class AMR_doc(AMR):
             meta_data  = '# ::id ' + self.amr_id + '\n'
         if self.doc_file:
             meta_data += '# ::doc_file ' + self.doc_file + '\n'
-        if self.sentence_ends and len(self.sentence_ends)>0:
-            snt_ends_str = [str(x) for x in self.sentence_ends]
-            meta_data+= '# ::sentence_ends ' + ' '.join(snt_ends_str) + '\n'
+        # if self.sentence_ends and len(self.sentence_ends)>0:
+        #     snt_ends_str = [str(x) for x in self.sentence_ends]
+        #     meta_data+= '# ::sentence_ends ' + ' '.join(snt_ends_str) + '\n'
 
         # meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
         #sanity check
@@ -1346,126 +1346,6 @@ def process_corefs_into_triples(fnames):
         corefs[doc_id] = (document_triples,doc_sen_ids,fname)
 
     return corefs
-
-def get_simple_graph(graph):
-        """
-        Get simple nodes/edges/alignments representation from penman class
-        """
-
-        # alignments
-        isi_alignments = surface.alignments(graph)
-
-        # get map of node variables to node names (this excludes constants)
-        name_to_node = {}
-        alignments = {}
-        for x in graph.instances():
-            name_to_node[x.source] = x.target
-            if x in isi_alignments:
-                if len(isi_alignments[x].indices) == 1:
-                    alignments[x.source] = list(isi_alignments[x].indices)
-                elif len(isi_alignments[x].indices) == 2:
-                    start = isi_alignments[x].indices[0]
-                    end = isi_alignments[x].indices[-1]
-                    alignments[x.source] = list(range(start, end))
-                else:
-                    raise Exception('Unexpected ISI alignment format')
-
-        # reentrancy
-        reentrancies = [e for e, c in graph.reentrancies().items() if c > 1]
-
-        # Get all edges (excludes constants)
-        edges = []
-        re_entrant = defaultdict(list)
-        for x in graph.edges():
-            assert x.target in name_to_node
-
-            # get epidata
-            edge_epidata = graph.epidata[(x.source, x.role, x.target)]
-
-            # keep inverted edges
-            if (
-                edge_epidata
-                and isinstance(edge_epidata[0], Push)
-                and edge_epidata[0].variable == x.source
-            ):
-                # reversed edge
-                edge = (x.target, f'{x.role}-of', x.source)
-            else:
-                edge = (x.source, x.role, x.target)
-
-            # delay adding an edge if its reentrant until we produce the original
-            # edge
-            # TODO: Does not work fully, remove?
-            if (
-                edge[-1] in reentrancies
-                and edge_epidata
-                and isinstance(edge_epidata[0], Push)
-                and edge_epidata[0].variable == edge[-1]
-                and re_entrant[edge[-1]] is not None
-            ):
-                # this is the original edge from a re-entrant series
-                # append edge and all the re-entrancies
-                edges.append(edge)
-                edges.extend(re_entrant[edge[-1]])
-                # block, since we do not need it any more
-                re_entrant[edge[-1]] = None
-
-            elif (
-                edge[-1] in reentrancies
-                and re_entrant[edge[-1]] is not None
-            ):
-                # append also edges rentrant to these
-                re_entrant[edge[-1]].append(edge)
-
-            else:
-                # append edge
-                edges.append(edge)
-
-        # if nodes are re-entran to root, we will reach here with pending edges
-        for nid, rest in re_entrant.items():
-            if rest is not None:
-                edges.extend(rest)
-
-        if len(edges) < len(graph.edges()):
-            set_trace(context=30)
-
-        # Add constants both to node map and edges, use position in attribute as id
-        # sort attributes by target for consistency in assignment
-        attributes = sorted(
-            graph.attributes(),
-            key=lambda x: (
-                x.source, x.role, x.target.replace('"', '')
-            )
-        )
-        for index, att in enumerate(attributes):
-            assert index not in name_to_node
-            # will be used as a node id, needs to be a string
-            index = str(index)
-            name_to_node[index] = att.target
-            # add alignments
-            if att in isi_alignments:
-                if len(isi_alignments[att].indices) == 1:
-                    alignments[index] = list(isi_alignments[att].indices)
-                elif len(isi_alignments[att].indices) == 2:
-                    start = isi_alignments[att].indices[0]
-                    end = isi_alignments[att].indices[-1]
-                    alignments[index] = list(range(start, end))
-                else:
-                    raise Exception('Unexpected ISI alignment format')
-
-            edge_epidata = graph.epidata[(att.source, att.role, att.target)]
-            if (
-                edge_epidata
-                and isinstance(edge_epidata[0], Push)
-                and edge_epidata[0].variable == x.source
-            ):
-                # reversed edge
-                raise Exception()
-                edges.append((index, f'{att.role}-of', att.source))
-            else:
-                edges.append((att.source, att.role, index))
-
-        return name_to_node, edges, alignments
 
 def chain2triples(chain):
     #chains of coref (sentence id, node variable, concept)
