@@ -41,7 +41,7 @@ else
         && cp $ALIGNED_FOLDER/alignment.trn.align_dist.npy $ORACLE_FOLDER/
 
     echo -e "\nTrain data"
-if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
+    if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
         python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_TRAIN_FILE \
             --coref-fof $TRAIN_COREF \
@@ -80,7 +80,7 @@ if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
     # copy machine config to model config
     for seed in $SEEDS;do
         # define seed and working dir
-        checkpoints_dir="${MODEL_FOLDER}-seed${seed}/"
+        checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
         cp $ORACLE_FOLDER/machine_config.json $checkpoints_dir
     done
 
@@ -125,10 +125,10 @@ if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
 
     if [ $MODE = "doc" ];then
         echo -e "\n Making docamr test data"
-        python transition_amr_parser/get_doc_amr_from_sen.py \ 
+        python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_TEST_FILE \
-            --coref-fof $DEV_COREF  \
-            --fof-path $FOF_PATH  \
+            --coref-fof $TEST_COREF \
+            --fof-path $FOF_PATH \
             --norm $NORM \
             --out-amr $ORACLE_FOLDER/test_${NORM}.docamr
 
@@ -136,8 +136,15 @@ if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
     fi
     
     if [ $MODE = "doc+sen" ];then
-        echo -e "\n Using sentence test data"
-        TEST_IN_AMR=$AMR_SENT_TEST_FILE
+        # echo -e "\n Using sentence test data"
+        echo -e "\n Making docamr dev data to use instead of senamr test in doc+sen mode"
+        python transition_amr_parser/get_doc_amr_from_sen.py \
+            --in-amr $AMR_DEV_FILE \
+            --coref-fof $DEV_COREF \
+            --fof-path $FOF_PATH \
+            --norm $NORM \
+            --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
+        TEST_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
     fi
 
     if [ $MODE = "sen" ];then
