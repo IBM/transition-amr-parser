@@ -536,7 +536,7 @@ def check_if_coref_edge(head, edges,rel):
 
 def force_rooted_connected_graph(nodes, edges, root , prune=False):
 
-#prune edges with nodes that are not present in the sentence nodes in case of doc-amr
+    #prune edges with nodes that are not present in the sentence nodes in case of doc-amr
     if prune:
         new_edges =[]
         for (s,l,t) in edges:
