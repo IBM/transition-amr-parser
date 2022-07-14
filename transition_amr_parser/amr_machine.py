@@ -66,12 +66,13 @@ def graph_alignments(unaligned_nodes, amr):
         return fix_alignments
 
     # then parent-based ones
-    for (src, _, tgt) in amr.edges:
+    for (src, rel, tgt) in amr.edges:
         if (
             tgt in unaligned_nodes
             and amr.alignments.get(src, None) is not None
             and min(amr.alignments[src])
                 < fix_alignments.get(tgt, 1e6)
+            and rel not in [':coref-edge',':part-of',':subset-of']
         ):
             fix_alignments[tgt] = max(amr.alignments[src])
 
@@ -356,11 +357,36 @@ class AMROracle():
         gold_node_id = self.node_reverse_map[node_id]
         return self.pend_edges_by_node[gold_node_id] == []
 
-    def get_action(self, machine):
+    def get_action(self, machine,truncate=False):
 
         # sanity check: machine is on current oracle path
         if self.expected_history != machine.action_history:
             raise Exception('Machine did not follow this oracle')
+
+        #FIXME hardcoded truncate to 1024
+        # truncate if src size or tgt size exceeds 1024,induce CLOSE action
+        if truncate:
+            if machine.tok_cursor>=1024 and len(machine.action_history)<1024 :
+                self.expected_history.append('CLOSE')
+                machine.is_truncated = True
+                return 'CLOSE'
+
+            elif len(machine.action_history)>=1024:
+                #one less than 1024 to account for final action CLOSE
+                popped_toks = []
+                last_tok = 0
+                while len(machine.actions_tokcursor)>=1024 or last_tok in popped_toks:
+                    pop_tok = machine.actions_tokcursor.pop()
+                    popped_toks.append(pop_tok)
+                    pop_act = machine.action_history.pop()
+                    last_tok = machine.actions_tokcursor[-1]
+
+                machine.tokens = machine.tokens[0:last_tok]
+                self.expected_history.append('CLOSE')
+                machine.is_truncated = True
+                return 'CLOSE'
+
+
 
         # Label node as root
         if (
@@ -569,6 +595,9 @@ class AMRStateMachine():
 
         # state info useful in the model
         self.actions_tokcursor = []
+
+        #flag to indicate if actions have been truncated. To help with get_valid_actions
+        self.is_truncated=False
 
         # align mode
         self.gold_amr = gold_amr
@@ -825,6 +854,10 @@ class AMRStateMachine():
             assert valid_base_actions==['CLOSE_SENTENCE']
             # print(self.action_history[-6:-1])
             # assert self.action_history[-1] == 'SHIFT'
+            valid_base_actions.append('CLOSE')
+
+        #FIXME add CLOSE as valid action when src or tgt sizes exceed 1024
+        if self.is_truncated or self.tok_cursor>=1024:
             valid_base_actions.append('CLOSE')
 
 
@@ -1482,7 +1515,7 @@ def oracle(args):
         while not machine.is_closed:
 
             # oracle action given machine state
-            action = oracle.get_action(machine)
+            action = oracle.get_action(machine,truncate=args.truncate)
 
             # sanity check action is valide
             if (
@@ -1717,6 +1750,11 @@ def argument_parser():
         "--if-oracle-error",
         help="choose action to do if oracle does not match gold",
         choices=['stop', 'raise'],
+    )
+    parser.add_argument(
+        "--truncate",
+        help="truncate src sizes and tgt sizes to 1024",
+        action='store_true',
     )
     args = parser.parse_args()
     return args
