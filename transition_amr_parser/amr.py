@@ -518,14 +518,15 @@ def find_roots(edges, root):
     heads = [n for n in nodes if num_parents[n] == 0]
     # if we have edges and no head, there is a cycle. Cut at the node with
     # highest number of children
-    if heads == []:
+    #FIXME changed from highest number of children to returning all candidates with least parents and using num of descendants to judge
+    while len(heads)==0 and edges:
+        least_num_parent = 1
         if root is None:
-            if edges:
-                heads = [num_children.most_common(1)[0][0]]
-            else:
-                heads = []
+                # heads = [num_children.most_common(1)[0][0]]
+                heads = [k for k, c in num_parents.items() if c ==least_num_parent]
         else:
             heads = [root]
+        least_num_parent+=1
     return heads
 
 def check_if_coref_edge(head, edges,rel):
@@ -533,6 +534,9 @@ def check_if_coref_edge(head, edges,rel):
         if head==e[0] and e[1]==rel:
             return (e[2],e[1],e[0])
     return None
+
+def intersection_lst(lst1, lst2):
+    return list(set(lst1) & set(lst2))
 
 def force_rooted_connected_graph(nodes, edges, root , prune=False):
 
@@ -560,7 +564,9 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False):
         total_visited |= set(descendants)
     loose_nodes = set(nodes) - total_visited
 
+
     # find root strategy: multi-sentence or head with more descendants
+    #FIXME wrong root in the case of cyclic graphs
     if root is None:
         if 'multi-sentence' in nodes.values():
             index = list(nodes.values()).index('multi-sentence')
@@ -573,6 +579,21 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False):
             def key(x): return len(x[1])
             root = sorted(head_descendants.items(), key=key)[-1][0]
 
+    #FIXME added fix in case of multiple heads, and they connect at the bottom (children) then no new edge is added
+    if len(heads)>1 and len(head_descendants)>0:
+        intersecting_heads = []
+        for i,head in enumerate(heads):
+            for j, head2 in enumerate(heads):
+                if i!=j:
+                    if head in head_descendants and head2 in head_descendants:
+                        intsec = intersection_lst(head_descendants[head],head_descendants[head2])
+                        if len(intsec)>0 :
+                            intersecting_heads.extend([head,head2])
+                            break
+                    else:
+                        continue
+                        
+        heads = [i for i in heads if i not in intersecting_heads]
     # connect graph: add rel edges from detached subgraphs to the root
     for n in heads + sorted(loose_nodes):
         if n != root:
