@@ -31,8 +31,9 @@ MODE="doc"
 TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
 DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
 TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
-FOF_PATH=<path_to_AMR3.0 annotations and coref xml files>
+FOF_PATH=/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/
 NORM="no-merge"
+DOC_ORACLE_ARGS=""
 
 
 ##############################################################################
@@ -63,7 +64,7 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 ##############################################################################
 
 # oracle action sequences
-ORACLE_TAG=bartsv-nodesplit_o10_act-states_doc_MODE-${MODE}_penmanfix_v0.2_danglingfixed
+ORACLE_TAG=bartsv-nodesplit_o10_act-states_doc_MODE-${MODE}_v0.2
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -84,7 +85,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.large_doc_MODE-${MODE}_v0.2_danglingfixed
+embedding_tag=bart.large_doc_MODE-${MODE}_v0.2
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -191,6 +192,8 @@ dyo_run_freq=1
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
 FAIRSEQ_TRAIN_FINETUNE_ARGS=""
 FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
+FAIRSEQ_TEST_SKIP_ARGS="--skip-invalid-size-inputs-valid-test \
+                        --avoid-indices 34"
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
@@ -338,5 +341,5 @@ LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 BATCH_SIZE=128
 BEAM_SIZE=10
 # Smatch evaluation with wiki
-EVAL_METRIC=wiki.smatch
+EVAL_METRIC=smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
