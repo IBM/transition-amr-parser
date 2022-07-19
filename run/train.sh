@@ -23,7 +23,7 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
-if [! -z $FAIRSEQ_SKIP_ARGS];then
+if [ -z $FAIRSEQ_SKIP_ARGS ];then
     FAIRSEQ_SKIP_ARGS=""
 fi
 
