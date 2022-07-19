@@ -296,6 +296,7 @@ def add_dataset_args(parser, train=False, gen=False):
                         choices=get_available_dataset_impl(),
                         help='output dataset implementation')
     group.add_argument('--avoid-indices',nargs="+",type=int, help='indices to avoid',default=[])
+    group.add_argument('--avoid-range',nargs="+",type=int, help='indices to avoid',default=None)
 
     if train:
         group.add_argument('--train-subset', default='train', metavar='SPLIT',

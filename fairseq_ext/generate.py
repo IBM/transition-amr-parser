@@ -188,7 +188,8 @@ def main(args):
         num_shards=args.num_shards,
         shard_id=args.shard_id,
         num_workers=args.num_workers,
-        avoid_indices=args.avoid_indices
+        avoid_indices=args.avoid_indices,
+        avoid_range=args.avoid_range
         # large_sent_first=False        # not in fairseq
     ).next_epoch_itr(shuffle=False)
 
