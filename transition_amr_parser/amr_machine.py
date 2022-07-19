@@ -363,25 +363,25 @@ class AMROracle():
         if self.expected_history != machine.action_history:
             raise Exception('Machine did not follow this oracle')
 
-        #FIXME hardcoded truncate to 1024
+        #FIXME hardcoded truncate to 900 for tgt and 1024 for src
         # truncate if src size or tgt size exceeds 1024,induce CLOSE action
         if truncate:
-            if machine.tok_cursor>=1024 and len(machine.action_history)<1024 :
+            if machine.tok_cursor>=1024 and len(machine.action_history)<900 :
                 self.expected_history.append('CLOSE')
                 machine.is_truncated = True
                 return 'CLOSE'
 
-            elif len(machine.action_history)>=1024:
+            elif len(machine.action_history)>=900:
                 #one less than 1024 to account for final action CLOSE
                 popped_toks = []
                 last_tok = 0
-                while len(machine.actions_tokcursor)>=1024 or last_tok in popped_toks:
+                while len(machine.actions_tokcursor)>=900 or last_tok in popped_toks:
                     pop_tok = machine.actions_tokcursor.pop()
                     popped_toks.append(pop_tok)
                     pop_act = machine.action_history.pop()
                     last_tok = machine.actions_tokcursor[-1]
 
-                machine.tokens = machine.tokens[0:last_tok]
+                machine.tokens = machine.tokens[0:last_tok+1]
                 self.expected_history.append('CLOSE')
                 machine.is_truncated = True
                 return 'CLOSE'
@@ -614,9 +614,9 @@ class AMRStateMachine():
         self.sentence_edges = []
         self.root = None
     
-    def connect_sentences(self,root_id):
-        for idx,n in enumerate(self.sentence_roots):
-            self.edges.append((root_id, ':snt'+str(idx+1), n))
+    # def connect_sentences(self,root_id):
+    #     for idx,n in enumerate(self.sentence_roots):
+    #         self.edges.append((root_id, ':snt'+str(idx+1), n))
 
 
     @classmethod
