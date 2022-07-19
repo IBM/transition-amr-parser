@@ -38,26 +38,83 @@ echo "[Configuration file:]"
 echo $config
 . $config 
 
-if [! -z $FAIRSEQ_SKIP_ARGS];then
-    FAIRSEQ_SKIP_ARGS=""
+
+if [ -z "$FAIRSEQ_TEST_SKIP_ARGS" ];then
+    FAIRSEQ_TEST_SKIP_ARGS=""
 fi
 
-# set data split parameters 
-if [ $data_split2 == "dev" ]; then
-    data_split=valid
-    data_split_name=dev
-    reference_amr=$AMR_DEV_FILE
-    wiki=$LINKER_CACHE_PATH/dev.wiki
-    reference_amr_wiki=$AMR_DEV_FILE_WIKI
-elif [ $data_split2 == "test" ]; then
-    data_split=test
-    data_split_name=test
-    reference_amr=$AMR_TEST_FILE
-    wiki=$LINKER_CACHE_PATH/test.wiki
-    reference_amr_wiki=$AMR_TEST_FILE_WIKI
-else
-    echo "$2 is invalid; must be dev or test"
-    exit 1
+if [ -z "$MODE" ];then
+    MODE="sen"
+fi
+
+if [ $MODE == "doc" ];then
+    echo "mode doc"
+    echo "using doc amr as reference amr"
+    if [ $data_split2 == "dev" ]; then
+        data_split=valid
+        data_split_name=dev
+        reference_amr=$ORACLE_FOLDER/dev_${NORM}.docamr
+    elif [ $data_split2 == "test" ]; then
+        data_split=test
+        data_split_name=test
+        reference_amr=$ORACLE_FOLDER/test_${NORM}.docamr
+    
+    else
+        echo "$2 is invalid; must be dev or test"
+        exit 1
+    fi
+
+elif [ $MODE == "doc+sen" ];then
+    echo "mode doc+sen"
+    if [ $data_split2 == "dev" ]; then
+        echo "use sen amr as reference amr for dev"
+        data_split=valid
+        data_split_name=dev
+        reference_amr=$AMR_DEV_FILE
+        wiki=$LINKER_CACHE_PATH/dev.wiki
+        reference_amr_wiki=$AMR_DEV_FILE_WIKI
+    elif [ $data_split2 == "test" ]; then
+        echo "use dev doc amr as reference amr"
+        data_split=test
+        data_split_name=test
+        reference_amr=$ORACLE_FOLDER/dev_${NORM}.docamr
+    else
+        echo "$2 is invalid; must be dev or test"
+        exit 1
+    fi
+
+
+elif [ $MODE == "sen" ];then
+    # set data split parameters
+    echo "mode sen"
+    echo "use sen amr as reference amr"
+    if [ $data_split2 == "dev" ]; then
+        data_split=valid
+        data_split_name=dev
+        reference_amr=$AMR_DEV_FILE
+        wiki=$LINKER_CACHE_PATH/dev.wiki
+        reference_amr_wiki=$AMR_DEV_FILE_WIKI
+    elif [ $data_split2 == "test" ]; then
+        data_split=test
+        data_split_name=test
+        reference_amr=$AMR_TEST_FILE
+        wiki=$LINKER_CACHE_PATH/test.wiki
+        reference_amr_wiki=$AMR_TEST_FILE_WIKI
+    else
+        echo "$2 is invalid; must be dev or test"
+        exit 1
+    fi
+fi
+
+if [[ $FAIRSEQ_TEST_SKIP_ARGS =~ "--avoid-indices" ]]; then
+            echo "removing indices from reference amr"
+            
+            param_str="\"|${FAIRSEQ_TEST_SKIP_ARGS//[$'\t\r\n']}|\""
+                
+            python transition_amr_parser/remove_amrs.py \
+                --in-amr $reference_amr \
+                --arg-str "$param_str" \
+                --out-amr $reference_amr
 fi
 
 # we may have to re-compute features
@@ -100,16 +157,17 @@ if [ ! -f "${results_prefix}.actions" ];then
         --path $checkpoint \
         --quiet \
         --results-path $results_prefix \
-        $FAIRSEQ_SKIP_ARGS 
+        $FAIRSEQ_TEST_SKIP_ARGS 
 
 fi
 
 ##### Create the AMR from the model obtained actions
 python transition_amr_parser/amr_machine.py \
     --in-machine-config $ORACLE_FOLDER/machine_config.json \
-    --in-tokens $ORACLE_FOLDER/${data_split_name}.en \
+    --in-tokens ${results_prefix}.en \
     --in-actions ${results_prefix}.actions \
     --out-amr ${results_prefix}.amr
+    #--in-tokens $ORACLE_FOLDER/${data_split_name}.en \
 
 
 # GRAPH POST-PROCESSING
@@ -152,10 +210,17 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
-    smatch.py -r 10 --significant 4 \
+    if [ $MODE == "doc" ];then
+        smatch_doc/smatch.py -r 10 --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr.no_isi \
          | tee ${results_prefix}.smatch
+    else
+        smatch.py -r 10 --significant 4 \
+            -f $reference_amr \
+            ${results_prefix}.amr.no_isi \
+            | tee ${results_prefix}.smatch
+    fi
 
 elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
