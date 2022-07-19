@@ -20,6 +20,10 @@ echo $config
 # We will need this to save the alignment log
 mkdir -p $ORACLE_FOLDER
 
+if [ -z "$MODE" ];then
+    MODE="sen"
+fi
+
 ##### ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
 if [ -f $ORACLE_FOLDER/.done ]; then
@@ -42,6 +46,7 @@ else
 
     echo -e "\nTrain data"
     if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
+        echo "Doc Mode , making docamrs"
         python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_TRAIN_FILE \
             --coref-fof $TRAIN_COREF \
@@ -50,17 +55,16 @@ else
             --out-amr $ORACLE_FOLDER/train_${NORM}.docamr 
             
         TRAIN_IN_AMR=$ORACLE_FOLDER/train_${NORM}.docamr
-        if [ $MODE = "doc+sen" ];then
-            echo -e "\n Adding sentence data"
+        if [ $MODE == "doc+sen" ];then
+            echo -e "\n Doc+sen mode Adding sentence data"
             python transition_amr_parser/add_sentence_amrs_to_file.py \
                 --in-amr $AMR_SENT_TRAIN_FILE \
                 --out-amr $TRAIN_IN_AMR 
         fi
     
-    fi
 
-    if [ $MODE = "sen" ];then
-        echo -e "\n Using train data" 
+    elif [ $MODE == "sen" ];then
+        echo -e "\n Sen Mode , Using train data" 
         TRAIN_IN_AMR=$AMR_TRAIN_FILE
         cp $TRAIN_IN_AMR $ORACLE_FOLDER/ref_train.amr
     fi
@@ -85,8 +89,8 @@ else
     done
 
     echo -e "\nDev data"
-    if [ $MODE = "doc" ];then
-        echo -e "\n Making docamr dev data"
+    if [ $MODE == "doc" ];then
+        echo -e "\n Doc Mode ,Making docamr dev data"
         python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_DEV_FILE \
             --coref-fof $DEV_COREF \
@@ -94,16 +98,16 @@ else
             --norm $NORM \
             --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
         DEV_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
-    fi
+
 
     
-    if [ $MODE = "doc+sen" ];then
-        echo -e "\n Using sentence dev data"
+    elif [ $MODE == "doc+sen" ];then
+        echo -e "\n Doc+sen mode , Using sentence dev data"
         DEV_IN_AMR=$AMR_SENT_DEV_FILE
-    fi
 
-    if [ $MODE = "sen" ];then
-        echo -e "\n Using dev data" 
+
+    elif [ $MODE == "sen" ];then
+        echo -e "\n Sen Mode, Using dev data" 
         DEV_IN_AMR=$AMR_DEV_FILE
         cp $DEV_IN_AMR $ORACLE_FOLDER/ref_dev.amr
     fi
@@ -125,7 +129,7 @@ else
     echo -e "\nTest data"
 
     if [ $MODE = "doc" ];then
-        echo -e "\n Making docamr test data"
+        echo -e "\n Doc Mode,Making docamr test data"
         python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_TEST_FILE \
             --coref-fof $TEST_COREF \
@@ -138,7 +142,7 @@ else
     
     if [ $MODE = "doc+sen" ];then
         # echo -e "\n Using sentence test data"
-        echo -e "\n Making docamr dev data to use instead of senamr test in doc+sen mode"
+        echo -e "\n Doc+sen mode , Making docamr dev data to use instead of senamr test in doc+sen mode"
         python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_DEV_FILE \
             --coref-fof $DEV_COREF \
@@ -149,7 +153,7 @@ else
     fi
 
     if [ $MODE = "sen" ];then
-        echo -e "\n Using test data" 
+        echo -e "\n Sen Mode, Using test data" 
         TEST_IN_AMR=$AMR_TEST_FILE
         cp $TEST_IN_AMR $ORACLE_FOLDER/ref_test.amr
     fi
