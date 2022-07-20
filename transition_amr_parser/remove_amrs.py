@@ -10,6 +10,7 @@ def main(args):
     tqdm_amrs_str = read_blocks(args.in_amr)
     indices = re.findall(regex,args.arg_str)
     avoid_indices = indices[0].split()
+    avoid_indices = [int(i) for i in avoid_indices]
 
     with open(args.out_amr, 'w') as fid:
         for idx, penman_str in enumerate(tqdm_amrs_str):
