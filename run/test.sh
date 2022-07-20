@@ -110,11 +110,23 @@ if [[ $FAIRSEQ_TEST_SKIP_ARGS =~ "--avoid-indices" ]]; then
             echo "removing indices from reference amr"
             
             param_str="\"|${FAIRSEQ_TEST_SKIP_ARGS//[$'\t\r\n']}|\""
-                
+            
             python transition_amr_parser/remove_amrs.py \
                 --in-amr $reference_amr \
                 --arg-str "$param_str" \
-                --out-amr $reference_amr
+                --out-amr $ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
+
+            reference_amr=$ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
+
+            ORACLE_EN=$ORACLE_FOLDER/${data_split_name}_avoid_indices_removed.en
+            echo "removing indices from oracle"
+            python transition_amr_parser/remove_sen.py \
+                --in-file $ORACLE_FOLDER/${data_split_name}.en \
+                --arg-str "$param_str" \
+                --out-file $ORACLE_EN
+else
+    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
+
 fi
 
 # we may have to re-compute features
@@ -161,10 +173,11 @@ if [ ! -f "${results_prefix}.actions" ];then
 
 fi
 
+
 ##### Create the AMR from the model obtained actions
 python transition_amr_parser/amr_machine.py \
     --in-machine-config $ORACLE_FOLDER/machine_config.json \
-    --in-tokens ${results_prefix}.en \
+    --in-tokens $ORACLE_EN \
     --in-actions ${results_prefix}.actions \
     --out-amr ${results_prefix}.amr
     #--in-tokens $ORACLE_FOLDER/${data_split_name}.en \
@@ -211,7 +224,7 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "$reference_amr"
     echo "${results_prefix}.amr"
     if [ $MODE == "doc" ];then
-        smatch_doc/smatch.py -r 10 --significant 4 \
+        smatch.py -r 10 --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr.no_isi \
          | tee ${results_prefix}.smatch
