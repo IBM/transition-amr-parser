@@ -85,7 +85,10 @@ else
     for seed in $SEEDS;do
         # define seed and working dir
         checkpoints_dir="${MODEL_FOLDER}seed${seed}/"
-        cp $ORACLE_FOLDER/machine_config.json $checkpoints_dir
+	if [ -d $checkpoints_dir ]
+	then
+            cp $ORACLE_FOLDER/machine_config.json $checkpoints_dir
+	fi
     done
 
     echo -e "\nDev data"
@@ -120,6 +123,7 @@ else
         --in-aligned-amr $DEV_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
+        --out-fdec-actions $ORACLE_FOLDER/dev.force_actions \
         --out-tokens $ORACLE_FOLDER/dev.en \
         --absolute-stack-positions  \
         --use-copy ${USE_COPY} \

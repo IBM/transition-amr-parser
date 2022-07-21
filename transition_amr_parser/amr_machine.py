@@ -850,7 +850,8 @@ class AMRStateMachine():
             ):
             #if not self.force_actions or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1:
                 #if forced actions are remaining for this location ... do not allow SHIFT
-                valid_base_actions.append('SHIFT')
+                if self.tok_cursor < len(self.tokens)-1 or 'CLOSE_SENTENCE' not in self.action_history:
+                    valid_base_actions.append('SHIFT')
 
             if (
                 not self.force_actions
@@ -1539,11 +1540,12 @@ def oracle(args):
     stats = Stats(ignore_indices, ngram_stats=False,
                   if_oracle_error=args.if_oracle_error)
     stats_vocab = StatsForVocab(no_close=False)
+    all_force_actions = []
     for idx, penman_str in enumerate(tqdm_amrs):
 
         # read into AMR class (this looses epigraph data and attribute info)
         amr = AMR_doc.from_penman(penman_str)
-
+        
         # spawn new machine for this sentence
         machine.reset(amr.tokens)
 
@@ -1555,6 +1557,9 @@ def oracle(args):
         else:
             oracle.reset(amr)
 
+
+        all_force_actions.append(oracle.get_eos_force_actions())            
+            
         # proceed left to right throught the sentence generating nodes
         while not machine.is_closed:
 
@@ -1614,7 +1619,12 @@ def oracle(args):
             stats.tokens,
             '\t'
         )
-
+        
+    if args.out_fdec_actions:
+        fout = open(args.out_fdec_actions,'w')
+        for force_actions in all_force_actions:
+            fout.write(str(force_actions)+"\n")
+            
     # save action vocabulary stats
     # debug
 
@@ -1752,6 +1762,11 @@ def argument_parser():
     parser.add_argument(
         "--out-tokens",
         help="space separated tokens, one sentence per line",
+        type=str,
+    )
+    parser.add_argument(
+        "--out-fdec-actions",
+        help="tab separated actions, one sentence per line",
         type=str,
     )
     parser.add_argument(
