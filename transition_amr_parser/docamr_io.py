@@ -228,6 +228,7 @@ class AMR_doc(AMR):
                 removed_idx.append(idx)
             else:
                 new_tokens.append(tok)
+        self.sentence_ends.append(len(new_tokens)-1)
         self.tokens = new_tokens
         self.fix_alignments(removed_idx)
     #FIXME

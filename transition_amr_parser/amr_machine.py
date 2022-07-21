@@ -223,7 +223,8 @@ class AMROracle():
 
         # Force align unaligned nodes and store names for stats
         self.gold_amr, self.unaligned_nodes = graph_vicinity_align(gold_amr)
-
+        if self.gold_amr.__class__.__name__ == 'AMR_doc':
+            del self.gold_amr.alignments[self.gold_amr.root]
         if self.force_align_ner:
             raise NotImplementedError()
             # align parents in NERs to first child
@@ -263,6 +264,9 @@ class AMROracle():
                 other_id = e[0]
                 if other_id == node_id:
                     other_id = e[2]
+                if other_id not in node_id_2_node_number:
+                    print(self.gold_amr.nodes[other_id]+" node is still unaligned !!")
+                    continue
                 edges.append((node_id_2_node_number[other_id], idx))
             edges.sort(reverse=True)
             new_edges_for_node = []
@@ -449,13 +453,14 @@ class AMROracle():
                 self.expected_history.append(target_node)
                 return target_node
 
+        #NEW_ACTION
+        # # new sentence in document
+        if machine.tok_cursor in self.gold_amr.sentence_ends and machine.action_history[-1] != 'CLOSE_SENTENCE':
+            self.expected_history.append('CLOSE_SENTENCE')
+            return 'CLOSE_SENTENCE'
+        
         # Move monotonic attention
         if machine.tok_cursor < len(machine.tokens):
-            #NEW_ACTION
-            # # new sentence in document
-            if machine.tok_cursor in self.gold_amr.sentence_ends:
-                self.expected_history.append('CLOSE_SENTENCE')
-                return 'CLOSE_SENTENCE'
             self.expected_history.append('SHIFT')
             return 'SHIFT'
 
@@ -573,6 +578,19 @@ class AMRStateMachine():
         self.action_cursor = 0 #traverse actions in current token's action list
         self.free_nodes = []
         self.in_free_zone = True
+
+        '''
+        if self.gold_amr.__class__.__name__ == 'AMR_doc':
+            self.force_actions = []
+            for (i,_) in enumerate(self.tokens):
+                if i in self.gold_amr.sentence_ends:
+                    self.force_actions.append(['xANY','CLOSE_SENTENCE'])
+                    if i == len(self.tokens)-1 :
+                        self.force_actions[-1].append('SHIFT')
+                else:
+                    self.force_actions.append(['xANY','SHIFT'])
+        ''' 
+        
         if self.force_actions and len(self.force_actions[0]) and self.force_actions[0][0] != self.wild_any:
             self.in_free_zone = False        
         
@@ -614,9 +632,9 @@ class AMRStateMachine():
         self.sentence_edges = []
         self.root = None
     
-    # def connect_sentences(self,root_id):
-    #     for idx,n in enumerate(self.sentence_roots):
-    #         self.edges.append((root_id, ':snt'+str(idx+1), n))
+    def connect_sentences(self,root_id):
+        for idx,n in enumerate(self.sentence_roots):
+            self.edges.append((root_id, ':snt'+str(idx+1), n))
 
 
     @classmethod
@@ -793,7 +811,7 @@ class AMRStateMachine():
             # align mode (we know the AMR)
             return self._get_valid_align_actions()
 
-        valid_base_actions = ['CLOSE_SENTENCE']
+        valid_base_actions = []
         gen_node_actions = ['COPY', 'NODE'] if self.config.use_copy else ['NODE']
         
         if not self.in_free_zone:            
@@ -816,9 +834,23 @@ class AMRStateMachine():
         
 
         if self.tok_cursor < len(self.tokens):
-            if not self.force_actions or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1:
+            if (
+	            not self.force_actions
+                    or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
+                    or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['SHIFT']
+            ):
+            #if not self.force_actions or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1:
                 #if forced actions are remaining for this location ... do not allow SHIFT
                 valid_base_actions.append('SHIFT')
+
+            if self.tok_cursor < len(self.tokens)-1 or self.action_history[-1] != 'CLOSE_SENTENCE':
+                if (
+                    not self.force_actions
+                    or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
+                    or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['CLOSE_SENTENCE']
+                ):
+                    valid_base_actions.append('CLOSE_SENTENCE')
+                
             valid_base_actions.extend(gen_node_actions)
 
         if (
@@ -851,7 +883,7 @@ class AMRStateMachine():
         #     valid_base_actions.append('ROOT')
         
         if self.tok_cursor == len(self.tokens):
-            assert valid_base_actions==['CLOSE_SENTENCE']
+            # assert valid_base_actions==['CLOSE_SENTENCE']
             # print(self.action_history[-6:-1])
             # assert self.action_history[-1] == 'SHIFT'
             valid_base_actions.append('CLOSE')
@@ -918,16 +950,6 @@ class AMRStateMachine():
                 )
 
             self.is_closed = True
-            #SPECIAL CLOSE
-            # if len(self.sentence_roots) > 1:
-                #document node creation
-                # node_id = len(self.action_history)
-                # self.nodes[node_id] = 'document'
-                # self.node_stack.append(node_id)
-                # self.alignments[node_id].append(self.tok_cursor)
-                
-                # node_id = self.root
-                # self.connect_sentences(root_id = node_id)
 
         elif re.match(r'ROOT', action):
             self.root = self.node_stack[-1]
@@ -942,10 +964,22 @@ class AMRStateMachine():
                 self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
                 self.in_free_zone = False
 
+            if self.tok_cursor == len(self.tokens):
+                #CLOSE Close document if there are multiple sentence roots
+                if len(self.sentence_roots) > 1:
+                    #document node creation
+                    node_id = len(self.action_history)
+                    self.nodes[node_id] = 'document'
+                    #self.node_stack.append(node_id)
+                    #self.alignments[node_id].append(self.tok_cursor)
+                
+                    self.root = node_id
+                    self.connect_sentences(root_id = node_id)
+
+
         #NEW_ACTION FIXME
         elif action in ['CLOSE_SENTENCE']:
-            # Move source pointer (SHIFT)                                         
-            self.tok_cursor += 1
+            
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True)
             
@@ -957,6 +991,9 @@ class AMRStateMachine():
             self.edges_complete.extend(self.sentence_edges)
             self.sentence_reset()
 
+            # Move source pointer (SHIFT)
+            if self.tok_cursor < len(self.tokens)-1:
+                self.tok_cursor += 1
 
 
         # TODO: Separate REDUCE actions into its own method

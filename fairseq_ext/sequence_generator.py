@@ -235,6 +235,7 @@ class SequenceGenerator(object):
                     sm.reset(tokens=sample['src_sents'][i],
                              gold_amr=sample['gold_amr'][i])
                 elif 'force_actions' in sample:
+                    #force decoding (partial)
                     sm.reset(tokens=sample['src_sents'][i],
 	                     force_actions=sample['force_actions'][i])
                 else:
