@@ -55,7 +55,8 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     assert tgt == 'actions'
     tgt_nopos = tgt + '_nopos'
     tgt_pos = tgt + '_pos'
-
+    tgt_fdec = 'force_' + tgt
+    
     filename_prefix = os.path.join(data_path, f'{split}.{src}-{tgt}.')
     embfile_prefix = os.path.join(emb_dir, f'{split}.{src}-{tgt}.')
 
@@ -92,6 +93,12 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     # tgt: actions (encoded by a vocabulary)
     tgt_dataset = load_indexed_dataset(filename_prefix + tgt_nopos, tgt_dict, dataset_impl)
 
+    # tgt: force decoding partial actions
+    tgt_force_actions = []
+    with open(filename_prefix + tgt_fdec + src, 'r', encoding='utf-8') as f:
+        for line in f:
+            tgt_force_actions.append(eval(line))
+
     # tgt: actions pointers
     tgt_pos = load_indexed_dataset(filename_prefix + tgt_pos, tgt_dict, dataset_impl)
 
@@ -116,6 +123,7 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
                                       src_wp2w_sizes=src_wp2w.sizes,
                                       # tgt
                                       tgt=tgt_dataset,
+                                      tgt_force_actions=tgt_force_actions,
                                       tgt_sizes=tgt_dataset.sizes,
                                       tgt_dict=tgt_dict,
                                       tgt_pos=tgt_pos,

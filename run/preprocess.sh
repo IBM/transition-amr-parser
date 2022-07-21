@@ -127,6 +127,9 @@ else
 
     elif [[ $TASK == "amr_action_pointer_bart" ]]; then
 
+	cp $ORACLE_FOLDER/dev.force_actions $DATA_FOLDER/valid.en-actions.force_actions
+	cp $ORACLE_FOLDER/test.force_actions $DATA_FOLDER/test.en-actions.force_actions
+
         python fairseq_ext/preprocess_bart.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \

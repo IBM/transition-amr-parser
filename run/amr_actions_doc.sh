@@ -166,6 +166,7 @@ else
         --in-aligned-amr $TEST_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
+	--out-fdec-actions $ORACLE_FOLDER/test.force_actions \
         --out-tokens $ORACLE_FOLDER/test.en \
         --absolute-stack-positions  \
         --use-copy ${USE_COPY} \

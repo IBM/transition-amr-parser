@@ -293,6 +293,7 @@ class AMRActionPointerDataset(FairseqDataset):
                  src_wp2w=None, src_wp2w_sizes=None,
                  # tgt
                  tgt=None,
+                 tgt_force_actions=None,
                  tgt_sizes=None,
                  tgt_in=None,
                  tgt_in_sizes=None,
@@ -332,6 +333,7 @@ class AMRActionPointerDataset(FairseqDataset):
         self.src_tokens = src_tokens
         self.src = src
         self.tgt = tgt
+        self.tgt_force_actions = tgt_force_actions
         self.tgt_in = tgt_in
         self.src_sizes = np.array(src_sizes)
         self.tgt_sizes = np.array(tgt_sizes) if tgt_sizes is not None else None
@@ -410,6 +412,7 @@ class AMRActionPointerDataset(FairseqDataset):
         src_tokens_item = self.src_tokens[index] if self.src_tokens is not None else None
         src_item = self.src[index] if self.src is not None else None
         tgt_item = self.tgt[index]
+        force_actions_item = self.tgt_force_actions
         tgt_in_item = self.tgt_in[index] if self.tgt_in is not None else None
         tgt_pos_item = self.tgt_pos[index]
 
@@ -534,6 +537,7 @@ class AMRActionPointerDataset(FairseqDataset):
             'src_wordpieces': src_wordpieces_item,
             'src_wp2w': src_wp2w_item,
             'target': tgt_item,
+            'force_actions': force_actions_item,
             'tgt_in': tgt_in_item,
             'tgt_pos': tgt_pos_item,
             # AMR actions states (tied with the tgt output side)
