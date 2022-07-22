@@ -412,16 +412,16 @@ class AMROracle():
 
 
 
-        # Label node as root
+        # Label node as the root or as a sentence root
         if (
             machine.node_stack
             and machine.root is None
-            and self.node_reverse_map[machine.node_stack[-1]] ==
-                self.gold_amr.root
+            and (self.node_reverse_map[machine.node_stack[-1]] == self.gold_amr.root or
+                 self.node_reverse_map[machine.node_stack[-1]] in self.gold_amr.roots)
         ):
             self.expected_history.append('ROOT')
             return 'ROOT'
-
+        
         # REDUCE in stack after are LA/RA that completes all edges for an node
         if self.machine_config.reduce_nodes == 'all':
             arc_reduce_no_top = self.get_reduce_action(machine, top=False)

@@ -197,6 +197,10 @@ class AMR_doc(AMR):
         
 
         self.roots = []
+        if self.nodes[self.root] == 'document':
+            for (s,rel,t) in self.edges:
+                if s == self.root and rel.startswith(':snt'):
+                    self.roots.append(t)
 
         # xml file name, for doc-amr
         self.doc_file = None
