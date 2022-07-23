@@ -412,7 +412,7 @@ class AMRActionPointerDataset(FairseqDataset):
         src_tokens_item = self.src_tokens[index] if self.src_tokens is not None else None
         src_item = self.src[index] if self.src is not None else None
         tgt_item = self.tgt[index]
-        force_actions_item = self.tgt_force_actions
+        force_actions_item = self.tgt_force_actions[index] if self.tgt_force_actions else None
         tgt_in_item = self.tgt_in[index] if self.tgt_in is not None else None
         tgt_pos_item = self.tgt_pos[index]
 

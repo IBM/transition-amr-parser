@@ -396,26 +396,36 @@ class AMROracle():
                 return 'CLOSE'
 
             elif len(machine.action_history)>=900:
-                #one less than 1024 to account for final action CLOSE
-                popped_toks = []
-                last_tok = 0
-                while len(machine.actions_tokcursor)>=900 or last_tok in popped_toks:
-                    pop_tok = machine.actions_tokcursor.pop()
-                    popped_toks.append(pop_tok)
-                    pop_act = machine.action_history.pop()
-                    last_tok = machine.actions_tokcursor[-1]
 
-                machine.tokens = machine.tokens[0:last_tok+1]
-                self.expected_history.append('CLOSE')
+                #find the last CLOSE_SENTENCE
+                i = len(machine.action_history)-1
+                while machine.action_history[i] != 'CLOSE_SENTENCE' and i > 0:
+                    i -= 1
+                machine.action_history = machine.action_history[:i+1]
+                machine.actions_tokcursor = machine.actions_tokcursor[:i+1]
+                machine.tokens = machine.tokens[:machine.actions_tokcursor[i]+1]
+                
+                #one less than 1024 to account for final action CLOSE
+                #popped_toks = []
+                #last_tok = 0
+                #while len(machine.actions_tokcursor)>=900 or last_tok in popped_toks:
+                #    pop_tok = machine.actions_tokcursor.pop()
+                #    popped_toks.append(pop_tok)
+                #    pop_act = machine.action_history.pop()
+                #    last_tok = machine.actions_tokcursor[-1]
+
+                #machine.tokens = machine.tokens[0:last_tok+1]
+                #self.expected_history.append('CLOSE')
                 machine.is_truncated = True
                 return 'CLOSE'
 
 
-
+        gen_node_actions = ['COPY', 'NODE'] if machine.config.use_copy else ['NODE']
         # Label node as the root or as a sentence root
         if (
             machine.node_stack
             and machine.root is None
+            and machine.get_base_action(machine.action_history[-1]) in gen_node_actions
             and (self.node_reverse_map[machine.node_stack[-1]] == self.gold_amr.root or
                  self.node_reverse_map[machine.node_stack[-1]] in self.gold_amr.roots)
         ):
@@ -805,6 +815,10 @@ class AMRStateMachine():
 
     def get_valid_actions(self, max_1root=True):
 
+
+        if self.is_truncated:
+            return ['CLOSE']
+        
         # debug
         if self.debug:
             os.system('clear')

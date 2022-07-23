@@ -23,7 +23,7 @@ echo "[Configuration file:]"
 echo $config
 . $config
 
-if [ -z $FAIRSEQ_SKIP_ARGS ];then
+if [ -z ${FAIRSEQ_SKIP_ARGS:-} ];then
     FAIRSEQ_SKIP_ARGS=""
 fi
 
@@ -139,6 +139,7 @@ else
                 --tensorboard-logdir ${MODEL_FOLDER}seed${seed}/ $fp16 \
                 $ALIGNMENT_FLAGS \
                 $IMPORTANCE_WEIGTHED_SAMPLING_FLAG \
+		--skip-invalid-size-inputs-valid-test
 
         else
             # apt-bart with shared and mixed src and tgt vocabulary
