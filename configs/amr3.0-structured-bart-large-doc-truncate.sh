@@ -197,9 +197,7 @@ dyo_run_freq=1
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
 FAIRSEQ_TRAIN_FINETUNE_ARGS=""
 FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
-FAIRSEQ_TEST_SKIP_ARGS=""
-#--skip-invalid-size-inputs-valid-test \
-#                        --avoid-indices 34"
+FAIRSEQ_TEST_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
 
