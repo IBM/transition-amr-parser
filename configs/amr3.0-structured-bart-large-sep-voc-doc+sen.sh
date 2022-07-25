@@ -55,18 +55,18 @@ MODE="doc+sen"
 TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
 DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
 TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
-FOF_PATH=<path_to_AMR3.0 annotations and coref xml files>
+FOF_PATH=/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/
 NORM="no-merge"
-AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added.txt
+AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
 AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
 AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
-
+DOC_ORACLE_ARGS=""
 ##############################################################################
 # ORACLE
 ##############################################################################
 
 # oracle action sequences
-ORACLE_TAG=bartsv-nodesplit_o10_act-states_doc_MODE-${MODE}_penmanfix_v0.2_danglingfixed
+ORACLE_TAG=bartsv-nodesplit_o10_act-states_doc_MODE-${MODE}_v0.2
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -87,7 +87,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.large_doc_MODE-${MODE}_v0.2_danglingfixed
+embedding_tag=bart.large_doc_MODE-${MODE}_v0.2
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -195,6 +195,7 @@ dyo_run_freq=1
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
 FAIRSEQ_TRAIN_FINETUNE_ARGS=""
 FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
+FAIRSEQ_TEST_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
 
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
