@@ -185,12 +185,26 @@ python transition_amr_parser/amr_machine.py \
     #--in-tokens $ORACLE_FOLDER/${data_split_name}.en \
 
 ## Change rep of docamr to docAMR for smatch
-echo -e "\n Changing rep of dev data to docAMR "
-python transition_amr_parser/doc_amr.py   
-    --in-doc-amr-pairwise ${results_prefix}.amr \
-    --pairwise-coref-rel same-as \
-    --rep docAMR \
-    --out-amr ${results_prefix}.amr
+if [ $MODE == "doc" ];then
+    echo "mode doc"
+    echo -e "\n Changing rep of dev/test data to docAMR "
+    python transition_amr_parser/doc_amr.py \
+        --in-doc-amr-pairwise ${results_prefix}.amr \
+        --pairwise-coref-rel same-as \
+        --rep docAMR \
+        --out-amr ${results_prefix}.amr
+elif [ $MODE == "doc+sec" ];then
+    echo "mode doc+sen"
+    if [ $data_split2 == "test" ]; then
+        echo -e "\n Changing rep of test data(doc dev) to docAMR "
+        python transition_amr_parser/doc_amr.py \
+            --in-doc-amr-pairwise ${results_prefix}.amr \
+            --pairwise-coref-rel same-as \
+            --rep docAMR \
+            --out-amr ${results_prefix}.amr
+    fi
+fi
+
 
 # GRAPH POST-PROCESSING
 
