@@ -996,7 +996,7 @@ class AMRStateMachine():
             
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True)
-            if not self.root:
+            if self.root is None:
                 node_id = len(self.action_history)
                 self.nodes[node_id] = 'amr_empty'
                 self.root = node_id
