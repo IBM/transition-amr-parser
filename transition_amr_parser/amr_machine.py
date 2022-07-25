@@ -53,7 +53,7 @@ def graph_alignments(unaligned_nodes, amr):
             and amr.alignments.get(tgt, None) is not None
             and max(amr.alignments[tgt])
                 > fix_alignments.get(src, -1)
-            and rel not in [':coref-edge',':part-of',':subset-of']
+            and rel not in [':same-as',':part-of',':subset-of']
         ):
             # # debug: to justify to change 0 to -1e6 for a test data corner
             # case; see if there are other cases affected
@@ -72,7 +72,7 @@ def graph_alignments(unaligned_nodes, amr):
             and amr.alignments.get(src, None) is not None
             and min(amr.alignments[src])
                 < fix_alignments.get(tgt, 1e6)
-            and rel not in [':coref-edge',':part-of',':subset-of']
+            and rel not in [':same-as',':part-of',':subset-of']
         ):
             fix_alignments[tgt] = max(amr.alignments[src])
 
