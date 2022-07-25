@@ -225,6 +225,7 @@ class AMROracle():
         self.gold_amr, self.unaligned_nodes = graph_vicinity_align(gold_amr)
         #if self.gold_amr.__class__.__name__ == 'AMR_doc':
         if hasattr(self.gold_amr,'sentence_ends') and len(self.gold_amr.sentence_ends) > 0:
+            import ipdb; ipdb.set_trace()
             del self.gold_amr.alignments[self.gold_amr.root]
         if self.force_align_ner:
             raise NotImplementedError()
@@ -996,7 +997,7 @@ class AMRStateMachine():
             
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True)
-            if not self.root:
+            if self.root is None:
                 node_id = len(self.action_history)
                 self.nodes[node_id] = 'amr_empty'
                 self.root = node_id
