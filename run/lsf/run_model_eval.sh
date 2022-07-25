@@ -38,7 +38,7 @@ fi
 # wait until first checkpoint is available for any of the seeds. 
 # Clean-up checkpoints and inform of status in the meanwhile
 python run/status.py -c $config \
-    --wait-checkpoint-ready-to-eval --clear --remove
+    --wait-checkpoint-ready-to-eval --clear
 
 for seed in $SEEDS;do
 
@@ -46,7 +46,7 @@ for seed in $SEEDS;do
 
     # test all available checkpoints and link the best model on dev too
     jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
-    jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
+    jbsub -cores 1+1 -mem 50g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \
