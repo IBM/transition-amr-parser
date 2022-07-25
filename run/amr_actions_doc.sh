@@ -104,7 +104,7 @@ else
 
         echo -e "\n Getting docAMR rep of dev data "
         python transition_amr_parser/doc_amr.py \
-            --amr3-path $AMR_DEV_FILE \
+            --amr3-path $FOF_PATH \
             --coref-fof $DEV_COREF \
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
             --rep docAMR
@@ -151,7 +151,7 @@ else
         TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
 
         python transition_amr_parser/doc_amr.py \
-            --amr3-path $AMR_TEST_FILE \
+            --amr3-path $FOF_PATH \
             --coref-fof $TEST_COREF \
             --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
             --rep docAMR
@@ -168,7 +168,7 @@ else
             --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
         TEST_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
         python transition_amr_parser/doc_amr.py \
-            --amr3-path $AMR_DEV_FILE \
+            --amr3-path $FOF_PATH \
             --coref-fof $DEV_COREF \
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
             --rep docAMR
