@@ -1376,45 +1376,6 @@ def chain2triples(chain):
 
     return (triples, ref_node)
 
-def make_doc_amrs(corefs, amrs, coref=True,chains=True):
-    doc_amrs = {}
-
-    desc = "making doc-level AMRs"
-    if not coref:
-        desc += " (without corefs)"
-    for doc_id in tqdm(corefs, desc=desc):
-        (doc_corefs,doc_sids,fname) = corefs[doc_id]
-        if doc_sids[0] not in amrs:
-            import ipdb; ipdb.set_trace()
-        doc_amr = deepcopy(amrs[doc_sids[0]])
-        for sid in doc_sids[1:]:
-            if sid not in amrs:
-                import ipdb; ipdb.set_trace()
-            if amrs[sid].root is None:
-                continue
-            doc_amr = doc_amr + amrs[sid]
-        doc_amr.amr_id = doc_id
-        doc_amr.doc_file = fname
-        #sanity check
-        for e in doc_amr.edges:
-            if ':' not in e[1]:
-                print("BEFORE COREF MISSING COLON ",e)
-        if coref:
-            if chains:
-                doc_amr.add_corefs(doc_corefs)
-            else:
-                doc_amr.add_edges(doc_corefs)
-        #sanity check       
-        for e in doc_amr.edges:
-            if ':' not in e[1]:
-                print("AFTER COREF MISSING COLON ",e)
-        #replace penman
-        doc_amr.penman = None
-        doc_amrs[doc_id] = doc_amr
-
-    return doc_amrs
-
-
 def recent_member_by_sent(chain,sid,doc_id):
     def get_sid_fromstring(string):
          
@@ -1519,13 +1480,4 @@ def make_pairwise_edges(damr):
     
     return damr
 
-def connect_sen_amrs(amr):
-
-    if len(amr.roots) <= 1:
-        return
-
-    node_id = amr.add_node("document")
-    amr.root = str(node_id)
-    for (i,root) in enumerate(amr.roots):
-        amr.edges.append((amr.root, ":snt"+str(i+1), root))
 
