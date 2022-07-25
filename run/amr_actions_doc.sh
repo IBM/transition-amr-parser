@@ -106,7 +106,7 @@ else
         python transition_amr_parser/doc_amr.py
             --amr3-path $AMR_DEV_FILE \
             --coref-fof $DEV_COREF \
-            --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \ 
+            --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
             --rep docAMR
 
 
@@ -150,10 +150,10 @@ else
 
         TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
 
-        python doc_amr.py
+        python transition_amr_parser/doc_amr.py
             --amr3-path $AMR_TEST_FILE \
             --coref-fof $TEST_COREF \
-            --out-amr $ORACLE_FOLDER/test_docAMR.docamr \ 
+            --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
             --rep docAMR
     fi
     
