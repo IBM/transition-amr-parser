@@ -103,7 +103,7 @@ else
         DEV_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
 
         echo -e "\n Getting docAMR rep of dev data "
-        python transition_amr_parser/doc_amr.py
+        python transition_amr_parser/doc_amr.py \
             --amr3-path $AMR_DEV_FILE \
             --coref-fof $DEV_COREF \
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
@@ -150,7 +150,7 @@ else
 
         TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
 
-        python transition_amr_parser/doc_amr.py
+        python transition_amr_parser/doc_amr.py \
             --amr3-path $AMR_TEST_FILE \
             --coref-fof $TEST_COREF \
             --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
@@ -167,6 +167,11 @@ else
             --norm $NORM \
             --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
         TEST_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
+        python transition_amr_parser/doc_amr.py \
+            --amr3-path $AMR_DEV_FILE \
+            --coref-fof $DEV_COREF \
+            --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
+            --rep docAMR
     fi
 
     if [ $MODE = "sen" ];then
