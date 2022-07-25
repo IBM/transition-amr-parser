@@ -49,19 +49,42 @@ fi
 
 if [ $MODE == "doc" ];then
     echo "mode doc"
-    echo "using doc amr as reference amr"
+    echo "using doc amr with rep docAMR as reference amr"
     if [ $data_split2 == "dev" ]; then
         data_split=valid
         data_split_name=dev
-        reference_amr=$ORACLE_FOLDER/dev_${NORM}.docamr
+        reference_amr=$ORACLE_FOLDER/dev_docAMR.docamr
     elif [ $data_split2 == "test" ]; then
         data_split=test
         data_split_name=test
-        reference_amr=$ORACLE_FOLDER/test_${NORM}.docamr
+        reference_amr=$ORACLE_FOLDER/test_docAMR.docamr
     
     else
         echo "$2 is invalid; must be dev or test"
         exit 1
+    fi
+
+    if [[ $FAIRSEQ_TEST_SKIP_ARGS =~ "--avoid-indices" ]]; then
+            echo "removing indices from reference amr"
+            
+            param_str="\"|${FAIRSEQ_TEST_SKIP_ARGS//[$'\t\r\n']}|\""
+            
+            python transition_amr_parser/remove_amrs.py \
+                --in-amr $reference_amr \
+                --arg-str "$param_str" \
+                --out-amr $ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
+
+            reference_amr=$ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
+
+            ORACLE_EN=$ORACLE_FOLDER/${data_split_name}_avoid_indices_removed.en
+            echo "removing indices from oracle"
+            python transition_amr_parser/remove_sen.py \
+                --in-file $ORACLE_FOLDER/${data_split_name}.en \
+                --arg-str "$param_str" \
+                --out-file $ORACLE_EN
+    else
+        ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
+
     fi
 
 elif [ $MODE == "doc+sen" ];then
@@ -70,8 +93,9 @@ elif [ $MODE == "doc+sen" ];then
         echo "use sen amr as reference amr for dev"
         data_split=valid
         data_split_name=dev
-        reference_amr=$AMR_DEV_FILE
+        reference_amr=$AMR_SENT_DEV_FILE
         wiki=$LINKER_CACHE_PATH/dev.wiki
+        #FIXME
         reference_amr_wiki=$AMR_DEV_FILE_WIKI
     elif [ $data_split2 == "test" ]; then
         echo "use dev doc amr as reference amr"
@@ -106,28 +130,6 @@ elif [ $MODE == "sen" ];then
     fi
 fi
 
-if [[ $FAIRSEQ_TEST_SKIP_ARGS =~ "--avoid-indices" ]]; then
-            echo "removing indices from reference amr"
-            
-            param_str="\"|${FAIRSEQ_TEST_SKIP_ARGS//[$'\t\r\n']}|\""
-            
-            python transition_amr_parser/remove_amrs.py \
-                --in-amr $reference_amr \
-                --arg-str "$param_str" \
-                --out-amr $ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
-
-            reference_amr=$ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
-
-            ORACLE_EN=$ORACLE_FOLDER/${data_split_name}_avoid_indices_removed.en
-            echo "removing indices from oracle"
-            python transition_amr_parser/remove_sen.py \
-                --in-file $ORACLE_FOLDER/${data_split_name}.en \
-                --arg-str "$param_str" \
-                --out-file $ORACLE_EN
-else
-    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
-
-fi
 
 # we may have to re-compute features
 if [[ (-f $DATA_FOLDER/.done) && (-f $EMB_FOLDER/.done) ]]; then
@@ -182,6 +184,13 @@ python transition_amr_parser/amr_machine.py \
     --out-amr ${results_prefix}.amr
     #--in-tokens $ORACLE_FOLDER/${data_split_name}.en \
 
+## Change rep of docamr to docAMR for smatch
+echo -e "\n Changing rep of dev data to docAMR "
+python transition_amr_parser/doc_amr.py   
+    --in-doc-amr-pairwise ${results_prefix}.amr \
+    --pairwise-coref-rel same-as \
+    --rep docAMR \
+    --out-amr ${results_prefix}.amr
 
 # GRAPH POST-PROCESSING
 
@@ -223,6 +232,7 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
+    #TODO change to docSmatch
     if [ $MODE == "doc" ];then
         smatch.py -r 10 --significant 4 \
          -f $reference_amr \
