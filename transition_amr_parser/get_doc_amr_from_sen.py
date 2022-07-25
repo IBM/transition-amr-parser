@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 from copy import deepcopy
 from transition_amr_parser.io import read_blocks
-from transition_amr_parser.docamr_io import read_amr_penman, process_corefs, make_pairwise_edges,connect_sen_amrs,make_doc_amrs
+from transition_amr_parser.docamr_io import read_amr_penman, process_corefs, make_pairwise_edges
+from transition_amr_parser.doc_amr import connect_sen_amrs,make_doc_amrs
 import penman
 
 def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,out_amr,norm='no_merge'):
@@ -41,6 +42,7 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,out_amr,norm='no_merge'):
             document_top,top_rel,top_name = damr.penman.triples[0]
             assert top_name=='document'
             damr.alignments[document_top] = [len(damr.tokens)-1]
+            # damr.alignments[document_top] = [0]
             damr.check_connectivity()
             fid.write(damr.__str__())
 
