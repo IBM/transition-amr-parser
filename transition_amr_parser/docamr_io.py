@@ -917,6 +917,11 @@ class AMR_doc(AMR):
         nodes, edges, alignments = get_simple_graph(graph)
         if 'tok' in graph.metadata:
             tokens = graph.metadata['tok'].split()
+        elif 'snt' in graph.metadata:
+            if tokenize:
+                tokens = simple_tokenizer(graph.metadata['snt'])
+            else:
+                tokens = [graph.metadata['snt']]
         else:
             tokens = None
 
