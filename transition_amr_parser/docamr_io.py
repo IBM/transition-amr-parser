@@ -1411,7 +1411,7 @@ def make_pairwise_edges(damr):
     for idx,e in enumerate(damr.edges):
         if e[1] == ':coref-of':
             # if len(ents[e[2]])==0:
-                #damr.edges[idx] = (e[0],':coref-edge',ents[e[2]][-1])
+                #damr.edges[idx] = (e[0],':same-as',ents[e[2]][-1])
             # else:
             edges_to_delete.append(e)
 
@@ -1423,7 +1423,7 @@ def make_pairwise_edges(damr):
                 sid = e[0].split('.')[0]
                 if len(ents_chain[e[2]]) >0 :
                     ent = recent_member_by_sent(ents_chain[e[2]],sid,doc_id)
-                    damr.edges[idx] = (e[0],':coref-edge',ent)
+                    damr.edges[idx] = (e[0],':same-as',ent)
                 #FIXME
                 else:
                     print("coref edge missing, empty chain, edge not added")
@@ -1436,7 +1436,7 @@ def make_pairwise_edges(damr):
     for cents in ents_chain.values():
         cents.sort(key=lambda x:x[1])
         for idx in range(0,len(cents)-1):
-            damr.edges.append((cents[idx+1][0],':coref-edge',cents[idx][0]))
+            damr.edges.append((cents[idx+1][0],':same-as',cents[idx][0]))
 
     for e in edges_to_delete:
         while e in damr.edges:
