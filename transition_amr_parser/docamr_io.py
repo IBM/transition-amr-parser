@@ -1386,8 +1386,10 @@ def recent_member_by_sent(chain,sid,doc_id):
     sid = get_sid_fromstring(sid)    
     diff = lambda chain : abs(get_sid_fromstring(chain[0].split('.')[0]) - sid)
     ent = min(chain, key=diff)
+    fix = False
     if get_sid_fromstring(ent[0].split('.')[0]) > sid:
-        print(doc_id," closest sent is higher than connecting node ",ent[0],sid)
+    #     print(doc_id," closest sent is higher than connecting node ",ent[0],sid)
+        fix = True
     return ent[0]
 
     
@@ -1396,12 +1398,14 @@ def recent_member_by_align(chain,src_align,doc_id,rel=None):
  
     diff = lambda chain : abs(chain[1]-src_align)
     ent = min(chain, key=diff)
+    fix = False
     if ent[1]>= src_align:
-        print(doc_id," coref edge missing ",ent[1],src_align,rel)      
+    #     print(doc_id," coref edge missing ",ent[1],src_align,rel)
+        fix  = True      
     return ent[0]
 
 #convert v0 coref edge to connect to most recent sibling in the chain
-def make_pairwise_edges(damr):
+def make_pairwise_edges(damr,verbose=False):
     
     ents_chain = defaultdict(list)
     edges_to_delete = []
@@ -1426,6 +1430,7 @@ def make_pairwise_edges(damr):
                     damr.edges[idx] = (e[0],':same-as',ent)
                 #FIXME
                 else:
+                    
                     print("coref edge missing, empty chain, edge not added")
                 
             assert e[2].startswith('rel')
