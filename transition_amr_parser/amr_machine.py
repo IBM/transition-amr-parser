@@ -225,7 +225,6 @@ class AMROracle():
         self.gold_amr, self.unaligned_nodes = graph_vicinity_align(gold_amr)
         #if self.gold_amr.__class__.__name__ == 'AMR_doc':
         if hasattr(self.gold_amr,'sentence_ends') and len(self.gold_amr.sentence_ends) > 0:
-            import ipdb; ipdb.set_trace()
             del self.gold_amr.alignments[self.gold_amr.root]
         if self.force_align_ner:
             raise NotImplementedError()
