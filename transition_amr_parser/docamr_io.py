@@ -28,7 +28,7 @@ def simple_tokenizer(string):
 
 def read_amr(file_path):
     with open(file_path) as fid:
-        raw_amr = []
+        raw_amr = ''
         raw_amrs = {}
         for line in tqdm(fid.readlines(), desc='Reading AMR'):
             if "# AMR release" in line:
@@ -38,9 +38,9 @@ def read_amr(file_path):
                     # From penman
                     amr = AMR_doc.from_penman(raw_amr)
                     raw_amrs[amr.sid] = amr
-                    raw_amr = []                
+                    raw_amr = ''                
             else:
-                raw_amr.append(line)
+                raw_amr+=line
                 
         if len(raw_amr):
             # From penman
