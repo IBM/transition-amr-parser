@@ -52,10 +52,10 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None, machine_co
         # apply the current action
         # cano_act = amr_state_machine.canonical_action_form(act)
         cano_act = amr_state_machine.get_base_action(act)
-        # # # debug
-        # if cano_act not in act_allowed:
-        #     import pdb
-        #     pdb.set_trace()
+        # debug
+        if cano_act not in act_allowed:
+             import ipdb
+             ipdb.set_trace()
         assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
         amr_state_machine.update(act)
 
