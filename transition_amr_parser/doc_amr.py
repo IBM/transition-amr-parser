@@ -36,6 +36,8 @@ def make_doc_amrs(corefs, amrs, coref=True,chains=True):
             else:
                 doc_amr.add_edges(doc_corefs)
         
+        #replace penman
+        doc_amr.penman = None
         doc_amrs[doc_id] = doc_amr
 
     return doc_amrs
