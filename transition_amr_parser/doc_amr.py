@@ -4,7 +4,7 @@ import re
 import copy
 from tqdm import tqdm
 
-from amr_io import (
+from docamr_io import (
     AMR,
     read_amr,
     process_corefs
