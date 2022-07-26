@@ -29,17 +29,6 @@ AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt
 AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt 
 AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
-## DOC AMR ARGS
-MODE="doc+sen"
-TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
-DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
-TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
-FOF_PATH=/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/
-NORM="no-merge"
-AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
-AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
-AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
-DOC_ORACLE_ARGS="--truncate"
 
 ##############################################################################
 # AMR ALIGNMENT
@@ -61,8 +50,20 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-# WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
+WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
 # WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
+
+## DOC AMR ARGS
+MODE="doc+sen"
+TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
+DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
+TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
+FOF_PATH=/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/
+NORM="no-merge"
+AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
+AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
+AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
+DOC_ORACLE_ARGS="--truncate"
 
 ##############################################################################
 # ORACLE
@@ -338,7 +339,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 # Smatch evaluation with wiki
 
 # Old scorer
-LINKER_CACHE_PATH=""
+LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 #DATA/EL/legacy_linker_amr3.0/
 
 # BLINK
@@ -352,5 +353,5 @@ LINKER_CACHE_PATH=""
 BATCH_SIZE=128
 BEAM_SIZE=10
 # Smatch evaluation with wiki
-EVAL_METRIC=smatch
+EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
