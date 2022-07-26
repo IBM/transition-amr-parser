@@ -89,6 +89,7 @@ if [ $MODE == "doc" ];then
 
 elif [ $MODE == "doc+sen" ];then
     echo "mode doc+sen"
+    
     if [ $data_split2 == "dev" ]; then
         echo "use sen amr as reference amr for dev"
         data_split=valid
@@ -106,6 +107,7 @@ elif [ $MODE == "doc+sen" ];then
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
+    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 
 
 elif [ $MODE == "sen" ];then
@@ -128,6 +130,7 @@ elif [ $MODE == "sen" ];then
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
+    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 fi
 
 
