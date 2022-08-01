@@ -11,7 +11,7 @@ from transition_amr_parser.amr import AMR,get_simple_graph
 from ipdb import set_trace
 from copy import deepcopy
 
-def normalize(token):
+def normalize_tok(token):
     """
     Normalize token or node
     """
@@ -413,7 +413,7 @@ class AMR_doc(AMR):
         mergeable_kids = []
         for (i,e) in enumerate(self.edges):
             if e[2] == node2:
-                if e[0] == node1 :
+                if e[0] == node1 or e[0] == node2 :
                     edges_to_delete.append(e)
                     continue
                 new_edge = (e[0], e[1], node1)
@@ -422,7 +422,7 @@ class AMR_doc(AMR):
                 else:
                     edges_to_delete.append(e)
             if e[0] == node2:
-                if e[2] == node1 :
+                if e[2] == node1 or e[2] == node2 :
                     edges_to_delete.append(e)
                     continue
                 if e[1] not in [":name",":wiki"]:
@@ -639,7 +639,7 @@ class AMR_doc(AMR):
                                 print("type selected based on NE types " + ntype)
                             break
                     if not found_amr_type:
-                        freq_type = sorted(Counter(name_types).items(), key=lambda tup: tup[1], reverse=True)[0]
+                        freq_type = sorted(Counter(name_types).items(), key=lambda tup: tup[1], reverse=True)[0][0]
                         idx = name_types.index(freq_type)
                         names_head = named_nodes[idx]
                         if AMR_doc.verbose:
@@ -945,7 +945,7 @@ class AMR_doc(AMR):
             del graph.metadata[key]
 
         # remove quotes
-        nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
+        nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
 
         #node variables
         #values and literals dont get node variables
@@ -1047,7 +1047,7 @@ class AMR_doc(AMR):
         assert bool(nodes), "JAMR notation seems empty"
 
         # remove quotes
-        nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
+        nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
 
         return cls(tokens, nodes, edges, root, penman=None,
                    alignments=alignments, sentence=sentence, id=graph_id)
@@ -1245,7 +1245,7 @@ class AMR_doc(AMR):
         while found:
             found = False
             for e in self.edges:
-                if e[1] == coref_rel or e[1] == coref_rel+"-of":
+                if e[1] == ':'+coref_rel or e[1] == ':'+coref_rel+"-of":
                     found = True
                     self.merge_nodes_into_chain(e[0],e[2])
                     break
