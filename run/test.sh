@@ -42,6 +42,9 @@ echo $config
 if [ -z "$FAIRSEQ_TEST_SKIP_ARGS" ];then
     FAIRSEQ_TEST_SKIP_ARGS=""
 fi
+if [ -z ${EVAL_METRIC_TEST+x} ];then
+    EVAL_METRIC_TEST=""
+fi
 
 if [ -z "$MODE" ];then
     MODE="sen"
@@ -89,6 +92,7 @@ if [ $MODE == "doc" ];then
 
 elif [ $MODE == "doc+sen" ];then
     echo "mode doc+sen"
+    
     if [ $data_split2 == "dev" ]; then
         echo "use sen amr as reference amr for dev"
         data_split=valid
@@ -101,11 +105,12 @@ elif [ $MODE == "doc+sen" ];then
         echo "use dev doc amr as reference amr"
         data_split=test
         data_split_name=test
-        reference_amr=$ORACLE_FOLDER/dev_${NORM}.docamr
+        reference_amr=$ORACLE_FOLDER/dev_docAMR.docamr
     else
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
+    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 
 
 elif [ $MODE == "sen" ];then
@@ -128,6 +133,7 @@ elif [ $MODE == "sen" ];then
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
+    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 fi
 
 
@@ -192,8 +198,9 @@ if [ $MODE == "doc" ];then
         --in-doc-amr-pairwise ${results_prefix}.amr \
         --pairwise-coref-rel same-as \
         --rep docAMR \
-        --out-amr ${results_prefix}.amr
-elif [ $MODE == "doc+sec" ];then
+        --out-amr ${results_prefix}_docAMR.amr
+    results_prefix=${results_prefix}_docAMR
+elif [ $MODE == "doc+sen" ];then
     echo "mode doc+sen"
     if [ $data_split2 == "test" ]; then
         echo -e "\n Changing rep of test data(doc dev) to docAMR "
@@ -201,7 +208,8 @@ elif [ $MODE == "doc+sec" ];then
             --in-doc-amr-pairwise ${results_prefix}.amr \
             --pairwise-coref-rel same-as \
             --rep docAMR \
-            --out-amr ${results_prefix}.amr
+            --out-amr ${results_prefix}_docAMR.amr
+        results_prefix=${results_prefix}_docAMR
     fi
 fi
 
@@ -236,18 +244,22 @@ fi
 
 
 ##### SMATCH evaluation
-if [[ "$EVAL_METRIC" == "smatch" ]]; then
+if [ "$EVAL_METRIC" = "smatch" ];then
 
     # Smatch evaluation without wiki
 
     # until smatch is fixed, we need to remove the ISI alignment annotations
     sed 's@\~[0-9]\{1,\}@@g' ${results_prefix}.amr > ${results_prefix}.amr.no_isi
-
+    # if [[ "$reference_amr" =~ ".docamr" ]];then
+    #     echo "removing isi from reference amr"
+    #     sed 's@\~[0-9]\{1,\}@@g' $reference_amr > ${reference_amr}.no_isi
+    #     reference_amr=${reference_amr}.no_isi
+    # fi
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
     #TODO change to docSmatch
-    if [ $MODE == "doc" ];then
+    if [ $MODE == "doc" ] || [ "$MODE" = "doc+sen" ];then
         smatch.py -r 1 --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr.no_isi \
@@ -259,13 +271,17 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
             | tee ${results_prefix}.smatch
     fi
 
-elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
+elif [ "$EVAL_METRIC" = "wiki.smatch" ];then
 
     # Smatch evaluation without wiki
 
     # until smatch is fixed, we need to remove the ISI alignment annotations
     sed 's@\~[0-9]\{1,\}@@g' ${results_prefix}.wiki.amr > ${results_prefix}.wiki.amr.no_isi
-
+    if [ "$reference_amr" =~ ".docamr" ];then
+        echo "removing isi from reference amr"
+        sed 's@\~[0-9]\{1,\}@@g' $reference_amr > ${reference_amr}.no_isi
+        reference_amr=${reference_amr}.no_isi
+    fi
     # compute score
     echo "Computing SMATCH between ---"
     echo "$reference_amr_wiki"

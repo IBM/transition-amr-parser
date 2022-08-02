@@ -70,6 +70,7 @@ else
             # python fairseq_ext/train.py \
             python fairseq_ext/train.py \
                 $DATA_FOLDER \
+                $FAIRSEQ_SKIP_ARGS \
                 --emb-dir $EMB_FOLDER \
                 $FAIRSEQ_TRAIN_FINETUNE_ARGS \
                 --user-dir fairseq_ext \

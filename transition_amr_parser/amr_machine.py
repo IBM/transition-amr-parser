@@ -210,6 +210,7 @@ class AMROracle():
 
         self.alignment_sampling_temperature = alignment_sampling_temperature
         self.force_align_ner = force_align_ner
+        self.num_trunc = 0
 
     def reset(self, gold_amr, alignment_probs=None,
               alignment_sampling_temp=1.0):
@@ -393,6 +394,7 @@ class AMROracle():
             if machine.tok_cursor>=1024 and len(machine.action_history)<900 :
                 self.expected_history.append('CLOSE')
                 machine.is_truncated = True
+                self.num_trunc+=1
                 return 'CLOSE'
 
             elif len(machine.action_history)>=900:
@@ -417,6 +419,7 @@ class AMROracle():
                 #machine.tokens = machine.tokens[0:last_tok+1]
                 #self.expected_history.append('CLOSE')
                 machine.is_truncated = True
+                self.num_trunc+=1
                 return 'CLOSE'
 
 
@@ -1245,6 +1248,7 @@ class Stats():
         self.tokens = []
         self.action_sequences = []
         self.action_count = Counter()
+        self.num_trunc = []
 
         self.ngram_stats = ngram_stats
         self.breakpoint = breakpoint
@@ -1288,6 +1292,7 @@ class Stats():
         unodes = [oracle.gold_amr.nodes[n] for n in oracle.unaligned_nodes]
         self.unaligned_node_count.update(unodes)
         self.node_count += len(oracle.gold_amr.nodes)
+        self.num_trunc = oracle.num_trunc
 
         if self.index in self.ignore_indices:
             self.index += 1
@@ -1378,6 +1383,11 @@ class Stats():
                 ' by graph vicinity'
             ))
 
+        if self.num_trunc>0:
+            print(yellow_font(
+                f'{self.num_trunc}/{num_processed} truncated inputs'
+            ))
+            
         # Other stats
         return
 
