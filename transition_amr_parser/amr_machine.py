@@ -882,7 +882,7 @@ class AMRStateMachine():
             ):
                 valid_base_actions.append('CLOSE_SENTENCE')
                 
-            if 'CLOSE_SENTENCE' in self.force_actions[self.tok_cursor] and 'SHIFT' in valid_base_actions:
+            if self.force_actions and 'CLOSE_SENTENCE' in self.force_actions[self.tok_cursor] and 'SHIFT' in valid_base_actions:
                 import ipdb; ipdb.set_trace
                 print("bad bad")
                 
