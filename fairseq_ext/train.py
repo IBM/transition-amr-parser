@@ -14,7 +14,7 @@ import os
 import random
 import sys
 import copy
-
+from glob import glob
 import numpy as np
 # =========================================================================================
 # NOTE ERROR with the current environment, there is an error associated when using tensorboard:
@@ -96,7 +96,12 @@ def main(args):
     task = tasks.setup_task(args)
 
     # Load valid dataset (we load training data below, based on the latest checkpoint)
-    for valid_sub_split in args.valid_subset.split(","):
+    valid_sub_splits = args.valid_subset.split(",")
+    potential_sub_split =  glob(args.data+"/valid_?.*.en")
+    if len(potential_sub_split):
+        valid_sub_splits = [sub_split.split("/")[-1].split(".")[0] for sub_split in potential_sub_split]
+        
+    for valid_sub_split in valid_sub_splits:
         task.load_dataset(valid_sub_split, combine=False, epoch=1)
 
     # Build model and criterion
@@ -369,6 +374,9 @@ def train(args, trainer, task, epoch_itr):
 
     valid_losses = [None]
     valid_subsets = args.valid_subset.split(",")
+    potential_subsets =  glob(args.data+"/valid_?.*.en")
+    if len(potential_subsets):
+        valid_subsets = [ [sub_split.split("/")[-1].split(".")[0] for sub_split in potential_subsets][0] ]
     should_stop = False
     num_updates = trainer.get_num_updates()
     for i, samples in enumerate(progress):

@@ -610,8 +610,12 @@ class AMRStateMachine():
         self.in_free_zone = True
 
         
-        if self.force_actions and len(self.force_actions[0]) and self.force_actions[0][0] != self.wild_any:
-            self.in_free_zone = False        
+        if self.force_actions:
+            if len(self.force_actions[0]) and self.force_actions[0][0] != self.wild_any:
+                self.in_free_zone = False
+            if self.force_actions[-1][-2:] == ['CLOSE_SENTENCE','SHIFT']:
+                #this should not even have happened
+                self.force_actions[-1] = self.force_actions[-1][:-1]
         
         # AMR as we construct it
         # NOTE: We will use position of node generating action in action
@@ -857,6 +861,7 @@ class AMRStateMachine():
         
 
         if self.tok_cursor < len(self.tokens):
+            
             if (
 	            not self.force_actions
                     or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
@@ -873,6 +878,10 @@ class AMRStateMachine():
                 or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['CLOSE_SENTENCE']
             ):
                 valid_base_actions.append('CLOSE_SENTENCE')
+                
+            if 'CLOSE_SENTENCE' in self.force_actions[self.tok_cursor] and 'SHIFT' in valid_base_actions:
+                import ipdb; ipdb.set_trace
+                print("bad bad")
                 
             valid_base_actions.extend(gen_node_actions)
 
@@ -983,6 +992,7 @@ class AMRStateMachine():
             self.action_cursor = 0
             self.in_free_zone = True
             if (self.force_actions and
+                self.tok_cursor < len(self.tokens) and
                 len(self.force_actions[self.tok_cursor][self.action_cursor:]) != 0 and
                 self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
                 self.in_free_zone = False
@@ -991,9 +1001,15 @@ class AMRStateMachine():
         #NEW_ACTION FIXME
         elif action in ['CLOSE_SENTENCE']:
             
-            # Move source pointer (SHIFT)
+            # Move source pointer 
             self.tok_cursor += 1
-            
+            self.action_cursor = 0
+            self.in_free_zone = True
+            if (self.force_actions and
+                self.tok_cursor < len(self.tokens) and
+                len(self.force_actions[self.tok_cursor][self.action_cursor:]) != 0 and
+                self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
+                self.in_free_zone = False
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True)
             if self.root is None:

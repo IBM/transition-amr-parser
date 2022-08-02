@@ -88,7 +88,7 @@ def main(args):
     # and the dictionary is only built on the no pointer actions
     if run_basic:
         assert args.target_lang == 'actions', 'target extension must be "actions"'
-        actions_files = [f'{pref}.{args.target_lang}' for pref in (args.trainpref, args.validpref, args.testpref)]
+        actions_files = [f'{pref}.{args.target_lang}' for pref in [args.trainpref] + args.validpref.split(',') + args.testpref.split(',')]
         task.split_actions_pointer_files(actions_files)
         args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
         args.target_lang_pos = 'actions_pos'
@@ -254,11 +254,11 @@ def main(args):
             make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.workers, dataset_impl=dataset_impl)
         if args.validpref:
             for k, validpref in enumerate(args.validpref.split(",")):
-                outprefix = "valid{}".format(k) if k > 0 else "valid"
+                outprefix = "valid_{}".format(k) if k >= 0 else "valid"
                 make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
         if args.testpref:
             for k, testpref in enumerate(args.testpref.split(",")):
-                outprefix = "test{}".format(k) if k > 0 else "test"
+                outprefix = "test_{}".format(k) if k >= 0 else "test"
                 make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
 
     # NOTE we do not encode the source sentences with dictionary, as the source embeddings are directly provided
@@ -274,11 +274,24 @@ def main(args):
         # binarize pointer values and save to file
 
         # TODO make naming convention clearer
-        # assume one training file, one validation file, and one test file
-        for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
-                                [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
-            out_pref = os.path.join(args.destdir, split)
-            task.binarize_actions_pointer_file(pos_file, out_pref)
+        if len(args.validpref.split(",")) == 1:
+            # assume one training file, one validation file, and one test file
+            for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
+                                    [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
+                out_pref = os.path.join(args.destdir, split)
+                task.binarize_actions_pointer_file(pos_file, out_pref)
+        else:
+            if args.trainpref:
+                out_pref = os.path.join(args.destdir, 'train')
+                task.binarize_actions_pointer_file(f'{args.trainpref}.actions_pos', out_pref)
+            for (i,validpref) in enumerate(args.validpref.split(",")):
+                split = 'valid_'+str(i)
+                out_pref = os.path.join(args.destdir, split)
+                task.binarize_actions_pointer_file(f'{validpref}.actions_pos', out_pref)
+            for (i,testpref) in enumerate(args.testpref.split(",")):
+                split = 'test_'+str(i)
+                out_pref = os.path.join(args.destdir, split)
+                task.binarize_actions_pointer_file(f'{testpref}.actions_pos', out_pref)        
 
         # for dynamic oracle: copy the gold amr with alignments to the data folder
         if args.task == 'amr_action_pointer_bart_dyo':
@@ -301,13 +314,32 @@ def main(args):
     # assume one training file, one validation file, and one test file
     if run_act_states:
         task_obj = task(args, tgt_dict=tgt_dict)
-        for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
-            en_file = prefix + '.en'
-            actions_file = prefix + '.actions'
-            machine_config_file = os.path.join(os.path.dirname(prefix), 'machine_config.json')
-            out_file_pref = os.path.join(args.destdir, split)
-            task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref,
-                                               num_workers=args.workers)
+        machine_config_file = os.path.join(os.path.dirname(args.trainpref.split(",")[0]), 'machine_config.json')
+        if len(args.validpref.split(",")) == 1:
+            for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
+                en_file = prefix + '.en'
+                actions_file = prefix + '.actions'
+                out_file_pref = os.path.join(args.destdir, split)
+                task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref, num_workers=args.workers)
+        else:
+            #train
+            en_file = args.trainpref + '.en'
+            actions_file = args.trainpref + '.actions'
+            out_file_pref = os.path.join(args.destdir, 'train')
+            task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref, num_workers=args.workers)
+            #dev/valid
+            for (i,validpref) in enumerate(args.validpref.split(",")):
+                en_file = validpref + '.en'
+                actions_file = validpref + '.actions'
+                out_file_pref = os.path.join(args.destdir, 'valid_'+str(i))
+                task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref, num_workers=args.workers)
+            #test
+            for (i,testpref) in enumerate(args.testpref.split(",")):
+                en_file = testpref + '.en'
+                actions_file = testpref + '.actions'
+                out_file_pref = os.path.join(args.destdir, 'test_'+str(i))
+                task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref, num_workers=args.workers)
+                
         # create empty file flag
         open(os.path.join(args.destdir, '.done'), 'w').close()
 

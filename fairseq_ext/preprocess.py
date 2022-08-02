@@ -67,7 +67,7 @@ def main(args):
     # and the dictionary is only built on the no pointer actions
     if run_basic:
         assert args.target_lang == 'actions', 'target extension must be "actions"'
-        actions_files = [f'{pref}.{args.target_lang}' for pref in (args.trainpref, args.validpref, args.testpref)]
+        actions_files = [f'{pref}.{args.target_lang}' for pref in [args.trainpref] + args.validpref.split(",") + args.testpref.split(",")]
         task.split_actions_pointer_files(actions_files)
         args.target_lang_nopos = 'actions_nopos'    # only build dictionary without pointer values
         args.target_lang_pos = 'actions_pos'
@@ -250,21 +250,54 @@ def main(args):
         # binarize pointer values and save to file
 
         # TODO make naming convention clearer
-        # assume one training file, one validation file, and one test file
-        for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
-                                [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
-            out_pref = os.path.join(args.destdir, split)
-            task.binarize_actions_pointer_file(pos_file, out_pref)
+        if len(args.validpref.split(",")) == 1:
+            # assume one training file, one validation file, and one test file
+            for pos_file, split in [(f'{pref}.actions_pos', split) for pref, split in
+                                    [(args.trainpref, 'train'), (args.validpref, 'valid'), (args.testpref, 'test')]]:
+                out_pref = os.path.join(args.destdir, split)
+                task.binarize_actions_pointer_file(pos_file, out_pref)
+        else:
+            if args.trainpref:
+                out_pref = os.path.join(args.destdir, 'train')
+                task.binarize_actions_pointer_file(f'{args.trainpref}.actions_pos', out_pref)
+            for (i,validpref) in enumerate(args.validpref.split(",")):
+                split = 'valid'_str(i)
+                out_pref = os.path.join(args.destdir, split)
+                task.binarize_actions_pointer_file(f'{validpref}.actions_pos', out_pref)
+            for (i,testpref) in enumerate(args.testpref.split(",")):
+                split = 'test'_str(i)
+                out_pref = os.path.join(args.destdir, split)
+                task.binarize_actions_pointer_file(f'{testpref}.actions_pos', out_pref)
 
     # save action states information to assist training with auxiliary info
     # assume one training file, one validation file, and one test file
     if run_act_states:
         task_obj = task(args, tgt_dict=tgt_dict)
-        for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
-            en_file = prefix + '.en'
-            actions_file = prefix + '.actions'
-            out_file_pref = os.path.join(args.destdir, split)
+        if len(args.validpref.split(",")) == 1:
+            for prefix, split in zip([args.trainpref, args.validpref, args.testpref], ['train', 'valid', 'test']):
+                en_file = prefix + '.en'
+                actions_file = prefix + '.actions'
+                out_file_pref = os.path.join(args.destdir, split)
+                task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
+        else:
+            #train
+            en_file = args.trainpref + '.en'
+            actions_file = args.trainpref + '.actions'
+            out_file_pref = os.path.join(args.destdir, 'train')
             task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
+            #dev/valid
+            for (i,validpref) in enumerate(args.validpref.split(",")):
+                en_file = validpref + '.en'
+                actions_file = validpref + '.actions'
+                out_file_pref = os.path.join(args.destdir, 'valid_'+str(i))
+                task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
+            #test
+            for (i,testpref) in enumerate(args.testpref.split(",")):
+                en_file = testpref + '.en'
+                actions_file = testpref + '.actions'
+                out_file_pref = os.path.join(args.destdir, 'test_'+str(i))
+                task_obj.build_actions_states_info(en_file, actions_file, out_file_pref, num_workers=args.workers)
+        
 
     # save RoBERTa embeddings
     # TODO refactor this code

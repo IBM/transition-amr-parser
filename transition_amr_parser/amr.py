@@ -514,8 +514,12 @@ def find_roots(edges, root):
         num_children[s] += 1
         nodes.add(s)
         nodes.add(t)
-
+        
     heads = [n for n in nodes if num_parents[n] == 0]
+
+    if len(nodes) == 1:
+        heads = [n for n in nodes]
+    
     # if we have edges and no head, there is a cycle. Cut at the node with
     # highest number of children
     #FIXME changed from highest number of children to returning all candidates with least parents and using num of descendants to judge

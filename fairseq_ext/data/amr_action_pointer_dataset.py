@@ -238,6 +238,11 @@ def collate(
         tgt_actedge_directions = None
         tgt_actnode_masks_shift = None
 
+    force_actions = None
+    if 'force_actions' in samples[0]:
+        f_actions = [s['force_actions'] for s in samples]
+        force_actions = [f_actions[i] for i in sort_order]
+        
     # batch variables
     batch = {
         'id': id,
@@ -262,6 +267,7 @@ def collate(
             'tgt_actnode_masks_shift': tgt_actnode_masks_shift
         },
         'target': target,
+        'force_actions': force_actions,
         'tgt_pos': tgt_pos
     }
     if prev_output_tokens is not None:
