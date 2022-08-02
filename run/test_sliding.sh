@@ -101,11 +101,12 @@ elif [ $MODE == "doc+sen" ];then
         echo "use dev doc amr as reference amr"
         data_split=test
         data_split_name=test
-        reference_amr=$ORACLE_FOLDER/dev_${NORM}.docamr
+        reference_amr=$ORACLE_FOLDER/dev_docAMR.docamr
     else
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
+    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 
 
 elif [ $MODE == "sen" ];then
@@ -128,6 +129,7 @@ elif [ $MODE == "sen" ];then
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
+    ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 fi
 
 
@@ -218,8 +220,9 @@ if [ $MODE == "doc" ];then
         --in-doc-amr-pairwise ${results_prefix}.amr \
         --pairwise-coref-rel same-as \
         --rep docAMR \
-        --out-amr ${results_prefix}.amr
-elif [ $MODE == "doc+sec" ];then
+        --out-amr ${results_prefix}_docAMR.amr
+    results_prefix=${results_prefix}_docAMR
+elif [ $MODE == "doc+sen" ];then
     echo "mode doc+sen"
     if [ $data_split2 == "test" ]; then
         echo -e "\n Changing rep of test data(doc dev) to docAMR "
@@ -227,7 +230,8 @@ elif [ $MODE == "doc+sec" ];then
             --in-doc-amr-pairwise ${results_prefix}.amr \
             --pairwise-coref-rel same-as \
             --rep docAMR \
-            --out-amr ${results_prefix}.amr
+            --out-amr ${results_prefix}_docAMR.amr
+        results_prefix=${results_prefix}_docAMR
     fi
 fi
 
