@@ -300,7 +300,7 @@ elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr_wiki"
     echo "${results_prefix}.wiki.amr"
-    smatch.py -r 10 --significant 4  \
+    smatch.py -r 1 --significant 4  \
          -f $reference_amr_wiki \
          ${results_prefix}.wiki.amr.no_isi \
          | tee ${results_prefix}.wiki.smatch
