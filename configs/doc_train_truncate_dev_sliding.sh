@@ -10,7 +10,7 @@ set -o pipefail
 set -o nounset
 
 # this will be name of the model folder
-config_name=sliding.sh
+config_name=doc_train_truncate_dev_sliding
 
 ##############################################################################
 # DATA
