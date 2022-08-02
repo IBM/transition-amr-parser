@@ -599,7 +599,7 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False):
                         
         heads = [i for i in heads if i not in intersecting_heads]
     # connect graph: add rel edges from detached subgraphs to the root
-    for n in heads + sorted(loose_nodes):
+    for n in heads:# + sorted(loose_nodes):
         if n != root:
             edges.append((root, AMR.default_rel, n))
 
