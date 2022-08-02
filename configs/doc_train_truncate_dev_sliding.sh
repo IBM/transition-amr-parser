@@ -92,7 +92,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=${align_tag}_bart.large_doc_${MODE}_truncate_sliding
+embedding_tag=${align_tag}_bart.large_${MODE}_truncate_sliding
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
