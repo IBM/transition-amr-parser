@@ -57,7 +57,12 @@ def main(args):
                         new_sentence_ends.append(new_sentence_ends[-1] + window_size)
                     gap = send - new_sentence_ends[-1]
             new_sentence_ends.append(send)
-                
+
+        if len(sentence_ends) != len(new_sentence_ends):
+            print("added extra sentence ends to break windows")
+            print(sentence_ends)
+            print(new_sentence_ends)
+        
         all_sentence_ends.append(new_sentence_ends)
         all_actions_per_token.append(actions_per_token)
 
@@ -82,12 +87,12 @@ def main(args):
 
             this_window = (start,end)
             windows.append(this_window)
-            
             #find first start sentence within overlap in this_window
             for send in sentence_ends:
                 if (this_window[-1] - send) < window_overlap:
                     start = send + 1
-                    break
+                    if start > this_window[0]:
+                        break
 
         fout_windows.write(str(windows)+"\n")
                 
