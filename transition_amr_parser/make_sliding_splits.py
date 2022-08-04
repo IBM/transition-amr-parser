@@ -45,7 +45,20 @@ def main(args):
                 this_token_actions = []
         if len(sentence_ends) == 0:
             sentence_ends.append(len(this_token_actions)-1)
-        all_sentence_ends.append(sentence_ends)
+
+        new_sentence_ends = []
+        for (i,send) in enumerate(sentence_ends):
+            if i > 0:
+                gap = send - new_sentence_ends[-1]
+                while gap > window_size:
+                    if gap < window_size * 2:
+                        new_sentence_ends.append(new_sentence_ends[-1] + gap/2)
+                    else:
+                        new_sentence_ends.append(new_sentence_ends[-1] + window_size)
+                    gap = send - new_sentence_ends[-1]
+            new_sentence_ends.append(send)
+                
+        all_sentence_ends.append(new_sentence_ends)
         all_actions_per_token.append(actions_per_token)
 
     max_num_windows = 0
@@ -65,7 +78,6 @@ def main(args):
                     end = send
                 else:
                     break
-
             
 
             this_window = (start,end)
