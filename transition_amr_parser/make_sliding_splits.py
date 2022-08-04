@@ -43,6 +43,8 @@ def main(args):
                     sentence_ends.append(len(actions_per_token))
                 actions_per_token.append(this_token_actions)
                 this_token_actions = []
+        if len(sentence_ends) == 0:
+            sentence_ends.append(len(this_token_actions)-1)
         all_sentence_ends.append(sentence_ends)
         all_actions_per_token.append(actions_per_token)
 
@@ -63,6 +65,8 @@ def main(args):
                     end = send
                 else:
                     break
+
+            
 
             this_window = (start,end)
             windows.append(this_window)
