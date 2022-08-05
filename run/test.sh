@@ -259,8 +259,8 @@ if [ "$EVAL_METRIC" = "smatch" ];then
     echo "$reference_amr"
     echo "${results_prefix}.amr"
     #TODO change to docSmatch
-    if [ $MODE == "doc" ] || [ "$MODE" = "doc+sen" ];then
-        smatch.py -r 1 --significant 4 \
+    if [ $MODE == "doc" ];then
+        python docSmatch/smatch.py -r 10 --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr.no_isi \
          | tee ${results_prefix}.smatch
