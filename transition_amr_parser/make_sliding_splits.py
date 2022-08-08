@@ -52,7 +52,7 @@ def main(args):
                 gap = send - new_sentence_ends[-1]
                 while gap > window_size:
                     if gap < window_size * 2:
-                        new_sentence_ends.append(new_sentence_ends[-1] + gap/2)
+                        new_sentence_ends.append(new_sentence_ends[-1] + int(gap/2))
                     else:
                         new_sentence_ends.append(new_sentence_ends[-1] + window_size)
                     gap = send - new_sentence_ends[-1]
@@ -160,13 +160,13 @@ if __name__ == '__main__':
     parser.add_argument(
         "--window-size",
         help="size of sliding window",
-        default=400,
+        default=100,
         type=int,
     )
     parser.add_argument(
         "--window-overlap",
         help="size of overlap between sliding windows",
-        default=200,
+        default=50,
         type=int,
     )
     args = parser.parse_args()
