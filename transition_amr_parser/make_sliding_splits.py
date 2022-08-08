@@ -18,6 +18,8 @@ def main(args):
 
     window_size = args.window_size
     window_overlap = args.window_overlap
+    print("window size ",window_size)
+    print("window overlap ",window_overlap)
 
     factions = open(args.oracle_dir + "/" + args.data_split + ".actions")
     ffactions = open(args.oracle_dir + "/" + args.data_split + ".force_actions")
