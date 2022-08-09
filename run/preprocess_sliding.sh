@@ -22,7 +22,9 @@ echo $config
 [ ! -f "$ORACLE_FOLDER/.done" ] && \
     echo -e "\nRequires oracle in $ORACLE_FOLDER\n" && \
     exit 1
-
+if [ -z "$SLIDING_ARGS" ];then
+    SLIDING_ARGS=""
+fi
 # TODO: Recover support of fine-tuning mode
 # # Dictionary update for fine-tuning. We will add the words from the fine-tuning
 # # vocabulary to the pretrained one. Note that there is a similar if below
@@ -69,11 +71,13 @@ else
 
     python transition_amr_parser/make_sliding_splits.py \
 	   --oracle-dir $ORACLE_FOLDER \
-	   --data-split dev
+	   --data-split dev \
+       $SLIDING_ARGS
 
     python transition_amr_parser/make_sliding_splits.py \
 	   --oracle-dir $ORACLE_FOLDER \
-	   --data-split test
+	   --data-split test \
+       $SLIDING_ARGS
 
     validarr=($(ls $ORACLE_FOLDER/dev_?.en | sed 's/\.en//g'))
     validpref=$(echo ${validarr[@]} | sed 's/ /,/g')
