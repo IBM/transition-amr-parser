@@ -35,6 +35,12 @@ def merge_actions(actions, more_actions, overlap_start):
         if action in ['SHIFT','CLOSE_SENTENCE']:
             token_idx += 1
         ret_actions.append(action)
+
+    if token_idx < overlap_start:
+        while token_idx < overlap_start:
+            ret_actions.append('SHIFT')
+            token_idx += 1
+        overlap_action_start = len(ret_actions)
         
     for (i,action) in enumerate(more_actions):
         if arc_regex.match(action):
@@ -49,7 +55,7 @@ def merge_actions(actions, more_actions, overlap_start):
             j += 1
             increment_pointers_to_future(more_actions, inserted, i, overlap_action_start)
             inserted += 1
-        if j == len(actions):
+        if j >= len(actions):
             ret_actions.extend(more_actions[i:])
             break
         j += 1
