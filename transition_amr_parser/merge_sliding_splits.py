@@ -36,6 +36,9 @@ def merge_actions(actions, more_actions, overlap_start):
             token_idx += 1
         ret_actions.append(action)
 
+    if token_idx == overlap_start and overlap_action_start is None:
+        overlap_action_start = len(ret_actions)
+        
     if token_idx < overlap_start:
         while token_idx < overlap_start:
             ret_actions.append('SHIFT')
