@@ -449,7 +449,7 @@ class AMR_doc(AMR):
                             if y == e[2] and x != e[0]:
                                 has_other_parents = True
                         if not has_other_parents:
-                            self.delete_name(e[2])
+                            self.delete_name(e[2],node1_names)
                         edges_to_delete.append(e)
                 else:
                     new_node_wiki = self.nodes[e[2]]
@@ -860,16 +860,19 @@ class AMR_doc(AMR):
 
         return name_str.strip()
 
-    def delete_name(self, name_node_id):
+    def delete_name(self, name_node_id,node_names=None):
         if name_node_id not in self.nodes:
             print("can not delete, does not exist")
             return
         if self.nodes[name_node_id] != 'name':
             print("not a name node, delteing anyways")
         edges_to_delete = []
+        assert node_names is not None
+        node_names = [word for name in node_names for word in name.split()]
         for e in self.edges:
             if e[0] == name_node_id:
-                if e[2] in self.nodes:
+                #FIXME explicitly checking if tgt node of a name node is a named entity by checking if it exists in node_names
+                if e[2] in self.nodes and self.nodes[e[2]] in node_names :
                     del self.nodes[e[2]]
                 edges_to_delete.append(e)
         del self.nodes[name_node_id]
