@@ -251,7 +251,6 @@ class AMR_doc(AMR):
             new_nvars = {}
             new_edges = []
             new_alignments = {}
-            #import ipdb; ipdb.set_trace()
             for nid in self.nodes:
                 new_nid = "s1."+str(nid)
                 new_nodes[new_nid] = self.nodes[nid]
@@ -383,9 +382,6 @@ class AMR_doc(AMR):
 
     def merge_nodes(self, node1, node2, additional=False, merge_kids=True):
 
-        if node1 == 'm11' and node2 == 'm6':
-            import ipdb; ipdb.set_trace()
-        
         if node1 not in self.nodes or node2 not in self.nodes:
             return
         '''
@@ -471,8 +467,6 @@ class AMR_doc(AMR):
                             if y == e[2] and x != e[0]:
                                 has_other_parents = True
                         if not has_other_parents:
-                            if e[2] ==	'g3':
-                                import ipdb; ipdb.set_trace()
                             del self.nodes[e[2]]
                         edges_to_delete.append(e)
                                         
@@ -481,8 +475,6 @@ class AMR_doc(AMR):
             self.nvars[node2] = None #ensure that this node will be treated as attribute
         else:
             if node2 not in self.nodes:
-                import ipdb; ipdb.set_trace()
-            if node2 == 'g3':
                 import ipdb; ipdb.set_trace()
             del self.nodes[node2]
 
@@ -570,8 +562,6 @@ class AMR_doc(AMR):
             self.remove_one_node_chains()
             
         if rep == 'docAMR':
-            if 'g3' in self.nodes:
-                import ipdb; ipdb.set_trace()
             self.merge_names(additional=True)
             self.merge_anaphora()
             self.remove_one_node_chains()
@@ -1293,7 +1283,6 @@ class AMR_doc(AMR):
                     if edge not in self.edges:
                         self.edges.append(edge)
             else:
-                #import ipdb; ipdb.set_trace()
                 print("node varaiables not found for the edge: " + s + "\t" + t)
 
 def process_corefs_into_triples(fnames):
