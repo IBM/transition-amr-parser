@@ -70,8 +70,8 @@ def main(args):
     fwindows = open(args.input_dir + "/" + args.data_split + ".windows")
     all_windows = [ eval(line.strip()) for line in fwindows ]
 
-    fin_actions = [open(fname) for fname in sorted(glob(args.input_dir + "/" + args.data_split + "_?.actions"))]
-    fin_tokens = [open(fname) for fname in sorted(glob(args.input_dir + "/" + args.data_split + "_?.en"))]
+    fin_actions = [open(fname) for fname in sorted(glob(args.input_dir + "/" + args.data_split + "_[0-9]*.actions"))]
+    fin_tokens = [open(fname) for fname in sorted(glob(args.input_dir + "/" + args.data_split + "_[0-9]*.en"))]
 
     fout_actions = open(args.input_dir + "/" + args.data_split + "_merged.actions",'w')
     fout_tokens = open(args.input_dir + "/" + args.data_split + "_merged.en",'w')

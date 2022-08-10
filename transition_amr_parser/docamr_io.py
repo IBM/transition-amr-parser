@@ -383,6 +383,9 @@ class AMR_doc(AMR):
 
     def merge_nodes(self, node1, node2, additional=False, merge_kids=True):
 
+        if node1 == 'm11' and node2 == 'm6':
+            import ipdb; ipdb.set_trace()
+        
         if node1 not in self.nodes or node2 not in self.nodes:
             return
         '''
@@ -468,6 +471,8 @@ class AMR_doc(AMR):
                             if y == e[2] and x != e[0]:
                                 has_other_parents = True
                         if not has_other_parents:
+                            if e[2] ==	'g3':
+                                import ipdb; ipdb.set_trace()
                             del self.nodes[e[2]]
                         edges_to_delete.append(e)
                                         
@@ -476,6 +481,8 @@ class AMR_doc(AMR):
             self.nvars[node2] = None #ensure that this node will be treated as attribute
         else:
             if node2 not in self.nodes:
+                import ipdb; ipdb.set_trace()
+            if node2 == 'g3':
                 import ipdb; ipdb.set_trace()
             del self.nodes[node2]
 
@@ -563,6 +570,8 @@ class AMR_doc(AMR):
             self.remove_one_node_chains()
             
         if rep == 'docAMR':
+            if 'g3' in self.nodes:
+                import ipdb; ipdb.set_trace()
             self.merge_names(additional=True)
             self.merge_anaphora()
             self.remove_one_node_chains()
@@ -869,13 +878,20 @@ class AMR_doc(AMR):
         edges_to_delete = []
         assert node_names is not None
         node_names = [word for name in node_names for word in name.split()]
+        deleted_nodes = []
         for e in self.edges:
             if e[0] == name_node_id:
                 #FIXME explicitly checking if tgt node of a name node is a named entity by checking if it exists in node_names
                 if e[2] in self.nodes and self.nodes[e[2]] in node_names :
                     del self.nodes[e[2]]
+                    deleted_nodes.append(e[2])
                 edges_to_delete.append(e)
         del self.nodes[name_node_id]
+        deleted_nodes.append(name_node_id)
+        for n in name_node_id:
+            for e in self.edges:
+                if n in e:
+                    edges_to_delete.append(e)
         for e in edges_to_delete:
             if e in self.edges:
                 self.edges.remove(e)
@@ -1154,7 +1170,7 @@ class AMR_doc(AMR):
         return node_corefs
         
     def move_bridges_to_chains(self):
-            
+
         node_corefs = self.get_nodes_chains()
 
         if len(node_corefs) == 0:
