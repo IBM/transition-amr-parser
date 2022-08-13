@@ -502,7 +502,6 @@ class SequenceGenerator(object):
             # ==========> bug: self.tgt_dict is somehow changed with an additional token '<<unk>>' at the end
 
             if amr_state_machines is not None:
-
                 constrain_pointer = defaultdict(lambda: defaultdict(list))
                 for i, j in enumerate(valid_bbsz_idx):
                     sm = amr_state_machines[j]
@@ -533,13 +532,13 @@ class SequenceGenerator(object):
                             arc, index, label = re.match(r'>([LR]A)\(([0-9]+),([^)]+)\)', act).groups()
                             new_act = f'>{arc}({label})'
                             vocab_ids_allowed.add(self.tgt_dict.index(new_act))
-                            constrain_pointer[j.item()][int(index)].append(new_act)
+                            constrain_pointer[i][int(index)].append(new_act)
                         elif re.match(r'>[LR]A\(([0-9]+)\)', act):
                             arc, index = re.match(r'>([LR]A)\(([0-9]+)\)', act).groups()
                             vocab_ids_allowed |= set(canonical_act_ids['>'+arc])
                             for act_id in canonical_act_ids['>'+arc]:
                                 new_act = self.tgt_dict[act_id]
-                                constrain_pointer[j.item()][int(index)].append(new_act)
+                                constrain_pointer[i][int(index)].append(new_act)
                         else:
                             # non canonincal actions (explicit node names)
                             vocab_ids_allowed.add(self.tgt_dict.index(act))
@@ -731,6 +730,7 @@ class SequenceGenerator(object):
                 # NOTE: We need to shitf index by 1, see below
                 bsize, seqlen = pointer_probs.shape
                 for j in range(bsize):
+                #for (i,j) in enumerate(valid_bbsz_idx):
                     if not bool(constrain_pointer[j]):
                         continue
                     num_valid = len([1 for x in constrain_pointer[j].values() if x])
@@ -785,9 +785,11 @@ class SequenceGenerator(object):
                     # history position per sentence, this tells use which are
                     # actions to restrict to
                     for j, idx_act in constrain_pointer.items():
+                    #for (i,j) in enumerate(valid_bbsz_idx):
                         if not bool(constrain_pointer[j]):
                             continue
                         save_action_lprobs = []
+                        #import ipdb; ipdb.set_trace()
                         for action in constrain_pointer[j][pointer_argmax[j].item()]:
                             idx = self.tgt_dict.index(action)
                             save_action_lprobs.append((idx, lprobs[j, idx].item()))

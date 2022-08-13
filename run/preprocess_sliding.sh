@@ -172,8 +172,6 @@ else
 	    cp $tst.force_actions $DATA_FOLDER/test_$n.en-actions.force_actions
 	done
 	cp $ORACLE_FOLDER/dev.windows $DATA_FOLDER/valid.windows
-	#cp $ORACLE_FOLDER/dev.force_actions $DATA_FOLDER/valid.en-actions.force_actions
-	#cp $ORACLE_FOLDER/test.force_actions $DATA_FOLDER/test.en-actions.force_actions
 	
 
     elif [[ $TASK == "amr_action_pointer_bartsv" ]]; then

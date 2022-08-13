@@ -64,6 +64,7 @@ AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
 AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
 AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 DOC_ORACLE_ARGS="--truncate"
+SLIDING_ARGS="--window-size 200 --window-overlap 100"
 
 ##############################################################################
 # ORACLE
