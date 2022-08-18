@@ -255,7 +255,7 @@ def main(args):
         if args.validpref:
             if len(args.validpref.split(",")) == 1:
                 for k, validpref in enumerate(args.validpref.split(",")):
-                    outprefix = "valid{}".format(k) if k >= 0 else "valid"
+                    outprefix = "valid{}".format(k) if k > 0 else "valid"
                     make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
             else:
                 for k, validpref in enumerate(args.validpref.split(",")):
@@ -264,7 +264,7 @@ def main(args):
         if args.testpref:
             if len(args.testpref.split(",")) == 1:
                 for k, testpref in enumerate(args.testpref.split(",")):
-                    outprefix = "test{}".format(k) if k >= 0 else "test"
+                    outprefix = "test{}".format(k) if k > 0 else "test"
                     make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
             else:
                 for k, testpref in enumerate(args.testpref.split(",")):

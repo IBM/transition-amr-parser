@@ -152,11 +152,22 @@ def make_bart_encodings(args, tokenize=None):
         make_binary_bert_features(args, args.trainpref, "train", tokenize)
 
     if args.validpref:
-        for k, validpref in enumerate(args.validpref.split(",")):
-            outprefix = "valid_{}".format(k) if k >= 0 else "valid"
-            make_binary_bert_features(args, validpref, outprefix, tokenize)
+        if len(args.validpref.split(",")) == 1:
+            for k, validpref in enumerate(args.validpref.split(",")):
+                outprefix = "valid{}".format(k) if k > 0 else "valid"
+                make_binary_bert_features(args, validpref, outprefix, tokenize)
+        else:
+            for k, validpref in enumerate(args.validpref.split(",")):
+                outprefix = "valid_{}".format(k) if k >= 0 else "valid"
+                make_binary_bert_features(args, validpref, outprefix, tokenize)
 
     if args.testpref:
-        for k, testpref in enumerate(args.testpref.split(",")):
-            outprefix = "test_{}".format(k) if k >= 0 else "test"
-            make_binary_bert_features(args, testpref, outprefix, tokenize)
+        if len(args.testpref.split(",")) == 1:
+            for k, testpref in enumerate(args.testpref.split(",")):
+                outprefix = "test{}".format(k) if k > 0 else "test"
+                make_binary_bert_features(args, testpref, outprefix, tokenize)
+        else:
+            for k, testpref in enumerate(args.testpref.split(",")):
+                outprefix = "test_{}".format(k) if k >= 0 else "test"
+                make_binary_bert_features(args, testpref, outprefix, tokenize)
+            
