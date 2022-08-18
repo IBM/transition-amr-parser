@@ -23,6 +23,9 @@ mkdir -p $ORACLE_FOLDER
 if [ -z "$MODE" ];then
     MODE="sen"
 fi
+if [ -z "$TRAIN_DOC" ];then
+    TRAIN_DOC=""
+fi
 
 ##### ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
@@ -46,15 +49,21 @@ else
 
     echo -e "\nTrain data"
     if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
-        echo "Doc Mode , making docamrs"
-        python transition_amr_parser/get_doc_amr_from_sen.py \
-            --in-amr $AMR_TRAIN_FILE \
-            --coref-fof $TRAIN_COREF \
-            --fof-path $FOF_PATH \
-            --norm $NORM \
-            --out-amr $ORACLE_FOLDER/train_${NORM}.docamr 
+        if [ $TRAIN_DOC == "conll" ];then
+            cp $CONLL_DATA $ORACLE_FOLDER/
+            TRAIN_IN_AMR=$ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out
+        else
+            echo "Doc Mode , making docamrs"
+            python transition_amr_parser/get_doc_amr_from_sen.py \
+                --in-amr $AMR_TRAIN_FILE \
+                --coref-fof $TRAIN_COREF \
+                --fof-path $FOF_PATH \
+                --norm $NORM \
+                --out-amr $ORACLE_FOLDER/train_${NORM}.docamr 
             
-        TRAIN_IN_AMR=$ORACLE_FOLDER/train_${NORM}.docamr
+            TRAIN_IN_AMR=$ORACLE_FOLDER/train_${NORM}.docamr
+        fi
+
         if [ $MODE == "doc+sen" ];then
             echo -e "\n Doc+sen mode Adding sentence data"
             python transition_amr_parser/add_sentence_amrs_to_file.py \
