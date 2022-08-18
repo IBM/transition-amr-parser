@@ -630,7 +630,7 @@ class AMR():
     # relation used for detached subgraph
     default_rel = ':rel'
     # these need to be scaped in node names
-    reserved_amr_chars = [':', '/', '(', ')', '~']
+    reserved_amr_chars = [':', '/', '(', ')', '~','#']
     # TODO: also - + in isolation
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
@@ -708,6 +708,7 @@ class AMR():
 
         graph = penman.decode(penman_text.split('\n'))
         nodes, edges, alignments = get_simple_graph(graph)
+        sentence_ends = []
         if 'tok' in graph.metadata:
             tokens = graph.metadata['tok'].split()
         else:
