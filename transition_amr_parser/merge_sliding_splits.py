@@ -120,7 +120,7 @@ def main(args):
                     window_tokens = fin_tokens[i].readline().strip().split()
                     tokens.extend( window_tokens[len(tokens)-window[0]:] )
                 else:
-                    print("did not comlete merge for doc " + str(didx))
+                    print("did not complete merge for doc " + str(didx))
                     break
 
         fout_actions.write("\t".join(actions)+"\n")
