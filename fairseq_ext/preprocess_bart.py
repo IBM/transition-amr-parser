@@ -253,14 +253,24 @@ def main(args):
         if args.trainpref:
             make_dataset(vocab, args.trainpref, "train", lang, num_workers=args.workers, dataset_impl=dataset_impl)
         if args.validpref:
-            for k, validpref in enumerate(args.validpref.split(",")):
-                outprefix = "valid_{}".format(k) if k >= 0 else "valid"
-                make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
+            if len(args.validpref.split(",")) == 1:
+                for k, validpref in enumerate(args.validpref.split(",")):
+                    outprefix = "valid{}".format(k) if k >= 0 else "valid"
+                    make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
+            else:
+                for k, validpref in enumerate(args.validpref.split(",")):
+                    outprefix = "valid_{}".format(k) if k >= 0 else "valid"
+                    make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
         if args.testpref:
-            for k, testpref in enumerate(args.testpref.split(",")):
-                outprefix = "test_{}".format(k) if k >= 0 else "test"
-                make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
-
+            if len(args.testpref.split(",")) == 1:
+                for k, testpref in enumerate(args.testpref.split(",")):
+                    outprefix = "test{}".format(k) if k >= 0 else "test"
+                    make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
+            else:
+                for k, testpref in enumerate(args.testpref.split(",")):
+                    outprefix = "test_{}".format(k) if k >= 0 else "test"
+                    make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
+                
     # NOTE we do not encode the source sentences with dictionary, as the source embeddings are directly provided
     # from RoBERTa, thus the source dictionary here is of no use
     if run_basic:

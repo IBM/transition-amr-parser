@@ -155,7 +155,7 @@ mkdir -p $RESULTS_FOLDER
 
 if [ ! -f "${results_prefix}.actions" ];then
 
-    validarr=($(ls $ORACLE_FOLDER/dev_?.en | sed 's/\.en//g'))
+    validarr=($(ls $ORACLE_FOLDER/${data_split_name}_?.en | sed 's/\.en//g'))
     num=${#validarr[@]}
     for i in $(seq 0 $((num-1)) ); do
 	cp $ORACLE_FOLDER/${data_split2}_$((i)).force_actions $DATA_FOLDER/${data_split}"_"$((i)).en-actions.force_actions
