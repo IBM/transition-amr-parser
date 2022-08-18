@@ -454,11 +454,12 @@ class AMR_doc(AMR):
         removed_idx = []
         new_tokens = []
         for idx,tok in enumerate(self.tokens):
-            if tok=='<next_sent>':
+            if tok=='<ROOT>':
+                removed_idx.append(idx)
+            elif tok=='<next_sent>':
                 self.sentence_ends.append(len(new_tokens)-1)
                 removed_idx.append(idx)
-            elif tok=='<ROOT>':
-                removed_idx.append(idx)
+            
             else:
                 new_tokens.append(tok)
         self.sentence_ends.append(len(new_tokens)-1)
