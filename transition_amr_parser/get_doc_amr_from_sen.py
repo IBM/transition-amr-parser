@@ -119,14 +119,12 @@ if __name__ == '__main__':
     parser.add_argument(
         "--in-amr",
         help="In file containing AMR in penman format",
-        type=str,
-        default='DATA/conll-2012_original_amr/'
+        type=str
     )
     parser.add_argument(
         "--coref-fof",
         help="xml files containing AMR coreference information ",
-        type=str,
-        default='DATA/conll-2012_original/train.english.v4_gold_conll'
+        type=str
     )
     parser.add_argument(
         "--fof-path",
@@ -143,14 +141,13 @@ if __name__ == '__main__':
     parser.add_argument(
         "--out-amr",
         help="path to save docamr",
-        type=str,
-        default='DATA/conll-2012_original_train_docAMR_no-merge/full_docamr_no-merge.out'
+        type=str
     )
     parser.add_argument(
         "--coref-type",
         help="type of coref (gold,allennlp,conll)",
         type=str,
-        default='conll'
+        default='gold'
     )
     parser.add_argument(
         "--jamr",
