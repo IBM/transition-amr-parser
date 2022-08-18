@@ -263,7 +263,7 @@ if [ "$EVAL_METRIC" = "smatch" ];then
         python docSmatch/smatch.py -r 10 --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr.no_isi \
-         | tee ${results_prefix}.smatch
+         | tee ${results_prefix%"_docAMR"}.smatch
     else
         smatch.py -r 10 --significant 4 \
             -f $reference_amr \
