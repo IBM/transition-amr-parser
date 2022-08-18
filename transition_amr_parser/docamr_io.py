@@ -57,6 +57,50 @@ def read_amr_penman(penman_strs):
         amrs[amr.amr_id] = amr
     return amrs
 
+def read_amr_add_sen_id(file_path,doc_id=None,add_id=False):
+    with open(file_path) as fid:
+        raw_amr = []
+        raw_amrs = {}
+        for line in tqdm(fid.readlines(), desc='Reading AMR'):
+            if line.strip() == '':
+                
+                # From ::node, ::edge etc
+                amr = AMR_doc.from_metadata(raw_amr)
+                
+                raw_amrs[amr.sid] = amr
+                raw_amr = []
+            else:
+                raw_amr.append(line)
+                if add_id and '::id' in line:
+                    continue
+
+                if '::tok' in line and add_id:
+                    raw_amr.append('# ::id '+doc_id+'.'+str(len(raw_amrs)+1))
+                # elif '::snt' in line and add_id:
+                #     raw_amr.append('# ::id '+doc_id+'.'+str(len(raw_amrs)+1))
+            
+
+    return raw_amrs
+
+def read_amr_metadata(penman_strs,doc_id=None,add_id=False):
+    amrs = {}
+    for idx,penman_str in enumerate(penman_strs):
+        p_strs = penman_str.split('\n')
+        if add_id:
+            p_strs = ['# ::id '+doc_id+'.'+str(idx)+'\n']+p_strs
+
+        amr = AMR_doc.from_metadata(p_strs)
+        if amr is not None:
+            if add_id:
+                assert doc_id is not None, "provide doc id to add id to amr"
+                amr.id = doc_id+'.'+str(idx)
+                amr.amr_id = doc_id+'.'+str(idx)
+                amrs[doc_id+'.'+str(idx)] = amr
+
+            else:
+                amrs[amr.amr_id] = amr
+    return amrs
+
 def read_amr3(file_path):
     with open(file_path) as fid:
         raw_amr = []
@@ -212,6 +256,189 @@ class AMR_doc(AMR):
                 if self.nvars[nid] != None:
                     self.nvars2nodes[self.nvars[nid]] = nid
         self._cache_key = None
+    
+    
+    def get_all_vars(cls, penman_str):
+        in_quotes = False
+        all_vars = []
+        for (i,ch) in enumerate(penman_str):
+            if ch == '"':
+                if in_quotes:
+                    in_quotes = False
+                else:
+                    in_quotes = True
+            if in_quotes:
+                continue
+            if ch == '(':
+                var = ''
+                j = i+1
+                while j < len(penman_str) and penman_str[j] not in [' ','\n']:
+                    var += penman_str[j]
+                    j += 1
+                all_vars.append(var)
+        return all_vars
+    
+    
+    def get_node_var(cls, penman_str, node_id):
+        """
+        find node variable based on ids like 0.0.1
+        """
+        nid = '99990.0.0.0.0.0.0'
+        cidx = []
+        lvls = []
+        all_vars = AMR_doc.get_all_vars(penman_str)
+        in_quotes = False
+        for (i,ch) in enumerate(penman_str):
+            if ch == '"':
+                if in_quotes:
+                    in_quotes = False
+                else:
+                    in_quotes = True
+            if in_quotes:
+                continue
+
+            if ch == ":":
+                idx = i
+                while idx < len(penman_str) and penman_str[idx] != ' ':
+                    idx += 1
+                if idx+1 < len(penman_str) and penman_str[idx+1] != '(':
+                    var = ''
+                    j = idx+1
+                    while j < len(penman_str) and penman_str[j] not in [' ','\n']:
+                        var += penman_str[j]
+                        j += 1
+                    if var not in all_vars:
+                        lnum = len(lvls)
+                        if lnum >= len(cidx):
+                            cidx.append(1)
+                        else:
+                            cidx[lnum] += 1                            
+            if ch == '(':
+                lnum = len(lvls)
+                if lnum >= len(cidx):
+                    cidx.append(0)
+                lvls.append(str(cidx[lnum]))
+            
+            if ch == ')':
+                lnum = len(lvls)
+                if lnum < len(cidx):
+                    cidx.pop()
+                cidx[lnum-1] += 1
+                lvls.pop()
+
+            if ".".join(lvls) == node_id:
+                j = i+1
+                while penman_str[j] == ' ':
+                    j += 1
+                var = ""
+                while penman_str[j] != ' ':
+                    var += penman_str[j]
+                    j += 1
+                return var
+
+        return None
+
+    @classmethod
+    def from_metadata(cls, penman_text, tokenize=False):
+        """Read AMR from metadata (IBM style)"""
+
+        # Read metadata from penman
+        field_key = re.compile(f'::[A-Za-z]+')
+        metadata = defaultdict(list)
+        separator = None
+        penman_str = ""
+        for line in penman_text:
+            if line.startswith('#'):
+                line = line[2:].strip()
+                start = 0
+                for point in field_key.finditer(line):
+                    end = point.start()
+                    value = line[start:end]
+                    if value:
+                        metadata[separator].append(value)
+                    separator = line[end:point.end()][2:]
+                    start = point.end()
+                value = line[start:]
+                if value:
+                    metadata[separator].append(value)
+            else:
+                penman_str += line.strip() + ' ' 
+                    
+        # assert 'tok' in metadata, "AMR must contain field ::tok"
+        if tokenize:
+            assert 'snt' in metadata, "AMR must contain field ::snt"
+            tokens, _ = protected_tokenizer(metadata['snt'][0])
+        else:
+            assert 'tok' in metadata, "AMR must contain field ::tok"
+            assert len(metadata['tok']) == 1
+            tokens = metadata['tok'][0].split()
+
+        #print(penman_str)
+            
+        sid="000"
+        nodes = {}
+        nvars = {}
+        alignments = {}
+        edges = []
+        root = None
+        sentence_ends = []
+
+        if 'short' in metadata:
+            short_str = metadata["short"][0].split('\t')[1]
+            short = eval(short_str)
+            short = {str(k):v for k,v in short.items()}
+            all_vars = list(short.values())
+        else:
+            short = None
+            all_vars = AMR_doc.get_all_vars(penman_str)
+        
+        for key, value in metadata.items():
+            if key == 'edge':
+                for items in value:
+                    items = items.split('\t')
+                    if len(items) == 6:
+                        _, _, label, _, src, tgt = items
+                        edges.append((src, f':{label}', tgt))
+            elif key == 'node':
+                for items in value:
+                    items = items.split('\t')
+                    if len(items) > 3:
+                        _, node_id, node_name, alignment = items
+                        start, end = alignment_regex.match(alignment).groups()
+                        indices = list(range(int(start), int(end)))
+                        alignments[node_id] = indices
+                    else:
+                        _, node_id, node_name = items
+                        alignments[node_id] = None
+                    nodes[node_id] = node_name
+                    if short is not None:
+                        var = short[node_id]
+                    else:
+                        var = AMR_doc.get_node_var(penman_str, node_id)
+                    if var is not None and var+" / " not in penman_str:
+                        nvars[node_id] = None
+                    else:
+                        nvars[node_id] = var
+                    if var != None:
+                        all_vars.remove(var)
+            elif key == 'root':
+                root = value[0].split('\t')[1]
+            elif key == 'id':
+                sid = value[0].strip()
+            elif key == 'sentence_ends':
+                sentence_ends = value.split()
+                sentence_ends = [int(x) for x in sentence_ends]
+
+        if len(all_vars):
+            print("varaible not linked to nodes:")
+            print(all_vars)
+            print(penman_str)
+        
+        if len(nodes)==0 and len(edges)==0:
+            return None
+
+        return cls(tokens, nodes, edges, root, penman=None,
+                   alignments=alignments, nvars=nvars, id=sid,sentence_ends=sentence_ends)
 
     def fix_alignments(self,removed_idx):
         for node_id,align in self.alignments.items():
@@ -229,6 +456,8 @@ class AMR_doc(AMR):
         for idx,tok in enumerate(self.tokens):
             if tok=='<next_sent>':
                 self.sentence_ends.append(len(new_tokens)-1)
+                removed_idx.append(idx)
+            elif tok=='<ROOT>':
                 removed_idx.append(idx)
             else:
                 new_tokens.append(tok)
@@ -981,85 +1210,104 @@ class AMR_doc(AMR):
         
     
 
-    @classmethod
-    def from_metadata(cls, penman_text):
-        """Read AMR from metadata (IBM style)"""
+    # @classmethod
+    # def from_metadata(cls, penman_text):
+    #     """Read AMR from metadata (IBM style)"""
 
-        assert isinstance(penman_text, str), "Expected string with EOL"
-        assert '\n' in penman_text, "Expected string with EOL"
+    #     assert isinstance(penman_text, str), "Expected string with EOL"
+    #     assert '\n' in penman_text, "Expected string with EOL"
 
-        # Read metadata from penman
-        field_key = re.compile(f'::[A-Za-z]+')
-        metadata = defaultdict(list)
-        separator = None
-        for line in penman_text.split('\n'):
-            if line.startswith('#'):
-                line = line[2:].strip()
-                start = 0
-                for point in field_key.finditer(line):
-                    end = point.start()
-                    value = line[start:end]
-                    if value:
-                        metadata[separator].append(value)
-                    separator = line[end:point.end()][2:]
-                    start = point.end()
-                value = line[start:]
-                if value:
-                    metadata[separator].append(value)
+    #     # Read metadata from penman
+    #     field_key = re.compile(f'::[A-Za-z]+')
+    #     metadata = defaultdict(list)
+    #     separator = None
+    #     for line in penman_text.split('\n'):
+    #         if line.startswith('#'):
+    #             line = line[2:].strip()
+    #             start = 0
+    #             for point in field_key.finditer(line):
+    #                 end = point.start()
+    #                 value = line[start:end]
+    #                 if value:
+    #                     metadata[separator].append(value)
+    #                 separator = line[end:point.end()][2:]
+    #                 start = point.end()
+    #             value = line[start:]
+    #             if value:
+    #                 metadata[separator].append(value)
 
-        graph_id = metadata['id'] if 'id' in metadata else None
+    #     graph_id = metadata['id'] if 'id' in metadata else None
 
-        # extract graph from meta-data
-        nodes = {}
-        alignments = {}
-        edges = []
-        tokens = None
-        sentence = None
-        root = None
-        for key, value in metadata.items():
-            if key == 'snt':
-                sentence = metadata['snt'][0].strip()
-            elif key == 'tok':
-                tokens = metadata['tok'][0].split()
-            elif key == 'edge':
-                for items in value:
-                    items = items.split('\t')
-                    if len(items) == 6:
-                        _, _, label, _, src, tgt = items
-                        edges.append((src, f':{label}', tgt))
-            elif key == 'node':
-                for items in value:
-                    items = items.split('\t')
-                    if len(items) > 3:
-                        _, node_id, node_name, alignment = items
-                        start, end = alignment_regex.match(alignment).groups()
-                        indices = list(range(int(start), int(end)))
-                        alignments[node_id] = indices
-                    else:
-                        _, node_id, node_name = items
-                        alignments[node_id] = None
-                    nodes[node_id] = node_name
-            elif key == 'root':
-                root = value[0].split('\t')[1]
+    #     # extract graph from meta-data
+    #     nodes = {}
+    #     alignments = {}
+    #     edges = []
+    #     tokens = None
+    #     sentence = None
+    #     root = None
+    #     sentence_ends = []
+    #     nvars = []
+    #     for key, value in metadata.items():
+    #         if key == 'snt':
+    #             sentence = metadata['snt'][0].strip()
+    #         elif key == 'tok':
+    #             tokens = metadata['tok'][0].split()
+    #         elif key == 'edge':
+    #             for items in value:
+    #                 items = items.split('\t')
+    #                 if len(items) == 6:
+    #                     _, _, label, _, src, tgt = items
+    #                     edges.append((src, f':{label}', tgt))
+    #         elif key == 'node':
+    #             for items in value:
+    #                 items = items.split('\t')
+    #                 if len(items) > 3:
+    #                     _, node_id, node_name, alignment = items
+    #                     start, end = alignment_regex.match(alignment).groups()
+    #                     indices = list(range(int(start), int(end)))
+    #                     alignments[node_id] = indices
+    #                 else:
+    #                     _, node_id, node_name = items
+    #                     alignments[node_id] = None
+    #                 nodes[node_id] = node_name
+    #         elif key == 'root':
+    #             root = value[0].split('\t')[1]
+    #         elif key =='sentence_ends':
+    #             sentence_ends = value.split()
+    #             sentence_ends = [int(x) for x in sentence_ends]
+        
 
-        # filter bad nodes (only in edges)
-        new_edges = []
-        for (s, label, t) in edges:
-            if s in nodes and t in nodes:
-                new_edges.append((s, label, t))
-            else:
-                print(yellow_font('WARNING: edge with extra node (ignored)'))
-                print((s, label, t))
-        edges = new_edges
+    #     # filter bad nodes (only in edges)
+    #     new_edges = []
+    #     for (s, label, t) in edges:
+    #         if s in nodes and t in nodes:
+    #             new_edges.append((s, label, t))
+    #         else:
+    #             print(yellow_font('WARNING: edge with extra node (ignored)'))
+    #             print((s, label, t))
+    #     edges = new_edges
 
-        # sanity check: there was some JAMR
-        assert bool(nodes), "JAMR notation seems empty"
+    #     #node variables
+    #     #values and literals dont get node variables
+    #     nvars = dict.fromkeys(nodes, None)
+    #     for nvar in nvars:
+    #         if isinstance(nvar, str):
+    #             nvars[nvar] = nvar
 
-        # remove quotes
-        nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
+       
 
-        return cls(tokens, nodes, edges, root, penman=None,
-                   alignments=alignments, sentence=sentence, id=graph_id)
+    #     # sanity check: there was some JAMR
+    #     # assert bool(nodes), "JAMR notation seems empty"
+
+    #     # remove quotes
+    #     nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
+
+    #     if len(nodes)==0 and len(edges)==0:
+    #         return None
+        
+        
+    #     return cls(tokens, nodes, edges, root, penman=None,
+    #                alignments=alignments, sentence=sentence, id=graph_id,nvars=nvars,sentence_ends=sentence_ends)
 
     def check_connectivity(self):
 
@@ -1120,9 +1368,9 @@ class AMR_doc(AMR):
     #        meta_data += '# ::doc_file ' + self.doc_file + '\n'
     #    meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
     #    return meta_data + penman.encode(self.penman) + '\n\n'
-    def __str__(self):
+    def __str__(self,jamr=False):
         
-        self.penman_str = self.to_penman()
+        self.penman_str = self.to_penman(jamr=jamr)
         meta_data = ""
         if self.amr_id:
             meta_data  = '# ::id ' + self.amr_id + '\n'
