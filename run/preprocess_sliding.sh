@@ -79,9 +79,9 @@ else
 	   --data-split test \
        $SLIDING_ARGS
 
-    validarr=($(ls $ORACLE_FOLDER/dev_?.en | sed 's/\.en//g'))
+    validarr=($(ls $ORACLE_FOLDER/dev_*.en | sed 's/\.en//g'))
     validpref=$(echo ${validarr[@]} | sed 's/ /,/g')
-    testarr=($(ls $ORACLE_FOLDER/test_?.en | sed 's/\.en//g'))
+    testarr=($(ls $ORACLE_FOLDER/test_*.en | sed 's/\.en//g'))
     testpref=$(echo ${testarr[@]} | sed 's/ /,/g')
 
     if [[ $TASK == "amr_action_pointer" ]]; then
@@ -165,11 +165,11 @@ else
 	#for val in $validarr; do
 	for n in "${!validarr[@]}"; do
 	    val=${validarr[$n]}
-	    cp $val.force_actions $DATA_FOLDER/valid_$n.en-actions.force_actions
+	    cp dev_$n.force_actions $DATA_FOLDER/valid_$n.en-actions.force_actions
 	done
 	for n in "${!testarr[@]}"; do
 	    tst=${testarr[$n]}
-	    cp $tst.force_actions $DATA_FOLDER/test_$n.en-actions.force_actions
+	    cp test_$n.force_actions $DATA_FOLDER/test_$n.en-actions.force_actions
 	done
 	cp $ORACLE_FOLDER/dev.windows $DATA_FOLDER/valid.windows
 	

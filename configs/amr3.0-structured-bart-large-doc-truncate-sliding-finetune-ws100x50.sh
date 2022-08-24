@@ -31,6 +31,7 @@ AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
 ## DOC AMR ARGS
 MODE="doc"
+TRAIN_DOC="gold"
 TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
 DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
 TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
@@ -118,7 +119,7 @@ DATA_FOLDER=DATA/$TASK_TAG/features/$features_tag/
 # Use this to feed modified source and target dicts so that embeddings match in
 # fine-tuning
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
-FAIRSEQ_PREPROCESS_FINETUNE_ARGS="--srcdict DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/dict.en.txt --tgtdict DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/dict.actions_nopos.txt"
+FAIRSEQ_PREPROCESS_FINETUNE_ARGS="--srcdict DATA/AMR3.0/models/pretrained_doc+sen/dict.en.txt --tgtdict DATA/AMR3.0/models/pretrained_doc+sen/dict.actions_nopos.txt"
 # SRC_DICT=DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/dict.en.txt
 # TGT_DICT=DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/dict.actions_nopos.txt
 # PRETRAINED_FOLDER=DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/
@@ -168,7 +169,7 @@ tgt_input_src_combine="add"
 
 # SEEDS="43 44"
 SEEDS="42"
-MAX_EPOCH=160
+MAX_EPOCH=140
 EVAL_INIT_EPOCH=110
 time_max_between_epochs=30
 
@@ -197,7 +198,7 @@ dyo_run_freq=1
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
-FAIRSEQ_TRAIN_FINETUNE_ARGS="--restore-file DATA/AMR3.0/models/amr3.0-structured-bart-large-doc_MODE-doc+sen-truncate-2/seed42/checkpoint_wiki.smatch_top5-avg.pt"
+FAIRSEQ_TRAIN_FINETUNE_ARGS="--restore-file DATA/AMR3.0/models/pretrained_doc+sen/checkpoint_wiki.smatch_top5-avg.pt"
 FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
 FAIRSEQ_TEST_SKIP_ARGS=""
 # AUTO NAMING <-- Avoidable?

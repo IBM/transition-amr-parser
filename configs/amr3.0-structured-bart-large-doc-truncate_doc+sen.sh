@@ -55,6 +55,7 @@ WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
 
 ## DOC AMR ARGS
 MODE="doc+sen"
+TRAIN_DOC="gold"
 TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
 DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
 TEST_COREF=DATA/AMR3.0/coref/test_coref.fof

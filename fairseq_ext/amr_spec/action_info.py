@@ -54,9 +54,12 @@ def get_actions_states(*, tokens=None, tokseq_len=None, actions=None, machine_co
         cano_act = amr_state_machine.get_base_action(act)
         # debug
         if cano_act not in act_allowed:
-             import ipdb
-             ipdb.set_trace()
-        assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
+            print('current action not in the allowed space? check the rules.')
+            print(cano_act)
+            print(act_allowed)
+        #     import ipdb
+        #     ipdb.set_trace()
+        #assert cano_act in act_allowed, 'current action not in the allowed space? check the rules.'
         amr_state_machine.update(act)
 
     actions_nodemask = amr_state_machine.get_actions_nodemask()

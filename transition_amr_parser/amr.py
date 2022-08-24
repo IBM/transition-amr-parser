@@ -591,7 +591,7 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False):
                 if i!=j:
                     if head in head_descendants and head2 in head_descendants:
                         intsec = intersection_lst(head_descendants[head],head_descendants[head2])
-                        if len(intsec)>0 :
+                        if len(intsec)>0 and intsec!=[None]:
                             intersecting_heads.extend([head,head2])
                             break
                     else:
