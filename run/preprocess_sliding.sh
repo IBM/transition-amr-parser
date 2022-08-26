@@ -165,11 +165,11 @@ else
 	#for val in $validarr; do
 	for n in "${!validarr[@]}"; do
 	    val=${validarr[$n]}
-	    cp dev_$n.force_actions $DATA_FOLDER/valid_$n.en-actions.force_actions
+	    cp $ORACLE_FOLDER/dev_$n.force_actions $DATA_FOLDER/valid_$n.en-actions.force_actions
 	done
 	for n in "${!testarr[@]}"; do
 	    tst=${testarr[$n]}
-	    cp test_$n.force_actions $DATA_FOLDER/test_$n.en-actions.force_actions
+	    cp $ORACLE_FOLDER/test_$n.force_actions $DATA_FOLDER/test_$n.en-actions.force_actions
 	done
 	cp $ORACLE_FOLDER/dev.windows $DATA_FOLDER/valid.windows
 	

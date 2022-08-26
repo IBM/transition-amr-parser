@@ -161,39 +161,28 @@ if [ ! -f "${results_prefix}.actions" ];then
 	cp $ORACLE_FOLDER/${data_split2}_$((i)).force_actions $DATA_FOLDER/${data_split}"_"$((i)).en-actions.force_actions
 	cp $DATA_FOLDER/${data_split}_$((i)).en-actions.en $RESULTS_FOLDER/${data_split}_$((i)).en
     done
-    for i in $(seq 0 $((num-1)) ); do
-	echo "decoding split "$i
-	python fairseq_ext/generate.py \
-               $DATA_FOLDER  \
-               --emb-dir $EMB_FOLDER \
-               --user-dir ./fairseq_ext \
-               --task $TASK \
-               --gen-subset $data_split"_"$i \
-               --src-fix-emb-use $src_fix_emb_use \
-               --machine-type AMR  \
-               --machine-rules $ORACLE_FOLDER/train.rules.json \
-               --machine-config $ORACLE_FOLDER/machine_config.json \
-               --modify-arcact-score 1 \
-               --use-pred-rules $USE_PRED_RULES \
-               --beam $beam_size \
-               --batch-size $BATCH_SIZE \
-               --remove-bpe \
-               --path $checkpoint \
-               --quiet \
-               --results-path $RESULTS_FOLDER/${data_split}"_"$i \
-               $FAIRSEQ_TEST_SKIP_ARGS
+    gen_subsets=${data_split}_0
+    for i in $(seq 1 $((num-1)) ); do gen_subsets=${gen_subsets}","${data_split}_$i ; done;
+    python fairseq_ext/generate_sliding.py \
+           $DATA_FOLDER  \
+           --emb-dir $EMB_FOLDER \
+           --user-dir ./fairseq_ext \
+           --task $TASK \
+           --gen-subset $gen_subsets \
+           --src-fix-emb-use $src_fix_emb_use \
+           --machine-type AMR  \
+           --machine-rules $ORACLE_FOLDER/train.rules.json \
+           --machine-config $ORACLE_FOLDER/machine_config.json \
+           --modify-arcact-score 1 \
+           --use-pred-rules $USE_PRED_RULES \
+           --beam $beam_size \
+           --batch-size $BATCH_SIZE \
+           --remove-bpe \
+           --path $checkpoint \
+           --quiet \
+           --results-path $RESULTS_FOLDER/${data_split} \
+           $FAIRSEQ_TEST_SKIP_ARGS
 	
-	if (( i < num-1 )); then
-	    echo "making force actions for next split"
-	    python transition_amr_parser/force_overlap_actions.py \
-	       --in-pred $RESULTS_FOLDER/${data_split}"_"${i}.actions \
-	       --in-force $DATA_FOLDER/${data_split}"_"$((i+1)).en-actions.force_actions \
-	       --in-windows $DATA_FOLDER/${data_split}.windows \
-	       --in-widx $((i+1)) \
-	       --out-force $RESULTS_FOLDER/${data_split}"_"$((i+1)).force_actions
-	    cp $RESULTS_FOLDER/${data_split}"_"$((i+1)).force_actions $DATA_FOLDER/$data_split"_"$((i+1)).en-actions.force_actions
-	fi
-    done;
     echo "merging all splits"
     cp $DATA_FOLDER/${data_split}.windows $RESULTS_FOLDER/${data_split}.windows
     python transition_amr_parser/merge_sliding_splits.py \

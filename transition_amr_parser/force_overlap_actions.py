@@ -25,19 +25,21 @@ def sanity_check(actions):
                 import ipdb; ipdb.set_trace()
                 print("*****bad pointer to from " + action + " to " + actions[int(idx)])                        
                         
-def main(args):
-
-    fpactions = open(args.in_pred)
-    ffactions = open(args.in_force)
-    fwindows = open(args.in_windows)
-    ffout = open(args.out_force, 'w')
+def make_forced_overlap(in_pred, in_force, in_windows, in_widx, out_force):
+    
+    fpactions = open(in_pred)
+    ffactions = open(in_force)
+    fwindows = open(in_windows)
 
     all_windows = [eval(line.strip()) for line in fwindows]
     all_actions = [ line.strip().split() for line in fpactions ]
     all_force_actions = [ eval(line.strip()) for line in ffactions ]
 
-    window_of_interest = args.in_widx
+    window_of_interest = in_widx
 
+    ffactions.close()
+    ffout = open(out_force, 'w')
+    
     if window_of_interest == 0:
         return
     
@@ -102,6 +104,9 @@ def main(args):
             
         #print(str(windows)+"\t"+str(sum([len(actions) for actions in actions_per_token])) )
 
+def main(args):
+    make_forced_overlap(args.in_pred, args.in_force, args.in_windows, args.in_widx, args.out_force)
+    
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument(

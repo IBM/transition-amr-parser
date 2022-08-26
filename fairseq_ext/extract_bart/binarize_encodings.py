@@ -158,7 +158,8 @@ def make_bart_encodings(args, tokenize=None):
                 make_binary_bert_features(args, validpref, outprefix, tokenize)
         else:
             for k, validpref in enumerate(args.validpref.split(",")):
-                outprefix = "valid_{}".format(k) if k >= 0 else "valid"
+                #outprefix = "valid_{}".format(k) if k >= 0 else "valid"
+                outprefix = "valid_" + validpref.split("/")[-1].split("_")[-1]
                 make_binary_bert_features(args, validpref, outprefix, tokenize)
 
     if args.testpref:
@@ -168,6 +169,7 @@ def make_bart_encodings(args, tokenize=None):
                 make_binary_bert_features(args, testpref, outprefix, tokenize)
         else:
             for k, testpref in enumerate(args.testpref.split(",")):
-                outprefix = "test_{}".format(k) if k >= 0 else "test"
+                #outprefix = "test_{}".format(k) if k >= 0 else "test"
+                outprefix = "test_" + testpref.split("/")[-1].split("_")[-1]
                 make_binary_bert_features(args, testpref, outprefix, tokenize)
             

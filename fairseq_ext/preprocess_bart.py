@@ -259,7 +259,7 @@ def main(args):
                     make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
             else:
                 for k, validpref in enumerate(args.validpref.split(",")):
-                    outprefix = "valid_{}".format(k) if k >= 0 else "valid"
+                    outprefix = "valid_" + validpref.split("/")[-1].split("_")[-1]
                     make_dataset(vocab, validpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
         if args.testpref:
             if len(args.testpref.split(",")) == 1:
@@ -268,7 +268,7 @@ def main(args):
                     make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
             else:
                 for k, testpref in enumerate(args.testpref.split(",")):
-                    outprefix = "test_{}".format(k) if k >= 0 else "test"
+                    outprefix = "test_" + testpref.split("/")[-1].split("_")[-1]
                     make_dataset(vocab, testpref, outprefix, lang, num_workers=args.workers, dataset_impl=dataset_impl)
                 
     # NOTE we do not encode the source sentences with dictionary, as the source embeddings are directly provided
@@ -295,11 +295,11 @@ def main(args):
                 out_pref = os.path.join(args.destdir, 'train')
                 task.binarize_actions_pointer_file(f'{args.trainpref}.actions_pos', out_pref)
             for (i,validpref) in enumerate(args.validpref.split(",")):
-                split = 'valid_'+str(i)
+                split = "valid_" + validpref.split("/")[-1].split("_")[-1]
                 out_pref = os.path.join(args.destdir, split)
                 task.binarize_actions_pointer_file(f'{validpref}.actions_pos', out_pref)
             for (i,testpref) in enumerate(args.testpref.split(",")):
-                split = 'test_'+str(i)
+                split = "test_" + testpref.split("/")[-1].split("_")[-1]
                 out_pref = os.path.join(args.destdir, split)
                 task.binarize_actions_pointer_file(f'{testpref}.actions_pos', out_pref)        
 
@@ -341,13 +341,15 @@ def main(args):
             for (i,validpref) in enumerate(args.validpref.split(",")):
                 en_file = validpref + '.en'
                 actions_file = validpref + '.actions'
-                out_file_pref = os.path.join(args.destdir, 'valid_'+str(i))
+                outprefix = "valid_" + validpref.split("/")[-1].split("_")[-1]
+                out_file_pref = os.path.join(args.destdir, outprefix)
                 task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref, num_workers=args.workers)
             #test
             for (i,testpref) in enumerate(args.testpref.split(",")):
                 en_file = testpref + '.en'
                 actions_file = testpref + '.actions'
-                out_file_pref = os.path.join(args.destdir, 'test_'+str(i))
+                outprefix = "test_" + testpref.split("/")[-1].split("_")[-1]
+                out_file_pref = os.path.join(args.destdir, outprefix)
                 task_obj.build_actions_states_info(en_file, actions_file, machine_config_file, out_file_pref, num_workers=args.workers)
                 
         # create empty file flag
