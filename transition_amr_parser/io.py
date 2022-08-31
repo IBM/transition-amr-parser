@@ -329,6 +329,50 @@ def read_blocks(file_path, return_tqdm=True):
         return blocks
 
 
+def read_penmans(amr_files):
+    '''
+    Returns generator of multiple versions of same amr in penman notation
+    '''
+
+    # get number of AMRs and check all match
+    sizes = []
+    for amr_file in amr_files:
+        with open(amr_file) as fid:
+            num_amrs = 0
+            for line in fid:
+                if line.strip() == '':
+                    num_amrs += 1
+        sizes.append(num_amrs)
+
+    if len(set(sizes)) != 1:
+        print(sizes)
+        raise Exception('amr files must have same number of AMRs')
+
+    def amr_generator():
+        fids = [open(dfile) for dfile in amr_files]
+        # loop over amrs in the corpus
+        for n in range(sizes[0]):
+            # loop over versions of the same AMR
+            amrs = []
+            for fid in fids:
+                penman = ''
+                # consume lines in this file until end of a single AMR
+                for line in fid:
+                    if line.strip() == '':
+                        # completed this AMR
+                        amrs.append(penman)
+                        break
+                    else:
+                        # accumulate
+                        penman += line
+
+            # return all versions of this AMR
+            yield amrs
+
+    # return as tqdm generator
+    return tqdm(amr_generator(), total=sizes[0])
+
+
 def read_frame(xml_file):
     '''
     Read probpank XML

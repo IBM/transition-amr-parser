@@ -21,6 +21,7 @@ logs*
 
 # external tools
 amr-evaluation/
+git-filter-repo/
 
 # virtual environments
 .python-version
