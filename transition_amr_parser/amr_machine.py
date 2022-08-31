@@ -756,7 +756,7 @@ class AMRStateMachine():
 
         if self.tok_cursor < len(self.tokens):
             if not self.force_actions or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1:
-                #if forced actions are remaining for this location ... do not allow SHIFT
+                # if forced actions are remaining for this location ... do not allow SHIFT
                 valid_base_actions.append('SHIFT')
             valid_base_actions.extend(gen_node_actions)
 
