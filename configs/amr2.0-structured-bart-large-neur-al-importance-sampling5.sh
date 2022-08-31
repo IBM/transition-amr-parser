@@ -9,6 +9,10 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# this will be name of the model folder
+config_name=amr2.0-structured-bart-base-neur-al-importance-sampling
+
+
 ##############################################################################
 # DATA
 ##############################################################################
@@ -65,7 +69,7 @@ RESCALE_ALIGN=""
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG="--importance-weighted-align"
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states-importance2-${NUM_ALIGNMENT_SAMPLES}sample_a
+ORACLE_TAG=o10_act-states-importance-${NUM_ALIGNMENT_SAMPLES}sample_a
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -86,7 +90,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=bart.large
+embedding_tag=${align_tag}_bart.large
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -94,7 +98,7 @@ EMB_FOLDER=DATA/$TASK_TAG/embeddings/${embedding_tag}
 
 # Pretrained embeddings 
 PRETRAINED_EMBED=bart.large
-PRETRAINED_EMBED_DIM=1024   # used ???
+PRETRAINED_EMBED_DIM=1024
 BERT_LAYERS="1 2 3 4 5 6 7 8 9 10 11 12"
 # pre-stored pretrained en embeddings (not changing with oracle)
 
@@ -158,7 +162,8 @@ tgt_input_src_emb=top
 tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
-SEEDS="42 43 44"
+# SEEDS="42 43 44"
+SEEDS="42"
 MAX_EPOCH=100
 EVAL_INIT_EPOCH=61
 time_max_between_epochs=30
@@ -312,8 +317,6 @@ else
     dec_emb_init_tag=""
 fi
 
-
-
 # combine different model configuration tags to the name
 fp16_tag=""
 if [[ $use_fp16 == 1 ]]; then
@@ -323,7 +326,7 @@ model_tag=${expdir}${ptr_tag}${cam_tag}${tis_tag}${dec_emb_tag}${dec_emb_in_tag}
 optim_tag=_${fp16_tag}_lr${lr}-mt${max_tokens}x${update_freq}-wm${warmup}-dp${dropout}
 
 # All data in this step under
-MODEL_FOLDER=DATA/$TASK_TAG/models/${model_tag}_${optim_tag}/ep${MAX_EPOCH}
+MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 
 ###############################################################
 # ENTITY LINKING
@@ -343,6 +346,7 @@ LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr2.0/
 
 ##### decoding configuration for the final model
 BATCH_SIZE=128
-BEAM_SIZE=10
+BEAM_SIZE=1
+# Smatch evaluation with wiki
 EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt

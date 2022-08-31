@@ -82,20 +82,22 @@ unzip /path/to/linkcache.zip
 To launch train/test use (this will also run the aligner)
 
 ```
-bash run/run_experiment.sh configs/amr2.0-structured-bart-large-sep-voc.sh
+bash run/run_experiment.sh configs/amr2.0-structured-bart-large.sh
 ```
 
-training will store all checkpoints by default. You can launch a paralel job
-that will perform evaluation and delete checkpoints not int the top 5
+Training will store and evaluate all checkpoints by default (see config's
+`EVAL_INIT_EPOCH`) and select the one with best dev Smatch. This needs a lot of
+space but you can launch a paralel job that will perform evaluation and delete
+Checkpoints not in the top `5` 
 
 ```
-bash run/run_model_eval.sh configs/amr2.0-structured-bart-large-sep-voc.sh
+bash run/run_model_eval.sh configs/amr2.0-structured-bart-large.sh
 ```
 
 you can check training status with
 
 ```
-python run/status.py -c configs/amr2.0-structured-bart-large-sep-voc.sh
+python run/status.py -c configs/amr2.0-structured-bart-large.sh
 ```
 
 use `--results` to check for scores once models are finished.
