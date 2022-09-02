@@ -542,7 +542,7 @@ def check_if_coref_edge(head, edges,rel):
 def intersection_lst(lst1, lst2):
     return list(set(lst1) & set(lst2))
 
-def force_rooted_connected_graph(nodes, edges, root , prune=False):
+def force_rooted_connected_graph(nodes, edges, root , prune=False, connect_tops=True):
 
     #prune edges with nodes that are not present in the sentence nodes in case of doc-amr
     if prune:
@@ -559,15 +559,39 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False):
     # for each head, find its descendant, ignore loops
     head_descendants = dict()
     total_visited = set()
-    for head in heads:
-        stacks, offending_stacks = trasverse(edges, head)
-        descendants = set([s[-1][-1] for s in stacks if s[-1][-1] != head])
-        if stacks and stacks[0]:
-            descendants |= set(stacks[0][0])
-        head_descendants[head] = descendants
-        total_visited |= set(descendants)
-    loose_nodes = set(nodes) - total_visited
-
+    loose_nodes = set(nodes)
+    while loose_nodes:
+        for head in heads:
+            stacks, offending_stacks = trasverse(edges, head)
+            descendants = set([s[-1][-1] for s in stacks if s[-1][-1] != head])
+            if stacks and stacks[0]:
+                descendants |= set(stacks[0][0])
+            head_descendants[head] = descendants
+            total_visited |= set(descendants)
+        loose_nodes = set(nodes) - total_visited
+        if loose_nodes:
+            loose_edges = []
+            for e in edges:
+                if e[0] in loose_nodes and e[2] in loose_nodes:
+                    loose_edges.append(e)
+            if loose_edges:
+                hds = find_roots(loose_edges,None)
+                max_des = 0
+                head=None
+                for h in hds:
+                    stacks, offending_stacks = trasverse(loose_edges, h)
+                    descendants = set([s[-1][-1] for s in stacks if s[-1][-1] != head])
+                    if stacks and stacks[0]:
+                        descendants |= set(stacks[0][0])
+                    head_descendants[h] = descendants
+                    if len(head_descendants[h]) > max_des:
+                        max_des = len(head_descendants[h])
+                        head = h
+                heads.append(head)
+            else:
+                heads.extend(loose_nodes)
+                break
+        
 
     # find root strategy: multi-sentence or head with more descendants
     #FIXME wrong root in the case of cyclic graphs
@@ -584,7 +608,7 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False):
             root = sorted(head_descendants.items(), key=key)[-1][0]
 
     #FIXME added fix in case of multiple heads, and they connect at the bottom (children) then no new edge is added
-    if len(heads)>1 and len(head_descendants)>0:
+    if len(heads)>1 and len(head_descendants)>0 and not connect_tops:
         intersecting_heads = []
         for i,head in enumerate(heads):
             for j, head2 in enumerate(heads):

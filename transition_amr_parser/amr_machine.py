@@ -940,11 +940,15 @@ class AMRStateMachine():
     def get_actions_nodemask(self):
         """Get the binary mask of node actions"""
         actions_nodemask = [0] * len(self.action_history)
+        last_i = -1
         for i in self.node_stack:
             actions_nodemask[i] = 1
+            last_i = i
+        if last_i > -1:
+            actions_nodemask[last_i] = 0
         return actions_nodemask
 
-    def update(self, action):
+    def update(self, action, gold=False):
         
         assert not self.is_closed
 
@@ -983,7 +987,15 @@ class AMRStateMachine():
                     trace=False,
                     reject_samples=self.align_tracker.reject_samples
                 )
-
+            if len(self.sentence_roots) > 1:
+                #document node creation
+                node_id = len(self.action_history)
+                self.nodes[node_id] = 'document'
+                #self.node_stack.append(node_id)
+                #self.alignments[node_id].append(self.tok_cursor)
+                self.root = node_id
+                self.connect_sentences(root_id = node_id)
+            
             self.is_closed = True
 
         elif re.match(r'ROOT', action):
@@ -1014,7 +1026,7 @@ class AMRStateMachine():
                 self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
                 self.in_free_zone = False
             # save current sentence nodes and root
-            self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True)
+            self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True,connect_tops=(not gold))
             if self.root is None:
                 node_id = len(self.action_history)
                 self.nodes[node_id] = 'amr_empty'
@@ -1030,6 +1042,7 @@ class AMRStateMachine():
             self.edges_complete.extend(self.sentence_edges)
             self.sentence_reset()
 
+            '''
             if self.tok_cursor == len(self.tokens):
                 #CLOSE Close document if there are multiple sentence roots
                 if len(self.sentence_roots) > 1:
@@ -1041,7 +1054,7 @@ class AMRStateMachine():
                 
                     self.root = node_id
                     self.connect_sentences(root_id = node_id)
-
+            '''
 
         # TODO: Separate REDUCE actions into its own method
         elif action in ['REDUCE']:
@@ -1096,7 +1109,8 @@ class AMRStateMachine():
                 tgt = self.node_stack[index]
             src = self.node_stack[-1]
             # assert tgt in self.node_stack
-            self.edges.append((src, f'{label}', tgt))
+            if (src, f'{label}', tgt) not in self.edges:
+                self.edges.append((src, f'{label}', tgt))
             #NEW_ACTION
             self.sentence_edges.append((src, f'{label}', tgt))
 
@@ -1631,7 +1645,7 @@ def oracle(args):
             #         node_var = oracle.gold_amr.nvars[gold_node_id]
     
             # update machine,
-            machine.update(action)
+            machine.update(action, gold=True)
             # machine.node_action_vars.append(node_var)
 
             # update machine stats
