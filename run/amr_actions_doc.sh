@@ -118,8 +118,6 @@ else
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
             --rep docAMR
 
-
-    
     elif [ $MODE == "doc+sen" ];then
         echo -e "\n Doc+sen mode , Using sentence dev data"
         DEV_IN_AMR=$AMR_SENT_DEV_FILE
@@ -166,6 +164,7 @@ else
             --rep docAMR
     fi
     
+    
     if [ $MODE = "doc+sen" ];then
         # echo -e "\n Using sentence test data"
         echo -e "\n Doc+sen mode , Making docamr dev data to use instead of senamr test in doc+sen mode"
@@ -183,7 +182,8 @@ else
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
             --rep docAMR
     fi
-
+    
+    
     if [ $MODE = "sen" ];then
         echo -e "\n Sen Mode, Using test data" 
         TEST_IN_AMR=$AMR_TEST_FILE
