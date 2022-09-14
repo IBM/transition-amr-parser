@@ -203,7 +203,7 @@ if [ "$on_the_fly_decoding" = true ];then
     # wait until first checkpoint is available for any of the seeds. 
     # Clean-up checkpoints and inform of status in the meanwhile
     python run/status.py -c $config \
-        --wait-checkpoint-ready-to-eval --clear
+        --wait-checkpoint-ready-to-eval --clear --remove
 
     for seed in $SEEDS;do
 

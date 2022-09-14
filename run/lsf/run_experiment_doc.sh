@@ -203,7 +203,7 @@ if [ "$on_the_fly_decoding" = true ];then
     # wait until first checkpoint is available for any of the seeds. 
     # Clean-up checkpoints and inform of status in the meanwhile
     python run/status.py -c $config \
-        --wait-checkpoint-ready-to-eval --clear
+        --wait-checkpoint-ready-to-eval --remove --clear
 
     for seed in $SEEDS;do
 
@@ -222,4 +222,4 @@ fi
 
 # wait until final models has been evaluated 
 # NOTE checkpoints are cleaned-up by run_model_eval.sh
-python run/status.py -c $config --wait-finished --clear
+python run/status.py -c $config --wait-finished --remove
