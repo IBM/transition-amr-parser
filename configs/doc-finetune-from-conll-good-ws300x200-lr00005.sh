@@ -168,9 +168,9 @@ tgt_input_src_backprop=1
 tgt_input_src_combine="add"
 
 # SEEDS="43 44"
-SEEDS="42"
+SEEDS="43"
 MAX_EPOCH=140
-EVAL_INIT_EPOCH=110
+EVAL_INIT_EPOCH=89
 time_max_between_epochs=30
 
 # TODO: New

@@ -62,6 +62,14 @@ else
                 --out-amr $ORACLE_FOLDER/train_${NORM}.docamr 
             
             TRAIN_IN_AMR=$ORACLE_FOLDER/train_${NORM}.docamr
+
+	    if [ $TRAIN_DOC == "both" ];then
+		echo -e "\n Adding conll data"
+		cp $CONLL_DATA $ORACLE_FOLDER/
+		python transition_amr_parser/add_sentence_amrs_to_file.py \
+                       --in-amr $ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out \
+                       --out-amr $TRAIN_IN_AMR
+	    fi
         fi
 
         if [ $MODE == "doc+sen" ];then
