@@ -47,7 +47,7 @@ if [ -z "$MODE" ];then
     MODE="sen"
 fi
 
-if [ $MODE == "doc" ];then
+if [ $MODE == "doc" ] || [ $MODE == "doc+sen" ];then
     echo "mode doc"
     echo "using doc amr with rep docAMR as reference amr"
     if [ $data_split2 == "dev" ]; then
@@ -87,7 +87,7 @@ if [ $MODE == "doc" ];then
 
     fi
 
-elif [ $MODE == "doc+sen" ];then
+elif [ $MODE == "doc+sen+x" ];then
     echo "mode doc+sen"
     if [ $data_split2 == "dev" ]; then
         echo "use sen amr as reference amr for dev"
@@ -202,7 +202,7 @@ python transition_amr_parser/amr_machine.py \
     #--in-tokens $ORACLE_FOLDER/${data_split_name}.en \
 
 ## Change rep of docamr to docAMR for smatch
-if [ $MODE == "doc" ];then
+if [ $MODE == "doc" ] || [ $MODE == "doc+sen" ];then
     echo "mode doc"
     echo -e "\n Changing rep of dev/test data to docAMR "
     python docAMR/doc_amr.py \
@@ -211,7 +211,7 @@ if [ $MODE == "doc" ];then
         --rep docAMR \
         --out-amr ${results_prefix}_docAMR.amr
     results_prefix=${results_prefix}_docAMR
-elif [ $MODE == "doc+sen" ];then
+elif [ $MODE == "doc+sen+xx" ];then
     echo "mode doc+sen"
     if [ $data_split2 == "test" ]; then
         echo -e "\n Changing rep of test data(doc dev) to docAMR "
@@ -266,7 +266,7 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "$reference_amr"
     echo "${results_prefix}.amr"
     #TODO change to docSmatch
-    if [ $MODE == "doc" ];then
+    if [ $MODE == "doc" ] || [ $MODE == "doc+sen" ];then
         python docAMR/docSmatch/smatch.py -r 1 --significant 4 --coref-subscore \
             -f $reference_amr \
             ${results_prefix}.amr.no_isi \
