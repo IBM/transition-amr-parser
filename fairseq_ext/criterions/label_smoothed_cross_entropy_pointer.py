@@ -23,7 +23,6 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
         assert lprobs.dim() == 2
         lprobs = lprobs[target.ne(ignore_index).view(-1), :]
         target = target[target.ne(ignore_index)].unsqueeze(1)
-
     nll_loss = -lprobs.gather(dim=-1, index=target)
     # support -Inf
     smooth_loss = -lprobs[lprobs != float("-Inf")].sum(dim=-1, keepdim=True)
@@ -186,7 +185,6 @@ class LabelSmoothedCrossEntropyPointerCriterion(LegacyFairseqCriterion):
         else:
             loss_seq, nll_loss_seq = self.compute_loss(model, net_output, sample, reduce=reduce)
             loss_pos, nll_loss_pos = self.compute_pointer_loss(net_output, sample, reduce=reduce)
-
             loss = loss_seq + self.loss_coef * loss_pos
             nll_loss = nll_loss_seq + self.loss_coef * nll_loss_pos
 
