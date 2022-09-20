@@ -14,10 +14,10 @@ AMR class
 
 ## JAMR to ISI notaion
 
-To convert an AMR file aligned using JAMR (_Kevin) aligner into isi alignments format.
+To convert an AMR file aligned using JAMR (+Kevin) aligner into ISI alignments format.
 
 ```
-python scripts/jamr2isis.py --in-amr <jamr aligned amr> --out-amr <output in isi notaion>
+python scripts/jamr2isi.py --in-amr <jamr_aligned_amr> --out-amr <output_in_isi_notaion>
 ```
 
 ## Understanding the Oracle
