@@ -12,6 +12,14 @@ Use `--indices` to select AMRs by the order they appear in the file. See
 To plot using matplotlib (for e.g. notebooks) you can use `AMR.plot()` in the
 AMR class
 
+## JAMR to ISI notaion
+
+To convert an AMR file aligned using JAMR (_Kevin) aligner into isi alignments format.
+
+```
+python scripts/jamr2isis.py --in-amr <jamr aligned amr> --out-amr <output in isi notaion>
+```
+
 ## Understanding the Oracle
 
 An oracle is a module that given a sentence and its AMR annotation (aligned,
