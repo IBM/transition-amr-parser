@@ -824,7 +824,6 @@ class AMRStateMachine():
 
     def get_valid_actions(self, max_1root=True):
 
-
         if self.is_truncated:
             return ['CLOSE']
         

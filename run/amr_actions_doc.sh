@@ -48,7 +48,7 @@ else
         && cp $ALIGNED_FOLDER/alignment.trn.align_dist.npy $ORACLE_FOLDER/
 
     echo -e "\nTrain data"
-    if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ];then
+    if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ] || [ $MODE = "doc+sen+pkd" ];then
         if [ $TRAIN_DOC == "conll" ];then
             cp $CONLL_DATA $ORACLE_FOLDER/
             TRAIN_IN_AMR=$ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out
@@ -78,6 +78,17 @@ else
                 --in-amr $AMR_SENT_TRAIN_FILE \
                 --out-amr $TRAIN_IN_AMR 
         fi
+
+	if [ $MODE = "doc+sen+pkd" ]; then
+            echo -e "\n Doc+sen mode Adding sentence data"
+            python transition_amr_parser/add_sentence_amrs_to_file.py \
+                --in-amr $AMR_SENT_TRAIN_FILE \
+                --out-amr $TRAIN_IN_AMR 
+	    python transition_amr_parser/pack_amrs.py \
+		   --in-amr $AMR_SENT_TRAIN_FILE \
+		   --out-amr $ORACLE_FOLDER/train_sen_packed.amr
+	    cat $ORACLE_FOLDER/train_sen_packed.amr >> $TRAIN_IN_AMR
+	fi
     
 
     elif [ $MODE == "sen" ];then
@@ -126,7 +137,7 @@ else
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
             --rep docAMR
 
-    elif [ $MODE == "doc+sen" ];then
+    elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
         echo -e "\n Doc+sen mode , Using sentence dev data"
         DEV_IN_AMR=$AMR_SENT_DEV_FILE
 
@@ -173,7 +184,7 @@ else
     fi
     
     
-    if [ $MODE = "doc+sen" ];then
+    if [ $MODE = "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
         # echo -e "\n Using sentence test data"
         echo -e "\n Doc+sen mode , Making docamr dev data to use instead of senamr test in doc+sen mode"
         python transition_amr_parser/get_doc_amr_from_sen.py \
