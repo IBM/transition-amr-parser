@@ -124,7 +124,7 @@ else
     done
 
     echo -e "\nDev data"
-    if [ $MODE == "doc" ];then
+    if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
         echo -e "\n Doc Mode ,Making docamr dev data"
         python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_DEV_FILE \
@@ -169,7 +169,7 @@ else
 
     echo -e "\nTest data"
 
-    if [ $MODE = "doc" ];then
+    if [ $MODE = "doc" ] || [ $MODE = "doc+sen+ft" ];then
         echo -e "\n Doc Mode,Making docamr test data"
         python transition_amr_parser/get_doc_amr_from_sen.py \
             --in-amr $AMR_TEST_FILE \

@@ -513,7 +513,7 @@ class AMRStateMachine():
     )
 
     def __init__(self, reduce_nodes=None, absolute_stack_pos=True,
-                 use_copy=True, debug=False):
+                 use_copy=True, debug=False, ignore_coref=False):
 
         # Here non state variables (do not change across sentences) as well as
         # slow initializations
@@ -533,6 +533,8 @@ class AMRStateMachine():
         # debug flag
         self.debug = debug
 
+        self.ignore_coref = ignore_coref
+        
         # base actions allowed
         self.base_action_vocabulary = [
             'SHIFT',   # Move cursor
@@ -1101,33 +1103,54 @@ class AMRStateMachine():
             # Left Arc <--
             # label, index = la_regex.match(action).groups()
             index, label = la_regex.match(action).groups()
-            if self.config.absolute_stack_pos:
-                tgt = int(index)
-            else:
-                # Relative position
-                index = len(self.node_stack) - int(index) - 2
-                tgt = self.node_stack[index]
-            src = self.node_stack[-1]
-            # assert tgt in self.node_stack
-            if (src, f'{label}', tgt) not in self.edges:
-                self.edges.append((src, f'{label}', tgt))
-            #NEW_ACTION
-            self.sentence_edges.append((src, f'{label}', tgt))
+            is_coref_edge = False
+            sen_start = -1
+            for j in range(len(self.action_history)-1,-1,-1):
+                if self.action_history[j] == 'CLOSE_SENTENCE':
+                    sen_start = j
+                    break
+            if int(index) < sen_start:
+                is_coref_edge = True
+
+            if not is_coref_edge or not self.ignore_coref:
+                if self.config.absolute_stack_pos:
+                    tgt = int(index)
+                else:
+                    # Relative position
+                    index = len(self.node_stack) - int(index) - 2
+                    tgt = self.node_stack[index]
+                src = self.node_stack[-1]
+                # assert tgt in self.node_stack
+                if (src, f'{label}', tgt) not in self.edges:
+                    self.edges.append((src, f'{label}', tgt))
+                #NEW_ACTION
+                self.sentence_edges.append((src, f'{label}', tgt))
 
         elif ra_regex.match(action):
             # Right Arc -->
             # label, index = ra_regex.match(action).groups()
             index, label = ra_regex.match(action).groups()
-            if self.config.absolute_stack_pos:
-                src = int(index)
-            else:
-                # Relative position
-                index = len(self.node_stack) - int(index) - 2
-                src = self.node_stack[index]
-            tgt = self.node_stack[-1]
-            self.edges.append((src, f'{label}', tgt))
-            #NEW_ACTION
-            self.sentence_edges.append((src, f'{label}', tgt))
+            is_coref_edge = False
+            sen_start = -1
+            for j in range(len(self.action_history)-1,-1,-1):
+                if self.action_history[j] == 'CLOSE_SENTENCE':
+                    sen_start = j
+                    break
+            if int(index) < sen_start:
+                is_coref_edge = True
+
+            if not is_coref_edge or not self.ignore_coref:
+                    
+                if self.config.absolute_stack_pos:
+                    src = int(index)
+                else:
+                    # Relative position
+                    index = len(self.node_stack) - int(index) - 2
+                    src = self.node_stack[index]
+                tgt = self.node_stack[-1]
+                self.edges.append((src, f'{label}', tgt))
+                #NEW_ACTION
+                self.sentence_edges.append((src, f'{label}', tgt))
 
         # Node generation
         elif action == 'COPY':
@@ -1705,6 +1728,7 @@ def play(args):
 
     # Initialize machine
     machine = AMRStateMachine.from_config(args.in_machine_config)
+    machine.ignore_coref = args.ignore_coref
     for index in tqdm(range(len(action_sequences)), desc='Machine'):
 
         # New machine for this sentence
@@ -1873,6 +1897,11 @@ def argument_parser():
     parser.add_argument(
         "--truncate",
         help="truncate src sizes and tgt sizes to 1024",
+        action='store_true',
+    )
+    parser.add_argument(
+        "--ignore-coref",
+        help="ignore edges crossing CLOSE_SENTENCE",
         action='store_true',
     )
     args = parser.parse_args()
