@@ -52,6 +52,21 @@ else
         if [ $TRAIN_DOC == "conll" ];then
             cp $CONLL_DATA $ORACLE_FOLDER/
             TRAIN_IN_AMR=$ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out
+            if [ $TRAIN_DOC == "conll+gold" ];then
+                echo "making docamrs"
+                python transition_amr_parser/get_doc_amr_from_sen.py \
+                    --in-amr $AMR_TRAIN_FILE \
+                    --coref-fof $TRAIN_COREF \
+                    --fof-path $FOF_PATH \
+                    --norm $NORM \
+                    --out-amr $ORACLE_FOLDER/train_${NORM}.docamr 
+            
+            
+                cat $TRAIN_IN_AMR >> $ORACLE_FOLDER/train_${NORM}.docamr
+                TRAIN_IN_AMR=$ORACLE_FOLDER/train_${NORM}.docamr
+            fi
+
+
         else
             echo "Doc Mode , making docamrs"
             python transition_amr_parser/get_doc_amr_from_sen.py \
