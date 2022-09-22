@@ -1370,18 +1370,19 @@ class AMR_doc(AMR):
     #    meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
     #    return meta_data + penman.encode(self.penman) + '\n\n'
     def __str__(self,jamr=False):
-        
+
+        self.penman = None
         self.penman_str = self.to_penman(jamr=jamr)
         meta_data = ""
         if self.amr_id:
             meta_data  = '# ::id ' + self.amr_id + '\n'
         if self.doc_file:
             meta_data += '# ::doc_file ' + self.doc_file + '\n'
-        # if self.sentence_ends and len(self.sentence_ends)>0:
-        #     snt_ends_str = [str(x) for x in self.sentence_ends]
-        #     meta_data+= '# ::sentence_ends ' + ' '.join(snt_ends_str) + '\n'
+        if '::sentence_ends' not in meta_data and self.sentence_ends and len(self.sentence_ends)>0:
+            snt_ends_str = [str(x) for x in self.sentence_ends]
+            meta_data+= '# ::sentence_ends ' + ' '.join(snt_ends_str) + '\n'
 
-        # meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
+        #meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
         #sanity check
         p = penman.decode(self.penman_str)
 

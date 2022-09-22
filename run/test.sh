@@ -90,7 +90,7 @@ if [ $MODE == "doc" ];then
 
     fi
 
-elif [ $MODE == "doc+sen" ];then
+elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
     echo "mode doc+sen"
     
     if [ $data_split2 == "dev" ]; then
@@ -199,7 +199,7 @@ if [ $MODE == "doc" ];then
         --rep docAMR \
         --out-amr ${results_prefix}_docAMR.amr
     results_prefix=${results_prefix}_docAMR
-elif [ $MODE == "doc+sen" ];then
+elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
     echo "mode doc+sen"
     if [ $data_split2 == "test" ]; then
         echo -e "\n Changing rep of test data(doc dev) to docAMR "

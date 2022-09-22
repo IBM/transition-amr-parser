@@ -2,6 +2,7 @@ import argparse
 import os
 import re
 import copy
+import numpy as np
 from tqdm import tqdm
 
 from docamr_io import (
@@ -10,6 +11,17 @@ from docamr_io import (
     process_corefs
 )
 from ipdb import set_trace
+
+def connect_sen_amrs(amr):
+
+    if len(amr.roots) <= 1:
+        return
+
+    node_id = amr.add_node("document")
+    amr.root = str(node_id)
+    for (i,root) in enumerate(amr.roots):
+        amr.edges.append((amr.root, ":snt"+str(i+1), root))
+
 
 def make_doc_amrs(corefs, amrs, coref=True,chains=True):
     doc_amrs = {}
@@ -41,17 +53,6 @@ def make_doc_amrs(corefs, amrs, coref=True,chains=True):
         doc_amrs[doc_id] = doc_amr
 
     return doc_amrs
-
-def connect_sen_amrs(amr):
-
-    if len(amr.roots) <= 1:
-        return
-
-    node_id = amr.add_node("document")
-    amr.root = str(node_id)
-    for (i,root) in enumerate(amr.roots):
-        amr.edges.append((amr.root, ":snt"+str(i+1), root))
-
 
 def main(args):
 
