@@ -4,7 +4,7 @@ set -o pipefail
 
 # Argument handling
 # First argument must be checkpoint
-HELP="\nbash $0 <checkpoint> <tokenized_sentences> [-s <max_split_size>]\n"
+HELP="\nbash $0 <checkpoint> <tokenized_sentences> [-s <max_split_size>] [--tokenize]\n"
 [ -z "$1" ] && echo -e "$HELP" && exit 1
 [ -z "$2" ] && echo -e "$HELP" && exit 1
 first_path=$(echo $1 | sed 's@:.*@@g')
@@ -12,15 +12,19 @@ first_path=$(echo $1 | sed 's@:.*@@g')
 checkpoint=$1
 tokenized_sentences=$2
 # process the rest with argument parser
+tokenize=""
 max_split_size=2000
 shift 
 shift 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --tokenize) tokenize="--tokenize"; shift 1;;
     -s) max_split_size="$2"; shift 2;;
     *) echo "unrecognized argument: $1"; exit 1;;
   esac
 done
+
+set -o nounset
 
 # Split files
 split -l $max_split_size $tokenized_sentences ${tokenized_sentences}.split_
@@ -31,5 +35,5 @@ for split in $(ls ${tokenized_sentences}.split_*);do
           -name $(basename $split) \
           -out $(dirname $split)%J.stdout \
           -err $(dirname $split)/%J.stderr \
-          /bin/bash run/parse.sh $checkpoint $split ${split}.amr
+          /bin/bash run/parse.sh $checkpoint $split ${split}.amr $tokenize
 done
