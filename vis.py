@@ -13,7 +13,7 @@ from tqdm import tqdm
 import os
 colors = {}
 colors['terminal'] = {'red':f"{Fore.RED+Style.BRIGHT}",'blue':f"{Fore.BLUE+Style.BRIGHT}",'green':f"{Fore.GREEN+Style.BRIGHT}",'magenta':f"{Fore.MAGENTA+Style.BRIGHT}",'reset':f"{Style.RESET_ALL}"}
-colors['html'] = {'red':'<span style="color:red;font-weight:bold;">','blue':'<span style="color:blue;font-weight:bold;">','green':'<span style="color:green;font-weight:bold;">','magenta':'<span style="color:darkmagenta;font-weight:bold;">','reset':'</span>'}
+colors['html'] = {'red':'<span style="color:red;font-weight:bold;">','blue':'<span style="color:blue;font-weight:bold;">','green':'<span style="background-color:lime;font-weight:bold;">','magenta':'<span style="color:darkmagenta;font-weight:bold;">','reset':'</span>'}
 htmlclose='</body></html>'
 
 
@@ -21,10 +21,12 @@ htmlclose='</body></html>'
     
 def main(args): 
     # gold = read_amr(sys.argv[1]).values()
-    gold = read_amr(args.f[1]).values()
-    dev = read_amr(args.f[0]).values()
-    f1 = open(args.f[0],'r')
-    f2 = open(args.f[1],'r')
+    gold = read_amr(args.f[0]).values()
+    dev = read_amr(args.f[1]).values()
+    f1 = open(args.f[1],'r')
+    f2 = open(args.f[0],'r')
+
+    scores = []
     # out_file = open('vis.out','w')
     if os.path.isfile('DATA/best_gold_to_pred_alignments.pt'):
         pickle_file = open('DATA/best_gold_to_pred_alignments.pt','rb')
@@ -32,9 +34,12 @@ def main(args):
     else:
         gold_to_pred_alignments = []
         for sent_num, (cur_amr1, cur_amr2) in tqdm(enumerate(smatch.generate_amr_lines(f1, f2), start=1), desc='Getting Smatch alignments'):
-            __, __,*a = smatch.get_amr_match(cur_amr1, cur_amr2,
+            xx, ss,*a = smatch.get_amr_match(cur_amr1, cur_amr2,
                                             sent_num=sent_num,  # sentence number
                                             coref=True,get_alignment=True)
+            p = float(xx[0])/xx[1]
+            r = float(xx[0])/xx[2]
+            scores.append((2*p*r)/(p+r))
             if len(a)>0:
                 gold_to_pred_alignments.append(a[0])
         with open('DATA/best_gold_to_pred_alignments.pt','wb') as pickle_file:
@@ -69,6 +74,7 @@ def main(args):
                                 <span style="color:red;">Blue</span> : pred coref but not in gold (false positive) <br>
                             </h3>
                     '''
+            htmlstr += "<h3><br>Score: " + str(scores[num]) + "   <br> </h3>"
             
             if not os.path.isdir('DATA/vis_output_html'):
                 os.mkdir('DATA/vis_output_html')
@@ -123,7 +129,9 @@ def main(args):
             outstr=""
             to_print = []
             to_print2  = []
-            pred_coref_node = gold_to_pred_alignments[num][cnode]
+            pred_coref_node = None
+            if cnode in gold_to_pred_alignments[num]:
+                pred_coref_node = gold_to_pred_alignments[num][cnode]
             
                
             if args.different_doc:
@@ -171,7 +179,7 @@ def main(args):
                         is_chain = True
                         # to_print.append(" ")
                     
-                    if pred_coref_node is not None and i in coref_chains2[pred_coref_node]:
+                    if pred_coref_node is not None and pred_coref_node in coref_chains2 and i in coref_chains2[pred_coref_node]:
                         # print(f"{Fore.RED+Style.BRIGHT}"+tok+f"{Style.RESET_ALL}", end=" ")
                         # CORRECT mattch with gold
                         if is_chain:
