@@ -70,7 +70,7 @@ You first need to pre-process and align the data. For AMR2.0 do
 
 ```bash
 . set_environment.sh
-python preprocess/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
+python scripts/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
 ```
 
 You will also need to unzip the precomputed BLINK cache. See issues in this repository to get the cache file (or the link above for IBM-ers).
