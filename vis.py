@@ -13,7 +13,7 @@ from tqdm import tqdm
 import os
 colors = {}
 colors['terminal'] = {'red':f"{Fore.RED+Style.BRIGHT}",'blue':f"{Fore.BLUE+Style.BRIGHT}",'green':f"{Fore.GREEN+Style.BRIGHT}",'magenta':f"{Fore.MAGENTA+Style.BRIGHT}",'reset':f"{Style.RESET_ALL}"}
-colors['html'] = {'red':'<span style="color:red;font-weight:bold;">','blue':'<span style="color:blue;font-weight:bold;">','green':'<span style="background-color:lime;font-weight:bold;">','magenta':'<span style="color:darkmagenta;font-weight:bold;">','reset':'</span>'}
+colors['html'] = {'red':'<span style="background-color:pink;font-weight:bold;">','blue':'<span style="background-color:cyan;font-weight:bold;">','green':'<span style="background-color:lime;font-weight:bold;">','magenta':'<span style="color:darkmagenta;font-weight:bold;">','reset':'</span>'}
 htmlclose='</body></html>'
 
 
@@ -31,6 +31,8 @@ def main(args):
     if os.path.isfile('DATA/best_gold_to_pred_alignments.pt'):
         pickle_file = open('DATA/best_gold_to_pred_alignments.pt','rb')
         gold_to_pred_alignments = pickle.load(pickle_file)
+        pickle_file = open('DATA/scores.pt','rb')
+        scores = pickle.load(pickle_file)
     else:
         gold_to_pred_alignments = []
         for sent_num, (cur_amr1, cur_amr2) in tqdm(enumerate(smatch.generate_amr_lines(f1, f2), start=1), desc='Getting Smatch alignments'):
@@ -43,7 +45,9 @@ def main(args):
             if len(a)>0:
                 gold_to_pred_alignments.append(a[0])
         with open('DATA/best_gold_to_pred_alignments.pt','wb') as pickle_file:
-            pickle.dump(gold_to_pred_alignments,pickle_file)                                                       
+            pickle.dump(gold_to_pred_alignments,pickle_file)
+        with open('DATA/scores.pt','wb') as pickle_file:
+            pickle.dump(scores,pickle_file)
     
     for num,(amr,amr2) in enumerate(zip(gold,dev)):
         print("DOC ",num)
@@ -63,18 +67,20 @@ def main(args):
         coref_chains2 = {}
         chain_nodes2 = {}
         chain_nodes = {}
+        chain_nodes_ids2 = {}
+        chain_nodes_aligned_nodes = {}
         
         if args.output_html:
             htmlstr = '''
                     <html>
                         <body>
                             <h1>Coref chains in gold amr vs pred amr</h1>
-                            <h3> <span style="color:green;">Green</span> : coref match (true positive) <br>
-                                <span style="color:blue;">Blue</span> : gold coref but not in pred (false negative) <br>
-                                <span style="color:red;">Blue</span> : pred coref but not in gold (false positive) <br>
+                            <h3> <span style="background-color:lime;font-weight:bold;">Green</span> : coref match (true positive) <br>
+                                <span style="background-color:cyan;font-weight:bold;">Blue</span> : gold coref but not in pred (false negative) <br>
+                                <span style="background-color:pink;font-weight:bold;">Red</span> : pred coref but not in gold (false positive) <br>
                             </h3>
                     '''
-            htmlstr += "<h3><br>Score: " + str(scores[num]) + "   <br> </h3>"
+            htmlstr += "<h3><br>Score: " + str(round(scores[num],2)) + "   <br> </h3><hr>"
             
             if not os.path.isdir('DATA/vis_output_html'):
                 os.mkdir('DATA/vis_output_html')
@@ -86,6 +92,7 @@ def main(args):
         for cnode2 in coref_nodes2:
             coref_chains2[cnode2] = []
             chain_nodes2[cnode2] = []
+            chain_nodes_ids2[cnode2] = []
             
             for e in amr2.edges:
                 if e[0] not in amr2.nodes or e[2] not in amr2.nodes:
@@ -93,38 +100,42 @@ def main(args):
                 if e[1] == ':coref' and e[0] == cnode2:
                     if e[2] in amr2.alignments:
                         coref_chains2[cnode2].extend(amr2.alignments[e[2]])
-                    chain_nodes2[cnode2].append(amr2.nodes[e[2]])
-                    
-                    
+                    chain_nodes2[cnode2].append(amr2.nodes[e[2]])                    
+                    chain_nodes_ids2[cnode2].append(e[2])
 
                 if e[1] == ':coref-of' and e[2] == cnode2:
                     if e[0] in amr2.alignments:
                         coref_chains2[cnode2].extend(amr2.alignments[e[0]])
                     chain_nodes2[cnode2].append(amr2.nodes[e[0]])
-                    
+                    chain_nodes_ids2[cnode2].append(e[0])
                     
         
         for cnode in coref_nodes:
             coref_chains[cnode] = []
             chain_nodes[cnode] = []
-            
+            chain_nodes_aligned_nodes[cnode] = []
             
 
             for e in amr.edges:
                 if e[0] not in amr.nodes or e[2] not in amr.nodes:
                     continue
+                aligned_node = None
                 if e[1] == ':coref' and e[0] == cnode:
                     if e[2] in amr.alignments:
                         coref_chains[cnode].extend(amr.alignments[e[2]])
                     chain_nodes[cnode].append(amr.nodes[e[2]])
-                    
+                    if e[2] in gold_to_pred_alignments[num]:
+                        aligned_node = gold_to_pred_alignments[num][e[2]]
+                    chain_nodes_aligned_nodes[cnode].append(aligned_node)
+                                                                                   
                 if e[1] == ':coref-of' and e[2] == cnode:
                     if e[0] in amr.alignments:
                         coref_chains[cnode].extend(amr.alignments[e[0]])
                     chain_nodes[cnode].append(amr.nodes[e[0]])
+                    if e[0] in gold_to_pred_alignments[num]:
+                        aligned_node = gold_to_pred_alignments[num][e[0]]
+                    chain_nodes_aligned_nodes[cnode].append(aligned_node)
                     
-            
-            
                     
             outstr=""
             to_print = []
@@ -198,9 +209,17 @@ def main(args):
                     to_print.append(color+tok+color_picker['reset'])
             if args.output_html:
                     htmlout = '<p>'+' '.join(to_print)+'</p>'
-                    htmlout+='<p>Nodes corefed in gold '+ color_picker['blue']+' '.join(chain_nodes[cnode])+color_picker['reset']+'</p>'
-                    htmlout+='<p>Nodes corefed in pred '+ color_picker['magenta']+' '.join(chain_nodes2[pred_coref_node] if pred_coref_node in chain_nodes2 else ['No','gold','coref','matching', 'pred', 'coref',str(pred_coref_node)])+color_picker['reset']+'</p><br><hr />'
-                    
+                    to_print_node = []
+                    for i in range(len(chain_nodes[cnode])):
+                        color = ''
+                        if pred_coref_node and chain_nodes_aligned_nodes[cnode][i] in chain_nodes_ids2[pred_coref_node]:
+                            color = color_picker['green']
+                        else:
+                            color = color_picker['blue']
+                        to_print_node.append(color+chain_nodes[cnode][i]+color_picker['reset'])
+                    htmlout+='<p>Nodes corefed in gold ' + ' '.join(to_print_node)+'</p>'
+                    #htmlout+='<p>Nodes corefed in pred ' + ' '.join(chain_nodes2[pred_coref_node] if pred_coref_node in chain_nodes2 else ['No','gold','coref','matching', 'pred', 'coref',str(pred_coref_node)])+'</p><br>'
+                    htmlout+='<hr>'
                     htmlfile.write(htmlout)
                     
                     
