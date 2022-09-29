@@ -13,35 +13,111 @@ from tqdm import tqdm
 import os
 colors = {}
 colors['terminal'] = {'red':f"{Fore.RED+Style.BRIGHT}",'blue':f"{Fore.BLUE+Style.BRIGHT}",'green':f"{Fore.GREEN+Style.BRIGHT}",'magenta':f"{Fore.MAGENTA+Style.BRIGHT}",'reset':f"{Style.RESET_ALL}"}
-colors['html'] = {'red':'<span style="color:red;font-weight:bold;">','blue':'<span style="color:blue;font-weight:bold;">','green':'<span style="color:green;font-weight:bold;">','magenta':'<span style="color:darkmagenta;font-weight:bold;">','reset':'</span>'}
-htmlclose='</body></html>'
+colors['html'] = {'red':'<span style="background-color:pink;font-weight:bold;"','blue':'<span style="background-color:cyan;font-weight:bold;"','green':'<span style="background-color:lime;font-weight:bold;"','magenta':'<span style="background-color:magenta;font-weight:bold;">','reset':'</span>'}
+htmlclose='</div></body></html>'
 
 
 
     
 def main(args): 
     # gold = read_amr(sys.argv[1]).values()
+    
     gold = read_amr(args.f[1]).values()
     dev = read_amr(args.f[0]).values()
     f1 = open(args.f[0],'r')
     f2 = open(args.f[1],'r')
     # out_file = open('vis.out','w')
-    if os.path.isfile('DATA/best_gold_to_pred_alignments.pt'):
-        pickle_file = open('DATA/best_gold_to_pred_alignments.pt','rb')
+    if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2.pt'):
+        pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2.pt','rb')
         gold_to_pred_alignments = pickle.load(pickle_file)
     else:
-        gold_to_pred_alignments = []
+        gold_to_pred_alignments = {'Alignments':[],'F1':[],'Coref-Score':[]}
         for sent_num, (cur_amr1, cur_amr2) in tqdm(enumerate(smatch.generate_amr_lines(f1, f2), start=1), desc='Getting Smatch alignments'):
-            __, __,*a = smatch.get_amr_match(cur_amr1, cur_amr2,
+            nums, ss,*a = smatch.get_amr_match(cur_amr1, cur_amr2,
                                             sent_num=sent_num,  # sentence number
                                             coref=True,get_alignment=True)
+            best_match_num, test_triple_num, gold_triple_num = nums
+            pr,re,f1_score = smatch.compute_f(best_match_num, test_triple_num, gold_triple_num)
+            subscores ={}
+            for label in ss:
+                if label in subscores:
+                    subscores[label].update(ss[label])
+                else:
+                    subscores[label] = ss[label]
+            co_num= subscores['Total Coref'].num
+            co_tes = subscores['Total Coref'].pred_total
+            co_gold = subscores['Total Coref'].gold_total
+            co_pr,co_re,coref_score = smatch.compute_f(co_num,co_tes,co_gold)                            
             if len(a)>0:
-                gold_to_pred_alignments.append(a[0])
-        with open('DATA/best_gold_to_pred_alignments.pt','wb') as pickle_file:
+                gold_to_pred_alignments['Alignments'].append(a[0])
+            gold_to_pred_alignments['F1'].append(str(round(f1_score*100,2)))
+            gold_to_pred_alignments['Coref-Score'].append(str(round(coref_score*100,2)))
+        with open('DATA/best_gold_to_pred_alignments_new_dict2.pt','wb') as pickle_file:
             pickle.dump(gold_to_pred_alignments,pickle_file)                                                       
     
+    if args.output_html:
+        htmlstr = '''
+                    <html>
+                    <head>
+                    <style>
+                    body {
+                    margin: 0;
+                    }
+
+                    ul {
+                    list-style-type: none;
+                    margin: 0;
+                    padding: 0;
+                    width: 15%;
+                    background-color: #f1f1f1;
+                    position: fixed;
+                    height: 100%;
+                    overflow: auto;
+                    }
+
+                    li a {
+                    display: block;
+                    color: #000;
+                    padding: 8px 16px;
+                    text-decoration: none;
+                    }
+
+                    li a.active {
+                    background-color: #04AA6D;
+                    color: white;
+                    }
+
+                    li a:hover:not(.active) {
+                    background-color: #555;
+                    color: white;
+                    }
+                    </style>
+                    </head>
+                    <body>
+
+                    <ul>
+                    <li><a class="active" href="#home">Legend</a></li>
+                    '''
+        for i in range(0,len(gold)):
+            htmlstr+='<li><a href="#doc_'+str(i)+'">Doc '+str(i)+'</a></li>'
+        htmlstr+='''
+                </ul>
+                <div style="margin-left:15%;padding:1px 16px;height:1000px;">
+                <h1 id="home">Coref chains in gold amr vs pred amr</h1>
+                <h3> <span style="background-color:lime;">Green</span> : coref match (true positive) <br>
+                    <span style="background-color:cyan;">Blue</span> : gold coref but not in pred (false negative) <br>
+                    <span style="background-color:pink">Red</span> : pred coref but not in gold (false positive) <br>
+                </h3>
+                '''
+        if not os.path.isdir('DATA/vis_output_html'):
+                os.mkdir('DATA/vis_output_html')
+        htmlfile = open("DATA/vis_output_html/corefchains_wnav_hover_newpred_corefscore.html","w")
+        htmlfile.write(htmlstr)
+
+
     for num,(amr,amr2) in enumerate(zip(gold,dev)):
         print("DOC ",num)
+        
         tokens = amr.tokens
         tokens2 = amr2.tokens
         coref_nodes = []
@@ -58,24 +134,9 @@ def main(args):
         coref_chains2 = {}
         chain_nodes2 = {}
         chain_nodes = {}
-        
         if args.output_html:
-            htmlstr = '''
-                    <html>
-                        <body>
-                            <h1>Coref chains in gold amr vs pred amr</h1>
-                            <h3> <span style="color:green;">Green</span> : coref match (true positive) <br>
-                                <span style="color:blue;">Blue</span> : gold coref but not in pred (false negative) <br>
-                                <span style="color:red;">Blue</span> : pred coref but not in gold (false positive) <br>
-                            </h3>
-                    '''
-            
-            if not os.path.isdir('DATA/vis_output_html'):
-                os.mkdir('DATA/vis_output_html')
-            htmlfile = open("DATA/vis_output_html/corefchains_doc"+str(num)+".html","w")
-            htmlfile.write(htmlstr)
-
-
+            htmldoc = '<h3 id=doc_'+str(num)+'>Doc '+str(num)+'</h4><br><h4>Smatch '+gold_to_pred_alignments['F1'][num]+'<br>Coref Score '+gold_to_pred_alignments['Coref-Score'][num]+'</h4>'
+            htmlfile.write(htmldoc)
 
         for cnode2 in coref_nodes2:
             coref_chains2[cnode2] = []
@@ -86,15 +147,15 @@ def main(args):
                     continue
                 if e[1] == ':coref' and e[0] == cnode2:
                     if e[2] in amr2.alignments:
-                        coref_chains2[cnode2].extend(amr2.alignments[e[2]])
-                    chain_nodes2[cnode2].append(amr2.nodes[e[2]])
+                        coref_chains2[cnode2].append(amr2.alignments[e[2]])
+                        chain_nodes2[cnode2].append(amr2.nodes[e[2]])
                     
                     
 
                 if e[1] == ':coref-of' and e[2] == cnode2:
                     if e[0] in amr2.alignments:
-                        coref_chains2[cnode2].extend(amr2.alignments[e[0]])
-                    chain_nodes2[cnode2].append(amr2.nodes[e[0]])
+                        coref_chains2[cnode2].append(amr2.alignments[e[0]])
+                        chain_nodes2[cnode2].append(amr2.nodes[e[0]])
                     
                     
         
@@ -109,21 +170,23 @@ def main(args):
                     continue
                 if e[1] == ':coref' and e[0] == cnode:
                     if e[2] in amr.alignments:
-                        coref_chains[cnode].extend(amr.alignments[e[2]])
-                    chain_nodes[cnode].append(amr.nodes[e[2]])
+                        coref_chains[cnode].append(amr.alignments[e[2]])
+                        chain_nodes[cnode].append(amr.nodes[e[2]])
                     
                 if e[1] == ':coref-of' and e[2] == cnode:
                     if e[0] in amr.alignments:
-                        coref_chains[cnode].extend(amr.alignments[e[0]])
-                    chain_nodes[cnode].append(amr.nodes[e[0]])
+                        coref_chains[cnode].append(amr.alignments[e[0]])
+                        chain_nodes[cnode].append(amr.nodes[e[0]])
                     
             
             
                     
             outstr=""
-            to_print = []
+            to_print_tokens = []
+            to_print_cnodes = []
+            to_print_predcnodes = []
             to_print2  = []
-            pred_coref_node = gold_to_pred_alignments[num][cnode]
+            pred_coref_node = gold_to_pred_alignments['Alignments'][num][cnode]
             
                
             if args.different_doc:
@@ -166,32 +229,45 @@ def main(args):
                 for i,tok in enumerate(tokens):
                     is_chain = False
                     color = None
-                    if i in coref_chains[cnode]:
-                        # print(f"{Fore.RED+Style.BRIGHT}"+tok+f"{Style.RESET_ALL}", end=" ")
+                    cnode_idx = None
+                    pred_cnode_idx = None
+                    cnode_ispresent=[i in aligns for aligns in coref_chains[cnode]]
+                    if any(cnode_ispresent):
+                        cnode_idx = cnode_ispresent.index(True)
+                        
                         is_chain = True
-                        # to_print.append(" ")
+                        
                     
-                    if pred_coref_node is not None and i in coref_chains2[pred_coref_node]:
-                        # print(f"{Fore.RED+Style.BRIGHT}"+tok+f"{Style.RESET_ALL}", end=" ")
-                        # CORRECT mattch with gold
-                        if is_chain:
-                            color = color_picker['green']
-                        else:
-                            color = color_picker['red']
-                        # to_print2.append(" ")
+                    if pred_coref_node is not None:
+                        pred_cnode_ispresent = [i in aligns for aligns in coref_chains2[pred_coref_node]]
+                        if any(pred_cnode_ispresent):
+                            pred_cnode_idx = pred_cnode_ispresent.index(True)
+                            # CORRECT mattch with gold
+                            if is_chain:
+                                color = color_picker['green']
+                                title =' title="gold:'+cnode+' pred:'+pred_coref_node+'">'
+                            else:
+                                color = color_picker['red']
+                                title = ' title="pred:'+pred_coref_node+'">'
+                        
                     if color is None:
-                        #print(tok, end=" ")
+                        
                         # MISSED COREF NODE
                         if is_chain:
                             color = color_picker['blue']
+                            title = ' title="gold:'+cnode+'">'
                         else:
                             color = ''
-                        # to_print2.append(" ")
-                    to_print.append(color+tok+color_picker['reset'])
+                            title = ''
+                    if cnode_idx is not None:
+                        to_print_cnodes.append(color+'">'+chain_nodes[cnode][cnode_idx]+color_picker['reset']) 
+                    if pred_cnode_idx is not None:
+                        to_print_predcnodes.append(color+'">'+chain_nodes2[pred_coref_node][pred_cnode_idx]+color_picker['reset'])   
+                    to_print_tokens.append(color+title+tok+color_picker['reset'])
             if args.output_html:
-                    htmlout = '<p>'+' '.join(to_print)+'</p>'
-                    htmlout+='<p>Nodes corefed in gold '+ color_picker['blue']+' '.join(chain_nodes[cnode])+color_picker['reset']+'</p>'
-                    htmlout+='<p>Nodes corefed in pred '+ color_picker['magenta']+' '.join(chain_nodes2[pred_coref_node] if pred_coref_node in chain_nodes2 else ['No','gold','coref','matching', 'pred', 'coref',str(pred_coref_node)])+color_picker['reset']+'</p><br><hr />'
+                    htmlout = '<p>'+' '.join(to_print_tokens)+'</p>'
+                    htmlout+='<p>Nodes corefed in gold '+' '.join(to_print_cnodes)+'</p>'
+                    htmlout+='<p>Nodes corefed in pred '+ ' '.join(to_print_predcnodes if pred_coref_node in chain_nodes2 else ['No','smatch','alignment','between', 'gold', 'and','pred'])+color_picker['reset']+'</p><br><hr />'
                     
                     htmlfile.write(htmlout)
                     
@@ -209,8 +285,8 @@ def main(args):
                 print("\n===============================")
                 input("Press Enter to continue... \n")
         
-        htmlfile.write(htmlclose)
-        htmlfile.close()
+    htmlfile.write(htmlclose)
+    htmlfile.close()
     # out_file.close()
         
 
