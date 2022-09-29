@@ -13,7 +13,7 @@ import os
 import glob
 import copy
 
-def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no_merge'):
+def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no_merge',dont_make_pairwise_edges=False):
     
         
     # Read AMR as a generator with tqdm progress bar
@@ -91,8 +91,8 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no
             damr = deepcopy(amr)
             connect_sen_amrs(damr)
             damr.normalize(norm)
-            
-            damr = make_pairwise_edges(damr)
+            if not dont_make_pairwise_edges:
+                damr = make_pairwise_edges(damr)
             #get sentence ends indices
             damr.get_sen_ends()
             #FIXME remove unicode in every token of sentence
@@ -112,7 +112,7 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no
             fid.write(damr.__str__(jamr=args.jamr))
 
 def main(args):
-    write_doc_amr_from_sen(args.in_amr,args.coref_fof,args.fof_path,args.coref_type,args.out_amr,args.norm)
+    write_doc_amr_from_sen(args.in_amr,args.coref_fof,args.fof_path,args.coref_type,args.out_amr,args.norm,args.dont_make_pairwise_edges)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -155,7 +155,11 @@ if __name__ == '__main__':
         action='store_true',
         default=False
     )
-
+    parser.add_argument(
+        "--dont-make-pairwise-edges",
+        help="make pairwise edges out of coref edges",
+        action='store_true'
+    )
 
 
 
