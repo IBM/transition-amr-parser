@@ -186,7 +186,9 @@ def main(args):
             to_print_cnodes = []
             to_print_predcnodes = []
             to_print2  = []
-            pred_coref_node = gold_to_pred_alignments['Alignments'][num][cnode]
+            pred_coref_node = None
+            if cnode in gold_to_pred_alignments[num]:
+                pred_coref_node = gold_to_pred_alignments['Alignments'][num][cnode]
             
                
             if args.different_doc:

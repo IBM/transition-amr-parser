@@ -523,14 +523,14 @@ def find_roots(edges, root):
     # if we have edges and no head, there is a cycle. Cut at the node with
     # highest number of children
     #FIXME changed from highest number of children to returning all candidates with least parents and using num of descendants to judge
+    least_num_parent = 1
     while len(heads)==0 and edges:
-        least_num_parent = 1
         if root is None:
                 # heads = [num_children.most_common(1)[0][0]]
                 heads = [k for k, c in num_parents.items() if c ==least_num_parent]
         else:
             heads = [root]
-        least_num_parent+=1
+        least_num_parent += 1
     return heads
 
 def check_if_coref_edge(head, edges,rel):
@@ -560,7 +560,13 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False, connect_tops=
     head_descendants = dict()
     total_visited = set()
     loose_nodes = set(nodes)
+    last_num_loose=9999
     while loose_nodes:
+        num_loose = len(loose_nodes)
+        if num_loose == last_num_loose:
+            heads.extend(loose_nodes)
+            import ipdb; ipdb.set_trace()
+        last_num_loose = num_loose
         for head in heads:
             stacks, offending_stacks = trasverse(edges, head)
             descendants = set([s[-1][-1] for s in stacks if s[-1][-1] != head])

@@ -208,6 +208,7 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
     python docAMR/doc_amr.py \
         --in-doc-amr-pairwise ${results_prefix}.amr \
         --rep docAMR \
+	--pairwise-coref-rel :same-as \
         --out-amr ${results_prefix}_docAMR.amr
     results_prefix=${results_prefix}_docAMR
 elif [ $MODE == "doc+sen" ];then
@@ -217,6 +218,7 @@ elif [ $MODE == "doc+sen" ];then
         python docAMR/doc_amr.py \
             --in-doc-amr-pairwise ${results_prefix}.amr \
             --rep docAMR \
+	    --pairwise-coref-rel :same-as \
             --out-amr ${results_prefix}_docAMR.amr
         results_prefix=${results_prefix}_docAMR
     fi
