@@ -27,8 +27,8 @@ def main(args):
     f1 = open(args.f[0],'r')
     f2 = open(args.f[1],'r')
     # out_file = open('vis.out','w')
-    if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2.pt'):
-        pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2.pt','rb')
+    if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2_allalign.pt'):
+        pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2_allalign.pt','rb')
         gold_to_pred_alignments = pickle.load(pickle_file)
     else:
         gold_to_pred_alignments = {'Alignments':[],'F1':[],'Coref-Score':[]}
@@ -52,7 +52,7 @@ def main(args):
                 gold_to_pred_alignments['Alignments'].append(a[0])
             gold_to_pred_alignments['F1'].append(str(round(f1_score*100,2)))
             gold_to_pred_alignments['Coref-Score'].append(str(round(coref_score*100,2)))
-        with open('DATA/best_gold_to_pred_alignments_new_dict2.pt','wb') as pickle_file:
+        with open('DATA/best_gold_to_pred_alignments_new_dict2_allalign.pt','wb') as pickle_file:
             pickle.dump(gold_to_pred_alignments,pickle_file)                                                       
     
     if args.output_html:
@@ -111,7 +111,7 @@ def main(args):
                 '''
         if not os.path.isdir('DATA/vis_output_html'):
                 os.mkdir('DATA/vis_output_html')
-        htmlfile = open("DATA/vis_output_html/corefchains_wnav_hover_newpred_corefscore.html","w")
+        htmlfile = open("DATA/vis_output_html/corefchains_wnav_hover_newpred_corefscore_nodealign.html","w")
         htmlfile.write(htmlstr)
 
 
@@ -187,7 +187,7 @@ def main(args):
             to_print_predcnodes = []
             to_print2  = []
             pred_coref_node = None
-            if cnode in gold_to_pred_alignments[num]:
+            if cnode in gold_to_pred_alignments['Alignments'][num]:
                 pred_coref_node = gold_to_pred_alignments['Alignments'][num][cnode]
             
                
