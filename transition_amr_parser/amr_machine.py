@@ -614,6 +614,8 @@ class AMRStateMachine():
         self.free_nodes = []
         self.in_free_zone = True
 
+        self.num_actions_on_this_pos = 0
+        self.num_arcs_on_this_node = 0
         
         if self.force_actions:
             if len(self.force_actions[0]) and self.force_actions[0][0] != self.wild_any:
@@ -844,6 +846,20 @@ class AMRStateMachine():
 
         valid_base_actions = []
         gen_node_actions = ['COPY', 'NODE'] if self.config.use_copy else ['NODE']
+
+        if self.num_actions_on_this_pos > 30 or self.num_arcs_on_this_node > 20:
+            if self.force_actions:
+                if self.action_cursor >= len(self.force_actions[self.tok_cursor]):
+                    return ['SHIFT']
+                if self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_arc, self.wild_any]:
+                    while self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_arc, self.wild_any]:
+                        self.action_cursor += 1
+                        if self.action_cursor >= len(self.force_actions[self.tok_cursor]):
+                            return ['SHIFT']
+                self.in_free_zone = False
+            else:
+                return ['SHIFT']
+                        
         
         if not self.in_free_zone:            
             # force decode (we know partial actions sequence)
@@ -862,8 +878,8 @@ class AMRStateMachine():
             else:
                 ret_actions = [self.force_actions[self.tok_cursor][self.action_cursor]]
             return ret_actions
+                        
         
-
         if self.tok_cursor < len(self.tokens):
             
             if (
@@ -963,7 +979,7 @@ class AMRStateMachine():
             )
 
         self.actions_tokcursor.append(self.tok_cursor)
-
+        self.num_actions_on_this_pos += 1
 
         #if force decoding, either move action cursor or shift future pointers
         if self.force_actions:
@@ -1006,12 +1022,9 @@ class AMRStateMachine():
             # Move source pointer
             self.tok_cursor += 1
             self.action_cursor = 0
+            self.num_actions_on_this_pos = 0
+            self.num_arcs_on_this_node = 0
             self.in_free_zone = True
-            if (self.force_actions and
-                self.tok_cursor < len(self.tokens) and
-                len(self.force_actions[self.tok_cursor][self.action_cursor:]) != 0 and
-                self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
-                self.in_free_zone = False
 
 
         #NEW_ACTION FIXME
@@ -1020,12 +1033,9 @@ class AMRStateMachine():
             # Move source pointer 
             self.tok_cursor += 1
             self.action_cursor = 0
+            self.num_actions_on_this_pos = 0
+            self.num_arcs_on_this_node = 0
             self.in_free_zone = True
-            if (self.force_actions and
-                self.tok_cursor < len(self.tokens) and
-                len(self.force_actions[self.tok_cursor][self.action_cursor:]) != 0 and
-                self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
-                self.in_free_zone = False
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True,connect_tops=(not gold))
             if self.root is None:
@@ -1101,6 +1111,7 @@ class AMRStateMachine():
         elif la_regex.match(action):
             # Left Arc <--
             # label, index = la_regex.match(action).groups()
+            self.num_arcs_on_this_node += 1
             index, label = la_regex.match(action).groups()
             is_coref_edge = False
             sen_start = -1
@@ -1122,13 +1133,18 @@ class AMRStateMachine():
                 # assert tgt in self.node_stack
                 if (src, f'{label}', tgt) not in self.edges:
                     self.edges.append((src, f'{label}', tgt))
-                #NEW_ACTION
-                self.sentence_edges.append((src, f'{label}', tgt))
+                    #NEW_ACTION
+                    self.sentence_edges.append((src, f'{label}', tgt))
+                else:
+                    if (self.force_actions and len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1
+                        and self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_any,self.wild_arc]):
+                        self.action_cursor += 1
 
         elif ra_regex.match(action):
             # Right Arc -->
             # label, index = ra_regex.match(action).groups()
             index, label = ra_regex.match(action).groups()
+            self.num_arcs_on_this_node += 1
             is_coref_edge = False
             sen_start = -1
             for j in range(len(self.action_history)-1,-1,-1):
@@ -1147,40 +1163,65 @@ class AMRStateMachine():
                     index = len(self.node_stack) - int(index) - 2
                     src = self.node_stack[index]
                 tgt = self.node_stack[-1]
-                self.edges.append((src, f'{label}', tgt))
-                #NEW_ACTION
-                self.sentence_edges.append((src, f'{label}', tgt))
+                edge = (src, f'{label}', tgt)
+                if edge not in self.edges:
+                    self.edges.append(edge)
+                    #NEW_ACTION
+                    self.sentence_edges.append(edge)
+                else:
+                    if (self.force_actions and len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1
+                    and self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_any,self.wild_arc]):
+                        self.action_cursor += 1
 
         # Node generation
         elif action == 'COPY':
             # copy surface symbol under cursor to node-name
             node_id = len(self.action_history)
-            self.nodes[node_id] = normalize(self.tokens[self.tok_cursor])
-            self.node_stack.append(node_id)
-            self.alignments[node_id].append(self.tok_cursor)
-            #NEW_ACTION
-            #for keeping each sentence's nodes separate
-            self.sentence_nodes[node_id]= self.nodes[node_id]
+            new_node = normalize(self.tokens[self.tok_cursor])
+            already_created = False
+            #for nid in self.nodes:
+            #    if self.nodes[nid] == new_node and self.tok_cursor in self.alignments[nid] :
+            #        already_created = True
+            if not already_created:
+                self.num_arcs_on_this_node = 0
+                self.nodes[node_id] = new_node
+                self.node_stack.append(node_id)
+                self.alignments[node_id].append(self.tok_cursor)
+                #NEW_ACTION
+                #for keeping each sentence's nodes separate
+                self.sentence_nodes[node_id]= self.nodes[node_id]
 
-            if self.force_actions and self.in_free_zone:
-                self.free_nodes.append(node_id)
+                if self.force_actions and self.in_free_zone:
+                    self.free_nodes.append(node_id)
+            else:
+                if (self.force_actions and len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1
+                and self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_any,self.wild_arc]):
+                    self.action_cursor += 1
         else:
 
             # Interpret action as a node name
             # Note that the node_id is the position of the action that
             # generated it
-            node_id = len(self.action_history)
-            self.nodes[node_id] = action
-            self.node_stack.append(node_id)
-            self.alignments[node_id].append(self.tok_cursor)
-            #NEW_ACTION
-            #for keeping each sentence's nodes separate
-            self.sentence_nodes[node_id] = self.nodes[node_id]
+            already_created = False
+            #for nid in self.nodes:
+            #    if self.nodes[nid] == action and self.tok_cursor in self.alignments[nid]:
+            #        already_created = True
+            if not already_created:
+                self.num_arcs_on_this_node = 0
+                node_id = len(self.action_history)
+                self.nodes[node_id] = action
+                self.node_stack.append(node_id)
+                self.alignments[node_id].append(self.tok_cursor)
+                #NEW_ACTION
+                #for keeping each sentence's nodes separate
+                self.sentence_nodes[node_id] = self.nodes[node_id]
 
-
-            if self.force_actions and self.in_free_zone:
-                self.free_nodes.append(node_id)
-                
+                if self.force_actions and self.in_free_zone:
+                    self.free_nodes.append(node_id)
+            else:
+                if (self.force_actions and len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1
+                and self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_any,self.wild_arc]):
+                    self.action_cursor += 1
         # Update align mode tracker after machine state has been updated
         if self.gold_amr:
             self.align_tracker.update(self)
@@ -1196,6 +1237,13 @@ class AMRStateMachine():
                 # this will not work for partial AMRs
                 self.root = gold2dec[self.gold_amr.root]
 
+
+        if (self.force_actions and
+	    self.tok_cursor < len(self.tokens) and
+            len(self.force_actions[self.tok_cursor][self.action_cursor:]) != 0 and
+	    self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
+            self.in_free_zone = False
+                
         # Action for each time-step
         self.action_history.append(action)
 
