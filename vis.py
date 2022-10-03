@@ -30,8 +30,6 @@ def main(args):
     if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2.pt'):
         pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2.pt','rb')
         gold_to_pred_alignments = pickle.load(pickle_file)
-        pickle_file = open('DATA/scores.pt','rb')
-        scores = pickle.load(pickle_file)
     else:
         gold_to_pred_alignments = {'Alignments':[],'F1':[],'Coref-Score':[]}
         for sent_num, (cur_amr1, cur_amr2) in tqdm(enumerate(smatch.generate_amr_lines(f1, f2), start=1), desc='Getting Smatch alignments'):
@@ -143,7 +141,6 @@ def main(args):
         for cnode2 in coref_nodes2:
             coref_chains2[cnode2] = []
             chain_nodes2[cnode2] = []
-            chain_nodes_ids2[cnode2] = []
             
             for e in amr2.edges:
                 if e[0] not in amr2.nodes or e[2] not in amr2.nodes:
@@ -165,13 +162,11 @@ def main(args):
         for cnode in coref_nodes:
             coref_chains[cnode] = []
             chain_nodes[cnode] = []
-            chain_nodes_aligned_nodes[cnode] = []
             
 
             for e in amr.edges:
                 if e[0] not in amr.nodes or e[2] not in amr.nodes:
                     continue
-                aligned_node = None
                 if e[1] == ':coref' and e[0] == cnode:
                     if e[2] in amr.alignments:
                         coref_chains[cnode].append(amr.alignments[e[2]])
@@ -181,6 +176,8 @@ def main(args):
                     if e[0] in amr.alignments:
                         coref_chains[cnode].append(amr.alignments[e[0]])
                         chain_nodes[cnode].append(amr.nodes[e[0]])
+
+                        
                     
                     
             outstr=""
