@@ -677,7 +677,7 @@ class AMR_doc(AMR):
                                 elif r != e[1]:
                                     edges_to_delete.append((x,r,y))
                         if not has_other_parents:
-                            left_overs = self.delete_name(e[2],node1_names)
+                            left_overs = self.delete_name(e[2])
                             for (r,n) in left_overs:
                                 self.edges.append((node1, r, n))
                         edges_to_delete.append(e)
@@ -1103,7 +1103,7 @@ class AMR_doc(AMR):
                 if 'op' in e[1]:
                     if e[2] in self.nodes:
                         del self.nodes[e[2]]
-		else:
+                else:
                     left_overs.append((e[1],e[2]))
                 edges_to_delete.append(e)
         del self.nodes[name_node_id]
@@ -1111,7 +1111,7 @@ class AMR_doc(AMR):
             if e in self.edges:
                 self.edges.remove(e)
 
-	return left_overs    
+        return left_overs    
 
     def delete_sub(self, name_node_id):
         if name_node_id not in self.nodes:
@@ -1150,7 +1150,7 @@ class AMR_doc(AMR):
         assert '\n' in penman_text, "Expected string with EOL"
 
         graph = penman.decode(penman_text.split('\n'))
-        nodes, edges, alignments = get_simple_graph(graph)
+        nodes, edges, alignments, attributes = get_simple_graph(graph)
         if 'tok' in graph.metadata:
             tokens = graph.metadata['tok'].split()
         elif 'snt' in graph.metadata:
@@ -1187,7 +1187,7 @@ class AMR_doc(AMR):
         #values and literals dont get node variables
         nvars = dict.fromkeys(nodes, None)
         for nvar in nvars:
-            if isinstance(nvar, str):
+            if isinstance(nvar, str) and nvar not in attributes:
                 nvars[nvar] = nvar
 
         if 'sentence_ends' in graph.metadata:
@@ -1231,17 +1231,17 @@ class AMR_doc(AMR):
                 continue
             descendents[x].update(descendents[y])
             for n in descendents:
-		if x in descendents[n]:
+                if x in descendents[n]:
                     descendents[n].update(descendents[x])
 
         for e in edges2delete:
             if e in self.edges:
                 self.edges.remove(e)
 
-	to_be_deleted = []
+        to_be_deleted = []
         for nid in self.nodes:
             if len( descendents[nid] &  descendents[self.root] ) == 0 :
-		print(self.nodes[nid])
+                print(self.nodes[nid])
                 print("Nope, not connected, will be deleted")
                 to_be_deleted.append(nid)
         for nid in to_be_deleted:
@@ -1255,6 +1255,7 @@ class AMR_doc(AMR):
     def make_penman(self):
         
         all_tuples = []
+        epidata = {}
 
         #add root edges first, thats how penman decides on 'top'
         for e in self.edges:
@@ -1266,17 +1267,21 @@ class AMR_doc(AMR):
                 tup = (nid,":instance",self.nodes[nid])
                 if tup not in all_tuples:
                     all_tuples.append(tup)
-                    
+                    if nid in self.alignments:
+                        epidata[tup] = [surface.Alignment(indices=self.alignments[nid])]
+                        
         for e in self.edges:
             if self.nvars[e[2]] is None:
                 #no node variable indicates constant valued attribute
                 tup = (e[0],e[1],self.nodes[e[2]])
                 if tup not in all_tuples:
                     all_tuples.append(tup)
+                    if e[2] in self.alignments:
+                        epidata[tup] = [surface.Alignment(indices=self.alignments[e[2]])]
             else:
                 if e not in all_tuples:
                     all_tuples.append(e)
-        self.penman = penman.graph.Graph(all_tuples)
+        self.penman = penman.graph.Graph(triples=all_tuples, epidata=epidata)
     
     #def __str__(self):
 
@@ -1293,7 +1298,9 @@ class AMR_doc(AMR):
     def __str__(self,jamr=False):
 
         self.penman = None
-        self.penman_str = self.to_penman(jamr=jamr)
+        self.check_connectivity()
+        self.make_penman()
+        self.penman_str = penman.encode(self.penman) # self.to_penman(jamr=jamr)
         meta_data = ""
         if self.amr_id:
             meta_data  = '# ::id ' + self.amr_id + '\n'
@@ -1303,9 +1310,9 @@ class AMR_doc(AMR):
             snt_ends_str = [str(x) for x in self.sentence_ends]
             meta_data+= '# ::sentence_ends ' + ' '.join(snt_ends_str) + '\n'
 
-        #meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
+        meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
         #sanity check
-        p = penman.decode(self.penman_str)
+        #p = penman.decode(self.penman_str)
 
         return meta_data + self.penman_str + '\n'
 
