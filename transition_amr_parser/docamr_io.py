@@ -157,9 +157,6 @@ def process_corefs(fnames):
 
         #singltons
         for i in range(len(root[1][1])):
-            sins = root[1][1]
-            sins_i = root[1][1][i]
-            sins_i_o = root[1][1][i][0]
             sen_id = root[1][1][i][0].attrib['id']
             singleton_id = root[1][1][i].attrib['relationid']
             rel = "SELF"
@@ -168,11 +165,8 @@ def process_corefs(fnames):
                 rel = ":"+root[1][1][i][0].attrib['argument']
                 if ':' not in rel:
                     print("COLON MISSING IN PROCESS COREF SINGLETONS")
-            
             else:
                 var = root[1][1][i][0].attrib['variable']
-
-            
             document_sngltns[singleton_id] = (sen_id +"." + var, rel)
 
         #bridges
@@ -641,8 +635,10 @@ class AMR_doc(AMR):
         edges_to_delete = []
         mergeable_kids = []
         for (i,e) in enumerate(self.edges):
+            if e in edges_to_delete:
+                continue
             if e[2] == node2:
-                if e[0] == node1 or e[0] == node2 :
+                if e[0] == node1 or e[0] == node2:
                     edges_to_delete.append(e)
                     continue
                 new_edge = (e[0], e[1], node1)
@@ -651,7 +647,7 @@ class AMR_doc(AMR):
                 else:
                     edges_to_delete.append(e)
             if e[0] == node2:
-                if e[2] == node1 or e[2] == node2 :
+                if e[2] == node1 or e[2] == node2:
                     edges_to_delete.append(e)
                     continue
                 if e[1] not in [":name",":wiki"]:
@@ -675,10 +671,15 @@ class AMR_doc(AMR):
                     else:
                         has_other_parents = False
                         for (x,r,y) in self.edges:
-                            if y == e[2] and x != e[0]:
-                                has_other_parents = True
+                            if y == e[2]:
+                                if x != e[0]:
+                                    has_other_parents = True
+                                elif r != e[1]:
+                                    edges_to_delete.append((x,r,y))
                         if not has_other_parents:
-                            self.delete_name(e[2],node1_names)
+                            left_overs = self.delete_name(e[2])
+                            for (r,n) in left_overs:
+                                self.edges.append((node1, r, n))
                         edges_to_delete.append(e)
                 else:
                     new_node_wiki = self.nodes[e[2]]
@@ -702,7 +703,7 @@ class AMR_doc(AMR):
                                         
         if additional and self.nodes[node2] not in node1_forms:
             self.edges.append((node1,":additional-type",node2))
-            self.nvars[node2] = None #ensure that this node will be treated as attribute
+            #self.nvars[node2] = None ensure that this node will be treated as attribute
         else:
             if node2 not in self.nodes:
                 import ipdb; ipdb.set_trace()
@@ -1089,32 +1090,28 @@ class AMR_doc(AMR):
 
         return name_str.strip()
 
-    def delete_name(self, name_node_id,node_names=None):
+    def delete_name(self, name_node_id):
         if name_node_id not in self.nodes:
             print("can not delete, does not exist")
             return
         if self.nodes[name_node_id] != 'name':
-            print("not a name node, delteing anyways")
+            print("not a name node, deleteing anyways")
         edges_to_delete = []
-        assert node_names is not None
-        node_names = [word for name in node_names for word in name.split()]
-        deleted_nodes = []
+        left_overs = []
         for e in self.edges:
             if e[0] == name_node_id:
-                #FIXME explicitly checking if tgt node of a name node is a named entity by checking if it exists in node_names
-                if e[2] in self.nodes and self.nodes[e[2]] in node_names :
-                    del self.nodes[e[2]]
-                    deleted_nodes.append(e[2])
+                if 'op' in e[1]:
+                    if e[2] in self.nodes:
+                        del self.nodes[e[2]]
+                else:
+                    left_overs.append((e[1],e[2]))
                 edges_to_delete.append(e)
         del self.nodes[name_node_id]
-        deleted_nodes.append(name_node_id)
-        for n in name_node_id:
-            for e in self.edges:
-                if n in e:
-                    edges_to_delete.append(e)
         for e in edges_to_delete:
             if e in self.edges:
                 self.edges.remove(e)
+
+        return left_overs    
 
     def delete_sub(self, name_node_id):
         if name_node_id not in self.nodes:
@@ -1153,7 +1150,7 @@ class AMR_doc(AMR):
         assert '\n' in penman_text, "Expected string with EOL"
 
         graph = penman.decode(penman_text.split('\n'))
-        nodes, edges, alignments = get_simple_graph(graph)
+        nodes, edges, alignments, attributes = get_simple_graph(graph)
         if 'tok' in graph.metadata:
             tokens = graph.metadata['tok'].split()
         elif 'snt' in graph.metadata:
@@ -1190,7 +1187,7 @@ class AMR_doc(AMR):
         #values and literals dont get node variables
         nvars = dict.fromkeys(nodes, None)
         for nvar in nvars:
-            if isinstance(nvar, str):
+            if isinstance(nvar, str) and nvar not in attributes:
                 nvars[nvar] = nvar
 
         if 'sentence_ends' in graph.metadata:
@@ -1209,123 +1206,46 @@ class AMR_doc(AMR):
                    alignments=alignments, sentence=sentence, id=graph_id, nvars=nvars,sentence_ends=sentence_ends)
 
         
-    
+    def delete_node_leaving_no_trace(self, node_id):
 
-    # @classmethod
-    # def from_metadata(cls, penman_text):
-    #     """Read AMR from metadata (IBM style)"""
+        edges2delete = []
 
-    #     assert isinstance(penman_text, str), "Expected string with EOL"
-    #     assert '\n' in penman_text, "Expected string with EOL"
+        for e in self.edges:
+            if node_id in e:
+                edges2delete.append(e)
 
-    #     # Read metadata from penman
-    #     field_key = re.compile(f'::[A-Za-z]+')
-    #     metadata = defaultdict(list)
-    #     separator = None
-    #     for line in penman_text.split('\n'):
-    #         if line.startswith('#'):
-    #             line = line[2:].strip()
-    #             start = 0
-    #             for point in field_key.finditer(line):
-    #                 end = point.start()
-    #                 value = line[start:end]
-    #                 if value:
-    #                     metadata[separator].append(value)
-    #                 separator = line[end:point.end()][2:]
-    #                 start = point.end()
-    #             value = line[start:]
-    #             if value:
-    #                 metadata[separator].append(value)
+        for e in edges2delete:
+            if e in self.edges:
+                self.edges.remove(e)
 
-    #     graph_id = metadata['id'] if 'id' in metadata else None
-
-    #     # extract graph from meta-data
-    #     nodes = {}
-    #     alignments = {}
-    #     edges = []
-    #     tokens = None
-    #     sentence = None
-    #     root = None
-    #     sentence_ends = []
-    #     nvars = []
-    #     for key, value in metadata.items():
-    #         if key == 'snt':
-    #             sentence = metadata['snt'][0].strip()
-    #         elif key == 'tok':
-    #             tokens = metadata['tok'][0].split()
-    #         elif key == 'edge':
-    #             for items in value:
-    #                 items = items.split('\t')
-    #                 if len(items) == 6:
-    #                     _, _, label, _, src, tgt = items
-    #                     edges.append((src, f':{label}', tgt))
-    #         elif key == 'node':
-    #             for items in value:
-    #                 items = items.split('\t')
-    #                 if len(items) > 3:
-    #                     _, node_id, node_name, alignment = items
-    #                     start, end = alignment_regex.match(alignment).groups()
-    #                     indices = list(range(int(start), int(end)))
-    #                     alignments[node_id] = indices
-    #                 else:
-    #                     _, node_id, node_name = items
-    #                     alignments[node_id] = None
-    #                 nodes[node_id] = node_name
-    #         elif key == 'root':
-    #             root = value[0].split('\t')[1]
-    #         elif key =='sentence_ends':
-    #             sentence_ends = value.split()
-    #             sentence_ends = [int(x) for x in sentence_ends]
-        
-
-    #     # filter bad nodes (only in edges)
-    #     new_edges = []
-    #     for (s, label, t) in edges:
-    #         if s in nodes and t in nodes:
-    #             new_edges.append((s, label, t))
-    #         else:
-    #             print(yellow_font('WARNING: edge with extra node (ignored)'))
-    #             print((s, label, t))
-    #     edges = new_edges
-
-    #     #node variables
-    #     #values and literals dont get node variables
-    #     nvars = dict.fromkeys(nodes, None)
-    #     for nvar in nvars:
-    #         if isinstance(nvar, str):
-    #             nvars[nvar] = nvar
-
-       
-
-    #     # sanity check: there was some JAMR
-    #     # assert bool(nodes), "JAMR notation seems empty"
-
-    #     # remove quotes
-    #     nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
-
-    #     if len(nodes)==0 and len(edges)==0:
-    #         return None
-        
-        
-    #     return cls(tokens, nodes, edges, root, penman=None,
-    #                alignments=alignments, sentence=sentence, id=graph_id,nvars=nvars,sentence_ends=sentence_ends)
+        del self.nodes[node_id]    
 
     def check_connectivity(self):
 
         descendents = {n: {n} for n in self.nodes}
+        edges2delete = []
         for x, r, y in self.edges:
             if x not in descendents or y not in descendents:
-                print((x, r, y))
-                import ipdb; ipdb.set_trace()
+                print("will delete "+str((x, r, y)))
+                edges2delete.append((x, r, y))
+                continue
             descendents[x].update(descendents[y])
             for n in descendents:
                 if x in descendents[n]:
                     descendents[n].update(descendents[x])
 
-        #for nid in self.nodes:
-        #    if nid not in descendents[self.root]:
-        #        print(self.nodes[nid])
-        #        print("Nope, not connected")
+        for e in edges2delete:
+            if e in self.edges:
+                self.edges.remove(e)
+
+        to_be_deleted = []
+        for nid in self.nodes:
+            if len( descendents[nid] &  descendents[self.root] ) == 0 :
+                print(self.nodes[nid])
+                print("Nope, not connected, will be deleted")
+                to_be_deleted.append(nid)
+        for nid in to_be_deleted:
+            self.delete_node_leaving_no_trace(nid)
 
         for e in self.edges:
             if e[0] not in self.nodes or e[2] not in self.nodes:
@@ -1335,6 +1255,7 @@ class AMR_doc(AMR):
     def make_penman(self):
         
         all_tuples = []
+        epidata = {}
 
         #add root edges first, thats how penman decides on 'top'
         for e in self.edges:
@@ -1346,22 +1267,26 @@ class AMR_doc(AMR):
                 tup = (nid,":instance",self.nodes[nid])
                 if tup not in all_tuples:
                     all_tuples.append(tup)
-                    
+                    if nid in self.alignments:
+                        epidata[tup] = [surface.Alignment(indices=self.alignments[nid])]
+                        
         for e in self.edges:
             if self.nvars[e[2]] is None:
                 #no node variable indicates constant valued attribute
                 tup = (e[0],e[1],self.nodes[e[2]])
                 if tup not in all_tuples:
                     all_tuples.append(tup)
+                    if e[2] in self.alignments:
+                        epidata[tup] = [surface.Alignment(indices=self.alignments[e[2]])]
             else:
                 if e not in all_tuples:
                     all_tuples.append(e)
-        self.penman = penman.graph.Graph(all_tuples)
+        self.penman = penman.graph.Graph(triples=all_tuples, epidata=epidata)
     
     #def __str__(self):
 
-    #    self.make_penman()
     #    self.check_connectivity()
+    #    self.make_penman()
     #    meta_data = ""
     #    if self.amr_id:
     #        meta_data  = '# ::id ' + self.amr_id + '\n'
@@ -1369,10 +1294,13 @@ class AMR_doc(AMR):
     #        meta_data += '# ::doc_file ' + self.doc_file + '\n'
     #    meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
     #    return meta_data + penman.encode(self.penman) + '\n\n'
+    
     def __str__(self,jamr=False):
 
         self.penman = None
-        self.penman_str = self.to_penman(jamr=jamr)
+        self.check_connectivity()
+        self.make_penman()
+        self.penman_str = penman.encode(self.penman) # self.to_penman(jamr=jamr)
         meta_data = ""
         if self.amr_id:
             meta_data  = '# ::id ' + self.amr_id + '\n'
@@ -1382,9 +1310,9 @@ class AMR_doc(AMR):
             snt_ends_str = [str(x) for x in self.sentence_ends]
             meta_data+= '# ::sentence_ends ' + ' '.join(snt_ends_str) + '\n'
 
-        #meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
+        meta_data += '# ::tok ' + ' '.join(self.tokens) + '\n'
         #sanity check
-        p = penman.decode(self.penman_str)
+        #p = penman.decode(self.penman_str)
 
         return meta_data + self.penman_str + '\n'
 
@@ -1506,7 +1434,10 @@ class AMR_doc(AMR):
             for e in self.edges:
                 if e[1] == ':'+coref_rel or e[1] == ':'+coref_rel+"-of":
                     found = True
-                    self.merge_nodes_into_chain(e[0],e[2])
+                    if type(e[0]) == int or type(e[2]) == int:
+                        self.edges.remove(e)
+                    else:
+                        self.merge_nodes_into_chain(e[0],e[2])
                     break
 
         self.move_bridges_to_chains()

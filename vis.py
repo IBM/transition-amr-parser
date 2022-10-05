@@ -166,7 +166,6 @@ def main(args):
             coref_chains[cnode] = []
             chain_nodes[cnode] = []
             
-            
 
             for e in amr.edges:
                 if e[0] not in amr.nodes or e[2] not in amr.nodes:
@@ -181,8 +180,6 @@ def main(args):
                         coref_chains[cnode].append(amr.alignments[e[0]])
                         chain_nodes[cnode].append(e[0])
                     
-            
-            
                     
             outstr=""
             to_print_tokens = []

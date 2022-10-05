@@ -1153,6 +1153,7 @@ def get_simple_graph(graph):
         )
     )
     index = 0
+    attribute_nodes = []
     for att in attributes:
         assert index not in name_to_node
         # will be used as a node id, needs to be a string
@@ -1160,6 +1161,7 @@ def get_simple_graph(graph):
         while str(index) in name_to_node:
             index += 1
         name_to_node[str(index)] = att.target
+        attribute_nodes.append(str(index))
         # add alignments
         if att in isi_alignments:
             if len(isi_alignments[att].indices) == 1:
@@ -1186,7 +1188,7 @@ def get_simple_graph(graph):
         # increase index
         index += 1
 
-    return name_to_node, edges, alignments
+    return name_to_node, edges, alignments, attribute_nodes
 
 
 def add_alignments_to_penman(g, alignments, string=False, strict=True):

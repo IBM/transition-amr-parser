@@ -205,20 +205,20 @@ python transition_amr_parser/amr_machine.py \
 if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
     echo "mode doc"
     echo -e "\n Changing rep of dev/test data to docAMR "
-    python docAMR/doc_amr.py \
+    python transition_amr_parser/doc_amr.py \
         --in-doc-amr-pairwise ${results_prefix}.amr \
         --rep docAMR \
-	--pairwise-coref-rel :same-as \
+	--pairwise-coref-rel same-as \
         --out-amr ${results_prefix}_docAMR.amr
     results_prefix=${results_prefix}_docAMR
 elif [ $MODE == "doc+sen" ];then
     echo "mode doc+sen"
     if [ $data_split2 == "test" ]; then
         echo -e "\n Changing rep of test data(doc dev) to docAMR "
-        python docAMR/doc_amr.py \
+        python transition_amr_parser/doc_amr.py \
             --in-doc-amr-pairwise ${results_prefix}.amr \
             --rep docAMR \
-	    --pairwise-coref-rel :same-as \
+	    --pairwise-coref-rel same-as \
             --out-amr ${results_prefix}_docAMR.amr
         results_prefix=${results_prefix}_docAMR
     fi
