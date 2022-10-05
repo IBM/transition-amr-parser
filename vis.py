@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from ctypes import alignment
 from macpath import join
 import sys
@@ -11,9 +12,10 @@ from docSmatch import smatch
 import pickle
 from tqdm import tqdm
 import os
+from itertools import chain
 colors = {}
 colors['terminal'] = {'red':f"{Fore.RED+Style.BRIGHT}",'blue':f"{Fore.BLUE+Style.BRIGHT}",'green':f"{Fore.GREEN+Style.BRIGHT}",'magenta':f"{Fore.MAGENTA+Style.BRIGHT}",'reset':f"{Style.RESET_ALL}"}
-colors['html'] = {'red':'<span style="background-color:pink;font-weight:bold;"','blue':'<span style="background-color:cyan;font-weight:bold;"','green':'<span style="background-color:lime;font-weight:bold;"','magenta':'<span style="background-color:magenta;font-weight:bold;">','reset':'</span>'}
+colors['html'] = {'red':'<span style="background-color:pink;font-weight:bold;"','blue':'<span style="background-color:cyan;font-weight:bold;"','green':'<span style="background-color:lime;font-weight:bold;"','purple':'<span style="background-color:#9ACD32;font-weight:bold;"','reset':'</span>'}
 htmlclose='</div></body></html>'
 
 
@@ -27,8 +29,8 @@ def main(args):
     f1 = open(args.f[0],'r')
     f2 = open(args.f[1],'r')
     # out_file = open('vis.out','w')
-    if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2_allalign.pt'):
-        pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2_allalign.pt','rb')
+    if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk.pt'):
+        pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk.pt','rb')
         gold_to_pred_alignments = pickle.load(pickle_file)
     else:
         gold_to_pred_alignments = {'Alignments':[],'F1':[],'Coref-Score':[]}
@@ -52,7 +54,7 @@ def main(args):
                 gold_to_pred_alignments['Alignments'].append(a[0])
             gold_to_pred_alignments['F1'].append(str(round(f1_score*100,2)))
             gold_to_pred_alignments['Coref-Score'].append(str(round(coref_score*100,2)))
-        with open('DATA/best_gold_to_pred_alignments_new_dict2_allalign.pt','wb') as pickle_file:
+        with open('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk.pt','wb') as pickle_file:
             pickle.dump(gold_to_pred_alignments,pickle_file)                                                       
     
     if args.output_html:
@@ -107,11 +109,12 @@ def main(args):
                 <h3> <span style="background-color:lime;">Green</span> : coref match (true positive) <br>
                     <span style="background-color:cyan;">Blue</span> : gold coref but not in pred (false negative) <br>
                     <span style="background-color:pink">Red</span> : pred coref but not in gold (false positive) <br>
+                    <span style="background-color:#9ACD32">Yellow-Green</span> : gold and pred node alignments match but token alignments dont match <br>
                 </h3>
                 '''
         if not os.path.isdir('DATA/vis_output_html'):
                 os.mkdir('DATA/vis_output_html')
-        htmlfile = open("DATA/vis_output_html/corefchains_wnav_hover_newpred_corefscore_nodealign.html","w")
+        htmlfile = open("DATA/vis_output_html/corefchains_wnav_hover_newpred_corefscore_nodealign_notokchk.html","w")
         htmlfile.write(htmlstr)
 
 
@@ -148,14 +151,14 @@ def main(args):
                 if e[1] == ':coref' and e[0] == cnode2:
                     if e[2] in amr2.alignments:
                         coref_chains2[cnode2].append(amr2.alignments[e[2]])
-                        chain_nodes2[cnode2].append(amr2.nodes[e[2]])
+                        chain_nodes2[cnode2].append(e[2])
                     
                     
 
                 if e[1] == ':coref-of' and e[2] == cnode2:
                     if e[0] in amr2.alignments:
                         coref_chains2[cnode2].append(amr2.alignments[e[0]])
-                        chain_nodes2[cnode2].append(amr2.nodes[e[0]])
+                        chain_nodes2[cnode2].append(e[0])
                     
                     
         
@@ -171,12 +174,12 @@ def main(args):
                 if e[1] == ':coref' and e[0] == cnode:
                     if e[2] in amr.alignments:
                         coref_chains[cnode].append(amr.alignments[e[2]])
-                        chain_nodes[cnode].append(amr.nodes[e[2]])
+                        chain_nodes[cnode].append(e[2])
                     
                 if e[1] == ':coref-of' and e[2] == cnode:
                     if e[0] in amr.alignments:
                         coref_chains[cnode].append(amr.alignments[e[0]])
-                        chain_nodes[cnode].append(amr.nodes[e[0]])
+                        chain_nodes[cnode].append(e[0])
                     
             
             
@@ -228,44 +231,120 @@ def main(args):
                     color_picker = colors['html']
                 else:
                     color_picker = colors['terminal']
-                for i,tok in enumerate(tokens):
-                    is_chain = False
-                    color = None
-                    cnode_idx = None
-                    pred_cnode_idx = None
-                    cnode_ispresent=[i in aligns for aligns in coref_chains[cnode]]
-                    if any(cnode_ispresent):
-                        cnode_idx = cnode_ispresent.index(True)
-                        
-                        is_chain = True
-                        
+                
+                if not args.node_alignment:
                     
-                    if pred_coref_node is not None:
-                        pred_cnode_ispresent = [i in aligns for aligns in coref_chains2[pred_coref_node]]
-                        if any(pred_cnode_ispresent):
-                            pred_cnode_idx = pred_cnode_ispresent.index(True)
-                            # CORRECT mattch with gold
+                    for i,tok in enumerate(tokens):
+                        is_chain = False
+                        color = None
+                        cnode_idx = None
+                        pred_cnode_idx = None
+                        #cnode presen in token alignment
+                        cnode_ispresent=[i in aligns for aligns in coref_chains[cnode]]
+                        if any(cnode_ispresent):
+                            cnode_idx = cnode_ispresent.index(True)
+                            
+                            
+                            is_chain = True
+                            
+                        
+                        if pred_coref_node is not None:
+                            pred_cnode_ispresent = [i in aligns for aligns in coref_chains2[pred_coref_node]]
+                            if any(pred_cnode_ispresent):
+                                pred_cnode_idx = pred_cnode_ispresent.index(True)
+                                # CORRECT mattch with gold
+                                if is_chain:
+                                    color = color_picker['green']
+                                    title =' title="gold:'+cnode+' pred:'+pred_coref_node+'">'
+                                else:
+                                    color = color_picker['red']
+                                    title = ' title="pred:'+pred_coref_node+'">'
+                            
+                        if color is None:
+                            
+                            # MISSED COREF NODE
                             if is_chain:
-                                color = color_picker['green']
-                                title =' title="gold:'+cnode+' pred:'+pred_coref_node+'">'
+                                color = color_picker['blue']
+                                title = ' title="gold:'+cnode+'">'
                             else:
-                                color = color_picker['red']
-                                title = ' title="pred:'+pred_coref_node+'">'
+                                color = ''
+                                title = ''
+                        if cnode_idx is not None:
+                            to_print_cnodes.append(color+'">'+amr.nodes[chain_nodes[cnode][cnode_idx]]+color_picker['reset']) 
+                        if pred_cnode_idx is not None:
+                            to_print_predcnodes.append(color+'">'+amr2.nodes[chain_nodes2[pred_coref_node][pred_cnode_idx]]+color_picker['reset'])   
+                        to_print_tokens.append(color+title+tok+color_picker['reset'])
+                else:
+                    
+                    green = {}
+                    red  = {}
+                    blue = {}
+                    purple = {}
+                    
+                    
+                    
+                    if pred_coref_node in coref_chains2:
+                        red = {ch_node2:coref_chains2[pred_coref_node][idx] for idx,ch_node2 in enumerate(chain_nodes2[pred_coref_node])}
                         
-                    if color is None:
+                    for idx,ch_node in enumerate(chain_nodes[cnode]):
                         
-                        # MISSED COREF NODE
-                        if is_chain:
+                        if ch_node in gold_to_pred_alignments['Alignments'][num]:
+                            pred_align_node = gold_to_pred_alignments['Alignments'][num][ch_node]
+                            if pred_align_node is not None and pred_align_node in red:
+                                green[ch_node] = coref_chains[cnode][idx]
+                                color = color_picker['green']
+                                to_print_cnodes.append(color+'">'+amr.nodes[ch_node]+color_picker['reset'])
+                                if red[pred_align_node]!= green[ch_node]:
+                                    purple[pred_align_node] = red[pred_align_node]
+                                    color = color_picker['purple']
+                                    
+                                # green[pred_align_node] = red[pred_align_node]
+                                to_print_predcnodes.append(color+'">'+amr2.nodes[pred_align_node]+color_picker['reset'])
+                                del red[pred_align_node]
+                            else:
+                                blue[ch_node] = coref_chains[cnode][idx]
+                                color = color_picker['blue']
+                                to_print_cnodes.append(color+'">'+amr.nodes[ch_node]+color_picker['reset'])
+
+                    for red_node in red.keys():
+                        color = color_picker['red'] 
+                        to_print_predcnodes.append(color+'">'+amr2.nodes[red_node]+color_picker['reset'])
+
+                    def flatten_list_of_lists(d):
+                        return list(chain(*d.values()))
+
+                    green_tokens = flatten_list_of_lists(green)
+                    blue_tokens = flatten_list_of_lists(blue)
+                    red_tokens = flatten_list_of_lists(red)
+                    purple_tokens = flatten_list_of_lists(purple)
+
+                    for i,tok in enumerate(tokens):
+                        if i in green_tokens:
+                            color = color_picker['green']
+                            # ch_node = [j for j in green if i in green[j]]
+                            title =' title="goldc:'+cnode+' predc:'+pred_coref_node+'">'
+                        elif i in blue_tokens:
                             color = color_picker['blue']
-                            title = ' title="gold:'+cnode+'">'
+                            title = ' title="goldc:'+cnode+'">'
+                        elif i in red_tokens:
+                            color = color_picker['red']
+                            title = ' title="predc:'+pred_coref_node+'">'
+                        elif i in purple_tokens:
+                            color = color_picker['purple']
+                            title = ' title="predc:'+pred_coref_node+'">'
                         else:
                             color = ''
                             title = ''
-                    if cnode_idx is not None:
-                        to_print_cnodes.append(color+'">'+chain_nodes[cnode][cnode_idx]+color_picker['reset']) 
-                    if pred_cnode_idx is not None:
-                        to_print_predcnodes.append(color+'">'+chain_nodes2[pred_coref_node][pred_cnode_idx]+color_picker['reset'])   
-                    to_print_tokens.append(color+title+tok+color_picker['reset'])
+                        
+                        to_print_tokens.append(color+title+tok+color_picker['reset'])
+                    
+
+
+
+
+                    
+
+                
             if args.output_html:
                     htmlout = '<p>'+' '.join(to_print_tokens)+'</p>'
                     htmlout+='<p>Nodes corefed in gold '+' '.join(to_print_cnodes)+'</p>'
@@ -314,6 +393,12 @@ if __name__ == "__main__":
         action='store_true',
         default=True,
         help='if the output needs to be in html format'
+    )
+    parser.add_argument(
+        '--node-alignment',
+        action='store_true',
+        default=True,
+        help='if coloring method is based on node alignments instead of token alignments'
     )
 
     args = parser.parse_args()
