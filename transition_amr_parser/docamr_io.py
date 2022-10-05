@@ -1314,7 +1314,7 @@ class AMR_doc(AMR):
         #sanity check
         #p = penman.decode(self.penman_str)
 
-        return meta_data + self.penman_str + '\n'
+        return meta_data + self.penman_str + '\n\n'
 
 
     #=====================================================================

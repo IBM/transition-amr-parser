@@ -58,6 +58,11 @@ def argument_parsing():
         help='Tokenize with a jamr-like tokenizer input sentences or AMR'
     )
     parser.add_argument(
+        '--sliding',
+        action='store_true',
+        help='split into sliding windows (use --window-size and --window-overlap to adjust)'
+    )
+    parser.add_argument(
         '--beam',
         type=int,
         default=1,
@@ -552,7 +557,7 @@ class AMRParser:
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
             sentences.append(" ".join(tokens))
-
+            
         data = self.convert_sentences_to_data(
             sentences,
             batch_size,
@@ -754,6 +759,74 @@ def main():
                 force_actions = [eval(line.strip())+[[]] for line in fact]
         else:
             force_actions = None
+
+        if args.sliding:
+
+            window_size = args.window_size
+            window_overlap = args.window_overlap
+            windowed_tokenized_sentences = []
+            windowed_force_actions = []
+            windowed_output_actions = []
+            max_num_windows = 1
+            
+            for (i,sentence) in enumerate(tokenized_sentences):
+
+                sentence_ends = []
+                
+                if force_actions:
+                    for (n,actions) in enumerate(force_actions[i]):
+                        if 'CLOSE_SENTENCE' in actions:
+                            sentence_ends.append(n)
+                if len(sentence_ends) == 0:
+                    sentence_ends = [len(sentence)-1]
+                    
+                sentence_ends = adjust_sentence_ends(sentence_ends, window_size)
+                windows = get_windows(sentence, window_size, window_overlap, sentence_ends)
+                if len(windows) > max_num_windows:
+                    max_num_windows = len(windows)
+                    
+                windowed_tokenized_sentence = []
+                windowed_force_acts = []
+                windowed_output_actions.append([])
+                for (start,end) in windows:
+                    windowed_tokenized_sentence.append(sentence[start:end+1])
+                    if force_actions:
+                        windowed_force_acts.append(force_actions[i][start:end+1])
+                    else:
+                        windowed_force_acts.append(None)
+                    windowed_output_actions[-1].append(None)
+
+                windowed_tokenized_sentences.append(windowed_tokenized_sentence)
+                windowed_force_actions.append(windowed_force_acts)
+                
+            
+            for widx in range(max_num_windows):
+                window_sentences = []
+                window_actions = []
+                for sidx in range(len(tokenized_sentences)):
+                    if len(windowed_tokenized_sentences[sidx]) > widx:
+                        window_sentences.append(windowed_tokenized_sentences[sidx][widx])
+                        window_actions.append(windowed_force_actions[sidx][widx])
+
+                # Parse this window of all sentences  
+                num_window_sent = len(window_sentences)
+                print(f'Parsing {num_window_sent} sentences in {widx} window')
+                window_result = parser.parse_sentences(
+                    window_sentences,
+                    batch_size=args.batch_size,
+                    roberta_batch_size=args.roberta_batch_size,
+                    gold_amrs=gold_amrs,
+                    force_actions=window_actions,
+                    beam=args.beam,
+                    jamr=args.jamr,
+                    no_isi=args.no_isi
+                )
+                #get actions out of window_results
+                #save actions in windowed_output_actions[sidx][widx]
+                #change windowed_force_actions[:][widx+1]
+
+            #merge all windowed_force_actions
+            #create final graphs
             
         # Parse sentences
         num_sent = len(tokenized_sentences)
