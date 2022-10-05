@@ -1181,7 +1181,7 @@ class AMR_doc(AMR):
             del graph.metadata[key]
 
         # remove quotes
-        nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
+        # nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
 
         #node variables
         #values and literals dont get node variables
