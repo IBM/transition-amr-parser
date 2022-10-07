@@ -193,6 +193,21 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
     return gold_amr, align_info
 
 
+def make_eos_force_actions(tokens, sentence_ends):
+        
+    force_actions = []
+        
+    for (i,_) in enumerate(tokens):
+        if i in sentence_ends:
+            force_actions.append(['xANY','CLOSE_SENTENCE'])
+            if i == len(tokens)-1 :
+                force_actions[-1].append('SHIFT')
+        else:
+            force_actions.append(['xANY','SHIFT'])
+
+    return force_actions
+
+
 class AMROracle():
 
     def __init__(
@@ -283,22 +298,14 @@ class AMROracle():
         self.node_reverse_map = {}
         self.predicted_edges = []
         self.expected_history = []
-
-
+        
     def get_eos_force_actions(self):
 
         force_actions = None
         
         #if self.gold_amr.__class__.__name__ == 'AMR_doc':
         if hasattr(self.gold_amr,'sentence_ends') and len(self.gold_amr.sentence_ends) > 0:
-            force_actions = []
-            for (i,_) in enumerate(self.gold_amr.tokens):
-                if i in self.gold_amr.sentence_ends:
-                    force_actions.append(['xANY','CLOSE_SENTENCE'])
-                    if i == len(self.gold_amr.tokens)-1 :
-                        force_actions[-1].append('SHIFT')
-                else:
-                    force_actions.append(['xANY','SHIFT'])
+            force_actions = make_eos_force_actions(self.gold_amr.tokens, self.gold_amr.sentence_ends)
 
         return force_actions
         
