@@ -1770,7 +1770,33 @@ def oracle(args):
         stats_vocab.write(args.out_stats_vocab)
         print(f'Action vocabulary stats written in {args.out_stats_vocab}.*')
 
+def play_all_actions(sentences, action_sequences, machine_config, ignore_coref=False):
+    
+    # This will store the annotations to write
+    annotations = []
 
+    # Initialize machine
+    machine = AMRStateMachine.from_config(machine_config)
+    machine.ignore_coref = ignore_coref
+    for index in tqdm(range(len(action_sequences)), desc='Machine'):
+
+        # New machine for this sentence
+        machine.reset(sentences[index])
+
+        # add back the 'CLOSE' action if it is not written in file
+        if action_sequences[index][-1] != 'CLOSE':
+            action_sequences[index].append('CLOSE')
+
+        for action in action_sequences[index]:
+            machine.update(action)
+
+        assert machine.is_closed
+
+        # print AMR
+        annotations.append(machine.get_annotation(no_isi=args.no_isi))
+
+    return annotations
+    
 def play(args):
 
     sentences = read_tokenized_sentences(args.in_tokens, '\t')
