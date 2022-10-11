@@ -1724,7 +1724,7 @@ def oracle(args):
             # update machine,
             machine.update(action, gold=True)
             # machine.node_action_vars.append(node_var)
-
+            
             # update machine stats
             stats.update_machine_stats(machine)
 
