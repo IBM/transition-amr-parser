@@ -30,6 +30,10 @@ from fairseq_ext.utils import (
 from fairseq_ext.utils_import import import_user_module
 from transition_amr_parser.amr import normalize, protected_tokenizer
 
+from transition_amr_parser.make_sliding_splits import adjust_sentence_ends, get_windows
+from transition_amr_parser.force_overlap_actions import force_overlap
+from transition_amr_parser.merge_sliding_splits import merge_actions, check_pointers
+from transition_amr_parser.amr_machine import play_all_actions
 
 def argument_parsing():
 
@@ -62,6 +66,18 @@ def argument_parsing():
         action='store_true',
         help='split into sliding windows (use --window-size and --window-overlap to adjust)'
     )
+    parser.add_argument(
+        "--window-size",
+        help="size of sliding window",
+        default=300,
+        type=int,
+    )
+    parser.add_argument(
+        "--window-overlap",
+        help="size of overlap between sliding windows",
+	default=200,
+	type=int,
+    )    
     parser.add_argument(
         '--beam',
         type=int,
@@ -767,12 +783,13 @@ def main():
             windowed_tokenized_sentences = []
             windowed_force_actions = []
             windowed_output_actions = []
+            all_windows = []
             max_num_windows = 1
             
             for (i,sentence) in enumerate(tokenized_sentences):
 
+                #if sentence end markers are availble, windows should respect that
                 sentence_ends = []
-                
                 if force_actions:
                     for (n,actions) in enumerate(force_actions[i]):
                         if 'CLOSE_SENTENCE' in actions:
@@ -781,34 +798,39 @@ def main():
                     sentence_ends = [len(sentence)-1]
                     
                 sentence_ends = adjust_sentence_ends(sentence_ends, window_size)
+
+                #get windows respecting sentence ends
                 windows = get_windows(sentence, window_size, window_overlap, sentence_ends)
+                all_windows.append(windows)
                 if len(windows) > max_num_windows:
                     max_num_windows = len(windows)
                     
-                windowed_tokenized_sentence = []
+                windowed_tokenized_sent = []
                 windowed_force_acts = []
                 windowed_output_actions.append([])
                 for (start,end) in windows:
-                    windowed_tokenized_sentence.append(sentence[start:end+1])
+                    windowed_tokenized_sent.append(sentence[start:end+1])
                     if force_actions:
                         windowed_force_acts.append(force_actions[i][start:end+1])
                     else:
                         windowed_force_acts.append(None)
                     windowed_output_actions[-1].append(None)
 
-                windowed_tokenized_sentences.append(windowed_tokenized_sentence)
+                windowed_tokenized_sentences.append(windowed_tokenized_sent)
                 windowed_force_actions.append(windowed_force_acts)
                 
             
             for widx in range(max_num_windows):
                 window_sentences = []
                 window_actions = []
+                wsidx2sidx = []
                 for sidx in range(len(tokenized_sentences)):
                     if len(windowed_tokenized_sentences[sidx]) > widx:
+                        wsidx2sidx.append(sidx)
                         window_sentences.append(windowed_tokenized_sentences[sidx][widx])
                         window_actions.append(windowed_force_actions[sidx][widx])
 
-                # Parse this window of all sentences  
+                # Parse this (widx_th) window of all sentences
                 num_window_sent = len(window_sentences)
                 print(f'Parsing {num_window_sent} sentences in {widx} window')
                 window_result = parser.parse_sentences(
@@ -823,38 +845,74 @@ def main():
                 )
                 #get actions out of window_results
                 #save actions in windowed_output_actions[sidx][widx]
+                
+                for result in window_result[1]:
+                    windowed_output_actions[wsidx2sidx[result['sample_id']]][widx] = result['actions']
                 #change windowed_force_actions[:][widx+1]
+                for sidx in range(len(tokenized_sentences)):
+                    if len(windowed_tokenized_sentences[sidx]) > widx+1 :
+                        existing_f_actions = windowed_force_actions[sidx][widx+1]
+                        new_f_actions = windowed_output_actions[sidx][widx]
+                        start_idx = all_windows[sidx][widx+1][0] - all_windows[sidx][widx][0]
+                        windowed_force_actions[sidx][widx+1] = force_overlap(new_f_actions, existing_f_actions, start_idx)
 
+                        
             #merge all windowed_force_actions
+            all_actions = []
+            all_tokens = []
+            for (didx,windows) in enumerate(all_windows):
+                actions = []
+                tokens = []
+                for (i,window) in enumerate(windows):
+                    if i == 0:
+                        actions = windowed_output_actions[didx][i]
+                        tokens = windowed_tokenized_sentences[didx][i]
+                    else:
+                        new_actions = windowed_output_actions[didx][i]
+                        check_pointers(new_actions)
+                        merged_actions = merge_actions(actions, new_actions, overlap_start=window[0])
+                        if check_pointers(merged_actions):
+                            actions = merged_actions
+                            window_tokens = windowed_tokenized_sentences[didx][i]
+                            tokens.extend( window_tokens[len(tokens)-window[0]:] )
+                        else:
+                            print("did not complete merge for doc " + str(didx))
+                            break
+                all_actions.append(actions)
+                all_tokens.append(tokens)
+                
             #create final graphs
-            
-        # Parse sentences
-        num_sent = len(tokenized_sentences)
-        print(f'Parsing {num_sent} sentences')
-        start = time.time()
-        result = parser.parse_sentences(
-            tokenized_sentences,
-            batch_size=args.batch_size,
-            roberta_batch_size=args.roberta_batch_size,
-            gold_amrs=gold_amrs,
-            force_actions=force_actions,
-            beam=args.beam,
-            jamr=args.jamr,
-            no_isi=args.no_isi
-        )
-        end = time.time()
-        time_secs = timedelta(seconds=float(end-start))
-        sents_per_second = num_sent
-        if time_secs.seconds > 0:
-            sents_per_second = num_sent / time_secs.seconds
-        print(f'Total time taken to parse {num_sent} sentences ', end='')
-        print(f'at batch size {args.batch_size}: {time_secs} ', end='')
-        print(f'{sents_per_second:.2f} sentences / second')
+            play_all_actions(all_tokens, all_actions, args.in_machine_config)
 
-        # save file
-        if args.out_amr:
-            with open(args.out_amr, 'w') as fid:
-                fid.write('\n'.join(result[0]))
+        else:
+    
+            # Parse sentences
+            num_sent = len(tokenized_sentences)
+            print(f'Parsing {num_sent} sentences')
+            start = time.time()
+            result = parser.parse_sentences(
+                tokenized_sentences,
+                batch_size=args.batch_size,
+                roberta_batch_size=args.roberta_batch_size,
+                gold_amrs=gold_amrs,
+                force_actions=force_actions,
+                beam=args.beam,
+                jamr=args.jamr,
+                no_isi=args.no_isi
+            )
+            end = time.time()
+            time_secs = timedelta(seconds=float(end-start))
+            sents_per_second = num_sent
+            if time_secs.seconds > 0:
+                sents_per_second = num_sent / time_secs.seconds
+            print(f'Total time taken to parse {num_sent} sentences ', end='')
+            print(f'at batch size {args.batch_size}: {time_secs} ', end='')
+            print(f'{sents_per_second:.2f} sentences / second')
+
+            # save file
+            if args.out_amr:
+                with open(args.out_amr, 'w') as fid:
+                    fid.write('\n'.join(result[0]))
 
 
 if __name__ == '__main__':
