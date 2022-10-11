@@ -852,9 +852,16 @@ def main():
                 for sidx in range(len(tokenized_sentences)):
                     if len(windowed_tokenized_sentences[sidx]) > widx+1 :
                         existing_f_actions = windowed_force_actions[sidx][widx+1]
-                        new_f_actions = windowed_output_actions[sidx][widx]
+                        pred_f_actions = windowed_output_actions[sidx][widx]
                         start_idx = all_windows[sidx][widx+1][0] - all_windows[sidx][widx][0]
-                        windowed_force_actions[sidx][widx+1] = force_overlap(new_f_actions, existing_f_actions, start_idx)
+                        new_f_actions = force_overlap(pred_f_actions, existing_f_actions, start_idx)
+                        slen = len(windowed_tokenized_sentences[sidx][widx+1])
+                        if slen > len(new_f_actions):
+                            new_f_actions = new_f_actions[:slen]
+                        else:
+                            while len(new_f_actions) < slen:
+                                new_f_actions.append([])
+                        windowed_force_actions[sidx][widx+1] = new_f_actions
 
                         
             #merge all windowed_force_actions
