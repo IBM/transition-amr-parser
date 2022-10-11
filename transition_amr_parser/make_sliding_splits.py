@@ -148,17 +148,23 @@ def main(args):
     fout_actions = []
     fout_force_actions = []
     fout_windows = open(args.oracle_dir + "/" + args.data_split + ".windows", 'w')
+    count = 0
     for (tokens, actions_per_token, force_actions, sentence_ends) in zip(all_tokens, all_actions_per_token, all_force_actions, all_sentence_ends):
-        
+        count+=1
         windows = get_windows(tokens, args.window_size, args.window_overlap, sentence_ends)
         
         fout_windows.write(str(windows)+"\n")
                 
         if len(windows) > max_num_windows:
             for n in range(max_num_windows,len(windows)):
-                fout_tokens.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".en",'w'))
-                fout_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".actions", 'w'))
-                fout_force_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".force_actions", 'w'))
+                if args.train_sliding and args.data_split=='train' :
+                    fout_tokens.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(0) + ".en",'a'))
+                    fout_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(0) + ".actions", 'a'))
+                    fout_force_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(0) + ".force_actions", 'a'))
+                else:
+                    fout_tokens.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".en",'w'))
+                    fout_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".actions", 'w'))
+                    fout_force_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".force_actions", 'w'))
             max_num_windows = len(windows)
 
         for (widx,(start,end)) in enumerate(windows):
@@ -198,6 +204,11 @@ if __name__ == '__main__':
         help="size of overlap between sliding windows",
         default=50,
         type=int,
+    )
+    parser.add_argument(
+        "--train-sliding",
+        help="if train data is split into sliding windows , it can be concatenated",
+        action='store_true'
     )
     args = parser.parse_args()
     main(args)
