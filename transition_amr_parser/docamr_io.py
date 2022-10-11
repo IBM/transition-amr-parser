@@ -777,7 +777,7 @@ class AMR_doc(AMR):
 
     def un_invert(self):
         for (i,e) in enumerate(self.edges):
-            if e[1].endswith("-of"):# and e[1] != AMR_doc.coref_rel_inv:
+            if e[1].endswith("-of") and e[1] != AMR_doc.coref_rel_inv:
                 self.edges[i] = (e[2],e[1][:-3],e[0])
                 
     def normalize(self, rep='docAMR', flip=False):
