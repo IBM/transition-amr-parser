@@ -1267,7 +1267,7 @@ class AMR_doc(AMR):
                 tup = (nid,":instance",self.nodes[nid])
                 if tup not in all_tuples:
                     all_tuples.append(tup)
-                    if nid in self.alignments:
+                    if self.alignments and nid in self.alignments:
                         epidata[tup] = [surface.Alignment(indices=self.alignments[nid])]
                         
         for e in self.edges:
@@ -1276,7 +1276,7 @@ class AMR_doc(AMR):
                 tup = (e[0],e[1],self.nodes[e[2]])
                 if tup not in all_tuples:
                     all_tuples.append(tup)
-                    if e[2] in self.alignments:
+                    if self.alignments and e[2] in self.alignments:
                         epidata[tup] = [surface.Alignment(indices=self.alignments[e[2]])]
             else:
                 if e not in all_tuples:

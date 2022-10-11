@@ -14,6 +14,16 @@ def decrement_pointers_to_future(actions, pos, ignored):
                 idx = str(int(idx) - 1)
             actions[i] = action[:3]+"("+idx+","+lbl+")"
 
+
+def check_pointers(actions):
+    #sanity check                                                                                                                                                              
+    for action in actions:
+        if arc_regex.match(action):
+            (idx, lbl) = arc_regex.match(action).groups()
+            if arc_regex.match(actions[int(idx)]) or actions[int(idx)] in ['SHIFT','ROOT','CLOSE_SENTENCE']:
+                import ipdb; ipdb.set_trace()
+                print("*****bad pointer from " + action + " to " + actions[int(idx)])
+            
 def get_windows(tokens, window_size=300, window_overlap=200, sentence_ends=None):
 
     windows = []
@@ -88,13 +98,8 @@ def get_good_window_actions(start, end, actions_per_token):
                 continue
         good_actions.append(action)
 
-    #sanity check                                                                                                                                                              
-    for action in good_actions:
-        if arc_regex.match(action):
-            (idx, lbl) = arc_regex.match(action).groups()
-            if arc_regex.match(good_actions[int(idx)]) or good_actions[int(idx)] in ['SHIFT','ROOT','CLOSE_SENTENCE']:
-                import ipdb; ipdb.set_trace()
-                print("*****bad pointer to from " + action + " to " + good_actions[int(idx)])
+    #sanity check
+    check_pointers(good_actions)
 
     return good_actions
 
@@ -110,7 +115,7 @@ def main(args):
     ffactions = open(args.oracle_dir + "/" + args.data_split + ".force_actions")
     ftokens = open(args.oracle_dir + "/" + args.data_split + ".en")
 
-    all_actions = [ line.strip().split() for line in factions ]
+    all_actions = [ line.strip().split('\t') for line in factions ]
     all_force_actions = [ eval(line.strip()) for line in ffactions ]
     all_tokens = [ line.strip().split() for line in ftokens ]
 
@@ -120,6 +125,7 @@ def main(args):
     all_sentence_ends = []
     all_actions_per_token = []
     for actions in all_actions:
+        check_pointers(actions)
         sentence_ends = []
         actions_per_token = []
         this_token_actions = []
@@ -196,13 +202,13 @@ if __name__ == '__main__':
     parser.add_argument(
         "--window-size",
         help="size of sliding window",
-        default=100,
+        default=300,
         type=int,
     )
     parser.add_argument(
         "--window-overlap",
         help="size of overlap between sliding windows",
-        default=50,
+        default=200,
         type=int,
     )
     parser.add_argument(

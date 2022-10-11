@@ -1724,7 +1724,7 @@ def oracle(args):
             # update machine,
             machine.update(action, gold=True)
             # machine.node_action_vars.append(node_var)
-
+            
             # update machine stats
             stats.update_machine_stats(machine)
 
@@ -1793,7 +1793,7 @@ def play_all_actions(sentences, action_sequences, machine_config, ignore_coref=F
         assert machine.is_closed
 
         # print AMR
-        annotations.append(machine.get_annotation(no_isi=args.no_isi))
+        annotations.append(machine.get_annotation())
 
     return annotations
     

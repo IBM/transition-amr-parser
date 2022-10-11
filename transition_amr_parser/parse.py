@@ -882,8 +882,13 @@ def main():
                 all_tokens.append(tokens)
                 
             #create final graphs
-            play_all_actions(all_tokens, all_actions, args.in_machine_config)
+            annotations = play_all_actions(all_tokens, all_actions, args.in_machine_config)
 
+            # save file                                                                                                                                                               
+            if args.out_amr:
+                with open(args.out_amr, 'w') as fid:
+                    fid.write('\n'.join(annotations))
+            
         else:
     
             # Parse sentences
