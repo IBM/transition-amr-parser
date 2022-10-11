@@ -1158,9 +1158,9 @@ def get_simple_graph(graph):
         assert index not in name_to_node
         # will be used as a node id, needs to be a string
         # watch for existing numbers used as ids
-        while 'att'+str(index) in name_to_node:
+        while str(index) in name_to_node:
             index += 1
-        att_id = 'att'+str(index)
+        att_id = str(index)
         name_to_node[att_id] = att.target
         attribute_nodes.append(att_id)
         # add alignments

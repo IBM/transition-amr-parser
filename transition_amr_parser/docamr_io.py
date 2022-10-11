@@ -1271,6 +1271,9 @@ class AMR_doc(AMR):
                         epidata[tup] = [surface.Alignment(indices=self.alignments[nid])]
                         
         for e in self.edges:
+            if self.nvars[e[0]] is None:
+                print("bad edge ... will not be printed "+ str(e))
+                continue
             if self.nvars[e[2]] is None:
                 #no node variable indicates constant valued attribute
                 tup = (e[0],e[1],self.nodes[e[2]])
