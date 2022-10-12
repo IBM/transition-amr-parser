@@ -217,7 +217,7 @@ class AMR_doc(AMR):
     coref_rel = ":coref"
     coref_rel_inv = coref_rel+"-of"
     pro_node = "pro"
-    verbose = True
+    verbose = False
     
     def __init__(self, tokens, nodes, edges, root, penman=None,
                  alignments=None, nvars = None,sentence=None, id=None,sentence_ends=None):
@@ -1253,6 +1253,8 @@ class AMR_doc(AMR):
                 print("Bad edge")
                 
     def make_penman(self):
+
+        self.un_invert() #normalizes all edges except for :coref-of
         
         all_tuples = []
         epidata = {}
@@ -1271,7 +1273,13 @@ class AMR_doc(AMR):
                         epidata[tup] = [surface.Alignment(indices=self.alignments[nid])]
                         
         for e in self.edges:
+            if self.nvars[e[0]] is None:
+                print("\n!!!!! bad edge, constant as parent ... will not be printed "+ str(e))
+                continue
             if self.nvars[e[2]] is None:
+                if self.nodes[e[0]] == 'coref-entity':
+                    print("\n!!!!! coref chains can not form over constants: "+ str(e))
+                    continue
                 #no node variable indicates constant valued attribute
                 tup = (e[0],e[1],self.nodes[e[2]])
                 if tup not in all_tuples:

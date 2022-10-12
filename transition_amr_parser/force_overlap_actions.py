@@ -27,7 +27,7 @@ def sanity_check(actions):
 
 
 def force_overlap(actions, force_actions, start_idx):
-
+    
     actions_per_token = []
     this_token_actions = []
     for action in actions:
@@ -35,7 +35,6 @@ def force_overlap(actions, force_actions, start_idx):
         if action in ['SHIFT','CLOSE_SENTENCE']:
             actions_per_token.append(this_token_actions)
             this_token_actions = []
-
     
     start_action_index = sum([len(acts) for acts in actions_per_token[:start_idx]]) if start_idx else 0
             
@@ -63,10 +62,11 @@ def force_overlap(actions, force_actions, start_idx):
     sanity_check(flat_actions)
                 
     out_force_actions = overlap_actions
-
-    out_force_actions.extend(force_actions[len(overlap_actions):])        
+    
+    if force_actions is not None:
+        out_force_actions.extend(force_actions[len(overlap_actions):])
+        
     #there can be a sanity check here
-
     return out_force_actions
     
                 

@@ -1160,16 +1160,17 @@ def get_simple_graph(graph):
         # watch for existing numbers used as ids
         while str(index) in name_to_node:
             index += 1
-        name_to_node[str(index)] = att.target
-        attribute_nodes.append(str(index))
+        att_id = str(index)
+        name_to_node[att_id] = att.target
+        attribute_nodes.append(att_id)
         # add alignments
         if att in isi_alignments:
             if len(isi_alignments[att].indices) == 1:
-                alignments[str(index)] = list(isi_alignments[att].indices)
+                alignments[att_id] = list(isi_alignments[att].indices)
             elif len(isi_alignments[att].indices) == 2:
                 start = isi_alignments[att].indices[0]
                 end = isi_alignments[att].indices[-1]
-                alignments[str(index)] = list(range(start, end))
+                alignments[att_id] = list(range(start, end))
             else:
                 raise Exception('Unexpected ISI alignment format')
 
@@ -1181,9 +1182,9 @@ def get_simple_graph(graph):
         ):
             # reversed edge
             raise Exception()
-            edges.append((str(index), f'{att.role}-of', att.source))
+            edges.append((att_id, f'{att.role}-of', att.source))
         else:
-            edges.append((att.source, att.role, str(index)))
+            edges.append((att.source, att.role, att_id))
 
         # increase index
         index += 1
