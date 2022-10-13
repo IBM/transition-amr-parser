@@ -1181,7 +1181,7 @@ class AMR_doc(AMR):
             del graph.metadata[key]
 
         # remove quotes
-        # nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
+        nodes = {nid: normalize_tok(nname) for nid, nname in nodes.items()}
 
         #node variables
         #values and literals dont get node variables
@@ -1269,8 +1269,8 @@ class AMR_doc(AMR):
                 tup = (nid,":instance",self.nodes[nid])
                 if tup not in all_tuples:
                     all_tuples.append(tup)
-                    if self.alignments and nid in self.alignments:
-                        epidata[tup] = [surface.Alignment(indices=self.alignments[nid])]
+                    if self.alignments and nid in self.alignments and self.alignments[nid] is not None:
+                        epidata[tup] = [surface.Alignment(indices=self.alignments[nid] if len(self.alignments[nid])<3 else [self.alignments[nid][0],self.alignments[nid][-1]])]
                         
         for e in self.edges:
             if self.nvars[e[0]] is None:
@@ -1281,11 +1281,12 @@ class AMR_doc(AMR):
                     print("\n!!!!! coref chains can not form over constants: "+ str(e))
                     continue
                 #no node variable indicates constant valued attribute
-                tup = (e[0],e[1],self.nodes[e[2]])
+                #FIXME adding explicit quotes to attributes
+                tup = (e[0],e[1],f'"{self.nodes[e[2]]}"')
                 if tup not in all_tuples:
                     all_tuples.append(tup)
-                    if self.alignments and e[2] in self.alignments:
-                        epidata[tup] = [surface.Alignment(indices=self.alignments[e[2]])]
+                    if self.alignments and e[2] in self.alignments and self.alignments[e[2]] is not None:
+                        epidata[tup] = [surface.Alignment(indices=self.alignments[e[2]] if len(self.alignments[e[2]])<3 else [self.alignments[e[2]][0],self.alignments[e[2]][-1]])]
             else:
                 if e not in all_tuples:
                     all_tuples.append(e)
