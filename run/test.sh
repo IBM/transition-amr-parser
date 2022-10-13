@@ -49,6 +49,9 @@ fi
 if [ -z "$MODE" ];then
     MODE="sen"
 fi
+if [ -z "$DEV_CHOICE" ];then
+    DEV_CHOICE=""
+fi
 
 if [ $MODE == "doc" ];then
     echo "mode doc"
@@ -92,20 +95,33 @@ if [ $MODE == "doc" ];then
 
 elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
     echo "mode doc+sen"
-    
     if [ $data_split2 == "dev" ]; then
-        echo "use sen amr as reference amr for dev"
         data_split=valid
         data_split_name=dev
+        if [[ $DEV_CHOICE=="doc" ]];then
+            echo "dev choice is doc, using doc dev amr as reference amr for dev"
+            reference_amr=$ORACLE_FOLDER/dev_docAMR.docamr
+        else
+            echo "use sen amr as reference amr for dev"
+            
         reference_amr=$AMR_SENT_DEV_FILE
         wiki=$LINKER_CACHE_PATH/dev.wiki
         #FIXME
         reference_amr_wiki=$AMR_DEV_FILE_WIKI
+        fi
+
     elif [ $data_split2 == "test" ]; then
-        echo "use dev doc amr as reference amr"
+        
         data_split=test
         data_split_name=test
-        reference_amr=$ORACLE_FOLDER/dev_docAMR.docamr
+        if [[ $DEV_CHOICE=="doc" ]];then
+            echo "dev choice is doc, using dev doc amr as reference amr"
+            reference_amr=$ORACLE_FOLDER/test_docAMR.docamr
+        else
+            reference_amr=$AMR_SENT_TESTT_FILE
+            wiki=$LINKER_CACHE_PATH/test.wiki
+            #FIXME
+            reference_amr_wiki=$AMR_TEST_FILE_WIKI
     else
         echo "$2 is invalid; must be dev or test"
         exit 1
@@ -194,16 +210,16 @@ python transition_amr_parser/amr_machine.py \
 if [ $MODE == "doc" ];then
     echo "mode doc"
     echo -e "\n Changing rep of dev/test data to docAMR "
-    python docAMR/doc_amr.py \
+    python transition_amr_parser/doc_amr.py \
         --in-doc-amr-pairwise ${results_prefix}.amr \
         --rep docAMR \
         --out-amr ${results_prefix}_docAMR.amr
     results_prefix=${results_prefix}_docAMR
 elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
     echo "mode doc+sen"
-    if [ $data_split2 == "test" ]; then
-        echo -e "\n Changing rep of test data(doc dev) to docAMR "
-        python docAMR/doc_amr.py \
+    if [ $DEV_CHOICE == "doc" ]; then
+        echo -e "\n Dev choice is doc, Changing rep of doc data to docAMR norm "
+        python transition_amr_parser/doc_amr.py \
             --in-doc-amr-pairwise ${results_prefix}.amr \
             --rep docAMR \
             --out-amr ${results_prefix}_docAMR.amr
@@ -257,11 +273,18 @@ if [ "$EVAL_METRIC" = "smatch" ];then
     echo "$reference_amr"
     echo "${results_prefix}.amr"
     #TODO change to docSmatch
-    if [ $MODE == "doc" ];then
-        python docSmatch/smatch.py -r 10 --significant 4 \
-         -f $reference_amr \
-         ${results_prefix}.amr.no_isi \
-         | tee ${results_prefix%"_docAMR"}.smatch
+    if [ $MODE == "doc" ] || [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
+        if [ $DEV_CHOICE == "doc" ]; then
+            python docSmatch/smatch.py -r 1 --significant 4 --coref-subscore \
+                -f $reference_amr \
+                ${results_prefix}.amr.no_isi \
+                | tee ${results_prefix%"_docAMR"}.smatch
+        else
+            smatch.py -r 10 --significant 4 \
+                -f $reference_amr \
+                ${results_prefix}.amr.no_isi \
+                | tee ${results_prefix}.smatch
+        fi
     else
         smatch.py -r 10 --significant 4 \
             -f $reference_amr \
