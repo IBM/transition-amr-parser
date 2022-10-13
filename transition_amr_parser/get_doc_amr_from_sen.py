@@ -98,14 +98,15 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no
             #FIXME remove unicode in every token of sentence
             damr.remove_unicode()
             #manually aligning document top to last token
-            damr.penman = penman.decode(damr.to_penman(jamr=args.jamr))
-            document_top,top_rel,top_name = damr.penman.triples[0]
-            if top_name=='document':
-            # for node_id,node_name in damr.nodes.items():
-            #     if node_name =='document':
-            #         document_top = node_id
-            #         break
-
+            # damr.make_penman()
+            # document_top,top_rel,top_name = damr.penman.triples[0]
+            # if top_name=='document':
+            document_top = None
+            for node_id,node_name in damr.nodes.items():
+                if node_name =='document' and node_id not in damr.alignments:
+                    document_top = node_id
+                    break
+            if document_top is not None:
                 damr.alignments[document_top] = [len(damr.tokens)-1]
             # damr.alignments[document_top] = [0]
             damr.check_connectivity()
