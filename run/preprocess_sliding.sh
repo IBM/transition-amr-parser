@@ -69,10 +69,17 @@ else
             rm $file
         done
 
-    python transition_amr_parser/make_sliding_splits.py \
-	   --oracle-dir $ORACLE_FOLDER \
-	   --data-split dev \
-       $SLIDING_ARGS
+    if [[ $TRAIN_SLIDING == 1 ]]; then
+        echo "train sliding windows"
+        python transition_amr_parser/make_sliding_splits.py \
+        --oracle-dir $ORACLE_FOLDER \
+        --data-split train \
+        $SLIDING_ARGS
+        # trainarr=($(ls $ORACLE_FOLDER/train_*.en | sed 's/\.en//g'))
+        trainpref=$(echo $ORACLE_FOLDER/train_0 | sed 's/ /,/g')
+    else
+        trainpref=$ORACLE_FOLDER/train
+    fi
 
     python transition_amr_parser/make_sliding_splits.py \
 	   --oracle-dir $ORACLE_FOLDER \
@@ -146,13 +153,14 @@ else
 
 	echo $validpref
 	echo $testpref
+    echo $trainpref
         python fairseq_ext/preprocess_bart.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \
             --task $TASK \
             --source-lang en \
             --target-lang actions \
-            --trainpref $ORACLE_FOLDER/train \
+            --trainpref $trainpref \
             --validpref $validpref \
             --testpref $testpref \
             --destdir $DATA_FOLDER \
@@ -173,6 +181,14 @@ else
 	done
 	cp $ORACLE_FOLDER/dev.windows $DATA_FOLDER/valid.windows
 	cp $ORACLE_FOLDER/test.windows $DATA_FOLDER/test.windows
+
+    if [[ $TRAIN_SLIDING == 1 ]];then
+        
+        
+        cp $ORACLE_FOLDER/train_0.force_actions $DATA_FOLDER/train_0.en-actions.force_actions
+	    
+        cp $ORACLE_FOLDER/train.windows $DATA_FOLDER/train.windows
+    fi
 	
 
     elif [[ $TASK == "amr_action_pointer_bartsv" ]]; then
