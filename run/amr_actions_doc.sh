@@ -26,6 +26,9 @@ fi
 if [ -z "$TRAIN_DOC" ];then
     TRAIN_DOC=""
 fi
+if [ -z "$DEV_CHOICE" ];then
+    DEV_CHOICE=""
+fi
 
 ##### ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
@@ -153,8 +156,26 @@ else
             --rep docAMR
 
     elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
-        echo -e "\n Doc+sen mode , Using sentence dev data"
-        DEV_IN_AMR=$AMR_SENT_DEV_FILE
+        if [[ $DEV_CHOICE=="doc" ]];then
+            echo -e "\n Doc+sen mode ,dev choice is doc dev, Making docamr dev data to use instead of senamr test in doc+sen mode"
+            python transition_amr_parser/get_doc_amr_from_sen.py \
+                --in-amr $AMR_DEV_FILE \
+                --coref-fof $DEV_COREF \
+                --fof-path $FOF_PATH \
+                --norm $NORM \
+                --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
+            DEV_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
+            echo -e "\n Getting docAMR rep of docdev data "
+            python transition_amr_parser/doc_amr.py \
+                --amr3-path $FOF_PATH \
+                --coref-fof $DEV_COREF \
+                --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
+                --rep docAMR
+        else
+            echo -e "\n Doc+sen mode , Using sentence dev data"
+            DEV_IN_AMR=$AMR_SENT_DEV_FILE
+        fi
+
 
 
     elif [ $MODE == "sen" ];then
@@ -200,21 +221,27 @@ else
     
     
     if [ $MODE = "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
-        # echo -e "\n Using sentence test data"
-        echo -e "\n Doc+sen mode , Making docamr dev data to use instead of senamr test in doc+sen mode"
-        python transition_amr_parser/get_doc_amr_from_sen.py \
-            --in-amr $AMR_DEV_FILE \
-            --coref-fof $DEV_COREF \
-            --fof-path $FOF_PATH \
-            --norm $NORM \
-            --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
-        TEST_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
-        echo -e "\n Getting docAMR rep of docdev data "
-        python transition_amr_parser/doc_amr.py \
-            --amr3-path $FOF_PATH \
-            --coref-fof $DEV_COREF \
-            --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
-            --rep docAMR
+        if [[ $DEV_CHOICE=="doc" ]];then
+            echo -e "\n Doc+sen Mode,dev choice is doc . Making docamr test data"
+            python transition_amr_parser/get_doc_amr_from_sen.py \
+                --in-amr $AMR_TEST_FILE \
+                --coref-fof $TEST_COREF \
+                --fof-path $FOF_PATH \
+                --norm $NORM \
+                --out-amr $ORACLE_FOLDER/test_${NORM}.docamr
+
+            TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
+            echo -e "\n Getting docAMR rep of test data "
+            python transition_amr_parser/doc_amr.py \
+                --amr3-path $FOF_PATH \
+                --coref-fof $TEST_COREF \
+                --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
+                --rep docAMR
+        else
+            echo -e "\n Doc+sen mode .Using sentence test data"
+            TEST_IN_AMR=$AMR_SENT_TEST_FILE
+        fi
+        
     fi
     
     
@@ -228,7 +255,7 @@ else
         --in-aligned-amr $TEST_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
-	--out-fdec-actions $ORACLE_FOLDER/test.force_actions \
+	    --out-fdec-actions $ORACLE_FOLDER/test.force_actions \
         --out-tokens $ORACLE_FOLDER/test.en \
         --absolute-stack-positions  \
         --use-copy ${USE_COPY} \
