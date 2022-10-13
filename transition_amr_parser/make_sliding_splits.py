@@ -163,10 +163,11 @@ def main(args):
                 
         if len(windows) > max_num_windows:
             for n in range(max_num_windows,len(windows)):
-                if args.train_sliding and args.data_split=='train' :
-                    fout_tokens.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(0) + ".en",'a'))
-                    fout_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(0) + ".actions", 'a'))
-                    fout_force_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(0) + ".force_actions", 'a'))
+                if args.train_sliding and args.data_split=='train' and len(fout_tokens)>0 :
+                    fout_tokens.append(fout_tokens[-1])
+                    fout_actions.append(fout_actions[-1])
+                    fout_force_actions.append(fout_force_actions[-1])
+
                 else:
                     fout_tokens.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".en",'w'))
                     fout_actions.append(open(args.oracle_dir + "/" + args.data_split + "_" + str(n) + ".actions", 'w'))
