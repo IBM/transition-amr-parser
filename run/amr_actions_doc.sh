@@ -120,6 +120,7 @@ else
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/train.actions \
         --out-tokens $ORACLE_FOLDER/train.en \
+        --out-fdec-actions $ORACLE_FOLDER/train.force_actions \
         --absolute-stack-positions \
         --out-stats-vocab $ORACLE_FOLDER/train.actions.vocab \
         --use-copy ${USE_COPY} \
