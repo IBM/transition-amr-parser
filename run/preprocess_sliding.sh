@@ -83,6 +83,11 @@ else
 
     python transition_amr_parser/make_sliding_splits.py \
 	   --oracle-dir $ORACLE_FOLDER \
+	   --data-split dev \
+       $SLIDING_ARGS
+
+    python transition_amr_parser/make_sliding_splits.py \
+	   --oracle-dir $ORACLE_FOLDER \
 	   --data-split test \
        $SLIDING_ARGS
 
