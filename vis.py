@@ -7,12 +7,14 @@ from transition_amr_parser.docamr_io import (
     AMR,
     read_amr
 )
-from docSmatch import smatch
+import docSmatch.smatch as docsmatch
+import smatch_orig.smatch as orig_smatch
 # from side_by_side import print_side_by_side
 import pickle
 from tqdm import tqdm
 import os
 from itertools import chain
+from dictdiffer import diff as dictdiff
 colors = {}
 colors['terminal'] = {'red':f"{Fore.RED+Style.BRIGHT}",'blue':f"{Fore.BLUE+Style.BRIGHT}",'green':f"{Fore.GREEN+Style.BRIGHT}",'magenta':f"{Fore.MAGENTA+Style.BRIGHT}",'reset':f"{Style.RESET_ALL}"}
 colors['html'] = {'red':'<span style="background-color:pink;font-weight:bold;"','blue':'<span style="background-color:cyan;font-weight:bold;"','green':'<span style="background-color:lime;font-weight:bold;"','purple':'<span style="background-color:#9ACD32;font-weight:bold;"','reset':'</span>'}
@@ -29,17 +31,51 @@ def main(args):
     f1 = open(args.f[0],'r')
     f2 = open(args.f[1],'r')
     # out_file = open('vis.out','w')
-    if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk.pt'):
-        pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk.pt','rb')
+
+    if os.path.isfile('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk_origsmatch.pt'):
+        pickle_file = open('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk_origsmatch.pt','rb')
         gold_to_pred_alignments = pickle.load(pickle_file)
     else:
-        gold_to_pred_alignments = {'Alignments':[],'F1':[],'Coref-Score':[]}
-        for sent_num, (cur_amr1, cur_amr2) in tqdm(enumerate(smatch.generate_amr_lines(f1, f2), start=1), desc='Getting Smatch alignments'):
-            nums, ss,*a = smatch.get_amr_match(cur_amr1, cur_amr2,
+        gold_to_pred_alignments = {'Alignments':[],'F1':[],'Coref-Score':[],'Orig_Smatch_Alignments':[]}
+        for sent_num, (cur_amr1, cur_amr2) in tqdm(enumerate(orig_smatch.generate_amr_lines(f1, f2), start=1), desc='Getting Smatch alignments'):
+            print("\n DOC ",sent_num)
+            nums, ss,*a = docsmatch.get_amr_match(cur_amr1, cur_amr2,
                                             sent_num=sent_num,  # sentence number
                                             coref=True,get_alignment=True)
-            best_match_num, test_triple_num, gold_triple_num = nums
-            pr,re,f1_score = smatch.compute_f(best_match_num, test_triple_num, gold_triple_num)
+            # best_match_num, test_triple_num, gold_triple_num = nums
+            # pr,re,f1_score = docsmatch.compute_f(best_match_num, test_triple_num, gold_triple_num)
+
+
+            if args.orig_smatch:
+                
+                
+                best_match_num, test_triple_num, gold_triple_num,*b = orig_smatch.get_amr_match(cur_amr1, cur_amr2,
+                                                sent_num=sent_num,get_alignments=True)
+
+                pr,re,f1_score = orig_smatch.compute_f(best_match_num, test_triple_num, gold_triple_num)
+                
+                # diff_in_align = { k : a[0][k] for k in set(a[0]) - set(b[0]) if a[0][k] is not None}
+                
+                
+                # print("no. of diff node alignments between orig smatch and doc smatch ",len(diff_in_align))
+                align_diff = list(dictdiff(a[0],b[0]))
+                changed = 0
+                removed = 0
+                added = 0
+                print(align_diff)
+                for ad in align_diff:
+                    if ad[0]=='change':
+                        changed+=1
+                    elif ad[0]=='remove':
+                       removed += len([r for r in ad[2] if r[1] is not None]) 
+                    elif ad[0]=='add':
+                       added += len([r for r in ad[2] if r[1] is not None])
+                print("no. changed ",changed)
+                print("no. removed ",removed)
+                print("no. added ",added)
+                gold_to_pred_alignments['Orig_Smatch_Alignments'].append(b[0])
+                
+                
             subscores ={}
             for label in ss:
                 if label in subscores:
@@ -49,12 +85,13 @@ def main(args):
             co_num= subscores['Total Coref'].num
             co_tes = subscores['Total Coref'].pred_total
             co_gold = subscores['Total Coref'].gold_total
-            co_pr,co_re,coref_score = smatch.compute_f(co_num,co_tes,co_gold)                            
+            co_pr,co_re,coref_score = docsmatch.compute_f(co_num,co_tes,co_gold)                            
             if len(a)>0:
+               
                 gold_to_pred_alignments['Alignments'].append(a[0])
             gold_to_pred_alignments['F1'].append(str(round(f1_score*100,2)))
             gold_to_pred_alignments['Coref-Score'].append(str(round(coref_score*100,2)))
-        with open('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk.pt','wb') as pickle_file:
+        with open('DATA/best_gold_to_pred_alignments_new_dict2_allalign_notokchk_origsmatch.pt','wb') as pickle_file:
             pickle.dump(gold_to_pred_alignments,pickle_file)                                                       
     
     if args.output_html:
@@ -114,7 +151,7 @@ def main(args):
                 '''
         if not os.path.isdir('DATA/vis_output_html'):
                 os.mkdir('DATA/vis_output_html')
-        htmlfile = open("DATA/vis_output_html/corefchains_wnav_hover_newpred_corefscore_nodealign_notokchk.html","w")
+        htmlfile = open("DATA/vis_output_html/corefchains_wnav_hover_newpred_corefscore_nodealign_notokchk_origsmatchalign.html","w")
         htmlfile.write(htmlstr)
 
 
@@ -139,8 +176,10 @@ def main(args):
         chain_nodes = {}
         if args.output_html:
             htmldoc = '<h3 id=doc_'+str(num)+'>Doc '+str(num)+'</h4><br><h4>Smatch '+gold_to_pred_alignments['F1'][num]+'<br>Coref Score '+gold_to_pred_alignments['Coref-Score'][num]+'</h4>'
+            htmldoc += '<br><h4>No. of gold coref chains '+str(len(coref_nodes))+'<br>No. of gold pred chains '+str(len(coref_nodes2))+'</h4>'
             htmlfile.write(htmldoc)
-
+        print("No. of gold coref chains ",len(coref_nodes))
+        print("No. of gold pred chains ",len(coref_nodes2))
         for cnode2 in coref_nodes2:
             coref_chains2[cnode2] = []
             chain_nodes2[cnode2] = []
@@ -187,8 +226,8 @@ def main(args):
             to_print_predcnodes = []
             to_print2  = []
             pred_coref_node = None
-            if cnode in gold_to_pred_alignments['Alignments'][num]:
-                pred_coref_node = gold_to_pred_alignments['Alignments'][num][cnode]
+            if cnode in gold_to_pred_alignments['Orig_Smatch_Alignments'][num]:
+                pred_coref_node = gold_to_pred_alignments['Orig_Smatch_Alignments'][num][cnode]
             
                
             if args.different_doc:
@@ -285,8 +324,8 @@ def main(args):
                         
                     for idx,ch_node in enumerate(chain_nodes[cnode]):
                         
-                        if ch_node in gold_to_pred_alignments['Alignments'][num]:
-                            pred_align_node = gold_to_pred_alignments['Alignments'][num][ch_node]
+                        if ch_node in gold_to_pred_alignments['Orig_Smatch_Alignments'][num]:
+                            pred_align_node = gold_to_pred_alignments['Orig_Smatch_Alignments'][num][ch_node]
                             if pred_align_node is not None and pred_align_node in red:
                                 green[ch_node] = coref_chains[cnode][idx]
                                 color = color_picker['green']
@@ -396,6 +435,12 @@ if __name__ == "__main__":
         action='store_true',
         default=True,
         help='if coloring method is based on node alignments instead of token alignments'
+    )
+    parser.add_argument(
+        '--orig-smatch',
+        action='store_true',
+        default=True,
+        help='if alignment is gotten from orig smatch insead of doc smatch'
     )
 
     args = parser.parse_args()
