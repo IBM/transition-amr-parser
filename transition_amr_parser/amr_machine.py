@@ -854,18 +854,18 @@ class AMRStateMachine():
         valid_base_actions = []
         gen_node_actions = ['COPY', 'NODE'] if self.config.use_copy else ['NODE']
 
-        if self.num_actions_on_this_pos > 30 or self.num_arcs_on_this_node > 20:
-            if self.force_actions:
-                if self.action_cursor >= len(self.force_actions[self.tok_cursor]):
-                    return ['SHIFT']
-                if self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_arc, self.wild_any]:
-                    while self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_arc, self.wild_any]:
-                        self.action_cursor += 1
-                        if self.action_cursor >= len(self.force_actions[self.tok_cursor]):
-                            return ['SHIFT']
-                self.in_free_zone = False
-            else:
-                return ['SHIFT']
+        # if self.num_actions_on_this_pos > 40 or self.num_arcs_on_this_node > 20:
+        #     if self.force_actions:
+        #         if self.action_cursor >= len(self.force_actions[self.tok_cursor]):
+        #             return ['SHIFT']
+        #         if self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_arc, self.wild_any]:
+        #             while self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_arc, self.wild_any]:
+        #                 self.action_cursor += 1
+        #                 if self.action_cursor >= len(self.force_actions[self.tok_cursor]):
+        #                     return ['SHIFT']
+        #         self.in_free_zone = False
+        #     else:
+        #         return ['SHIFT']
                         
         
         if not self.in_free_zone:            
