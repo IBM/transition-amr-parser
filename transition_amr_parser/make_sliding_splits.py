@@ -137,7 +137,7 @@ def main(args):
                 actions_per_token.append(this_token_actions)
                 this_token_actions = []
         if len(sentence_ends) == 0:
-            sentence_ends.append(len(this_token_actions)-1)
+            sentence_ends.append(len(actions_per_token)-1)
 
         new_sentence_ends = adjust_sentence_ends(sentence_ends, args.window_size)
 
@@ -176,13 +176,21 @@ def main(args):
 
         for (widx,(start,end)) in enumerate(windows):
             
-            out_tokens = "\t".join(tokens[start:end+1])
+            out_tok = tokens[start:end+1]
+            out_tokens = "\t".join(out_tok)
             fout_tokens[widx].write(out_tokens+"\n")
+            
             
             good_actions = get_good_window_actions(start, end, actions_per_token)
             out_actions = "\t".join(good_actions)
+            assert len(good_actions)>1,"empty actions"
+            assert len(out_tok)>1,"empty out tokens "
             fout_actions[widx].write(out_actions+"\n")
-            out_force_actions = str(force_actions[start:end+1])
+            if force_actions is not None:
+                out_force_actions = str(force_actions[start:end+1])
+            else:
+                out_force_actions = str(force_actions)
+
             fout_force_actions[widx].write(out_force_actions+"\n")
             
         #print(str(windows)+"\t"+str(sum([len(actions) for actions in actions_per_token])) )
