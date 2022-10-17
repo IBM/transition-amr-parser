@@ -76,7 +76,11 @@ else
         --data-split train \
         $SLIDING_ARGS
         # trainarr=($(ls $ORACLE_FOLDER/train_*.en | sed 's/\.en//g'))
-        trainpref=$(echo $ORACLE_FOLDER/train_0 | sed 's/ /,/g')
+        mv $ORACLE_FOLDER/train.en $ORACLE_FOLDER/train_unsplit.en
+        mv $ORACLE_FOLDER/train.force_actions $ORACLE_FOLDER/train_unsplit.force_actions
+        mv $ORACLE_FOLDER/train.actions $ORACLE_FOLDER/train_unsplit.actions
+        rename 'train_0' 'train' $ORACLE_FOLDER/train_0.*
+        trainpref=$ORACLE_FOLDER/train 
     else
         trainpref=$ORACLE_FOLDER/train
     fi
