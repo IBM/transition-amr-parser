@@ -97,10 +97,11 @@ def load_amr_action_pointer_dataset(data_path, emb_dir, split, src, tgt, src_dic
     tgt_force_actions = None
     # if split != 'train':
     if os.path.exists(filename_prefix + tgt_fdec):
-        tgt_force_actions = []
-        with open(filename_prefix + tgt_fdec, 'r', encoding='utf-8') as f:
-            for line in f:
-                tgt_force_actions.append(eval(line))
+        if split != 'train':
+            tgt_force_actions = []
+            with open(filename_prefix + tgt_fdec, 'r', encoding='utf-8') as f:
+                for line in f:
+                    tgt_force_actions.append(eval(line))
 
     # tgt: actions pointers
     tgt_pos = load_indexed_dataset(filename_prefix + tgt_pos, tgt_dict, dataset_impl)
