@@ -191,14 +191,6 @@ else
 	cp $ORACLE_FOLDER/dev.windows $DATA_FOLDER/valid.windows
 	cp $ORACLE_FOLDER/test.windows $DATA_FOLDER/test.windows
 
-    if [[ $TRAIN_SLIDING == 1 ]];then
-        
-        
-        cp $ORACLE_FOLDER/train_0.force_actions $DATA_FOLDER/train_0.en-actions.force_actions
-	    
-        cp $ORACLE_FOLDER/train.windows $DATA_FOLDER/train.windows
-    fi
-	
 
     elif [[ $TASK == "amr_action_pointer_bartsv" ]]; then
 
