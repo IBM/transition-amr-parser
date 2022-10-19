@@ -78,9 +78,9 @@ def force_overlap_all(all_windows, all_actions, all_force_actions, in_widx):
     fidx = 0
     pidx = 0
     for (i, _) in enumerate(all_windows):
-        if len(all_windows[i]) > window_of_interest:
-            this_window = all_windows[i][window_of_interest]
-            prev_window = all_windows[i][window_of_interest-1]
+        if len(all_windows[i]) > in_widx:
+            this_window = all_windows[i][in_widx]
+            prev_window = all_windows[i][in_widx-1]
             actions = all_actions[pidx]
             force_actions = all_force_actions[fidx]
             
@@ -92,7 +92,7 @@ def force_overlap_all(all_windows, all_actions, all_force_actions, in_widx):
             
             fidx += 1
             
-        if len(all_windows[i]) >= window_of_interest:
+        if len(all_windows[i]) >= in_widx:
             pidx += 1
 
     return all_out_force_actions
@@ -115,7 +115,7 @@ def make_forced_overlap(in_pred, in_force, in_windows, in_widx, out_force):
     if window_of_interest == 0:
         return
 
-    all_out_force_actions = force_overlap(all_windows, all_actions, all_force_actions, in_widx)
+    all_out_force_actions = force_overlap_all(all_windows, all_actions, all_force_actions, in_widx)
 
     for force_actions in all_out_force_actions:
         ffout.write(str(force_actions) + "\n")
