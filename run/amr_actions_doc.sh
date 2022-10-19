@@ -20,13 +20,13 @@ echo $config
 # We will need this to save the alignment log
 mkdir -p $ORACLE_FOLDER
 
-if [ -z "$MODE" ];then
+if [ -z ${MODE+m} ];then
     MODE="sen"
 fi
-if [ -z "$TRAIN_DOC" ];then
+if [ -z ${TRAIN_DOC+y} ];then
     TRAIN_DOC=""
 fi
-if [ -z "$DEV_CHOICE" ];then
+if [ -z ${DEV_CHOICE+x} ];then
     DEV_CHOICE=""
 fi
 

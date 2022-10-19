@@ -23,27 +23,30 @@ echo $config
     echo -e "\nRequires oracle in $ORACLE_FOLDER\n" && \
     exit 1
 
+if [ -z ${MODE+x} ];then
+    MODE="sen"
+fi
 # TODO: Recover support of fine-tuning mode
 # # Dictionary update for fine-tuning. We will add the words from the fine-tuning
 # # vocabulary to the pretrained one. Note that there is a similar if below
 # # to adjust pretrained model embeddings accordingly
-# if [[ "$FAIRSEQ_TRAIN_ARGS" =~ .*"--restore-file".* ]];then
-# 
+# if [[ "$FAIRSEQ_TRAIN_FINETUNE_ARGS" =~ .*"--restore-file".* ]];then
+
 #     # Work with a copy of the pretrained dictionaries (will be modified)
 #     mkdir -p $FEATURES_FOLDER
-# 
+
 #     # source 
 #     cp $PRETRAINED_SOURCE_DICT ${SRC_DICT}
 #     python scripts/create_fairseq_dicts.py \
 #         --in-pretrain-dict $SRC_DICT \
 #         --in-fine-tune-data $ORACLE_FOLDER/train.en \
-#     
+    
 #     # target
 #     cp $PRETRAINED_TARGET_DICT ${TGT_DICT}
 #     python scripts/create_fairseq_dicts.py \
 #         --in-pretrain-dict $TGT_DICT \
 #         --in-fine-tune-data $ORACLE_FOLDER/train.actions \
-# 
+
 # fi
 
 ##### PREPROCESSING
@@ -141,9 +144,10 @@ else
             --workers 1 \
             --pretrained-embed $PRETRAINED_EMBED \
             --bert-layers $BERT_LAYERS
-
-	cp $ORACLE_FOLDER/dev.force_actions $DATA_FOLDER/valid.en-actions.force_actions
-	cp $ORACLE_FOLDER/test.force_actions $DATA_FOLDER/test.en-actions.force_actions
+        if [[ "$MODE" =~ .*"doc".* ]];then   
+            cp $ORACLE_FOLDER/dev.force_actions $DATA_FOLDER/valid.en-actions.force_actions
+            cp $ORACLE_FOLDER/test.force_actions $DATA_FOLDER/test.en-actions.force_actions
+        fi
 	
 
     elif [[ $TASK == "amr_action_pointer_bartsv" ]]; then
@@ -194,9 +198,9 @@ fi
 
 # TODO: Recover support of fine-tuning
 # # In fine-tune mode, we may need to adjust model size
-# if [[ "$FAIRSEQ_TRAIN_ARGS" =~ .*"--restore-file".* ]];then
+# if [[ "$FAIRSEQ_TRAIN_FINETUNE_ARGS" =~ .*"--restore-file".* ]];then
 #     # We will modify the checkpoint, so we need to copy it
 #     [ ! -f "$RESTORE_FILE" ] && \
 #         cp $PRETRAINED_MODEL $RESTORE_FILE
-#     python scripts/merge_restored_vocabulary.py $FAIRSEQ_TRAIN_ARGS
+#     python scripts/merge_restored_vocabulary.py $FAIRSEQ_TRAIN_FINETUNE_ARGS
 # fi

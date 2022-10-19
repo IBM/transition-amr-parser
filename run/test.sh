@@ -39,17 +39,17 @@ echo $config
 . $config 
 
 
-if [ -z "$FAIRSEQ_TEST_SKIP_ARGS" ];then
+if [ -z ${FAIRSEQ_TEST_SKIP_ARGS+x} ];then
     FAIRSEQ_TEST_SKIP_ARGS=""
 fi
 if [ -z ${EVAL_METRIC_TEST+x} ];then
     EVAL_METRIC_TEST=""
 fi
 
-if [ -z "$MODE" ];then
+if [ -z ${MODE+x} ];then
     MODE="sen"
 fi
-if [ -z "$DEV_CHOICE" ];then
+if [ -z ${DEV_CHOICE+x} ];then
     DEV_CHOICE=""
 fi
 
@@ -118,10 +118,11 @@ elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
             echo "dev choice is doc, using dev doc amr as reference amr"
             reference_amr=$ORACLE_FOLDER/test_docAMR.docamr
         else
-            reference_amr=$AMR_SENT_TESTT_FILE
+            reference_amr=$AMR_SENT_TEST_FILE
             wiki=$LINKER_CACHE_PATH/test.wiki
             #FIXME
             reference_amr_wiki=$AMR_TEST_FILE_WIKI
+        fi
     else
         echo "$2 is invalid; must be dev or test"
         exit 1
