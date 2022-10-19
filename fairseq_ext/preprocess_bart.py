@@ -160,6 +160,8 @@ def main(args):
                     tgt_dict = build_dictionary([train_path(args.target_lang_nopos)], tgt=True)
                     if args.task.endswith('dyo'):
                         add_sampling_vocabulary(tgt_dict, args.trainpref)
+                    #since there is a common machine for doc and sentence, adding action CLOSE_SENTENCE to tgt vocab
+                    tgt_dict.add_symbol('CLOSE_SENTENCE')
 
             else:
                 tgt_dict = None
