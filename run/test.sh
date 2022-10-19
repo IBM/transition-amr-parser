@@ -299,7 +299,7 @@ elif [ "$EVAL_METRIC" = "wiki.smatch" ];then
 
     # until smatch is fixed, we need to remove the ISI alignment annotations
     sed 's@\~[0-9]\{1,\}@@g' ${results_prefix}.wiki.amr > ${results_prefix}.wiki.amr.no_isi
-    if [ "$reference_amr" =~ ".docamr" ];then
+    if [[ "$reference_amr" =~ ".docamr" ]];then
         echo "removing isi from reference amr"
         sed 's@\~[0-9]\{1,\}@@g' $reference_amr > ${reference_amr}.no_isi
         reference_amr=${reference_amr}.no_isi
