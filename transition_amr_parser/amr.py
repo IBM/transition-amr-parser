@@ -737,7 +737,7 @@ class AMR():
         assert '\n' in penman_text, "Expected string with EOL"
 
         graph = penman.decode(penman_text.split('\n'))
-        nodes, edges, alignments = get_simple_graph(graph)
+        nodes, edges, alignments, _ = get_simple_graph(graph)
         sentence_ends = []
         if 'tok' in graph.metadata:
             tokens = graph.metadata['tok'].split()
