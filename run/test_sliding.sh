@@ -49,7 +49,7 @@ fi
 if [ -z ${MODE+x} ];then
     MODE="sen"
 fi
-if [ -z ${DEV_CHOICE+x}" ];then
+if [ -z ${DEV_CHOICE+x} ];then
     DEV_CHOICE=""
 fi
 
