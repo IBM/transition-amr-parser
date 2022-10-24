@@ -178,7 +178,7 @@ tgt_input_src_combine="add"
 # SEEDS="43 44"
 SEEDS="42"
 MAX_EPOCH=120
-EVAL_INIT_EPOCH=71
+EVAL_INIT_EPOCH=36
 time_max_between_epochs=30
 
 # TODO: New
@@ -346,7 +346,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 # Smatch evaluation with wiki
 
 # Old scorer
-LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
+LINKER_CACHE_PATH=""
 #DATA/EL/legacy_linker_amr3.0/
 
 # BLINK

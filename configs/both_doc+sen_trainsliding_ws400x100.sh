@@ -10,7 +10,7 @@ set -o pipefail
 set -o nounset
 
 # this will be name of the model folder
-config_name=both_doc+sen_trainsliding_ws300x200_lr00005
+config_name=both_doc+sen_trainsliding_ws400x100
 
 ##############################################################################
 # DATA
@@ -68,7 +68,7 @@ AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
 AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
 AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 DOC_ORACLE_ARGS=""
-SLIDING_ARGS="--window-size 300 --window-overlap 200 --train-sliding"
+SLIDING_ARGS="--window-size 400 --window-overlap 100 --train-sliding"
 TRAIN_SLIDING=1
 DEV_CHOICE="doc"
 
@@ -82,7 +82,7 @@ ALIGNMENT_FLAGS=""
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states_doc_MODE-${MODE}_both_trainsliding_ws300x200
+ORACLE_TAG=o10_act-states_doc_MODE-${MODE}_both_trainsliding_ws400x100
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -103,7 +103,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=${align_tag}_bart.large_doc_MODE-${MODE}_both_trainsliding_ws300x200
+embedding_tag=${align_tag}_bart.large_doc_MODE-${MODE}_both_trainsliding_ws400x100
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -183,9 +183,9 @@ time_max_between_epochs=30
 
 # TODO: New
 use_fp16=1
-lr=0.00005
+lr=0.0001
 max_tokens=2048
-update_freq=1
+update_freq=4
 warmup=4000
 dropout=0.2
 
@@ -346,7 +346,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 # Smatch evaluation with wiki
 
 # Old scorer
-LINKER_CACHE_PATH=""
+LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 #DATA/EL/legacy_linker_amr3.0/
 
 # BLINK
