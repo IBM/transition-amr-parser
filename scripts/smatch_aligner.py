@@ -17,10 +17,29 @@ import penman
 
 def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
     '''
-    counts are a lists of lists of counts. Outer list is examples, inner
-    example counts
 
-    scorer takes the sum of counts (as many items as inner list len())
+    Implements paired boostrap significance test after
+
+    @Book{Nor89,
+        author = {E. W. Noreen},
+        title =  {Computer-Intensive Methods for Testing Hypotheses},
+        publisher = {John Wiley Sons},
+        year = {1989},
+    }
+
+    SCORER e.g. F1 scores given the sum of statistics for each example in the
+    test set. For example F1 as used in smatch takes arg_number=3:
+    (num_hits, num_predicted, num_gold)
+
+    COUNTS1, COUNTS2 are numpy arrays of shape (arg_number, example_number)
+    corresponding to the statistics for each example of each system
+
+    Normal score computation would be
+
+        SCORE1 = SCORER(*list(COUNTS1.sum(0)))
+
+    The test randomly swaps examples between both sets of counts and sees if
+    this changes the previous bigger than relation (e.g. SCORE1 > SCORE2)
     '''
 
     assert len(counts1) == len(counts2)
