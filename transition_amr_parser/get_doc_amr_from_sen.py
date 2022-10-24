@@ -3,17 +3,14 @@ from copy import deepcopy
 from transition_amr_parser.io import read_blocks
 from transition_amr_parser.docamr_io import read_amr_penman, process_corefs, make_pairwise_edges,read_amr_metadata
 from transition_amr_parser.doc_amr import connect_sen_amrs,make_doc_amrs
-from transition_amr_parser.doc_amr_baseline.corefconversion.conll_transform import read_file as conll_read_file
-from transition_amr_parser.doc_amr_baseline.corefconversion.conll_transform import compute_chains as conll_compute_chains
-from transition_amr_parser.doc_amr_baseline.make_doc_amr import process_coref_conll
-from transition_amr_parser.doc_amr_baseline.baseline_io import read_amr_add_sen_id
+
 import penman
 import pickle
 import os
 import glob
 import copy
 
-def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no_merge',dont_make_pairwise_edges=False):
+def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no_merge',dont_make_pairwise_edges=False,coref_triples=None):
     
         
     # Read AMR as a generator with tqdm progress bar
@@ -52,27 +49,10 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no
         corefs = process_corefs(coref_files)
         chains = True
         
-    elif coref_type=='conll':
-        coref_chains = {}
-        out = conll_read_file(coref_fof)
-        for n,(i,val) in enumerate(out.items()):
-            
-            docid_spl = i.split('); part ')
-            doc_id = docid_spl[0].split('/')[-1]+'_'+str(int(docid_spl[1]))
-            coref_chains[doc_id] = conll_compute_chains(val)
-            assert len(coref_chains)>0,"Coref file is empty"
-        corefs = process_coref_conll(amrs,coref_chains,add_coref=True,save_triples=False,out=None)
-        amrs = copy.deepcopy(amrs_dict)
-        chains = False
-        
-    elif coref_type=='allennlp':
-        coref_chains = {}
-        out = pickle.load(open(coref_fof,'rb'))
-        for i,(doc_id,val) in enumerate(out.items()):
-
-            coref_chains[doc_id] = val
-        assert len(coref_chains)>0,"Coref file is empty"
-        corefs = process_coref_conll(amrs,coref_chains,add_coref=True,verbose=False,save_triples=False)
+    elif coref_type=='conll' or coref_type=='allennlp':
+        assert coref_triples is not None,"--coref-triples must be provided"
+        assert os.path.exists(coref_triples),"--coref-triples file does not exist "
+        corefs = pickle.load(open(coref_triples,'rb'))
         amrs = copy.deepcopy(amrs_dict)
         chains = False
         
@@ -113,7 +93,7 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no
             fid.write(damr.__str__(jamr=args.jamr))
 
 def main(args):
-    write_doc_amr_from_sen(args.in_amr,args.coref_fof,args.fof_path,args.coref_type,args.out_amr,args.norm,args.dont_make_pairwise_edges)
+    write_doc_amr_from_sen(args.in_amr,args.coref_fof,args.fof_path,args.coref_type,args.out_amr,args.norm,args.dont_make_pairwise_edges,args.coref_triples)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -149,6 +129,12 @@ if __name__ == '__main__':
         help="type of coref (gold,allennlp,conll)",
         type=str,
         default='gold'
+    )
+    parser.add_argument(
+        "--coref-triples",
+        help="when coref type is conll or allennlp,a pickle file with coref triples of format (doc_triples,doc_sids,doc_id) is required . This can be obtained from doc amr baseline",
+        type=str,
+        default=None
     )
     parser.add_argument(
         "--jamr",
