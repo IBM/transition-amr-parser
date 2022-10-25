@@ -80,7 +80,7 @@ python scripts/smatch_aligner.py \
 ```
 
 for each pair of predicted amr files, it tests the hypothesis that the
-prediction with larges Smatch is significantly greater than the smaller one.
+prediction with largest Smatch is significantly greater than the smaller one.
 Use `--bootstrap-test-restarts` to set the number of samples (default `10,000`,
 note this has little effect on speed). Use `--out-boostrap-png
 /path/to/file.png` to save the distribution of score differences for each pair.
