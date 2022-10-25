@@ -42,10 +42,47 @@ python scripts/read_propbank.py /path/to/amr_2.0/data/frames/xml/ DATA/probank_a
 
 Run sanity check, for example
 ```
-python scripts/sanity_check.py /path/to/amr2.0/train.txt DATA/probank_amr2.0.json
+python scripts/sanity_check_amr.py /path/to/amr2.0/train.txt DATA/probank_amr2.0.json
 
 36522 sentences 152897 predicates
 401 role not in propbank
 322 predicate not in propbank
 25 missing required role
 ```
+
+## Paired Boostrap Significance Test
+
+The following script implements the paired boostrap significance test after
+
+    @Book{Nor89,
+        author = {E. W. Noreen},
+        title =  {Computer-Intensive Methods for Testing Hypotheses},
+        publisher = {John Wiley Sons},
+        year = {1989},
+    }
+
+to use you can call
+
+```bash
+python scripts/smatch_aligner.py \
+    --in-reference-amr /path/to/gold.amr \
+    --in-amrs \
+        /path/to/predicted1.amr \ 
+        /path/to/predicted2.amr \ 
+        ...
+        /path/to/predictedN.amr \ 
+    --amr-labels 
+        label1 \
+        label2 \
+        ...
+        labelN \
+    --bootstrap-test
+```
+
+for each pair of predicted amr files, it tests the hypothesis that the
+prediction with larges Smatch is significantly greater than the smaller one.
+Use `--bootstrap-test-restarts` to set the number of samples (default `10,000`,
+note this has little effect on speed). Use `--out-boostrap-png
+/path/to/file.png` to save the distribution of score differences for each pair.
+Script calls the original `smatch` python module. In order to export components
+it needs the main branch after version `1.0.4`.
