@@ -51,7 +51,7 @@ def argument_parsing():
         '--in-actions',
         type=str,
         help='action sequence (per token) for force decoding'
-    )    
+    )
     parser.add_argument(
         '--tokenize',
         action='store_true',
@@ -362,7 +362,7 @@ class AMRParser:
         # ensure we read from the folder where this chekpoint is regardless of
         # what is saved on the checkpoint (we may have messed with the names)
         args.model_overrides = {
-            'save_dir': os.path.dirname(checkpoint)
+            'save_dir': os.path.dirname(checkpoint.split(':')[0])
         }
         if dict_dir is not None:
             args.model_overrides['data'] = dict_dir
@@ -873,7 +873,7 @@ def main():
                 force_actions = [eval(line.strip()) + [[]] for line in fact]
         else:
             force_actions = None
-            
+
         # sampling needs copy of sentences
         num_sentences = len(tokenized_sentences)
         if args.num_samples is not None:
@@ -884,7 +884,7 @@ def main():
             ]
             if args.in_actions:
                 force_actions = [
-                    a 
+                    a
                     for a in force_actions
                     for _ in range(args.num_samples)
                 ]
