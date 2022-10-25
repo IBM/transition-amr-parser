@@ -71,7 +71,7 @@ python scripts/smatch_aligner.py \
         /path/to/predicted2.amr \ 
         ...
         /path/to/predictedN.amr \ 
-    --amr-labels 
+    --amr-labels \
         label1 \
         label2 \
         ...
