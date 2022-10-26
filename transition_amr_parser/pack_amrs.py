@@ -3,11 +3,9 @@ import copy
 import numpy as np
 from tqdm import tqdm
 
-from docamr_io import (
-    AMR,
-    read_amr,
-)
+from amr_io import read_amr
 from ipdb import set_trace
+from docamr_utils import get_sen_ends
 
 def connect_sen_amrs(amr):
 
@@ -36,12 +34,12 @@ def make_packed_amrs(amrs, max_tok=400, randomize=True):
             amr = amr + copy.deepcopy(next_amr)
         else:
             connect_sen_amrs(amr)
-            amr.get_sen_ends()
+            get_sen_ends(amr)
             packed_amrs.append(amr)
             amr = copy.deepcopy(next_amr)
 
     connect_sen_amrs(amr)
-    amr.get_sen_ends()
+    get_sen_ends(amr)
     packed_amrs.append(amr)
 
     return packed_amrs

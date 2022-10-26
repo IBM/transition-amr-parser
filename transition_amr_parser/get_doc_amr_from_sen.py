@@ -1,8 +1,9 @@
 from argparse import ArgumentParser
 from copy import deepcopy
 from transition_amr_parser.io import read_blocks
-from transition_amr_parser.docamr_io import read_amr_penman, process_corefs, make_pairwise_edges,read_amr_metadata
-from transition_amr_parser.doc_amr import connect_sen_amrs,make_doc_amrs
+import amr_io 
+from docamr_utils import read_amr_penman, make_pairwise_edges,read_amr_metadata,remove_unicode,get_sen_ends
+import doc_amr
 
 import penman
 import pickle
@@ -46,7 +47,7 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no
     if coref_type=='gold':
         assert fof_path is not None,'fof path  not given'
         coref_files = [fof_path+line.strip() for line in open(coref_fof)]
-        corefs = process_corefs(coref_files)
+        corefs = amr_io.process_corefs(coref_files)
         chains = True
         
     elif coref_type=='conll' or coref_type=='allennlp':
@@ -64,19 +65,19 @@ def write_doc_amr_from_sen(in_amr,coref_fof,fof_path,coref_type,out_amr,norm='no
     #     args.out_amr = args.out_actions.rstrip('.actions')+'_'+args.norm+'.docamr'
    
     # use corefs to merge sentence level AMRs into Documentr level AMRs
-    damrs = make_doc_amrs(corefs,amrs,chains=chains).values()
+    damrs = doc_amr.make_doc_amrs(corefs,amrs,chains=chains).values()
     
     with open(out_amr, 'w') as fid:
         for amr in damrs:
             damr = deepcopy(amr)
-            connect_sen_amrs(damr)
+            doc_amr.connect_sen_amrs(damr)
             damr.normalize(norm)
             if not dont_make_pairwise_edges:
                 damr = make_pairwise_edges(damr)
             #get sentence ends indices
-            damr.get_sen_ends()
+            get_sen_ends(damr)
             #FIXME remove unicode in every token of sentence
-            damr.remove_unicode()
+            remove_unicode(damr)
             #manually aligning document top to last token
             # damr.make_penman()
             # document_top,top_rel,top_name = damr.penman.triples[0]

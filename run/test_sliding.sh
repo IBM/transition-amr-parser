@@ -226,7 +226,7 @@ python transition_amr_parser/amr_machine.py \
 if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
     echo "mode doc"
     echo -e "\n Changing rep of dev/test data to docAMR "
-    python transition_amr_parser/doc_amr.py \
+    doc-amr \
         --in-doc-amr-pairwise ${results_prefix}.amr \
         --rep docAMR \
 	    --pairwise-coref-rel same-as \
@@ -236,7 +236,7 @@ elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
     echo "mode doc+sen"
     if [ $DEV_CHOICE == "doc" ]; then
         echo -e "\n Dev choice is doc, Changing rep of doc data to docAMR norm "
-        python transition_amr_parser/doc_amr.py \
+        doc-amr \
             --in-doc-amr-pairwise ${results_prefix}.amr \
             --rep docAMR \
 	        --pairwise-coref-rel same-as \
@@ -286,10 +286,10 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
-    #TODO change to docSmatch
+    
     if [ $MODE == "doc" ] || [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
         if [ $DEV_CHOICE == "doc" ]; then
-            python docSmatch/smatch.py -r 1 --significant 4 --coref-subscore \
+            doc-smatch -r 1 --significant 4 --coref-subscore \
                 -f $reference_amr \
                 ${results_prefix}.amr.no_isi \
                 | tee ${results_prefix%"_docAMR"}.smatch

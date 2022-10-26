@@ -16,7 +16,7 @@ from transition_amr_parser.io import (
     write_tokenized_sentences,
     read_neural_alignments
 )
-from transition_amr_parser.docamr_io import AMR_doc,process_corefs,read_amr, read_amr_penman
+
 # from transition_amr_parser.amr_aligner import get_ner_ids
 from transition_amr_parser.gold_subgraph_align import (
     AlignModeTracker, check_gold_alignment
@@ -29,6 +29,7 @@ from transition_amr_parser.clbar import (
 )
 from ipdb import set_trace
 from operator import itemgetter
+from transition_amr_parser.amr import AMR
 
 # change the format of pointer string from LA(label;pos) -> LA(pos,label)
 la_regex = re.compile(r'>LA\((.*),(.*)\)')
@@ -1291,7 +1292,7 @@ class AMRStateMachine():
         )
 
         # create an AMR class
-        amr = AMR_doc(tokens, nodes, edges, root, alignments=alignments)
+        amr = AMR(tokens, nodes, edges, root, alignments=alignments)
 
         # use valid node names
         if node_map is None:
@@ -1681,7 +1682,7 @@ def oracle(args):
     for idx, penman_str in enumerate(tqdm_amrs):
 
         # read into AMR class (this looses epigraph data and attribute info)
-        amr = AMR_doc.from_penman(penman_str)
+        amr = AMR.from_penman(penman_str)
         
         # spawn new machine for this sentence
         machine.reset(amr.tokens)

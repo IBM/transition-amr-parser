@@ -150,7 +150,7 @@ else
         DEV_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
 
         echo -e "\n Getting docAMR rep of dev data "
-        python transition_amr_parser/doc_amr.py \
+        doc_amr \
             --amr3-path $FOF_PATH \
             --coref-fof $DEV_COREF \
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
@@ -167,7 +167,7 @@ else
                 --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
             DEV_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
             echo -e "\n Getting docAMR rep of docdev data "
-            python transition_amr_parser/doc_amr.py \
+            doc_amr \
                 --amr3-path $FOF_PATH \
                 --coref-fof $DEV_COREF \
                 --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
@@ -213,7 +213,7 @@ else
 
         TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
         echo -e "\n Getting docAMR rep of test data "
-        python transition_amr_parser/doc_amr.py \
+        doc-amr \
             --amr3-path $FOF_PATH \
             --coref-fof $TEST_COREF \
             --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
@@ -233,7 +233,7 @@ else
 
             TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
             echo -e "\n Getting docAMR rep of test data "
-            python transition_amr_parser/doc_amr.py \
+            doc-amr \
                 --amr3-path $FOF_PATH \
                 --coref-fof $TEST_COREF \
                 --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
