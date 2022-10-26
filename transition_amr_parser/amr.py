@@ -664,7 +664,7 @@ class AMR():
     # TODO: also - + in isolation
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, sentence=None, id=None):
+                 alignments=None, sentence=None, id=None,sentence_ends=None):
 
         # make graph uneditable
         self.sentence = str(sentence) if sentence is not None else None
@@ -674,9 +674,15 @@ class AMR():
         self.penman = penman
         self.alignments = dict(alignments) if alignments else None
         self.id = id
+        self.sentence_ends = sentence_ends
 
         # root
         self.root = root
+        self.roots = []
+        if self.nodes[self.root] == 'document':
+            for (s,rel,t) in self.edges:
+                if s == self.root and rel.startswith(':snt'):
+                    self.roots.append(t)
 
         # precompute results for parents() and children()
         self._cache_key = None
