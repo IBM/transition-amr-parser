@@ -346,7 +346,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 # Smatch evaluation with wiki
 
 # Old scorer
-LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
+LINKER_CACHE_PATH=""
 #DATA/EL/legacy_linker_amr3.0/
 
 # BLINK
