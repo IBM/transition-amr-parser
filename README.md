@@ -144,20 +144,22 @@ amr.plot()
 We offer some trained checkpoints on demand. These can be download from AWS by using
 
     pip install awscli
-    aws --endpoint-url=$URL s3 cp s3://mnlp-models-amr/<config>-seed<N>.zip .
-    unzip <config>-seed<N>.zip
+    aws --endpoint-url=$URL s3 cp s3://mnlp-models-amr/<config>(-seed<N>).zip .
+    unzip <config>(-seed<N>).zip
 
 you will need access keys and URL. We provide these on an individual basis (sends us an email). For updates on available models see [here](https://twitter.com/RamonAstudill12). After unzipping, parsers should also be available by name from any folder as `AMRParser.load('<config>')`
 
 Current available parsers are
 
-|  paper                                                          |  config-seed42                                         | beam    | Smatch  |
+|  paper                                                          |  config(.zip)                                         | beam    | Smatch  |
 |:---------------------------------------------------------------:|:------------------------------------------------------:|:-------:|:-------:|
 | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr2.0-structured-bart-large-neur-al-seed42            |   10    |   84.0  |
 | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr3.0-structured-bart-large-neur-al-seed42            |   10    |   82.6  |
 | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR     | amr3.0-structured-bart-large-neur-al-sampling5-seed42  |   1     |   82.9  |
+| [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | amr3joint_ontowiki2_g2g-structured-bart-large          |   10    |   85.9  |  
+| [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | amr3joint_ontowiki2_g2g-structured-bart-large          |   10    |   84.4  |  
 
-we also provide the trained `ibm-neural-aligner` under names `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`.
+we also provide the trained `ibm-neural-aligner` under names `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`. For the ensemble we provide the three seeds. Following fairseq conventions, to run the ensemble just give the three checkpoint paths joined by `:` to the normal checkpoint argument `-c`. Note that the checkpoints were trained with the `v0.5.1` tokenizer, this reduces performance by `0.1` on `v0.5.2` tokenized data.
 
 Note that we allways report average of three seeds in papers while these are individual models. A fast way to test models standalone is
 

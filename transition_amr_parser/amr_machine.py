@@ -479,6 +479,9 @@ class AMRStateMachine():
                 'REDUCE3'   # Do both above
             ])
 
+        self.wild_any = 'xANY'
+        self.wild_arc = 'xARC'
+        
         if not self.config.use_copy:
             self.base_action_vocabulary.remove('COPY')
 
@@ -508,7 +511,7 @@ class AMRStateMachine():
                 canonical_act_ids.setdefault(cano_act, []).append(i)
         return canonical_act_ids
 
-    def reset(self, tokens, gold_amr=None, reject_align_samples=False):
+    def reset(self, tokens, gold_amr=None, reject_align_samples=False, force_actions=None):
         '''
         Reset state variables and set a new sentence
 
@@ -527,6 +530,14 @@ class AMRStateMachine():
         self.node_stack = []
         self.action_history = []
 
+        # for force decoding
+        self.force_actions = force_actions #list of list, one list for each token
+        self.action_cursor = 0 #traverse actions in current token's action list
+        self.free_nodes = []
+        self.in_free_zone = True
+        if self.force_actions and len(self.force_actions[0]) and self.force_actions[0][0] != self.wild_any:
+            self.in_free_zone = False        
+        
         # AMR as we construct it
         # NOTE: We will use position of node generating action in action
         # history as node_id
@@ -721,14 +732,32 @@ class AMRStateMachine():
             # align mode (we know the AMR)
             return self._get_valid_align_actions()
 
+        gen_node_actions = ['COPY', 'NODE'] if self.config.use_copy else ['NODE']
+        
+        if not self.in_free_zone:            
+            # force decode (we know partial actions sequence)
+            # and current force action is not 'xANY'
+            ret_actions = []
+            if self.force_actions[self.tok_cursor][self.action_cursor] == self.wild_arc:
+                #force action is xARC ... allow any arcs at this point
+                if len(self.free_nodes):
+                #you can add new edges to the nodes outside of the forced zone
+                    if self.get_base_action(self.action_history[-1]) in (gen_node_actions + ['ROOT', '>LA', '>RA']):
+                        for idx in self.free_nodes:
+                            ret_actions += ['>LA('+str(idx)+')']
+                            ret_actions += ['>RA('+str(idx)+')']
+                if len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1:
+                    ret_actions += [self.force_actions[self.tok_cursor][self.action_cursor+1]]
+            else:
+                ret_actions = [self.force_actions[self.tok_cursor][self.action_cursor]]
+            return ret_actions
+        
         valid_base_actions = []
-        if self.config.use_copy:
-            gen_node_actions = ['COPY', 'NODE']
-        else:
-            gen_node_actions = ['NODE']
 
         if self.tok_cursor < len(self.tokens):
-            valid_base_actions.append('SHIFT')
+            if not self.force_actions or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1:
+                # if forced actions are remaining for this location ... do not allow SHIFT
+                valid_base_actions.append('SHIFT')
             valid_base_actions.extend(gen_node_actions)
 
         if (
@@ -774,7 +803,7 @@ class AMRStateMachine():
         return actions_nodemask
 
     def update(self, action):
-
+        
         assert not self.is_closed
 
         # FIXME: Align mode can not allow '<unk>' node names but we need a
@@ -788,6 +817,20 @@ class AMRStateMachine():
 
         self.actions_tokcursor.append(self.tok_cursor)
 
+        #if force decoding, either move action cursor or shift future pointers
+        if self.force_actions:
+            if (len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 0 and
+                action == self.force_actions[self.tok_cursor][self.action_cursor]):
+                self.action_cursor += 1
+            elif (len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1 and
+                  self.force_actions[self.tok_cursor][self.action_cursor] in [self.wild_any,self.wild_arc] and
+                  action == self.force_actions[self.tok_cursor][self.action_cursor+1]):
+                self.action_cursor += 2
+            else:
+                #if new action is inserted
+                #future nodes will shift
+                self.increment_future_pointers()
+                
         if re.match(r'CLOSE', action):
 
             if self.gold_amr:
@@ -806,7 +849,13 @@ class AMRStateMachine():
         elif action in ['SHIFT']:
             # Move source pointer
             self.tok_cursor += 1
-
+            self.action_cursor = 0
+            self.in_free_zone = True
+            if (self.force_actions and
+                len(self.force_actions[self.tok_cursor][self.action_cursor:]) != 0 and
+                self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
+                self.in_free_zone = False
+                
         # TODO: Separate REDUCE actions into its own method
         elif action in ['REDUCE']:
             # eliminate top of the stack
@@ -882,7 +931,8 @@ class AMRStateMachine():
             self.nodes[node_id] = normalize(self.tokens[self.tok_cursor])
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
-
+            if self.force_actions and self.in_free_zone:
+                self.free_nodes.append(node_id)
         else:
 
             # Interpret action as a node name
@@ -892,7 +942,9 @@ class AMRStateMachine():
             self.nodes[node_id] = action
             self.node_stack.append(node_id)
             self.alignments[node_id].append(self.tok_cursor)
-
+            if self.force_actions and self.in_free_zone:
+                self.free_nodes.append(node_id)
+                
         # Update align mode tracker after machine state has been updated
         if self.gold_amr:
             self.align_tracker.update(self)
@@ -911,6 +963,35 @@ class AMRStateMachine():
         # Action for each time-step
         self.action_history.append(action)
 
+    def increment_future_pointers(self):
+        
+        for idx in range(self.action_cursor, len(self.force_actions[self.tok_cursor])):
+            action = self.force_actions[self.tok_cursor][idx]
+            if la_regex.match(action):
+                index, label = la_regex.match(action).groups()
+                index = int(index)
+                if index >= len(self.action_history):
+                    self.force_actions[self.tok_cursor][idx] = ">LA("+str(index+1)+","+label+")"
+            if ra_regex.match(action):
+                index, label = ra_regex.match(action).groups()
+                index = int(index)
+                if index >= len(self.action_history):
+                    self.force_actions[self.tok_cursor][idx] = ">RA("+str(index+1)+","+label+")"
+                    
+        for tidx in range(self.tok_cursor+1,len(self.tokens)):
+            for idx in range(len(self.force_actions[tidx])):
+                action = self.force_actions[tidx][idx]
+                if la_regex.match(action):
+                    index, label = la_regex.match(action).groups()
+                    index = int(index)
+                    if index >= len(self.action_history):
+                        self.force_actions[tidx][idx] = ">LA("+str(index+1)+","+label+")"
+                if ra_regex.match(action):
+                    index, label = ra_regex.match(action).groups()
+                    index = int(index)
+                    if index >= len(self.action_history):
+                        self.force_actions[tidx][idx] = ">RA("+str(index+1)+","+label+")"
+                
     def get_amr(self, node_map=None):
 
         # ensure AMR is valid
