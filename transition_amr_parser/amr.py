@@ -327,44 +327,62 @@ def scape_node_names(nodes, edges, is_attribute):
     isolated_scaped_chars = ['-', '+']
     new_nodes = {}
     for nid, nname in nodes.items():
+
+        # forbid use of \
+        if nname == '\\':
+            nname = '_'
+        elif '\\' in nname:
+            nname = nname.replace('\\', '')
+
         if nname == '"':
             # FIXME: This should be solved at machine level
             # just a single quote, invalid, put some dummy symbol
             nname = '_'
             # raise Exception('Quotes can not be a single AMR node')
-        elif nname[0] == '"' and nname[-1] == '"':
+        elif len(nname) > 1 and nname[0] == '"' and nname[-1] == '"':
             # already quoted, ensure no quotes inside
-            nname[1:-1].replace('"', '')
+            nname = nname[1:-1].replace('"', '')
         elif len(nname.split()) > 1:
-            # multi-token expression
+            # multi-token expression, ensure no quotes
+            nname = nname.replace('"', '')
             nname = f'"{nname}"'
         elif any(c in nname for c in AMR.reserved_amr_chars):
-            # reserved chars, need to be scaped
+            # reserved chars, need to be scaped, ensure no quotes
+            nname = nname.replace('"', '')
             nname = f'"{nname}"'
         elif nname in isolated_scaped_chars:
             # some chars, if they appear in isolation, need to be scaped
             nname = f'"{nname}"'
+        else:
+            # any other use of quotes, remove it
+            nname = nname.replace('"', '')
 
-        # below here: just aesthetics
+        # below here: just quoting rules for aesthetics
 
-        elif nid in ner_leaves and not re.match('^[0-9]+$', nname):
-            # numeric is not a 100% working criteria
-            # unquoted ner leaves
-            nname = f'"{nname}"'
-        elif (
-            is_attribute[nid]
-            and nid in value_ids
-            and not numeric_regex.match(nname)
+        if (
+            (len(nname) == 1 and nname != '"')
+            or nname[0] != '"' and nname[-1] != '"'
         ):
-            # non numeric attribute values
-            nname = f'"{nname}"'
-        elif is_attribute[nid] and nid in name_leaves:
-            # attribute :name leaves
-            nname = f'"{nname}"'
-        elif nid in wiki_ids and nname != "-":
-            # wiki
-            # the "-" rule does not apply on AMR3 sometimes
-            nname = f'"{nname}"'
+
+            if nid in ner_leaves and not re.match('^[0-9]+$', nname):
+                # numeric is not a 100% working criteria
+                # unquoted ner leaves
+                nname = f'"{nname}"'
+            elif (
+                is_attribute[nid]
+                and nid in value_ids
+                and not numeric_regex.match(nname)
+            ):
+                # non numeric attribute values
+                nname = f'"{nname}"'
+            elif is_attribute[nid] and nid in name_leaves:
+                # attribute :name leaves
+                nname = f'"{nname}"'
+            elif nid in wiki_ids and nname != "-":
+                # wiki
+                # the "-" rule does not apply on AMR3 sometimes
+                nname = f'"{nname}"'
+
         new_nodes[nid] = nname
     return new_nodes
 
@@ -1137,6 +1155,35 @@ def add_alignments_to_penman(g, alignments, string=False, strict=True):
         return penman.encode(g, indent=4) + '\n'
     else:
         return g
+
+
+def smatch_triples_from_penman(graph, label):
+    '''
+    Return the triples needed by the smatch functions from penman graph
+
+    since smatch requires a mapping to forman <fixed letter><number>, return
+    a dictionary that inverst this mapping
+    '''
+
+    id_map = {}
+    # instances
+    instances = []
+    for n, x in enumerate(graph.instances()):
+        id_map[n] = x.source
+        instances.append(('instance', f'{label}{n}', x.target))
+    reverse_map = {v: f'{label}{k}' for k, v in id_map.items()}
+    # attributes
+    attributes = [('TOP', reverse_map[graph.top], 'top')]
+    for x in graph.attributes():
+        attributes.append((x.role[1:], reverse_map[x.source], x.target))
+    # relations
+    relations = []
+    for x in graph.edges():
+        relations.append(
+            (x.role[1:], reverse_map[x.source], reverse_map[x.target])
+        )
+
+    return instances, attributes, relations, id_map
 
 
 #

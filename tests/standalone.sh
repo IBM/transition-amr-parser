@@ -39,7 +39,7 @@ results_prefix=$FOLDER/${sset}_$DECODING_CHECKPOINT
 mkdir -p $FOLDER
 
 [ ! -f "$reference_amr_wiki" ] \
-    && echo "$reference_amr_wiki" \
+    && echo "Missing $reference_amr_wiki" \
     && exit 1
 
 #    # extract sentences from test
@@ -49,15 +49,15 @@ mkdir -p $FOLDER
 #    # run first seed of model
 #    echo "amr-parse --beam ${BEAM_SIZE} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr"
 #    amr-parse --beam ${BEAM_SIZE} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
- 
 
 # extract sentences from test
 grep '# ::snt ' $reference_amr_wiki \
     | sed 's@# ::snt @@g' > ${results_prefix}.sentences
 
 # run first seed of model
-echo "amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr"
-amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr
+cmd="amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr --out-tokens ${results_prefix}.tokens --out-actions ${results_prefix}.actions"
+echo "$cmd"
+eval "$cmd"
     
 # GRAPH POST-PROCESSING
 
