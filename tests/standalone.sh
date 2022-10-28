@@ -39,7 +39,7 @@ results_prefix=$FOLDER/${sset}_$DECODING_CHECKPOINT
 mkdir -p $FOLDER
 
 [ ! -f "$reference_amr_wiki" ] \
-    && echo "$reference_amr_wiki" \
+    && echo "Missing $reference_amr_wiki" \
     && exit 1
 
 #    # extract sentences from test
