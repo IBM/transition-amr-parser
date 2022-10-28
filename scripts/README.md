@@ -86,3 +86,17 @@ note this has little effect on speed). Use `--out-boostrap-png
 /path/to/file.png` to save the distribution of score differences for each pair.
 Script calls the original `smatch` python module. In order to export components
 it needs the main branch after version `1.0.4`.
+
+## Maximum Bayesian Smatch Ensemble (MBSE)
+
+The following script implements MBSE-A as in [(Lee et al 2022)](https://arxiv.org/abs/2112.07790), just do
+
+```
+python scripts/mbse.py \
+    --in-amrs \
+        /path/to/predicted1.amr \ 
+        /path/to/predicted2.amr \ 
+        ...
+        /path/to/predictedN.amr \ 
+    --out-amr /path/to/ensemble.amr
+```
