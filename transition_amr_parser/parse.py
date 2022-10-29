@@ -741,7 +741,7 @@ def load_parser(args, inspector):
             beam=args.beam,
             nbest=args.nbest,
             fp16=args.fp16,
-            sampling_topp=sampling_topp,
+            sampling_topp=args.sampling_topp,
             # this is not, but implies --sampling
             num_samples=args.num_samples
         )
