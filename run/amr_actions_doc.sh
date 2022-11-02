@@ -20,16 +20,6 @@ echo $config
 # We will need this to save the alignment log
 mkdir -p $ORACLE_FOLDER
 
-if [ -z ${MODE+m} ];then
-    MODE="sen"
-fi
-if [ -z ${TRAIN_DOC+y} ];then
-    TRAIN_DOC=""
-fi
-if [ -z ${DEV_CHOICE+x} ];then
-    DEV_CHOICE=""
-fi
-
 ##### ORACLE EXTRACTION
 # Given sentence and aligned AMR, provide action sequence that generates the AMR back
 if [ -f $ORACLE_FOLDER/.done ]; then
@@ -150,8 +140,7 @@ else
         DEV_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
 
         echo -e "\n Getting docAMR rep of dev data "
-        doc_amr \
-            --amr3-path $FOF_PATH \
+        doc-amr --amr3-path $FOF_PATH \
             --coref-fof $DEV_COREF \
             --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
             --rep docAMR
@@ -167,8 +156,7 @@ else
                 --out-amr $ORACLE_FOLDER/dev_${NORM}.docamr
             DEV_IN_AMR=$ORACLE_FOLDER/dev_${NORM}.docamr
             echo -e "\n Getting docAMR rep of docdev data "
-            doc_amr \
-                --amr3-path $FOF_PATH \
+            doc-amr --amr3-path $FOF_PATH \
                 --coref-fof $DEV_COREF \
                 --out-amr $ORACLE_FOLDER/dev_docAMR.docamr \
                 --rep docAMR
@@ -213,8 +201,7 @@ else
 
         TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
         echo -e "\n Getting docAMR rep of test data "
-        doc-amr \
-            --amr3-path $FOF_PATH \
+        doc-amr --amr3-path $FOF_PATH \
             --coref-fof $TEST_COREF \
             --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
             --rep docAMR
@@ -233,8 +220,7 @@ else
 
             TEST_IN_AMR=$ORACLE_FOLDER/test_${NORM}.docamr
             echo -e "\n Getting docAMR rep of test data "
-            doc-amr \
-                --amr3-path $FOF_PATH \
+            doc-amr --amr3-path $FOF_PATH \
                 --coref-fof $TEST_COREF \
                 --out-amr $ORACLE_FOLDER/test_docAMR.docamr \
                 --rep docAMR
