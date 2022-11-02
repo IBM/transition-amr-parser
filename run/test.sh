@@ -53,7 +53,7 @@ if [ -z ${DEV_CHOICE+x} ];then
     DEV_CHOICE=""
 fi
 
-if [ $MODE == "doc" ];then
+if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
     echo "mode doc"
     echo "using doc amr with rep docAMR as reference amr"
     if [ $data_split2 == "dev" ]; then
@@ -175,27 +175,64 @@ mkdir -p $RESULTS_FOLDER
 # --quiet
 
 if [ ! -f "${results_prefix}.actions" ];then
+    if [[ $SLIDING == 1 ]]; then
+        validarr=($(ls $ORACLE_FOLDER/${data_split_name}_*.en | sed 's/\.en//g'))
+        num=${#validarr[@]}
+        for i in $(seq 0 $((num-1)) ); do
+        cp $ORACLE_FOLDER/${data_split2}_$((i)).force_actions $DATA_FOLDER/${data_split}"_"$((i)).en-actions.force_actions
+        cp $DATA_FOLDER/${data_split}_$((i)).en-actions.en $RESULTS_FOLDER/${data_split}_$((i)).en
+        done
+        gen_subsets=${data_split}_0
+        for i in $(seq 1 $((num-1)) ); do gen_subsets=${gen_subsets}","${data_split}_$i ; done;
+        python fairseq_ext/generate_sliding.py \
+            $DATA_FOLDER  \
+            --emb-dir $EMB_FOLDER \
+            --user-dir ./fairseq_ext \
+            --task $TASK \
+            --gen-subset $gen_subsets \
+            --src-fix-emb-use $src_fix_emb_use \
+            --machine-type AMR  \
+            --machine-rules $ORACLE_FOLDER/train.rules.json \
+            --machine-config $ORACLE_FOLDER/machine_config.json \
+            --modify-arcact-score 1 \
+            --use-pred-rules $USE_PRED_RULES \
+            --beam $beam_size \
+            --batch-size $BATCH_SIZE \
+            --remove-bpe \
+            --path $checkpoint \
+            --quiet \
+            --results-path $RESULTS_FOLDER/${data_split} \
+            $FAIRSEQ_TEST_SKIP_ARGS
+	
+        echo "merging all splits"
+        cp $DATA_FOLDER/${data_split}.windows $RESULTS_FOLDER/${data_split}.windows
+        python transition_amr_parser/merge_sliding_splits.py \
+        --input-dir $RESULTS_FOLDER \
+        --data-split ${data_split}
 
-    python fairseq_ext/generate.py \
-        $DATA_FOLDER  \
-        --emb-dir $EMB_FOLDER \
-        --user-dir ./fairseq_ext \
-        --task $TASK \
-        --gen-subset $data_split \
-        --src-fix-emb-use $src_fix_emb_use \
-        --machine-type AMR  \
-        --machine-rules $ORACLE_FOLDER/train.rules.json \
-        --machine-config $ORACLE_FOLDER/machine_config.json \
-        --modify-arcact-score 1 \
-        --use-pred-rules $USE_PRED_RULES \
-        --beam $beam_size \
-        --batch-size $BATCH_SIZE \
-        --remove-bpe \
-        --path $checkpoint \
-        --quiet \
-        --results-path $results_prefix \
-        $FAIRSEQ_TEST_SKIP_ARGS 
-
+        cp $RESULTS_FOLDER/${data_split}"_merged.actions" ${results_prefix}".actions"
+    
+    else
+        python fairseq_ext/generate.py \
+            $DATA_FOLDER  \
+            --emb-dir $EMB_FOLDER \
+            --user-dir ./fairseq_ext \
+            --task $TASK \
+            --gen-subset $data_split \
+            --src-fix-emb-use $src_fix_emb_use \
+            --machine-type AMR  \
+            --machine-rules $ORACLE_FOLDER/train.rules.json \
+            --machine-config $ORACLE_FOLDER/machine_config.json \
+            --modify-arcact-score 1 \
+            --use-pred-rules $USE_PRED_RULES \
+            --beam $beam_size \
+            --batch-size $BATCH_SIZE \
+            --remove-bpe \
+            --path $checkpoint \
+            --quiet \
+            --results-path $results_prefix \
+            $FAIRSEQ_TEST_SKIP_ARGS 
+    fi
 fi
 
 
@@ -208,12 +245,13 @@ python transition_amr_parser/amr_machine.py \
     #--in-tokens $ORACLE_FOLDER/${data_split_name}.en \
 
 ## Change rep of docamr to docAMR for smatch
-if [ $MODE == "doc" ];then
+if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
     echo "mode doc"
     echo -e "\n Changing rep of dev/test data to docAMR "
     doc-amr \
         --in-doc-amr-pairwise ${results_prefix}.amr \
         --rep docAMR \
+	    --pairwise-coref-rel same-as \
         --out-amr ${results_prefix}_docAMR.amr
     results_prefix=${results_prefix}_docAMR
 elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
@@ -223,6 +261,7 @@ elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
         doc-amr \
             --in-doc-amr-pairwise ${results_prefix}.amr \
             --rep docAMR \
+	        --pairwise-coref-rel same-as \
             --out-amr ${results_prefix}_docAMR.amr
         results_prefix=${results_prefix}_docAMR
     fi
@@ -259,7 +298,7 @@ fi
 
 
 ##### SMATCH evaluation
-if [ "$EVAL_METRIC" = "smatch" ];then
+if [[ "$EVAL_METRIC" == "smatch" ]]; then
 
     # Smatch evaluation without wiki
 
@@ -293,7 +332,7 @@ if [ "$EVAL_METRIC" = "smatch" ];then
             | tee ${results_prefix}.smatch
     fi
 
-elif [ "$EVAL_METRIC" = "wiki.smatch" ];then
+elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
 
     # Smatch evaluation without wiki
 
