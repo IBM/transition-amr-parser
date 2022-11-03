@@ -39,20 +39,6 @@ echo $config
 . $config 
 
 
-if [ -z ${FAIRSEQ_TEST_SKIP_ARGS+x} ];then
-    FAIRSEQ_TEST_SKIP_ARGS=""
-fi
-if [ -z ${EVAL_METRIC_TEST+x} ];then
-    EVAL_METRIC_TEST=""
-fi
-
-if [ -z ${MODE+x} ];then
-    MODE="sen"
-fi
-if [ -z ${DEV_CHOICE+x} ];then
-    DEV_CHOICE=""
-fi
-
 if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
     echo "mode doc"
     echo "using doc amr with rep docAMR as reference amr"
@@ -69,28 +55,30 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
+    if [ ! -z ${FAIRSEQ_TEST_SKIP_ARGS+x} ];then
 
-    if [[ $FAIRSEQ_TEST_SKIP_ARGS =~ "--avoid-indices" ]]; then
-            echo "removing indices from reference amr"
-            
-            param_str="\"|${FAIRSEQ_TEST_SKIP_ARGS//[$'\t\r\n']}|\""
-            
-            python transition_amr_parser/remove_amrs.py \
-                --in-amr $reference_amr \
-                --arg-str "$param_str" \
-                --out-amr $ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
+        if [[ $FAIRSEQ_TEST_SKIP_ARGS =~ "--avoid-indices" ]]; then
+                echo "removing indices from reference amr"
+                
+                param_str="\"|${FAIRSEQ_TEST_SKIP_ARGS//[$'\t\r\n']}|\""
+                
+                python scripts/doc-amr/remove_amrs.py \
+                    --in-amr $reference_amr \
+                    --arg-str "$param_str" \
+                    --out-amr $ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
 
-            reference_amr=$ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
+                reference_amr=$ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
 
-            ORACLE_EN=$ORACLE_FOLDER/${data_split_name}_avoid_indices_removed.en
-            echo "removing indices from oracle"
-            python transition_amr_parser/remove_sen.py \
-                --in-file $ORACLE_FOLDER/${data_split_name}.en \
-                --arg-str "$param_str" \
-                --out-file $ORACLE_EN
-    else
-        ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
+                ORACLE_EN=$ORACLE_FOLDER/${data_split_name}_avoid_indices_removed.en
+                echo "removing indices from oracle"
+                python scripts/doc-amr/remove_sen.py \
+                    --in-file $ORACLE_FOLDER/${data_split_name}.en \
+                    --arg-str "$param_str" \
+                    --out-file $ORACLE_EN
+        else
+            ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 
+        fi
     fi
 
 elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
