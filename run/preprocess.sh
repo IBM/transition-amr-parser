@@ -67,42 +67,44 @@ else
             echo "rm $file"
             rm $file
         done
-    if [[ $SLIDING == 1 ]]; then
-        if [[ $TRAIN_SLIDING == 1 ]]; then
-            echo "train sliding windows"
+
+    trainpref=$ORACLE_FOLDER/train
+    validpref=$ORACLE_FOLDER/dev
+    testpref=$ORACLE_FOLDER/test
+    
+    if [[ "$MODE" =~ .*"doc".* ]];then
+        if [[ $SLIDING == 1 ]]; then
+            if [[ $TRAIN_SLIDING == 1 ]]; then
+                echo "train sliding windows"
+                python transition_amr_parser/make_sliding_splits.py \
+                --oracle-dir $ORACLE_FOLDER \
+                --data-split train \
+                $SLIDING_ARGS
+                # trainarr=($(ls $ORACLE_FOLDER/train_*.en | sed 's/\.en//g'))
+                mv $ORACLE_FOLDER/train.en $ORACLE_FOLDER/train_unsplit.en
+                mv $ORACLE_FOLDER/train.force_actions $ORACLE_FOLDER/train_unsplit.force_actions
+                mv $ORACLE_FOLDER/train.actions $ORACLE_FOLDER/train_unsplit.actions
+                rename 'train_0' 'train' $ORACLE_FOLDER/train_0.*
+                
+            fi
             python transition_amr_parser/make_sliding_splits.py \
             --oracle-dir $ORACLE_FOLDER \
-            --data-split train \
+            --data-split dev \
             $SLIDING_ARGS
-            # trainarr=($(ls $ORACLE_FOLDER/train_*.en | sed 's/\.en//g'))
-            mv $ORACLE_FOLDER/train.en $ORACLE_FOLDER/train_unsplit.en
-            mv $ORACLE_FOLDER/train.force_actions $ORACLE_FOLDER/train_unsplit.force_actions
-            mv $ORACLE_FOLDER/train.actions $ORACLE_FOLDER/train_unsplit.actions
-            rename 'train_0' 'train' $ORACLE_FOLDER/train_0.*
-            trainpref=$ORACLE_FOLDER/train 
-        else
-            trainpref=$ORACLE_FOLDER/train
-        fi
 
-        python transition_amr_parser/make_sliding_splits.py \
-        --oracle-dir $ORACLE_FOLDER \
-        --data-split dev \
-        $SLIDING_ARGS
+            python transition_amr_parser/make_sliding_splits.py \
+            --oracle-dir $ORACLE_FOLDER \
+            --data-split test \
+            $SLIDING_ARGS
 
-        python transition_amr_parser/make_sliding_splits.py \
-        --oracle-dir $ORACLE_FOLDER \
-        --data-split test \
-        $SLIDING_ARGS
-
-        validarr=($(ls $ORACLE_FOLDER/dev_*.en | sed 's/\.en//g'))
-        validpref=$(echo ${validarr[@]} | sed 's/ /,/g')
-        testarr=($(ls $ORACLE_FOLDER/test_*.en | sed 's/\.en//g'))
-        testpref=$(echo ${testarr[@]} | sed 's/ /,/g')
-    else
-        trainpref=$ORACLE_FOLDER/train
-        validpref=$ORACLE_FOLDER/dev
-        testpref=$ORACLE_FOLDER/test
-    fi 
+            validarr=($(ls $ORACLE_FOLDER/dev_*.en | sed 's/\.en//g'))
+            validpref=$(echo ${validarr[@]} | sed 's/ /,/g')
+            testarr=($(ls $ORACLE_FOLDER/test_*.en | sed 's/\.en//g'))
+            testpref=$(echo ${testarr[@]} | sed 's/ /,/g')
+        
+           
+        fi 
+    fi
 
     if [[ $TASK == "amr_action_pointer" ]]; then
 
@@ -178,26 +180,28 @@ else
             --workers 1 \
             --pretrained-embed $PRETRAINED_EMBED \
             --bert-layers $BERT_LAYERS
-        
-        if [[ $SLIDING == 1 ]]; then    
-            echo $validpref
-            echo $testpref
-            echo $trainpref
-            for n in "${!validarr[@]}"; do
-                val=${validarr[$n]}
-                cp $ORACLE_FOLDER/dev_$n.force_actions $DATA_FOLDER/valid_$n.en-actions.force_actions
-            done
-            for n in "${!testarr[@]}"; do
-                tst=${testarr[$n]}
-                cp $ORACLE_FOLDER/test_$n.force_actions $DATA_FOLDER/test_$n.en-actions.force_actions
-            done
-            cp $ORACLE_FOLDER/dev.windows $DATA_FOLDER/valid.windows
-            cp $ORACLE_FOLDER/test.windows $DATA_FOLDER/test.windows
-        
-        
-        elif [[ "$MODE" =~ .*"doc".* ]];then   
-            cp $ORACLE_FOLDER/dev.force_actions $DATA_FOLDER/valid.en-actions.force_actions
-            cp $ORACLE_FOLDER/test.force_actions $DATA_FOLDER/test.en-actions.force_actions
+            
+        if [[ "$MODE" =~ .*"doc".* ]];then   
+            if [[ $SLIDING == 1 ]]; then    
+                echo $validpref
+                echo $testpref
+                echo $trainpref
+                for n in "${!validarr[@]}"; do
+                    val=${validarr[$n]}
+                    cp $ORACLE_FOLDER/dev_$n.force_actions $DATA_FOLDER/valid_$n.en-actions.force_actions
+                done
+                for n in "${!testarr[@]}"; do
+                    tst=${testarr[$n]}
+                    cp $ORACLE_FOLDER/test_$n.force_actions $DATA_FOLDER/test_$n.en-actions.force_actions
+                done
+                cp $ORACLE_FOLDER/dev.windows $DATA_FOLDER/valid.windows
+                cp $ORACLE_FOLDER/test.windows $DATA_FOLDER/test.windows
+            
+            
+            else
+                cp $ORACLE_FOLDER/dev.force_actions $DATA_FOLDER/valid.en-actions.force_actions
+                cp $ORACLE_FOLDER/test.force_actions $DATA_FOLDER/test.en-actions.force_actions
+            fi
         fi
         
 
