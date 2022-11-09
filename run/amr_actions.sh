@@ -70,14 +70,14 @@ else
                 --out-amr $ORACLE_FOLDER/train_${NORM}.docamr 
             
             TRAIN_IN_AMR=$ORACLE_FOLDER/train_${NORM}.docamr
-
+        fi
 	    if [ $TRAIN_DOC == "both" ];then
 		echo -e "\n Adding conll data"
 		cp $CONLL_DATA $ORACLE_FOLDER/
 		python transition_amr_parser/add_sentence_amrs_to_file.py \
                        --in-amr $ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out \
                        --out-amr $TRAIN_IN_AMR
-	    fi
+	    
         fi
 
         if [ $MODE == "doc+sen" ];then
@@ -109,6 +109,7 @@ else
         --in-aligned-amr $TRAIN_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/train.actions \
+        --out-fdec-actions $ORACLE_FOLDER/train.force_actions \
         --out-tokens $ORACLE_FOLDER/train.en \
         --absolute-stack-positions \
         --out-stats-vocab $ORACLE_FOLDER/train.actions.vocab \
@@ -184,6 +185,7 @@ else
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
         --out-tokens $ORACLE_FOLDER/dev.en \
+        $DOC_ORACLE_ARGS \
         $dev_force_args
 
     echo -e "\nTest data"
@@ -244,6 +246,7 @@ else
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
         --out-tokens $ORACLE_FOLDER/test.en \
+        $DOC_ORACLE_ARGS \
         $test_force_args
 
     touch $ORACLE_FOLDER/.done
