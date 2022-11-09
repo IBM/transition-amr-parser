@@ -46,7 +46,7 @@ for seed in $SEEDS;do
 
     # test all available checkpoints and link the best model on dev too
     jbsub_tag="fdec-${jbsub_basename}-s${seed}-$$"
-    jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
+    jbsub -cores 1+1 -mem 150g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
           -err $checkpoints_dir/${jbsub_tag}-%J.stderr \

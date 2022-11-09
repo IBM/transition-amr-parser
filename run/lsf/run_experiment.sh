@@ -139,7 +139,7 @@ if [[ (! -f $DATA_FOLDER/.done) || (! -f $EMB_FOLDER/.done) ]]; then
 
     # Run preprocessing
     jbsub_tag="fe-${jbsub_basename}-$$"
-    jbsub -cores "1+1" -mem 50g -q x86_6h -require v100 \
+    jbsub -cores "1+1" -mem 100g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           $prepro_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
@@ -172,7 +172,7 @@ for seed in $SEEDS;do
 
         # run new training
         jbsub_tag="tr-${jbsub_basename}-s${seed}-$$"
-        jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
+        jbsub -cores 1+1 -mem 100g -q x86_24h -require v100 \
               -name "$jbsub_tag" \
               $train_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
@@ -195,7 +195,7 @@ for seed in $SEEDS;do
 
         # test all available checkpoints and link the best model on dev too
         jbsub_tag="tdec-${jbsub_basename}-s${seed}-$$"
-        jbsub -cores 1+1 -mem 50g -q x86_24h -require v100 \
+        jbsub -cores 1+1 -mem 150g -q x86_24h -require v100 \
               -name "$jbsub_tag" \
               $test_depends \
               -out $checkpoints_dir/${jbsub_tag}-%J.stdout \
