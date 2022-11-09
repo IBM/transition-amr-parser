@@ -91,6 +91,7 @@ def get_good_window_actions(start, end, actions_per_token):
 
     good_actions = []
     ignored = 0
+    token_per_actions_window = []
     for (i,action) in enumerate(window_actions):
         if arc_regex.match(action):
             (idx, lbl) = arc_regex.match(action).groups()
@@ -98,12 +99,13 @@ def get_good_window_actions(start, end, actions_per_token):
                 decrement_pointers_to_future(window_actions, i, ignored)
                 ignored += 1
                 continue
+        token_per_actions_window.append(i)
         good_actions.append(action)
 
     #sanity check
     check_pointers(good_actions)
 
-    return good_actions
+    return good_actions,token_per_actions_window
 
 
 def main(args):
@@ -184,12 +186,12 @@ def main(args):
             out_tokens = "\t".join(out_tok)
             fout_tokens[widx].write(out_tokens+"\n")
             
-            token_per_action_window = []
-            for idx in range(start,end+1):
-                for action in actions_per_token[idx]:
-                    token_per_action_window.append(idx)
+            # token_per_action_window = []
+            # for idx in range(start,end+1):
+            #     for action in actions_per_token[idx]:
+            #         token_per_action_window.append(idx)
             
-            good_actions = get_good_window_actions(start, end, actions_per_token)
+            good_actions,token_per_action_window = get_good_window_actions(start, end, actions_per_token)
             assert len(good_actions)==len(token_per_action_window)
 
             
@@ -243,8 +245,8 @@ def main(args):
             fout_force_actions[widx].write(out_force_actions+"\n")
             
         #print(str(windows)+"\t"+str(sum([len(actions) for actions in actions_per_token])) )
-        print("num of samples with actions truncated ",num_actions_truncated)
-        print("num of samples with tokens truncated ",num_tokens_truncated)
+    print("num of samples with actions truncated ",num_actions_truncated)
+    print("num of samples with tokens truncated ",num_tokens_truncated)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
