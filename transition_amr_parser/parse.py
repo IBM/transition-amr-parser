@@ -889,7 +889,7 @@ def main():
                 all_tokens.append(tokens)
                 
             #create final graphs
-            annotations = play_all_actions(all_tokens, all_actions, args.in_machine_config)
+            annotations = play_all_actions(all_tokens, all_actions, parser.machine_config)
 
             # save file                                                                                                                                                               
             if args.out_amr:
