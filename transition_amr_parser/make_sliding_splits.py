@@ -79,8 +79,10 @@ def get_good_window_actions(start, end, actions_per_token):
     start_action_index = sum([len(acts) for acts in actions_per_token[:start]]) if start else 0
     
     window_actions = []
+
     for idx in range(start,end+1):
         for action in actions_per_token[idx]:
+            
             if arc_regex.match(action):
                 (idx, lbl) = arc_regex.match(action).groups()
                 idx = str(int(idx) - start_action_index)
@@ -110,6 +112,8 @@ def main(args):
     window_overlap = args.window_overlap
     print("window size ",args.window_size)
     print("window overlap ",args.window_overlap)
+    num_actions_truncated = 0
+    num_tokens_truncated = 0
 
     factions = open(args.oracle_dir + "/" + args.data_split + ".actions")
     ffactions = open(args.oracle_dir + "/" + args.data_split + ".force_actions")
@@ -180,8 +184,53 @@ def main(args):
             out_tokens = "\t".join(out_tok)
             fout_tokens[widx].write(out_tokens+"\n")
             
+            token_per_action_window = []
+            for idx in range(start,end+1):
+                for action in actions_per_token[idx]:
+                    token_per_action_window.append(idx)
             
             good_actions = get_good_window_actions(start, end, actions_per_token)
+            assert len(good_actions)==len(token_per_action_window)
+
+            
+            # if len(out_tok)>900 and len(good_actions)<900:
+            #     num_tokens_truncated +=1
+            #     out_tok = out_tok[:900]
+            #     while tok_idx
+            #         good_actions = good_actions[0:out_tok[-1]+1]
+
+            if len(good_actions)>=900:
+                num_actions_truncated +=1
+
+                #find the last CLOSE_SENTENCE
+                # good_actions = good_actions[:899]
+                # token_per_action = token_per_action[:899]
+                # i = len(good_actions)-1
+                # while good_actions[i] != 'CLOSE_SENTENCE' and i > 0:
+                #     i -= 1
+                # good_actions = good_actions[:i+1]
+                # out_tok = out_tok[:token_per_action[i]+1]
+                
+                popped_toks = []
+                last_tok = 0
+                if good_actions[-1] == 'CLOSE_SENTENCE':
+                    close_sent = True
+                else:
+                    close_sent = False
+                while len(token_per_action_window)>=900 or last_tok in popped_toks:
+                   pop_tok = token_per_action_window.pop()
+                   popped_toks.append(pop_tok)
+                   pop_act = good_actions.pop()
+                   last_tok = token_per_action_window[-1]
+
+                out_tok = out_tok[0:last_tok+1]
+                if close_sent:
+                    good_actions.append('CLOSE_SENTENCE')
+                
+                
+                
+
+
             out_actions = "\t".join(good_actions)
             assert len(good_actions)>1,"empty actions"
             assert len(out_tok)>1,"empty out tokens "
@@ -194,6 +243,8 @@ def main(args):
             fout_force_actions[widx].write(out_force_actions+"\n")
             
         #print(str(windows)+"\t"+str(sum([len(actions) for actions in actions_per_token])) )
+        print("num of samples with actions truncated ",num_actions_truncated)
+        print("num of samples with tokens truncated ",num_tokens_truncated)
 
 if __name__ == '__main__':
     parser = ArgumentParser()
