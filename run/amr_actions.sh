@@ -42,6 +42,7 @@ else
 
     echo -e "\nTrain data"
     if [ $MODE = "doc" ] || [ $MODE = "doc+sen" ] || [ $MODE = "doc+sen+pkd" ];then
+        train_force_args="--out-fdec-actions ${ORACLE_FOLDER}/train.force_actions"
         if [ $TRAIN_DOC == "conll" ];then
             cp $CONLL_DATA $ORACLE_FOLDER/
             TRAIN_IN_AMR=$ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out
@@ -100,6 +101,7 @@ else
     
 
     elif [ $MODE == "sen" ];then
+        train_force_args=""
         echo -e "\n Sen Mode , Using train data" 
         TRAIN_IN_AMR=$AMR_TRAIN_FILE
         cp $TRAIN_IN_AMR $ORACLE_FOLDER/ref_train.amr
@@ -109,11 +111,11 @@ else
         --in-aligned-amr $TRAIN_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/train.actions \
-        --out-fdec-actions $ORACLE_FOLDER/train.force_actions \
         --out-tokens $ORACLE_FOLDER/train.en \
         --absolute-stack-positions \
         --out-stats-vocab $ORACLE_FOLDER/train.actions.vocab \
         --use-copy ${USE_COPY} \
+        $train_force_args \
         $DOC_ORACLE_ARGS
         
         # --reduce-nodes all
@@ -131,6 +133,12 @@ else
     echo -e "\nDev data"
     if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
         echo -e "\n Doc Mode ,Making docamr dev data"
+        if [ $SLIDING == 1];then
+            DEV_DOC_ORACLE_ARGS=""
+        else
+            echo "Truncating dev data since sliding mode is not turned on"
+            DEV_DOC_ORACLE_ARGS="--truncate"
+        fi
         dev_force_args="--out-fdec-actions ${ORACLE_FOLDER}/dev.force_actions"
         python scripts/doc-amr/get_doc_amr_from_sen.py \
             --in-amr $AMR_DEV_FILE \
@@ -148,6 +156,12 @@ else
 
     elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
         dev_force_args="--out-fdec-actions ${ORACLE_FOLDER}/dev.force_actions"
+        if [ $SLIDING == 1];then
+            DEV_DOC_ORACLE_ARGS=""
+        else
+            echo "Truncating dev data since sliding mode is not turned on"
+            DEV_DOC_ORACLE_ARGS="--truncate"
+        fi
         if [[ $DEV_CHOICE=="doc" ]];then
             echo -e "\n Doc+sen mode ,dev choice is doc dev, Making docamr dev data to use instead of senamr test in doc+sen mode"
             python scripts/doc-amr/get_doc_amr_from_sen.py \
@@ -171,6 +185,7 @@ else
 
     elif [ $MODE == "sen" ];then
         echo -e "\n Sen Mode, Using dev data" 
+        DEV_DOC_ORACLE_ARGS=""
         dev_force_args=""
         DEV_IN_AMR=$AMR_DEV_FILE
         cp $DEV_IN_AMR $ORACLE_FOLDER/ref_dev.amr
@@ -185,13 +200,19 @@ else
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
         --out-tokens $ORACLE_FOLDER/dev.en \
-        $DOC_ORACLE_ARGS \
+        $DEV_DOC_ORACLE_ARGS \
         $dev_force_args
 
     echo -e "\nTest data"
 
     if [ $MODE = "doc" ] || [ $MODE = "doc+sen+ft" ];then
         echo -e "\n Doc Mode,Making docamr test data"
+        if [ $SLIDING == 1];then
+            TEST_DOC_ORACLE_ARGS=""
+        else
+            echo "Truncating test data since sliding mode is not turned on"
+            TEST_DOC_ORACLE_ARGS="--truncate"
+        fi
         test_force_args="--out-fdec-actions ${ORACLE_FOLDER}/test.force_actions"
         python scripts/doc-amr/get_doc_amr_from_sen.py \
             --in-amr $AMR_TEST_FILE \
@@ -210,6 +231,12 @@ else
     
     
     if [ $MODE = "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
+        if [ $SLIDING == 1];then
+            TEST_DOC_ORACLE_ARGS=""
+        else
+            echo "Truncating test data since sliding mode is not turned on"
+            TEST_DOC_ORACLE_ARGS="--truncate"
+        fi
         test_force_args="--out-fdec-actions ${ORACLE_FOLDER}/test.force_actions"
         if [[ $DEV_CHOICE=="doc" ]];then
             echo -e "\n Doc+sen Mode,dev choice is doc . Making docamr test data"
@@ -236,6 +263,7 @@ else
     
     if [ $MODE = "sen" ];then
         echo -e "\n Sen Mode, Using test data" 
+        TEST_DOC_ORACLE_ARGS=""
         test_force_args=""
         TEST_IN_AMR=$AMR_TEST_FILE
         cp $TEST_IN_AMR $ORACLE_FOLDER/ref_test.amr
@@ -246,7 +274,7 @@ else
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
         --out-tokens $ORACLE_FOLDER/test.en \
-        $DOC_ORACLE_ARGS \
+        $TEST_DOC_ORACLE_ARGS \
         $test_force_args
 
     touch $ORACLE_FOLDER/.done
