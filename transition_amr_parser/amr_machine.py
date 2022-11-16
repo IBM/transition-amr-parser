@@ -215,7 +215,9 @@ class AMROracle():
         self,
         machine_config,
         alignment_sampling_temperature=1.0,  # temperature if sampling
-        force_align_ner=False                # align NER parents to first child
+        force_align_ner=False,                # align NER parents to first child
+        truncate=False,
+        truncate_threshold=900
     ):
 
         # inmutable config from state machine
@@ -227,6 +229,8 @@ class AMROracle():
         self.alignment_sampling_temperature = alignment_sampling_temperature
         self.force_align_ner = force_align_ner
         self.num_trunc = 0
+        self.truncate = truncate
+        self.truncate_threshold = truncate_threshold
 
     def reset(self, gold_amr, alignment_probs=None,
               alignment_sampling_temp=1.0):
@@ -390,22 +394,22 @@ class AMROracle():
         gold_node_id = self.node_reverse_map[node_id]
         return self.pend_edges_by_node[gold_node_id] == []
 
-    def get_action(self, machine,truncate=False):
+    def get_action(self, machine):
 
         # sanity check: machine is on current oracle path
         if self.expected_history != machine.action_history:
             raise Exception('Machine did not follow this oracle')
 
-        #FIXME hardcoded truncate to 900 for tgt and 1024 for src
-        # truncate if src size or tgt size exceeds 1024,induce CLOSE action
-        if truncate:
-            if machine.tok_cursor>=900 and len(machine.action_history)<900 :
+        #FIXME hardcoded truncate to threshold for tgt and src
+        # truncate if src size or tgt size exceeds threshold,induce CLOSE action
+        if self.truncate:
+            if machine.tok_cursor>=self.truncate_threshold and len(machine.action_history)<self.truncate_threshold :
                 self.expected_history.append('CLOSE')
                 machine.is_truncated = True
                 self.num_trunc+=1
                 return 'CLOSE'
 
-            elif len(machine.action_history)>=900:
+            elif len(machine.action_history)>=self.truncate_threshold:
 
                 #find the last CLOSE_SENTENCE
                 # i = len(machine.action_history)-1
@@ -415,10 +419,10 @@ class AMROracle():
                 # machine.actions_tokcursor = machine.actions_tokcursor[:i+1]
                 # machine.tokens = machine.tokens[:machine.actions_tokcursor[i]+1]
                 
-                #one less than 900 to account for final action CLOSE
+                #one less than self.truncate_threshold to account for final action CLOSE
                 popped_toks = []
                 last_tok = 0
-                while len(machine.actions_tokcursor)>=900 or last_tok in popped_toks:
+                while len(machine.actions_tokcursor)>=self.truncate_threshold or last_tok in popped_toks:
                    pop_tok = machine.actions_tokcursor.pop()
                    popped_toks.append(pop_tok)
                    pop_act = machine.action_history.pop()
@@ -935,21 +939,14 @@ class AMRStateMachine():
                 valid_base_actions.append('ROOT')
 
 
-        #NEW ACTION
-        # if self.tok_cursor in self.sentence_ends:
-        #     valid_base_actions.append('CLOSE_SENTENCE')
-
-        # if len(self.sentence_nodes) > 0 and self.root is None:
-        #     valid_base_actions.append('ROOT')
         
         if self.tok_cursor == len(self.tokens):
             # assert valid_base_actions==['CLOSE_SENTENCE']
-            # print(self.action_history[-6:-1])
             # assert self.action_history[-1] == 'SHIFT'
             valid_base_actions.append('CLOSE')
 
-        #FIXME add CLOSE as valid action when src or tgt sizes exceed 1024
-        if self.is_truncated or self.tok_cursor>=1024:
+        #FIXME add CLOSE as valid action when src or tgt sizes exceed truncate threshold
+        if self.is_truncated:
             valid_base_actions.append('CLOSE')
 
 
@@ -1671,7 +1668,7 @@ def oracle(args):
         machine.save(args.out_machine_config)
 
     # initialize oracle with same config as machine
-    oracle = AMROracle(machine_config=machine.config)
+    oracle = AMROracle(machine_config=machine.config,truncate=args.truncate)
 
     # will store statistics and check AMR is recovered
     ignore_indices = []
@@ -1702,7 +1699,7 @@ def oracle(args):
         while not machine.is_closed:
 
             # oracle action given machine state
-            action = oracle.get_action(machine,truncate=args.truncate)
+            action = oracle.get_action(machine)
 
             # sanity check action is valide
             if (
