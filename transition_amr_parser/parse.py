@@ -234,6 +234,126 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
         roberta.cuda()
     return roberta
 
+def get_sliding_windows(tokenized_sentences,window_size,window_overlap,force_actions=None):
+    windowed_tokenized_sentences = []
+    windowed_force_actions = []
+    windowed_output_actions = []
+    all_windows = []
+    max_num_windows = 1
+    
+    for (i,sentence) in enumerate(tokenized_sentences):
+        print(i)
+        #if sentence end markers are availble, windows should respect that
+        sentence_ends = []
+        if force_actions:
+            for (n,actions) in enumerate(force_actions[i]):
+                if 'CLOSE_SENTENCE' in actions:
+                    sentence_ends.append(n)
+        if len(sentence_ends) == 0:
+            sentence_ends = [len(sentence)-1]
+            
+        sentence_ends = adjust_sentence_ends(sentence_ends, window_size)
+
+        #get windows respecting sentence ends
+        windows = get_windows(sentence, window_size, window_overlap, sentence_ends)
+        all_windows.append(windows)
+        if len(windows) > max_num_windows:
+            max_num_windows = len(windows)
+            
+        windowed_tokenized_sent = []
+        windowed_force_acts = []
+        windowed_output_actions.append([])
+        for (start,end) in windows:
+            windowed_tokenized_sent.append(sentence[start:end+1])
+            if force_actions:
+                windowed_force_acts.append(force_actions[i][start:end+1])
+            else:
+                windowed_force_acts.append(None)
+            windowed_output_actions[-1].append(None)
+
+        windowed_tokenized_sentences.append(windowed_tokenized_sent)
+        windowed_force_actions.append(windowed_force_acts)
+
+    return windowed_tokenized_sentences,windowed_force_actions,windowed_output_actions,all_windows,max_num_windows
+
+def get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gold_amrs,batch_size,roberta_batch_size,beam,jamr,no_isi,force_actions=None):
+    
+    windowed_tokenized_sentences,windowed_force_actions,windowed_output_actions,all_windows,max_num_windows = \
+            get_sliding_windows(tokenized_sentences=tokenized_sentences,window_size=window_size,window_overlap=window_overlap,force_actions=force_actions)
+        
+        
+    for widx in range(max_num_windows):
+        window_sentences = []
+        window_actions = []
+        wsidx2sidx = []
+        for sidx in range(len(tokenized_sentences)):
+            if len(windowed_tokenized_sentences[sidx]) > widx:
+                wsidx2sidx.append(sidx)
+                window_sentences.append(windowed_tokenized_sentences[sidx][widx])
+                window_actions.append(windowed_force_actions[sidx][widx])
+
+        # Parse this (widx_th) window of all sentences
+        num_window_sent = len(window_sentences)
+        print(f'Parsing {num_window_sent} sentences in {widx} window')
+        window_result = parser.parse_sentences(
+            window_sentences,
+            batch_size=batch_size,
+            roberta_batch_size=roberta_batch_size,
+            gold_amrs=gold_amrs,
+            force_actions=window_actions,
+            beam=beam,
+            jamr=jamr,
+            no_isi=no_isi
+        )
+        #get actions out of window_results
+        #save actions in windowed_output_actions[sidx][widx]
+        
+        for result in window_result[1]:
+            windowed_output_actions[wsidx2sidx[result['sample_id']]][widx] = result['actions']
+        #change windowed_force_actions[:][widx+1]
+        for sidx in range(len(tokenized_sentences)):
+            if len(windowed_tokenized_sentences[sidx]) > widx+1 :
+                existing_f_actions = windowed_force_actions[sidx][widx+1]
+                pred_f_actions = windowed_output_actions[sidx][widx]
+                start_idx = all_windows[sidx][widx+1][0] - all_windows[sidx][widx][0]
+                new_f_actions = force_overlap(pred_f_actions, existing_f_actions, start_idx)
+                slen = len(windowed_tokenized_sentences[sidx][widx+1])
+                if slen > len(new_f_actions):
+                    new_f_actions = new_f_actions[:slen]
+                else:
+                    while len(new_f_actions) < slen:
+                        new_f_actions.append([])
+                windowed_force_actions[sidx][widx+1] = new_f_actions
+
+                
+    #merge all windowed_force_actions
+    all_actions = []
+    all_tokens = []
+    for (didx,windows) in enumerate(all_windows):
+        actions = []
+        tokens = []
+        for (i,window) in enumerate(windows):
+            if i == 0:
+                actions = windowed_output_actions[didx][i]
+                tokens = windowed_tokenized_sentences[didx][i]
+            else:
+                new_actions = windowed_output_actions[didx][i]
+                check_pointers(new_actions)
+                merged_actions = merge_actions(actions, new_actions, overlap_start=window[0])
+                if check_pointers(merged_actions):
+                    actions = merged_actions
+                    window_tokens = windowed_tokenized_sentences[didx][i]
+                    tokens.extend( window_tokens[len(tokens)-window[0]:] )
+                else:
+                    print("did not complete merge for doc " + str(didx))
+                    break
+        all_actions.append(actions)
+        all_tokens.append(tokens)
+        
+    #create final graphs
+    annotations = play_all_actions(all_tokens, all_actions, parser.machine_config)
+    return annotations
+
 
 class AMRParser:
     def __init__(
@@ -725,13 +845,23 @@ def main():
                 tokens = [protected_tokenizer(sentence)[0]]
             else:
                 tokens = [sentence.split()]
+            
+            if args.sliding:
+                gold_amrs = None
+                if args.in_actions:
+                    with open(args.in_actions) as fact:
+                        force_actions = [eval(line.strip())+[[]] for line in fact]
+                else:
+                    force_actions = None
 
-            result = parser.parse_sentences(
-                tokens,
-                batch_size=args.batch_size,
-                roberta_batch_size=args.roberta_batch_size,
-                beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
-            )
+                result = get_sliding_output([tokens],args.window_size,args.window_overlap,parser,gold_amrs,args.batch_size,args.roberta_batch_size,args.beam,args.jamr,args.no_isi,force_actions)
+            else:
+                result = parser.parse_sentences(
+                    tokens,
+                    batch_size=args.batch_size,
+                    roberta_batch_size=args.roberta_batch_size,
+                    beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
+                )
             #
             os.system('clear')
             print('\n')
@@ -780,116 +910,8 @@ def main():
 
             window_size = args.window_size
             window_overlap = args.window_overlap
-            windowed_tokenized_sentences = []
-            windowed_force_actions = []
-            windowed_output_actions = []
-            all_windows = []
-            max_num_windows = 1
             
-            for (i,sentence) in enumerate(tokenized_sentences):
-
-                #if sentence end markers are availble, windows should respect that
-                sentence_ends = []
-                if force_actions:
-                    for (n,actions) in enumerate(force_actions[i]):
-                        if 'CLOSE_SENTENCE' in actions:
-                            sentence_ends.append(n)
-                if len(sentence_ends) == 0:
-                    sentence_ends = [len(sentence)-1]
-                    
-                sentence_ends = adjust_sentence_ends(sentence_ends, window_size)
-
-                #get windows respecting sentence ends
-                windows = get_windows(sentence, window_size, window_overlap, sentence_ends)
-                all_windows.append(windows)
-                if len(windows) > max_num_windows:
-                    max_num_windows = len(windows)
-                    
-                windowed_tokenized_sent = []
-                windowed_force_acts = []
-                windowed_output_actions.append([])
-                for (start,end) in windows:
-                    windowed_tokenized_sent.append(sentence[start:end+1])
-                    if force_actions:
-                        windowed_force_acts.append(force_actions[i][start:end+1])
-                    else:
-                        windowed_force_acts.append(None)
-                    windowed_output_actions[-1].append(None)
-
-                windowed_tokenized_sentences.append(windowed_tokenized_sent)
-                windowed_force_actions.append(windowed_force_acts)
-                
-            
-            for widx in range(max_num_windows):
-                window_sentences = []
-                window_actions = []
-                wsidx2sidx = []
-                for sidx in range(len(tokenized_sentences)):
-                    if len(windowed_tokenized_sentences[sidx]) > widx:
-                        wsidx2sidx.append(sidx)
-                        window_sentences.append(windowed_tokenized_sentences[sidx][widx])
-                        window_actions.append(windowed_force_actions[sidx][widx])
-
-                # Parse this (widx_th) window of all sentences
-                num_window_sent = len(window_sentences)
-                print(f'Parsing {num_window_sent} sentences in {widx} window')
-                window_result = parser.parse_sentences(
-                    window_sentences,
-                    batch_size=args.batch_size,
-                    roberta_batch_size=args.roberta_batch_size,
-                    gold_amrs=gold_amrs,
-                    force_actions=window_actions,
-                    beam=args.beam,
-                    jamr=args.jamr,
-                    no_isi=args.no_isi
-                )
-                #get actions out of window_results
-                #save actions in windowed_output_actions[sidx][widx]
-                
-                for result in window_result[1]:
-                    windowed_output_actions[wsidx2sidx[result['sample_id']]][widx] = result['actions']
-                #change windowed_force_actions[:][widx+1]
-                for sidx in range(len(tokenized_sentences)):
-                    if len(windowed_tokenized_sentences[sidx]) > widx+1 :
-                        existing_f_actions = windowed_force_actions[sidx][widx+1]
-                        pred_f_actions = windowed_output_actions[sidx][widx]
-                        start_idx = all_windows[sidx][widx+1][0] - all_windows[sidx][widx][0]
-                        new_f_actions = force_overlap(pred_f_actions, existing_f_actions, start_idx)
-                        slen = len(windowed_tokenized_sentences[sidx][widx+1])
-                        if slen > len(new_f_actions):
-                            new_f_actions = new_f_actions[:slen]
-                        else:
-                            while len(new_f_actions) < slen:
-                                new_f_actions.append([])
-                        windowed_force_actions[sidx][widx+1] = new_f_actions
-
-                        
-            #merge all windowed_force_actions
-            all_actions = []
-            all_tokens = []
-            for (didx,windows) in enumerate(all_windows):
-                actions = []
-                tokens = []
-                for (i,window) in enumerate(windows):
-                    if i == 0:
-                        actions = windowed_output_actions[didx][i]
-                        tokens = windowed_tokenized_sentences[didx][i]
-                    else:
-                        new_actions = windowed_output_actions[didx][i]
-                        check_pointers(new_actions)
-                        merged_actions = merge_actions(actions, new_actions, overlap_start=window[0])
-                        if check_pointers(merged_actions):
-                            actions = merged_actions
-                            window_tokens = windowed_tokenized_sentences[didx][i]
-                            tokens.extend( window_tokens[len(tokens)-window[0]:] )
-                        else:
-                            print("did not complete merge for doc " + str(didx))
-                            break
-                all_actions.append(actions)
-                all_tokens.append(tokens)
-                
-            #create final graphs
-            annotations = play_all_actions(all_tokens, all_actions, parser.machine_config)
+            annotations = get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gold_amrs,args.batch_size,args.roberta_batch_size,args.beam,args.jamr,args.no_isi,force_actions)
 
             # save file                                                                                                                                                               
             if args.out_amr:
