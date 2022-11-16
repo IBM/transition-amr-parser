@@ -75,7 +75,7 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
             
             param_str="\"|${FAIRSEQ_TEST_SKIP_ARGS//[$'\t\r\n']}|\""
             
-            python transition_amr_parser/remove_amrs.py \
+            python scripts/doc-amr/remove_amrs.py \
                 --in-amr $reference_amr \
                 --arg-str "$param_str" \
                 --out-amr $ORACLE_FOLDER/${data_split_name}_${NORM}_avoid_indices_removed.docamr
@@ -84,7 +84,7 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
 
             ORACLE_EN=$ORACLE_FOLDER/${data_split_name}_avoid_indices_removed.en
             echo "removing indices from oracle"
-            python transition_amr_parser/remove_sen.py \
+            python scripts/doc-amr/remove_sen.py \
                 --in-file $ORACLE_FOLDER/${data_split_name}.en \
                 --arg-str "$param_str" \
                 --out-file $ORACLE_EN

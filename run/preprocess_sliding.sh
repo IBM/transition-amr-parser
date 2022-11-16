@@ -22,9 +22,7 @@ echo $config
 [ ! -f "$ORACLE_FOLDER/.done" ] && \
     echo -e "\nRequires oracle in $ORACLE_FOLDER\n" && \
     exit 1
-if [ -z "$SLIDING_ARGS" ];then
-    SLIDING_ARGS=""
-fi
+
 # TODO: Recover support of fine-tuning mode
 # # Dictionary update for fine-tuning. We will add the words from the fine-tuning
 # # vocabulary to the pretrained one. Note that there is a similar if below

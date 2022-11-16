@@ -47,7 +47,7 @@ else
             TRAIN_IN_AMR=$ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out
             if [ $TRAIN_DOC == "conll+gold" ];then
                 echo "making docamrs"
-                python transition_amr_parser/get_doc_amr_from_sen.py \
+                python scripts/doc-amr/get_doc_amr_from_sen.py \
                     --in-amr $AMR_TRAIN_FILE \
                     --coref-fof $TRAIN_COREF \
                     --fof-path $FOF_PATH \
@@ -62,7 +62,7 @@ else
 
         else
             echo "Doc Mode , making docamrs"
-            python transition_amr_parser/get_doc_amr_from_sen.py \
+            python scripts/doc-amr/get_doc_amr_from_sen.py \
                 --in-amr $AMR_TRAIN_FILE \
                 --coref-fof $TRAIN_COREF \
                 --fof-path $FOF_PATH \
@@ -70,14 +70,14 @@ else
                 --out-amr $ORACLE_FOLDER/train_${NORM}.docamr 
             
             TRAIN_IN_AMR=$ORACLE_FOLDER/train_${NORM}.docamr
-
+        fi
 	    if [ $TRAIN_DOC == "both" ];then
 		echo -e "\n Adding conll data"
 		cp $CONLL_DATA $ORACLE_FOLDER/
 		python transition_amr_parser/add_sentence_amrs_to_file.py \
                        --in-amr $ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out \
                        --out-amr $TRAIN_IN_AMR
-	    fi
+
         fi
 
         if [ $MODE == "doc+sen" ];then
@@ -87,16 +87,16 @@ else
                 --out-amr $TRAIN_IN_AMR 
         fi
 
-	if [ $MODE = "doc+sen+pkd" ]; then
+        if [ $MODE = "doc+sen+pkd" ]; then
             echo -e "\n Doc+sen mode Adding sentence data"
             python transition_amr_parser/add_sentence_amrs_to_file.py \
                 --in-amr $AMR_SENT_TRAIN_FILE \
                 --out-amr $TRAIN_IN_AMR 
-	    python transition_amr_parser/pack_amrs.py \
-		   --in-amr $AMR_SENT_TRAIN_FILE \
-		   --out-amr $ORACLE_FOLDER/train_sen_packed.amr
-	    cat $ORACLE_FOLDER/train_sen_packed.amr >> $TRAIN_IN_AMR
-	fi
+            python scripts/doc-amr/pack_amrs.py \
+            --in-amr $AMR_SENT_TRAIN_FILE \
+            --out-amr $ORACLE_FOLDER/train_sen_packed.amr
+            cat $ORACLE_FOLDER/train_sen_packed.amr >> $TRAIN_IN_AMR
+        fi
     
 
     elif [ $MODE == "sen" ];then
@@ -131,7 +131,8 @@ else
     echo -e "\nDev data"
     if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
         echo -e "\n Doc Mode ,Making docamr dev data"
-        python transition_amr_parser/get_doc_amr_from_sen.py \
+        dev_force_args="--out-fdec-actions ${ORACLE_FOLDER}/dev.force_actions"
+        python scripts/doc-amr/get_doc_amr_from_sen.py \
             --in-amr $AMR_DEV_FILE \
             --coref-fof $DEV_COREF \
             --fof-path $FOF_PATH \
@@ -146,9 +147,10 @@ else
             --rep docAMR
 
     elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
+        dev_force_args="--out-fdec-actions ${ORACLE_FOLDER}/dev.force_actions"
         if [[ $DEV_CHOICE=="doc" ]];then
             echo -e "\n Doc+sen mode ,dev choice is doc dev, Making docamr dev data to use instead of senamr test in doc+sen mode"
-            python transition_amr_parser/get_doc_amr_from_sen.py \
+            python scripts/doc-amr/get_doc_amr_from_sen.py \
                 --in-amr $AMR_DEV_FILE \
                 --coref-fof $DEV_COREF \
                 --fof-path $FOF_PATH \
@@ -169,6 +171,7 @@ else
 
     elif [ $MODE == "sen" ];then
         echo -e "\n Sen Mode, Using dev data" 
+        dev_force_args=""
         DEV_IN_AMR=$AMR_DEV_FILE
         cp $DEV_IN_AMR $ORACLE_FOLDER/ref_dev.amr
     fi
@@ -181,10 +184,10 @@ else
         --in-aligned-amr $DEV_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
-        --out-fdec-actions $ORACLE_FOLDER/dev.force_actions \
         --out-tokens $ORACLE_FOLDER/dev.en \
         --absolute-stack-positions  \
         --use-copy ${USE_COPY} \
+        $dev_force_args
         #$DOC_ORACLE_ARGS
         # --reduce-nodes all
 
@@ -192,7 +195,8 @@ else
 
     if [ $MODE = "doc" ] || [ $MODE = "doc+sen+ft" ];then
         echo -e "\n Doc Mode,Making docamr test data"
-        python transition_amr_parser/get_doc_amr_from_sen.py \
+        test_force_args="--out-fdec-actions ${ORACLE_FOLDER}/test.force_actions"
+        python scripts/doc-amr/get_doc_amr_from_sen.py \
             --in-amr $AMR_TEST_FILE \
             --coref-fof $TEST_COREF \
             --fof-path $FOF_PATH \
@@ -209,9 +213,10 @@ else
     
     
     if [ $MODE = "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
+        test_force_args="--out-fdec-actions ${ORACLE_FOLDER}/test.force_actions"
         if [[ $DEV_CHOICE=="doc" ]];then
             echo -e "\n Doc+sen Mode,dev choice is doc . Making docamr test data"
-            python transition_amr_parser/get_doc_amr_from_sen.py \
+            python scripts/doc-amr/get_doc_amr_from_sen.py \
                 --in-amr $AMR_TEST_FILE \
                 --coref-fof $TEST_COREF \
                 --fof-path $FOF_PATH \
@@ -234,6 +239,7 @@ else
     
     if [ $MODE = "sen" ];then
         echo -e "\n Sen Mode, Using test data" 
+        test_force_args=""
         TEST_IN_AMR=$AMR_TEST_FILE
         cp $TEST_IN_AMR $ORACLE_FOLDER/ref_test.amr
     fi
@@ -242,10 +248,10 @@ else
         --in-aligned-amr $TEST_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
-	    --out-fdec-actions $ORACLE_FOLDER/test.force_actions \
         --out-tokens $ORACLE_FOLDER/test.en \
         --absolute-stack-positions  \
         --use-copy ${USE_COPY} \
+        $test_force_args
         #$DOC_ORACLE_ARGS
         # --reduce-nodes all
 
