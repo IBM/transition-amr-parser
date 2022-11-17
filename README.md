@@ -3,7 +3,7 @@ Transition-based AMR Parser
 
 Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. For trained checkpoints see [here](#trained-checkpoints).
 
-- (✨New✨) [Smatch significance testing](scripts#paired-boostrap-significance-test): Adds to the regular [Smatch](https://github.com/snowblink14/smatch) tool a significance test with almost no computation overhead. Can test multiple systems for pair-wise significance.
+- (✨New✨) [Smatch significance testing](scripts/README.md#paired-boostrap-significance-test-for-Smatch): Adds to the regular [Smatch](https://github.com/snowblink14/smatch) tool a significance test with almost no computation overhead. Can test multiple systems for pair-wise significance.
 
 - (✨New✨) [Maximum Bayes Smatch Ensemble Distillation checkpoints](#trained-checkpoints): Includes the three seeds for the ensemble. These are SoTA for AMR parsing. 
 
