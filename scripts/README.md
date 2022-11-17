@@ -50,7 +50,7 @@ python scripts/sanity_check_amr.py /path/to/amr2.0/train.txt DATA/probank_amr2.0
 25 missing required role
 ```
 
-## Paired Boostrap Significance Test
+## Paired Boostrap Significance Test for Smatch
 
 The following script implements the paired boostrap significance test after
 
@@ -61,7 +61,7 @@ The following script implements the paired boostrap significance test after
         year = {1989},
     }
 
-to use you can call
+. See also [this paper](https://aclanthology.org/W05-0908). To use you can call
 
 ```bash
 python scripts/smatch_aligner.py \
@@ -85,7 +85,7 @@ Use `--bootstrap-test-restarts` to set the number of samples (default `10,000`,
 note this has little effect on speed). Use `--out-boostrap-png
 /path/to/file.png` to save the distribution of score differences for each pair.
 Script calls the original `smatch` python module. In order to export components
-it needs the main branch after version `1.0.4`.
+it needs the main branch after version `1.0.4`. 
 
 ## Maximum Bayesian Smatch Ensemble (MBSE)
 
