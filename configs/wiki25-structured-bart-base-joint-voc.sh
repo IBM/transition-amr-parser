@@ -57,7 +57,7 @@ WIKI_TEST=""
 ##############################################################################
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states
+ORACLE_TAG=bartsv-o10_act-states
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -311,7 +311,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 ###############################################################
 
 # Smatch evaluation with wiki
-LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
+LINKER_CACHE_PATH=""
 
 ###############################################################
 # TESTS 
