@@ -874,6 +874,9 @@ def main():
         else:
             force_actions = None
 
+        # check for empty sentences
+        assert all(s != [''] for s in tokenized_sentences), "Empty sentences!"
+
         # sampling needs copy of sentences
         num_sentences = len(tokenized_sentences)
         if args.num_samples is not None:

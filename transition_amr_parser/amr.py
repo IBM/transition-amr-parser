@@ -590,6 +590,11 @@ def create_valid_amr(tokens, nodes, edges, root, alignments):
     if root is None:
         print(yellow_font('WARNING: missing root'))
 
+    # TODO: This should be prevented upstream
+    for nid, nname in list(nodes.items()):
+        if nname in ['""', '']:
+            nodes[nid] = '_'
+
     # rooted and connected
     # NOTE: be careful not to overwrite edges or root
     root, edges = force_rooted_connected_graph(nodes, list(edges), root)
