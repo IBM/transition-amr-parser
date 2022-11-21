@@ -169,6 +169,9 @@ def argument_parsing():
 
     if not (bool(args.model_name) ^ bool(args.in_checkpoint)):
         raise Exception("Use either --model-name or --in-checkpoint")
+    
+    if not (bool(args.in_actions) ^ bool(args.tokenize)):
+        raise Exception("Remove --tokenize option when enabling --force-actions and provide tokenized input matching the dimensions of force actions. ")
 
     return args
 
@@ -845,14 +848,16 @@ def main():
                 tokens = [protected_tokenizer(sentence)[0]]
             else:
                 tokens = [sentence.split()]
+
+            if args.in_actions:
+                with open(args.in_actions) as fact:
+                    force_actions = [eval(line.strip())+[[]] for line in fact]
+            else:
+                force_actions = None
             
             if args.sliding:
                 gold_amrs = None
-                if args.in_actions:
-                    with open(args.in_actions) as fact:
-                        force_actions = [eval(line.strip())+[[]] for line in fact]
-                else:
-                    force_actions = None
+                
 
                 result = get_sliding_output([tokens],args.window_size,args.window_overlap,parser,gold_amrs,args.batch_size,args.roberta_batch_size,args.beam,args.jamr,args.no_isi,force_actions)
             else:
@@ -860,6 +865,7 @@ def main():
                     tokens,
                     batch_size=args.batch_size,
                     roberta_batch_size=args.roberta_batch_size,
+                    force_actions=force_actions,
                     beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
                 )
             #
