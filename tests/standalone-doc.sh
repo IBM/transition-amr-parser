@@ -60,7 +60,7 @@ grep '# ::tok ' $reference_amr \
     | sed 's@# ::tok @@g' > ${results_prefix}.sentences
 
 # run first seed of model
-cmd="amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} --tokenize -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr --sliding --window-size 300 --window-overlap 200 --in-actions $force_actions"
+cmd="amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr --sliding --window-size 400 --window-overlap 100 --in-actions $force_actions"
 echo "$cmd"
 eval "$cmd"
     
