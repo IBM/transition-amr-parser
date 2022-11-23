@@ -11,7 +11,8 @@ set -o nounset
 
 # this will be name of the model folder
 config_name=wiki25-structured-bart-base-neur-al-sampling5
-
+MODE="sen"
+DOC_ORACLE_ARGS=""
 ##############################################################################
 # DATA
 ##############################################################################

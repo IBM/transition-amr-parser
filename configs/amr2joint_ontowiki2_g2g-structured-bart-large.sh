@@ -11,7 +11,8 @@ set -o nounset
 
 # this will be name of the model folder
 config_name=amr2joint_ontowiki2_g2g-structured-bart-large
-
+MODE="sen"
+DOC_ORACLE_ARGS=""
 ##############################################################################
 # DATA
 ##############################################################################

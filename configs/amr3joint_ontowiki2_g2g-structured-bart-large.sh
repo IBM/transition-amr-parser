@@ -28,7 +28,8 @@ TASK_TAG=amr3joint_ontowiki2_g2g
 AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt 
 AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt 
 AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
-
+MODE="sen"
+DOC_ORACLE_ARGS=""
 ##############################################################################
 # AMR ALIGNMENT
 ##############################################################################
