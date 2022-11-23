@@ -104,7 +104,7 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
-    smatch.py -r 10 --significant 4 \
+    doc-smatch -r 1s --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr.no_isi \
          | tee ${results_prefix}.smatch
@@ -120,7 +120,7 @@ elif [[ "$EVAL_METRIC" == "wiki.smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.wiki.amr"
-    smatch.py -r 10 --significant 4  \
+    doc-smatch -r 1 --significant 4  \
          -f $reference_amr \
          ${results_prefix}.wiki.amr.no_isi \
          | tee ${results_prefix}.wiki.smatch
