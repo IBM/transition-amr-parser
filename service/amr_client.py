@@ -21,12 +21,17 @@ def argument_parser():
 
     return args
 
-def get_input_from_sentence(sentence):
+def get_input_from_sentence(sentence,mode):
     tokens = sentence.split()
     input_tokens = []
     for token in tokens:
         input_tokens.append(amr_pb2.AMRInput.WordInfo(token=token))
-    return amr_pb2.AMRInput(word_infos=input_tokens)
+    
+    if mode.lower()=='doc' or mode.lower()=='document':
+        doc_mode = True
+    else:
+        doc_mode = False
+    return amr_pb2.AMRInput(word_infos=input_tokens,doc_mode=doc_mode)
 
 def run():
     # NOTE(gRPC Python Team): .close() is possible on a channel and should be
@@ -37,7 +42,8 @@ def run():
     channel = grpc.insecure_channel('localhost:' + args.port)
     stub = amr_pb2_grpc.AMRServerStub(channel)
     sentence = input("Enter the sentence: ")
-    amr_input = get_input_from_sentence(sentence)
+    mode = input("Enter the mode: ")
+    amr_input = get_input_from_sentence(sentence,mode)
     response = stub.process(amr_input)
     print("AMR parse received: \n" + response.amr_parse)
 
