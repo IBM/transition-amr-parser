@@ -13,6 +13,7 @@ message AMRInput{
     }
     repeated WordInfo word_infos=1;
     WordVectors word_vectors=2;
+    bool doc_mode=3;
 };
 /** 
  * The parser produces a single string with the amr parse of the sentence.
