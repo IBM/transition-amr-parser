@@ -54,11 +54,6 @@ def argument_parser():
     )
        
     parser.add_argument(
-        '--sliding',
-        action='store_true',
-        help='split into sliding windows (use --window-size and --window-overlap to adjust)'
-    )
-    parser.add_argument(
         "--window-size",
         help="size of sliding window",
         default=300,
@@ -111,11 +106,15 @@ class Parser():
             amrs = self.parser.parse_sentences(batch, batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0]
         return amr2_pb2.AMRBatchResponse(amr_parse=amrs)
 
-    def debug_process(self, tokens):
-        amr = self.parser.parse_sentences([tokens], batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0][0]
+    def debug_process(self, tokens,force_actions=None):
+        amr = self.parser.parse_sentences([tokens], batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=force_actions)[0][0]
         return amr
-    def debug_process_doc(self, tokens,force_actions=None):
-        amr = get_sliding_output([tokens],window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=force_actions)
+    def debug_process_doc(self, tokens,force_actions=None,beam=10):
+        
+        force_actions = eval(force_actions.strip())+[[]]
+        
+        assert len(tokens)==len(force_actions)-1
+        amr = get_sliding_output([tokens],window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=[force_actions],beam=beam)
         return amr
 
 def serve(args):
@@ -141,7 +140,7 @@ if __name__ == '__main__':
             f.write(out[0])
     elif args.debug:
         model = Parser(args)
-        print(model.debug_process(args.debug.split()))
+        print(model.debug_process(args.debug.split()),args.force_actions)
     else:
         import grpc
         import amr2_pb2
