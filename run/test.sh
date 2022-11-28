@@ -188,6 +188,7 @@ if [ ! -f "${results_prefix}.actions" ];then
     echo "Generating ${results_prefix}.actions"
     if [[ "$MODE" =~ .*"doc".* ]];then
         if [[ $SLIDING == 1 ]]; then
+            echo "Sliding mode"
             validarr=($(ls $ORACLE_FOLDER/${data_split_name}_*.en | sed 's/\.en//g'))
             num=${#validarr[@]}
             for i in $(seq 0 $((num-1)) ); do
