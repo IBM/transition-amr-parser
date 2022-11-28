@@ -327,44 +327,62 @@ def scape_node_names(nodes, edges, is_attribute):
     isolated_scaped_chars = ['-', '+']
     new_nodes = {}
     for nid, nname in nodes.items():
+
+        # forbid use of \
+        if nname == '\\':
+            nname = '_'
+        elif '\\' in nname:
+            nname = nname.replace('\\', '')
+
         if nname == '"':
             # FIXME: This should be solved at machine level
             # just a single quote, invalid, put some dummy symbol
             nname = '_'
             # raise Exception('Quotes can not be a single AMR node')
-        elif nname[0] == '"' and nname[-1] == '"':
+        elif len(nname) > 1 and nname[0] == '"' and nname[-1] == '"':
             # already quoted, ensure no quotes inside
-            nname[1:-1].replace('"', '')
+            nname = nname[1:-1].replace('"', '')
         elif len(nname.split()) > 1:
-            # multi-token expression
+            # multi-token expression, ensure no quotes
+            nname = nname.replace('"', '')
             nname = f'"{nname}"'
         elif any(c in nname for c in AMR.reserved_amr_chars):
-            # reserved chars, need to be scaped
+            # reserved chars, need to be scaped, ensure no quotes
+            nname = nname.replace('"', '')
             nname = f'"{nname}"'
         elif nname in isolated_scaped_chars:
             # some chars, if they appear in isolation, need to be scaped
             nname = f'"{nname}"'
+        else:
+            # any other use of quotes, remove it
+            nname = nname.replace('"', '')
 
-        # below here: just aesthetics
+        # below here: just quoting rules for aesthetics
 
-        elif nid in ner_leaves and not re.match('^[0-9]+$', nname):
-            # numeric is not a 100% working criteria
-            # unquoted ner leaves
-            nname = f'"{nname}"'
-        elif (
-            is_attribute[nid]
-            and nid in value_ids
-            and not numeric_regex.match(nname)
+        if (
+            (len(nname) == 1 and nname != '"')
+            or nname[0] != '"' and nname[-1] != '"'
         ):
-            # non numeric attribute values
-            nname = f'"{nname}"'
-        elif is_attribute[nid] and nid in name_leaves:
-            # attribute :name leaves
-            nname = f'"{nname}"'
-        elif nid in wiki_ids and nname != "-":
-            # wiki
-            # the "-" rule does not apply on AMR3 sometimes
-            nname = f'"{nname}"'
+
+            if nid in ner_leaves and not re.match('^[0-9]+$', nname):
+                # numeric is not a 100% working criteria
+                # unquoted ner leaves
+                nname = f'"{nname}"'
+            elif (
+                is_attribute[nid]
+                and nid in value_ids
+                and not numeric_regex.match(nname)
+            ):
+                # non numeric attribute values
+                nname = f'"{nname}"'
+            elif is_attribute[nid] and nid in name_leaves:
+                # attribute :name leaves
+                nname = f'"{nname}"'
+            elif nid in wiki_ids and nname != "-":
+                # wiki
+                # the "-" rule does not apply on AMR3 sometimes
+                nname = f'"{nname}"'
+
         new_nodes[nid] = nname
     return new_nodes
 
@@ -640,6 +658,11 @@ def create_valid_amr(tokens, nodes, edges, root, alignments):
 
     if root is None:
         print(yellow_font('WARNING: missing root'))
+
+    # TODO: This should be prevented upstream
+    for nid, nname in list(nodes.items()):
+        if nname in ['""', '']:
+            nodes[nid] = '_'
 
     # rooted and connected
     # NOTE: be careful not to overwrite edges or root

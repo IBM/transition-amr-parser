@@ -248,7 +248,7 @@ class AMRActionPointerBARTSVParsingTask(FairseqTask):
         # FIXME: This is still not robust
         if hasattr(args, 'save_dir'):
             # standalone mode
-            dict_path = args.save_dir
+            dict_path = args.save_dir.split(':')[0]
         else:
             # training mode
             dict_path = paths[0]

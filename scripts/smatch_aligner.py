@@ -3,7 +3,6 @@ import argparse
 import re
 import subprocess
 from collections import defaultdict
-from ipdb import set_trace
 from transition_amr_parser.io import read_blocks, read_penmans
 from transition_amr_parser.amr import (
     get_is_atribute, smatch_triples_from_penman
@@ -15,28 +14,66 @@ import smatch
 import penman
 
 
-def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
-    '''
-    counts are a lists of lists of counts. Outer list is examples, inner
-    example counts
+def cltable(rows):
+    # sanity checks
+    assert isinstance(rows, list)
+    assert all(isinstance(row, list) for row in rows)
+    assert len(set(len(row) for row in rows)) == 1
+    # formatting
+    num_cols = len(rows[0])
+    widths = [max(len(r[n]) for r in rows) for n in range(num_cols)]
+    separator = '  '
+    # get table string
+    string = ''
+    for row in rows:
+        for n in range(num_cols):
+            if n > 0:
+                string += separator
+            string += f'{row[n]:<{widths[n]}}'
+        string += '\n'
+    return string
 
-    scorer takes the sum of counts (as many items as inner list len())
+
+def bootstrap_paired_is_greater_test(scorer, counts1, counts2, restarts=10000):
+    '''
+
+    Implements paired boostrap significance test after
+
+    @Book{Nor89,
+        author = {E. W. Noreen},
+        title =  {Computer-Intensive Methods for Testing Hypotheses},
+        publisher = {John Wiley Sons},
+        year = {1989},
+    }
+
+    SCORER e.g. F1 scores given the sum of statistics for each example in the
+    test set. For example F1 as used in smatch takes arg_number=3:
+    (num_hits, num_predicted, num_gold)
+
+    Normal score computation would be
+
+        SCORE1 = SCORER(*list(COUNTS1.sum(0)))
+        SCORE2 = SCORER(*list(COUNTS2.sum(0)))
+
+    COUNTS1, COUNTS2 are numpy arrays of shape (arg_number, example_number)
+    corresponding to the statistics for each example of each system
+
+    It tests the hypothesis SCORE1 > SCORE2
+
+    The test randomly swaps examples between both sets of counts and sees if
+    this changes the previous bigger than relation (e.g. SCORE1 > SCORE2)
     '''
 
     assert len(counts1) == len(counts2)
 
+    # ensure theyr are arrays
     counts1 = np.array(counts1)
     counts2 = np.array(counts2)
     num_examples = counts1.shape[0]
 
-    # reference score
-    score1 = scorer(*list(counts1.sum(0)))[2]
-    score2 = scorer(*list(counts2.sum(0)))[2]
-
-    if score1 < score2:
-        reference_score = score1
-    else:
-        reference_score = score2
+    # reference score, the second one is assumed to be the smaller and the
+    # baseline to beat
+    reference_score = scorer(*list(counts2.sum(0)))[2]
 
     # scores for random swaps
     better = 0
@@ -72,8 +109,7 @@ def original_triples(penman, index, prefix):
     damr = amr.AMR.parse_AMR_line(fpenman)
     # stop if reading failed
     if damr is None:
-        set_trace(context=30)
-        print()
+        raise Exception('Smatch AMR reader failed')
 
     # original ids
     ids = [x[1] for x in damr.get_triples()[0]]
@@ -163,60 +199,86 @@ class Stats():
                 f'({best_match_num}, {test_triple_num}, {gold_triple_num})'
             ))
 
+    def plot_bootstrap_test_score_differences(self, hypotheses):
+
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 10))
+        num_cols = min(4, len(hypotheses))
+        num_rows = np.ceil(len(hypotheses) / num_cols)
+        index = 0
+        nbins = 100
+        for hypothesis in hypotheses:
+            i, j = hypothesis['indices']
+            plt.subplot(int(num_rows), int(num_cols), index + 1)
+            plt.hist(hypothesis['score_differences'], bins=nbins)
+            plt.plot([0, 0], [0, 50], 'r--')
+            if hypothesis['is_greater']:
+                rel = '>'
+            else:
+                rel = '<'
+            if self.amr_labels:
+                title = f'{self.amr_labels[i]} {rel} {self.amr_labels[j]}'
+            else:
+                title = f'{i} {rel} {j}'
+            plt.title(title)
+            index += 1
+        print(f'wrote {self.out_boostrap_png}')
+        plt.savefig(self.out_boostrap_png)
+
     def bootstrap_test_all_pairs(self):
 
         num_amrs = len(self.statistics[0])
 
-        # get all AMR pairings and run a test for each
-        pairs = []
+        # run test for every pair ignoring the reverse pair
+        hypotheses = []
         for i in range(num_amrs):
-            for j in range(num_amrs):
-                if j > i:
-                    pairs.append((i, j))
+            for j in range(i+1, num_amrs):
 
-        # run over every pair
-        p_value = {}
-        delta = {}
-        for i, j in pairs:
-            p_value[(i, j)], delta[(i, j)] = run_bootstrap_paired_test(
-                # F-measure
-                compute_f,
-                # counts
-                [(
+                # gather statistics for each AMR
+                stats1 = np.array([(
                     amrs[i]['best_match_num'],
                     amrs[i]['test_triple_num'],
                     amrs[i]['gold_triple_num']
-                ) for amrs in self.statistics],
-                [(
+                ) for amrs in self.statistics])
+                stats2 = np.array([(
                     amrs[j]['best_match_num'],
                     amrs[j]['test_triple_num'],
                     amrs[j]['gold_triple_num']
-                ) for amrs in self.statistics],
-                # number of restarts
-                restarts=self.bootstrap_test_restarts
-            )
+                ) for amrs in self.statistics])
+
+                # compute initial scores
+                score1 = compute_f(*stats1.sum(0))
+                score2 = compute_f(*stats2.sum(0))
+
+                # hypotheses first is greater than second
+                if score1 > score2:
+                    p_value, delta = bootstrap_paired_is_greater_test(
+                        compute_f, stats1, stats2,
+                        restarts=self.bootstrap_test_restarts
+                    )
+                    hypotheses.append({
+                        'indices': (i, j),
+                        'is_greater': True,
+                        'p_value': p_value,
+                        'score_differences': delta
+                    })
+
+                else:
+                    p_value, delta = bootstrap_paired_is_greater_test(
+                        compute_f, stats2, stats1,
+                        restarts=self.bootstrap_test_restarts
+                    )
+                    hypotheses.append({
+                        'indices': (i, j),
+                        'is_greater': False,
+                        'p_value': p_value,
+                        'score_differences': delta
+                    })
 
         if self.out_boostrap_png:
+            self.plot_bootstrap_test_score_differences(hypotheses)
 
-            import matplotlib.pyplot as plt
-            plt.figure(figsize=(10, 10))
-            num_cols = min(4, len(delta.keys()))
-            num_rows = np.ceil(len(delta.keys()) / num_cols)
-            index = 0
-            nbins = 100
-            for (i, j) in delta.keys():
-                plt.subplot(int(num_rows), int(num_cols), index + 1)
-                plt.hist(delta[(i, j)], bins=nbins)
-                plt.plot([0, 0], [0, 50], 'r--')
-                if self.amr_labels:
-                    plt.title(f'({self.amr_labels[i]}, {self.amr_labels[j]})')
-                else:
-                    plt.title(f'({i}, {j})')
-                index += 1
-            print(f'wrote {self.out_boostrap_png}')
-            plt.savefig(self.out_boostrap_png)
-
-        return p_value
+        return hypotheses
 
     def compute_corpus_scores(self):
 
@@ -256,29 +318,34 @@ class Stats():
                 f'{labels[i]}', f'{counts[i][0]}', f'{counts[i][1]}',
                 f'{counts[i][2]}', f'{p:.3f}', f'{r:.3f}', f'{smatch:.3f}'
             ])
-        # widths
-        widths = [max(len(r[n]) for r in rows) for n in range(len(rows[0]))]
         # padded display
-        string = ''
-        for i, row in enumerate(rows):
-            padded_row = []
-            for n, col in enumerate(row):
-                if n == 0:
-                    padded_row.append(f'{col:<{widths[n]}}')
-                else:
-                    padded_row.append(f'{col:^{widths[n]}}')
-            string += ' '.join(padded_row) + '\n'
+        string = cltable(rows)
 
         if self.bootstrap_test:
-            p_value = self.bootstrap_test_all_pairs()
-            string += '\nboostrap paired randomized test\n'
-            for (i, j), p in p_value.items():
+            hypotheses = self.bootstrap_test_all_pairs()
+            rows = []
+            for hypothesis in hypotheses:
+                i, j = hypothesis['indices']
+                pv = hypothesis['p_value']
+                if hypothesis['is_greater']:
+                    rel = '>'
+                else:
+                    rel = '<'
+                if hypothesis['p_value'] < 0.05:
+                    sig = 'significant'
+                else:
+                    sig = 'not significant'
                 if self.amr_labels:
                     label_i = self.amr_labels[i]
                     label_j = self.amr_labels[j]
-                    string += f'({label_i}, {label_j}) {p:.3f}\n'
+                    rows.append(
+                        [f'{label_i} {rel} {label_j}', f'{pv:.3f}', sig]
+                    )
                 else:
-                    string += f'({i}, {j}) {p:.3f}\n'
+                    rows.append([f'{i} {rel} {j}', f'{pv:.3f}', sig])
+
+            string += '\nboostrap paired randomized test\n'
+            string += cltable(rows)
 
         return string
 
