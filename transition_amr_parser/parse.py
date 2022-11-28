@@ -959,7 +959,13 @@ def run_service(args, parser):
             #
             os.system('clear')
             print('\n')
-            print(''.join(result[0]))
+            if args.nbest > 1:
+                for candidate in result:
+                    print(''.join(candidate[0]))
+                    print()
+
+            else:
+                print(''.join(result[0]))
 
 
 def main():
