@@ -1,8 +1,13 @@
 from concurrent import futures
 import logging
-import torch
 
-from transition_amr_parser.parse import AMRParser
+
+import torch
+import json
+
+from transition_amr_parser.parse import AMRParser,get_sliding_output
+
+
 
 import argparse
 
@@ -39,7 +44,7 @@ def argument_parser():
     parser.add_argument(
         '--batch-size',
         type=int,
-        default=64,
+        default=128,
         help='Batch size for decoding (excluding roberta)'
     )
     parser.add_argument(
@@ -47,6 +52,37 @@ def argument_parser():
         help="Sentence for local debugging",
         type=str
     )
+       
+    parser.add_argument(
+        '--sliding',
+        action='store_true',
+        help='split into sliding windows (use --window-size and --window-overlap to adjust)'
+    )
+    parser.add_argument(
+        "--window-size",
+        help="size of sliding window",
+        default=300,
+        type=int,
+    )
+    parser.add_argument(
+        "--window-overlap",
+        help="size of overlap between sliding windows",
+	default=200,
+	type=int,
+    )  
+    parser.add_argument(
+        "--force-actions",
+        help="action sequence (per token) for force decoding",
+        type=str,
+        default=None
+	
+    )
+    parser.add_argument(
+        "--doc-mode",
+        help="perform parsing in doc-mode",
+        action='store_true'
+	
+    )   
     args = parser.parse_args()
 
     # Sanity checks
@@ -60,17 +96,26 @@ class Parser():
         self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model, roberta_cache_path=args.roberta_cache_path)
         self.batch_size = args.batch_size
         self.roberta_batch_size = args.roberta_batch_size
+        self.window_size = args.window_size
+        self.window_overlap = args.window_overlap
 
     def process(self, request, context):
         sentences = request.sentences
+        doc_mode = request.doc_mode
         batch = []
         for sentence in sentences:
             batch.append(sentence.tokens)
-        amrs = self.parser.parse_sentences(batch, batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0]
+        if doc_mode:
+            amrs = get_sliding_output(batch,window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)
+        else:
+            amrs = self.parser.parse_sentences(batch, batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0]
         return amr2_pb2.AMRBatchResponse(amr_parse=amrs)
 
     def debug_process(self, tokens):
         amr = self.parser.parse_sentences([tokens], batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0][0]
+        return amr
+    def debug_process_doc(self, tokens,force_actions=None):
+        amr = get_sliding_output([tokens],window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=force_actions)
         return amr
 
 def serve(args):
@@ -89,9 +134,13 @@ if __name__ == '__main__':
     args = argument_parser()
 
     logging.basicConfig()
-    if args.debug:
-        model = Parser(
-            model_path=args.in_model, roberta_cache_path=args.roberta_cache_path)
+    if args.debug and args.doc_mode:
+        model = Parser(args)
+        out = model.debug_process_doc(args.debug.split(),args.force_actions)
+        with open('service/debug.out','w') as f:
+            f.write(out[0])
+    elif args.debug:
+        model = Parser(args)
         print(model.debug_process(args.debug.split()))
     else:
         import grpc
