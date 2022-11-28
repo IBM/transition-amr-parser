@@ -21,7 +21,7 @@ seed=$(echo $SEEDS | sed 's@ .*@@g')
 # rest, from config
 sset=test
 
-reference_amr=$ORACLE_FOLDER/${sset}_${NORM}.docamr
+reference_amr=$ORACLE_FOLDER/${sset}_docAMR.docamr
 # wiki=$LINKER_CACHE_PATH/${sset}.wiki
 checkpoint=${MODEL_FOLDER}seed${seed}/$DECODING_CHECKPOINT
 
@@ -56,9 +56,9 @@ mkdir -p $FOLDER
 #    amr-parse --beam ${BEAM_SIZE} --batch-size 128 -c $checkpoint -i ${results_prefix}.tokens -o ${results_prefix}.amr
 
 # extract sentences from test
-grep '# ::tok ' $reference_amr \
-    | sed 's@# ::tok @@g' > ${results_prefix}.sentences
-
+# grep '# ::tok ' $reference_amr \
+#     | sed 's@# ::tok @@g' > ${results_prefix}.sentences
+cp $ORACLE_FOLDER/${sset}.en ${results_prefix}.sentences
 # run first seed of model
 cmd="amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr --sliding --window-size 400 --window-overlap 100 --in-actions $force_actions"
 echo "$cmd"
@@ -92,6 +92,15 @@ eval "$cmd"
 
 # fi
 
+## Change rep of docamr to docAMR for smatch
+    
+echo -e "\n Changing rep of dev/test data to docAMR "
+doc-amr \
+    --in-doc-amr-pairwise ${results_prefix}.amr \
+    --rep docAMR \
+    --pairwise-coref-rel same-as \
+    --out-amr ${results_prefix}_docAMR.amr
+results_prefix=${results_prefix}_docAMR
 
 ##### SMATCH evaluation
 if [[ "$EVAL_METRIC" == "smatch" ]]; then
@@ -104,7 +113,7 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "Computing SMATCH between ---"
     echo "$reference_amr"
     echo "${results_prefix}.amr"
-    doc-smatch -r 1s --significant 4 \
+    doc-smatch -r 1 --significant 4 \
          -f $reference_amr \
          ${results_prefix}.amr.no_isi \
          | tee ${results_prefix}.smatch
