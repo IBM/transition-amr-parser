@@ -487,7 +487,7 @@ class AMRParser:
     @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
-                        inspector=None, beam=1, nbest=1, num_samples=False,
+                        inspector=None, beam=1, nbest=1, num_samples=None,
                         sampling_topp=-1):
         '''
         Initialize model from checkpoint
@@ -749,7 +749,6 @@ class AMRParser:
             force_actions=force_actions
         )
         data_iterator = self.get_iterator(data, batch_size)
-
         # Loop over batches of sentences
         completed_machines = {}
         for sample in tqdm(data_iterator, desc='decoding'):
