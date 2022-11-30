@@ -20,7 +20,7 @@ from fairseq_ext.extract_bart.sentence_encoding import SentenceEncodingBART
 from fairseq_ext.extract_bart.binarize_encodings import get_scatter_indices
 from fairseq_ext.data.amr_action_pointer_dataset import collate
 from transition_amr_parser.io import (
-    read_tok_sentences, read_amr, read_config_variables
+    read_tokenized_sentences, read_amr, read_config_variables
 )
 from fairseq_ext.utils import (
     post_process_action_pointer_prediction,
@@ -1050,7 +1050,7 @@ def prepare_data(args, parser):
                     for sentence in fid.readlines()
                 ]
         else:
-            tok_sentences = read_tok_sentences(
+            tok_sentences = read_tokenized_sentences(
                 args.in_tok_sentences
             )
 
