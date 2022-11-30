@@ -1776,6 +1776,7 @@ def play_all_actions(sentences, action_sequences, machine_config, ignore_coref=F
     # Initialize machine
     machine = AMRStateMachine.from_config(machine_config)
     machine.ignore_coref = ignore_coref
+    output_machines = []
     for index in tqdm(range(len(action_sequences)), desc='Machine'):
 
         # New machine for this sentence
@@ -1792,8 +1793,9 @@ def play_all_actions(sentences, action_sequences, machine_config, ignore_coref=F
 
         # print AMR
         annotations.append(machine.get_annotation())
+        output_machines.append(machine)
 
-    return annotations
+    return annotations, output_machines
     
 def play(args):
 
