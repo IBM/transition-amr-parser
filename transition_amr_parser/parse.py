@@ -424,9 +424,9 @@ def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
         all_tokens.append(tokens)
 
     # create final graphs
-    annotations = play_all_actions(
+    annotations, machines = play_all_actions(
         all_tokens, all_actions, parser.machine_config)
-    return annotations
+    return annotations, machines
 
 
 class AMRParser:
@@ -1149,7 +1149,7 @@ def main():
         if args.sliding:
 
             # doc-AMR sliding window parsing
-            annotations = get_sliding_output(
+            annotations, machines = get_sliding_output(
                 args,
                 tok_sentences,
                 parser,
