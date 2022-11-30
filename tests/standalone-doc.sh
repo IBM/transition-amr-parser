@@ -27,7 +27,7 @@ checkpoint=${MODEL_FOLDER}seed${seed}/$DECODING_CHECKPOINT
 
 force_actions=$ORACLE_FOLDER/${sset}.force_actions
 # where to put results
-FOLDER=${MODEL_FOLDER}seed${seed}/beam${BEAM_SIZE}/
+FOLDER=${MODEL_FOLDER}seed${seed}/beam${BEAM_SIZE}_aftermerge/
 results_prefix=$FOLDER/${sset}_$DECODING_CHECKPOINT
 
 # needs data and model
@@ -59,8 +59,9 @@ mkdir -p $FOLDER
 # grep '# ::tok ' $reference_amr \
 #     | sed 's@# ::tok @@g' > ${results_prefix}.sentences
 cp $ORACLE_FOLDER/${sset}.en ${results_prefix}.sentences
+sed -e 's/[[:space:]]\+/ /g' ${results_prefix}.sentences > ${results_prefix}.sentences_notab
 # run first seed of model
-cmd="amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} -c $checkpoint -i ${results_prefix}.sentences -o ${results_prefix}.amr --sliding --window-size 400 --window-overlap 100 --in-actions $force_actions"
+cmd="amr-parse --fp16 --beam ${BEAM_SIZE} --batch-size ${BATCH_SIZE} -c $checkpoint -i ${results_prefix}.sentences_notab -o ${results_prefix}.amr --sliding --window-size 400 --window-overlap 100 --in-actions $force_actions"
 echo "$cmd"
 eval "$cmd"
     

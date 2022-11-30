@@ -5,14 +5,14 @@ set -o pipefail
 gold_amr=$1
 set -o nounset 
 
-oracle_folder=DATA/AMR3.0/oracles/o10_pinitos_doc_test_v0.2/
+oracle_folder=DATA/AMR3.0/oracles/o10_pinitos_doc_v0.4/
 mkdir -p $oracle_folder 
-
+NORM=no-merge
 #make_doc_amr
-python transition_amr_parser/get_doc_amr_from_sen.py \
+python scripts/doc-amr/get_doc_amr_from_sen.py \
             --in-amr $gold_amr \
             --coref-fof DATA/AMR3.0/coref/train_coref.fof \
-            --fof-path <path to AMR3.0> \
+            --fof-path DATA/AMR3.0/amr_annotation_3.0/ \
             --norm $NORM \
             --out-amr $oracle_folder/train_${NORM}.docamr
 
@@ -33,9 +33,12 @@ python transition_amr_parser/amr_machine.py \
     --in-actions $oracle_folder/train.actions \
     --out-amr $oracle_folder/train_oracle_no-merge.amr
 
+sed 's@\~[0-9]\{1,\}@@g' $oracle_folder/train_oracle_no-merge.amr > $oracle_folder/train_oracle_no-merge.amr.no_isi
+sed 's@\~[0-9]\{1,\}@@g' $oracle_folder/train_no-merge.docamr > $oracle_folder/train_no-merge.docamr.no_isi
 # score
 echo "Computing Smatch (make take long for 1K or more sentences)"
-# python smatch/smatch_doc.py \
-#    -f 
+doc-smatch -r 1 --significant 4 --coref-subscore \
+                -f $oracle_folder/train_${NORM}.docamr.no_isi \
+                $oracle_folder/train_oracle_no-merge.amr.no_isi \
 
 printf "[\033[92m OK \033[0m] $0\n"
