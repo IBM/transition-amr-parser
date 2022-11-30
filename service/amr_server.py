@@ -38,13 +38,13 @@ def argument_parser():
     parser.add_argument(
         '--roberta-batch-size',
         type=int,
-        default=1,
+        default=512,
         help='Batch size for roberta computation (watch for OOM)'
     )
     parser.add_argument(
         '--batch-size',
         type=int,
-        default=128,
+        default=512,
         help='Batch size for decoding (excluding roberta)'
     )
     parser.add_argument(
@@ -77,7 +77,14 @@ def argument_parser():
         help="perform parsing in doc-mode",
         action='store_true'
 	
-    )   
+    )  
+    parser.add_argument(
+        "--beam",
+        help="beam",
+        type=int,
+        default=10
+	
+    )  
     args = parser.parse_args()
 
     # Sanity checks
@@ -88,11 +95,12 @@ def argument_parser():
 
 class Parser():
     def __init__(self, args):
-        self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model, roberta_cache_path=args.roberta_cache_path)
+        self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model)
         self.batch_size = args.batch_size
         self.roberta_batch_size = args.roberta_batch_size
         self.window_size = args.window_size
         self.window_overlap = args.window_overlap
+        self.beam = args.beam
 
     def process(self, request, context):
         sentences = request.sentences
@@ -109,12 +117,12 @@ class Parser():
     def debug_process(self, tokens,force_actions=None):
         amr = self.parser.parse_sentences([tokens], batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=force_actions)[0][0]
         return amr
-    def debug_process_doc(self, tokens,force_actions=None,beam=10):
+    def debug_process_doc(self, tokens,force_actions=None):
         
         force_actions = eval(force_actions.strip())+[[]]
         
         assert len(tokens)==len(force_actions)-1
-        amr = get_sliding_output([tokens],window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=[force_actions],beam=beam)
+        amr = get_sliding_output([tokens],window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=[force_actions],beam=self.beam)
         return amr
 
 def serve(args):
