@@ -339,14 +339,6 @@ def get_sliding_windows(tok_sentences, window_size, window_overlap,
 def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
                        force_actions=None):
 
-    args.window_size,
-    args.window_overlap,
-    args.batch_size,
-    args.roberta_batch_size,
-    args.beam,
-    args.jamr,
-    args.no_isi,
-
     (
         windowed_tok_sentences,
         windowed_force_actions,
