@@ -82,7 +82,7 @@ def argument_parser():
         "--beam",
         help="beam",
         type=int,
-        default=10
+        default=1
 	
     )  
     args = parser.parse_args()
@@ -95,7 +95,7 @@ def argument_parser():
 
 class Parser():
     def __init__(self, args):
-        self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model)
+        self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model,beam=args.beam)
         self.batch_size = args.batch_size
         self.roberta_batch_size = args.roberta_batch_size
         self.window_size = args.window_size
