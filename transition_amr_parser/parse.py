@@ -20,7 +20,7 @@ from fairseq_ext.extract_bart.sentence_encoding import SentenceEncodingBART
 from fairseq_ext.extract_bart.binarize_encodings import get_scatter_indices
 from fairseq_ext.data.amr_action_pointer_dataset import collate
 from transition_amr_parser.io import (
-    read_tokenized_sentences, read_amr, read_config_variables
+    read_tok_sentences, read_amr, read_config_variables
 )
 from fairseq_ext.utils import (
     post_process_action_pointer_prediction,
@@ -30,10 +30,17 @@ from fairseq_ext.utils import (
 from fairseq_ext.utils_import import import_user_module
 from transition_amr_parser.amr import normalize, protected_tokenizer
 
-from transition_amr_parser.make_sliding_splits import adjust_sentence_ends, get_windows
+from transition_amr_parser.make_sliding_splits import (
+    adjust_sentence_ends,
+    get_windows
+)
 from transition_amr_parser.force_overlap_actions import force_overlap
-from transition_amr_parser.merge_sliding_splits import merge_actions, check_pointers
+from transition_amr_parser.merge_sliding_splits import (
+    merge_actions,
+    check_pointers
+)
 from transition_amr_parser.amr_machine import play_all_actions
+
 
 def argument_parsing():
 
@@ -64,7 +71,8 @@ def argument_parsing():
     parser.add_argument(
         '--sliding',
         action='store_true',
-        help='split into sliding windows (use --window-size and --window-overlap to adjust)'
+        help='split into sliding windows (use --window-size and '
+             '--window-overlap to adjust)'
     )
     parser.add_argument(
         "--window-size",
@@ -75,9 +83,9 @@ def argument_parsing():
     parser.add_argument(
         "--window-overlap",
         help="size of overlap between sliding windows",
-	default=200,
-	type=int,
-    )    
+        default=200,
+        type=int,
+    )
     parser.add_argument(
         '--beam',
         type=int,
@@ -191,15 +199,18 @@ def argument_parsing():
 
     # sanity checks
     assert (
-        bool(args.in_tokenized_sentences) or bool(args.in_amr)
+        bool(args.in_tok_sentences) or bool(args.in_amr)
     ) or bool(args.service), \
         "Must either specify --in-tokenized-sentences or set --service"
 
     if not (bool(args.model_name) ^ bool(args.in_checkpoint)):
         raise Exception("Use either --model-name or --in-checkpoint")
-    
+
     if bool(args.in_actions) and bool(args.tokenize):
-        raise Exception("Remove --tokenize option when enabling --force-actions and provide tokenized input matching the dimensions of force actions. ")
+        raise Exception(
+            "Remove --tokenize option when enabling --force-actions and"
+            "provide tokenized input matching the dimensions of force actions."
+        )
 
     # num samples replaces beam search
     if args.num_samples:
@@ -273,36 +284,39 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
         roberta.cuda()
     return roberta
 
-def get_sliding_windows(tokenized_sentences,window_size,window_overlap,force_actions=None):
-    windowed_tokenized_sentences = []
+
+def get_sliding_windows(tok_sentences, window_size, window_overlap,
+                        force_actions=None):
+    windowed_tok_sentences = []
     windowed_force_actions = []
     windowed_output_actions = []
     all_windows = []
     max_num_windows = 1
-    
-    for (i,sentence) in enumerate(tokenized_sentences):
+
+    for (i, sentence) in enumerate(tok_sentences):
         print(i)
-        #if sentence end markers are availble, windows should respect that
+        # if sentence end markers are availble, windows should respect that
         sentence_ends = []
         if force_actions:
-            for (n,actions) in enumerate(force_actions[i]):
+            for (n, actions) in enumerate(force_actions[i]):
                 if 'CLOSE_SENTENCE' in actions:
                     sentence_ends.append(n)
         if len(sentence_ends) == 0:
             sentence_ends = [len(sentence)-1]
-            
+
         sentence_ends = adjust_sentence_ends(sentence_ends, window_size)
 
-        #get windows respecting sentence ends
-        windows = get_windows(sentence, window_size, window_overlap, sentence_ends)
+        # get windows respecting sentence ends
+        windows = get_windows(sentence, window_size,
+                              window_overlap, sentence_ends)
         all_windows.append(windows)
         if len(windows) > max_num_windows:
             max_num_windows = len(windows)
-            
+
         windowed_tokenized_sent = []
         windowed_force_acts = []
         windowed_output_actions.append([])
-        for (start,end) in windows:
+        for (start, end) in windows:
             windowed_tokenized_sent.append(sentence[start:end+1])
             if force_actions:
                 windowed_force_acts.append(force_actions[i][start:end+1])
@@ -310,26 +324,43 @@ def get_sliding_windows(tokenized_sentences,window_size,window_overlap,force_act
                 windowed_force_acts.append(None)
             windowed_output_actions[-1].append(None)
 
-        windowed_tokenized_sentences.append(windowed_tokenized_sent)
+        windowed_tok_sentences.append(windowed_tokenized_sent)
         windowed_force_actions.append(windowed_force_acts)
 
-    return windowed_tokenized_sentences,windowed_force_actions,windowed_output_actions,all_windows,max_num_windows
+    return (
+        windowed_tok_sentences,
+        windowed_force_actions,
+        windowed_output_actions,
+        all_windows,
+        max_num_windows
+    )
 
-def get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gold_amrs=None,batch_size=128, roberta_batch_size=128,
-                        beam=1, jamr=False, no_isi=False,force_actions=None):
 
-    windowed_tokenized_sentences,windowed_force_actions,windowed_output_actions,all_windows,max_num_windows = \
-            get_sliding_windows(tokenized_sentences=tokenized_sentences,window_size=window_size,window_overlap=window_overlap,force_actions=force_actions)
-        
-        
+def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
+                       force_actions=None):
+
+    (
+        windowed_tok_sentences,
+        windowed_force_actions,
+        windowed_output_actions,
+        all_windows,
+        max_num_windows
+    ) = get_sliding_windows(
+        tok_sentences=tok_sentences,
+        window_size=args.window_size,
+        window_overlap=args.window_overlap,
+        force_actions=force_actions
+    )
+
     for widx in range(max_num_windows):
         window_sentences = []
         window_actions = []
         wsidx2sidx = []
-        for sidx in range(len(tokenized_sentences)):
-            if len(windowed_tokenized_sentences[sidx]) > widx:
+        for sidx in range(len(tok_sentences)):
+            if len(windowed_tok_sentences[sidx]) > widx:
                 wsidx2sidx.append(sidx)
-                window_sentences.append(windowed_tokenized_sentences[sidx][widx])
+                window_sentences.append(
+                    windowed_tok_sentences[sidx][widx])
                 window_actions.append(windowed_force_actions[sidx][widx])
 
         # Parse this (widx_th) window of all sentences
@@ -337,26 +368,29 @@ def get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gol
         print(f'Parsing {num_window_sent} sentences in {widx} window')
         window_result = parser.parse_sentences(
             window_sentences,
-            batch_size=batch_size,
-            roberta_batch_size=roberta_batch_size,
+            batch_size=args.batch_size,
+            roberta_batch_size=args.roberta_batch_size,
             gold_amrs=gold_amrs,
             force_actions=window_actions,
-            beam=beam,
-            jamr=jamr,
-            no_isi=no_isi
+            beam=args.beam,
+            jamr=args.jamr,
+            no_isi=args.no_isi
         )
-        #get actions out of window_results
-        #save actions in windowed_output_actions[sidx][widx]
-        for residx,result in enumerate(window_result[1]):
-            windowed_output_actions[wsidx2sidx[residx]][widx] = result.action_history
-        #change windowed_force_actions[:][widx+1]
-        for sidx in range(len(tokenized_sentences)):
-            if len(windowed_tokenized_sentences[sidx]) > widx+1 :
+        # get actions out of window_results
+        # save actions in windowed_output_actions[sidx][widx]
+        for residx, result in enumerate(window_result[1]):
+            windowed_output_actions[wsidx2sidx[residx]
+                                    ][widx] = result.action_history
+        # change windowed_force_actions[:][widx+1]
+        for sidx in range(len(tok_sentences)):
+            if len(windowed_tok_sentences[sidx]) > widx+1:
                 existing_f_actions = windowed_force_actions[sidx][widx+1]
                 pred_f_actions = windowed_output_actions[sidx][widx]
-                start_idx = all_windows[sidx][widx+1][0] - all_windows[sidx][widx][0]
-                new_f_actions = force_overlap(pred_f_actions, existing_f_actions, start_idx)
-                slen = len(windowed_tokenized_sentences[sidx][widx+1])
+                start_idx = all_windows[sidx][widx + 1][0] \
+                    - all_windows[sidx][widx][0]
+                new_f_actions = force_overlap(
+                    pred_f_actions, existing_f_actions, start_idx)
+                slen = len(windowed_tok_sentences[sidx][widx+1])
                 if slen > len(new_f_actions):
                     new_f_actions = new_f_actions[:slen]
                 else:
@@ -364,33 +398,34 @@ def get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gol
                         new_f_actions.append([])
                 windowed_force_actions[sidx][widx+1] = new_f_actions
 
-                
-    #merge all windowed_force_actions
+    # merge all windowed_force_actions
     all_actions = []
     all_tokens = []
-    for (didx,windows) in enumerate(all_windows):
+    for (didx, windows) in enumerate(all_windows):
         actions = []
         tokens = []
-        for (i,window) in enumerate(windows):
+        for (i, window) in enumerate(windows):
             if i == 0:
                 actions = windowed_output_actions[didx][i]
-                tokens = windowed_tokenized_sentences[didx][i]
+                tokens = windowed_tok_sentences[didx][i]
             else:
                 new_actions = windowed_output_actions[didx][i]
                 check_pointers(new_actions)
-                merged_actions = merge_actions(actions, new_actions, overlap_start=window[0])
+                merged_actions = merge_actions(
+                    actions, new_actions, overlap_start=window[0])
                 if check_pointers(merged_actions):
                     actions = merged_actions
-                    window_tokens = windowed_tokenized_sentences[didx][i]
-                    tokens.extend( window_tokens[len(tokens)-window[0]:] )
+                    window_tokens = windowed_tok_sentences[didx][i]
+                    tokens.extend(window_tokens[len(tokens)-window[0]:])
                 else:
                     print("did not complete merge for doc " + str(didx))
                     break
         all_actions.append(actions)
         all_tokens.append(tokens)
-        
-    #create final graphs
-    annotations = play_all_actions(all_tokens, all_actions, parser.machine_config)
+
+    # create final graphs
+    annotations = play_all_actions(
+        all_tokens, all_actions, parser.machine_config)
     return annotations
 
 
@@ -599,7 +634,8 @@ class AMRParser:
         return bart_data
 
     def convert_sentences_to_data(self, sentences, batch_size,
-                                  roberta_batch_size, gold_amrs=None, force_actions=None):
+                                  roberta_batch_size, gold_amrs=None,
+                                  force_actions=None):
 
         assert gold_amrs is None or len(sentences) == len(gold_amrs)
 
@@ -621,7 +657,8 @@ class AMRParser:
                 # original source tokens
                 'src_tokens': tokenize_line(sentence),
                 'gold_amr': None if gold_amrs is None else gold_amrs[index],
-                'force_actions': None if force_actions is None else force_actions[index]
+                'force_actions': None
+                if force_actions is None else force_actions[index]
             })
         return data
 
@@ -682,7 +719,7 @@ class AMRParser:
                     # actions due to the extra reformer machine
                     # this prevents using the latest machine features
                     hypo['state_machine'].machine.reset(
-                         hypo['state_machine'].machine.tokens
+                        hypo['state_machine'].machine.tokens
                     )
                     for action in actions:
                         hypo['state_machine'].machine.update(action)
@@ -722,7 +759,8 @@ class AMRParser:
         return annotations[0], decoding_data[0]
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
-                        gold_amrs=None, force_actions=None, beam=1, jamr=False, no_isi=False):
+                        gold_amrs=None, force_actions=None, beam=1, jamr=False,
+                        no_isi=False):
         """parse a list of sentences.
 
         Args:
@@ -740,7 +778,7 @@ class AMRParser:
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
             sentences.append(" ".join(tokens))
-            
+
         data = self.convert_sentences_to_data(
             sentences,
             batch_size,
@@ -906,6 +944,9 @@ def load_parser(args, inspector):
 
 
 def run_service(args, parser):
+    '''
+    Run command line parsing service
+    '''
 
     # set orderd exit
     signal.signal(signal.SIGINT, ordered_exit)
@@ -920,50 +961,154 @@ def run_service(args, parser):
             exit(0)
 
         os.system('clear')
+
+        # skip if sentence is empty
         if not sentence.strip():
             continue
 
-            if args.in_actions:
-                with open(args.in_actions) as fact:
-                    force_actions = [eval(line.strip())+[[]] for line in fact]
-            else:
-                force_actions = None
-            
-            if args.sliding:
-                gold_amrs = None
-                
+        if args.tokenize:
+            # jamr-like tokenization
+            tokens = [protected_tokenizer(sentence)[0]]
+        else:
+            tokens = [sentence.split()]
 
-                result = get_sliding_output([tokens],args.window_size,args.window_overlap,parser,gold_amrs,args.batch_size,args.roberta_batch_size,args.beam,args.jamr,args.no_isi,force_actions)
-            else:
+        if args.in_actions:
+            with open(args.in_actions) as fact:
+                force_actions = [eval(line.strip()) + [[]] for line in fact]
+        else:
+            force_actions = None
 
-                if args.tokenize:
-                    # jamr-like tokenization
-                    tokens = [protected_tokenizer(sentence)[0]]
-                else:
-                    tokens = [sentence.split()]
-        
-                # duplicate if sampling
-                assert args.num_samples is None, \
-                    "Sampling not supported in --service mode"
-        
-                result = parser.parse_sentences(
-                    tokens,
-                    batch_size=args.batch_size,
-                    roberta_batch_size=args.roberta_batch_size,
-                    force_actions=force_actions,
-                    beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
-                )
+        if args.sliding:
+            gold_amrs = None
 
-            #
-            os.system('clear')
-            print('\n')
-            if args.nbest > 1:
-                for candidate in result:
-                    print(''.join(candidate[0]))
-                    print()
+            result = get_sliding_output(
+                args,
+                [tokens],
+                parser,
+                gold_amrs,
+                force_actions
+            )
 
-            else:
-                print(''.join(result[0]))
+        else:
+
+            # duplicate if sampling
+            assert args.num_samples is None, \
+                "Sampling not supported in --service mode"
+
+            result = parser.parse_sentences(
+                tokens,
+                batch_size=args.batch_size,
+                roberta_batch_size=args.roberta_batch_size,
+                force_actions=force_actions,
+                beam=args.beam, jamr=args.jamr, no_isi=args.no_isi
+            )
+
+        #
+        os.system('clear')
+        print('\n')
+        if args.nbest > 1:
+            for candidate in result:
+                print(''.join(candidate[0]))
+                print()
+
+        else:
+            print(''.join(result[0]))
+
+
+def prepare_data(args, parser):
+
+    if args.in_amr:
+
+        # align mode: read input AMR to be aligned
+        gold_amrs = read_amr(args.in_amr)
+        if args.tokenize:
+            # jamr-like tokenization
+            assert all(amr.sentence is not None for amr in gold_amrs), \
+                "requires field ::snt in Penman meta data"
+            tok_sentences = [
+                protected_tokenizer(amr.sentence)[0]
+                for amr in gold_amrs
+            ]
+        else:
+            tok_sentences = [amr.tokens for amr in gold_amrs]
+
+        # sanity check all node names in vocabulary
+        sanity_check_vocabulary_for_alignment(
+            tok_sentences, gold_amrs, parser.tgt_dict
+        )
+
+    else:
+
+        # normal mode
+        gold_amrs = None
+        if args.tokenize:
+            # TODO: have tokenized as default
+            # jamr-like tokenization
+            with open(args.in_tok_sentences) as fid:
+                tok_sentences = [
+                    protected_tokenizer(sentence.rstrip())[0]
+                    for sentence in fid.readlines()
+                ]
+        else:
+            tok_sentences = read_tok_sentences(
+                args.in_tok_sentences
+            )
+
+    # check for empty sentences
+    assert all(s != [''] for s in tok_sentences), "Empty sentences!"
+
+    # read constrained decoding forced actions if provided
+    if args.in_actions:
+        with open(args.in_actions) as fact:
+            force_actions = [eval(line.strip()) + [[]] for line in fact]
+    else:
+        force_actions = None
+
+    # sampling needs copy of sentences N times
+    if args.num_samples is not None:
+        tok_sentences = [
+            tsent
+            for tsent in tok_sentences
+            for _ in range(args.num_samples)
+        ]
+        if args.in_actions:
+            force_actions = [
+                a
+                for a in force_actions
+                for _ in range(args.num_samples)
+            ]
+
+    return tok_sentences, force_actions, gold_amrs
+
+
+def save_data(args, annotations, machines):
+
+    num_sent = len(machines)
+
+    if args.out_amr:
+        save_multiple_files(args, num_sent, args.out_amr, annotations)
+
+    # save tokenized sentence
+    if args.out_tokens:
+        if args.nbest > 1:
+            tokens = [
+                [' '.join(m.tokens) for m in nbest]
+                for nbest in machines
+            ]
+        else:
+            tokens = [' '.join(m.tokens) for m in machines]
+        save_multiple_files(args, num_sent, args.out_tokens, tokens)
+
+    # save actions
+    if args.out_actions:
+        if args.nbest > 1:
+            actions = [
+                [' '.join(m.action_history) for m in nbest]
+                for nbest in machines
+            ]
+        else:
+            actions = [' '.join(m.action_history) for m in machines]
+        save_multiple_files(args, num_sent, args.out_actions, actions)
 
 
 def main():
@@ -992,85 +1137,31 @@ def main():
 
     else:
 
+        # offline parsing given files
+        tok_sentences, force_actions, gold_amrs = prepare_data(args, parser)
+
         # TODO: max batch sizes could be computed from max sentence length
 
-        if args.in_amr:
-
-            gold_amrs = read_amr(args.in_amr)
-            if args.tokenize:
-                # jamr-like tokenization
-                assert all(amr.sentence is not None for amr in gold_amrs)
-                tokenized_sentences = [
-                    protected_tokenizer(amr.sentence)[0]
-                    for amr in gold_amrs
-                ]
-            else:
-                tokenized_sentences = [amr.tokens for amr in gold_amrs]
-
-            # sanity check all node names in vocabulary
-            sanity_check_vocabulary_for_alignment(
-                tokenized_sentences, gold_amrs, parser.tgt_dict
-            )
-
-        else:
-            gold_amrs = None
-            if args.tokenize:
-                # TODO: have tokenized as default
-                # jamr-like tokenization
-                with open(args.in_tokenized_sentences) as fid:
-                    tokenized_sentences = [
-                        protected_tokenizer(sentence.rstrip())[0]
-                        for sentence in fid.readlines()
-                    ]
-            else:
-                tokenized_sentences = read_tokenized_sentences(
-                    args.in_tokenized_sentences
-                )
-
-        if args.in_actions:
-            with open(args.in_actions) as fact:
-                force_actions = [eval(line.strip()) + [[]] for line in fact]
-        else:
-            force_actions = None
+        num_sent = len(tok_sentences)
+        print(f'Parsing {num_sent} sentences')
+        start = time.time()
 
         if args.sliding:
 
-            window_size = args.window_size
-            window_overlap = args.window_overlap
-            
-            annotations = get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gold_amrs,args.batch_size,args.roberta_batch_size,args.beam,args.jamr,args.no_isi,force_actions)
+            # doc-AMR sliding window parsing
+            annotations = get_sliding_output(
+                args,
+                tok_sentences,
+                parser,
+                gold_amrs,
+                force_actions
+            )
 
-            # save file                                                                                                                                                               
-            if args.out_amr:
-                with open(args.out_amr, 'w') as fid:
-                    fid.write('\n'.join(annotations))
-            
         else:
 
-            # check for empty sentences
-            assert all(s != [''] for s in tokenized_sentences), "Empty sentences!"
-
-            # sampling needs copy of sentences
-            num_sentences = len(tokenized_sentences)
-            if args.num_samples is not None:
-                tokenized_sentences = [
-                    tsent
-                    for tsent in tokenized_sentences
-                    for _ in range(args.num_samples)
-                ]
-                if args.in_actions:
-                    force_actions = [
-                        a
-                        for a in force_actions
-                        for _ in range(args.num_samples)
-                    ]
-    
-            # Parse sentences
-            num_sent = len(tokenized_sentences)
-            print(f'Parsing {num_sent} sentences')
-            start = time.time()
+            # normal parsing
             annotations, machines = parser.parse_sentences(
-                tokenized_sentences,
+                tok_sentences,
                 batch_size=args.batch_size,
                 roberta_batch_size=args.roberta_batch_size,
                 gold_amrs=gold_amrs,
@@ -1079,40 +1170,19 @@ def main():
                 jamr=args.jamr,
                 no_isi=args.no_isi
             )
-            end = time.time()
-            time_secs = timedelta(seconds=float(end-start))
-            sents_per_second = num_sent
-            if time_secs.seconds > 0:
-                sents_per_second = num_sent / time_secs.seconds
-            print(f'Total time taken to parse {num_sent} sentences ', end='')
-            print(f'beam {args.beam} n-best {args.nbest}')
-            print(f'at batch size {args.batch_size}: {time_secs} ', end='')
-            print(f'{sents_per_second:.2f} sentences / second')
-    
-            # save AMR
-            if args.out_amr:
-                save_multiple_files(args, num_sentences, args.out_amr, annotations)
-    
-            # save tokenized sentence
-            if args.out_tokens:
-                if args.nbest > 1:
-                    tokens = [
-                        [' '.join(m.tokens) for m in nbest] for nbest in machines
-                    ]
-                else:
-                    tokens = [' '.join(m.tokens) for m in machines]
-                save_multiple_files(args, num_sentences, args.out_tokens, tokens)
-    
-            # save actions
-            if args.out_actions:
-                if args.nbest > 1:
-                    actions = [
-                        [' '.join(m.action_history) for m in nbest]
-                        for nbest in machines
-                    ]
-                else:
-                    actions = [' '.join(m.action_history) for m in machines]
-                save_multiple_files(args, num_sentences, args.out_actions, actions)
+
+        end = time.time()
+        time_secs = timedelta(seconds=float(end-start))
+        sents_per_second = num_sent
+        if time_secs.seconds > 0:
+            sents_per_second = num_sent / time_secs.seconds
+        print(f'Total time taken to parse {num_sent} sentences ', end='')
+        print(f'beam {args.beam} n-best {args.nbest}')
+        print(f'at batch size {args.batch_size}: {time_secs} ', end='')
+        print(f'{sents_per_second:.2f} sentences / second')
+
+        # save data resulting from parsing
+        save_data(args, annotations, machines, num_sent)
 
 
 if __name__ == '__main__':
