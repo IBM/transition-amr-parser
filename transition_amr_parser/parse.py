@@ -317,7 +317,7 @@ def get_sliding_windows(tokenized_sentences,window_size,window_overlap,force_act
 
 def get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gold_amrs=None,batch_size=128, roberta_batch_size=128,
                         beam=1, jamr=False, no_isi=False,force_actions=None):
-    
+
     windowed_tokenized_sentences,windowed_force_actions,windowed_output_actions,all_windows,max_num_windows = \
             get_sliding_windows(tokenized_sentences=tokenized_sentences,window_size=window_size,window_overlap=window_overlap,force_actions=force_actions)
         
@@ -347,9 +347,8 @@ def get_sliding_output(tokenized_sentences,window_size,window_overlap,parser,gol
         )
         #get actions out of window_results
         #save actions in windowed_output_actions[sidx][widx]
-        
-        for result in window_result[1]:
-            windowed_output_actions[wsidx2sidx[result['sample_id']]][widx] = result['actions']
+        for residx,result in enumerate(window_result[1]):
+            windowed_output_actions[wsidx2sidx[residx]][widx] = result.action_history
         #change windowed_force_actions[:][widx+1]
         for sidx in range(len(tokenized_sentences)):
             if len(windowed_tokenized_sentences[sidx]) > widx+1 :
