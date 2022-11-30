@@ -71,7 +71,8 @@ def argument_parsing():
     parser.add_argument(
         '--sliding',
         action='store_true',
-        help='split into sliding windows (use --window-size and --window-overlap to adjust)'
+        help='split into sliding windows (use --window-size and '
+             '--window-overlap to adjust)'
     )
     parser.add_argument(
         "--window-size",
@@ -284,7 +285,8 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
     return roberta
 
 
-def get_sliding_windows(tok_sentences, window_size, window_overlap, force_actions=None):
+def get_sliding_windows(tok_sentences, window_size, window_overlap,
+                        force_actions=None):
     windowed_tok_sentences = []
     windowed_force_actions = []
     windowed_output_actions = []
@@ -325,7 +327,13 @@ def get_sliding_windows(tok_sentences, window_size, window_overlap, force_action
         windowed_tok_sentences.append(windowed_tokenized_sent)
         windowed_force_actions.append(windowed_force_acts)
 
-    return windowed_tok_sentences, windowed_force_actions, windowed_output_actions, all_windows, max_num_windows
+    return (
+        windowed_tok_sentences,
+        windowed_force_actions,
+        windowed_output_actions,
+        all_windows,
+        max_num_windows
+    )
 
 
 def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
@@ -386,8 +394,8 @@ def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
             if len(windowed_tok_sentences[sidx]) > widx+1:
                 existing_f_actions = windowed_force_actions[sidx][widx+1]
                 pred_f_actions = windowed_output_actions[sidx][widx]
-                start_idx = all_windows[sidx][widx +
-                                              1][0] - all_windows[sidx][widx][0]
+                start_idx = all_windows[sidx][widx + 1][0] \
+                    - all_windows[sidx][widx][0]
                 new_f_actions = force_overlap(
                     pred_f_actions, existing_f_actions, start_idx)
                 slen = len(windowed_tok_sentences[sidx][widx+1])
@@ -634,7 +642,8 @@ class AMRParser:
         return bart_data
 
     def convert_sentences_to_data(self, sentences, batch_size,
-                                  roberta_batch_size, gold_amrs=None, force_actions=None):
+                                  roberta_batch_size, gold_amrs=None,
+                                  force_actions=None):
 
         assert gold_amrs is None or len(sentences) == len(gold_amrs)
 
@@ -656,7 +665,8 @@ class AMRParser:
                 # original source tokens
                 'src_tokens': tokenize_line(sentence),
                 'gold_amr': None if gold_amrs is None else gold_amrs[index],
-                'force_actions': None if force_actions is None else force_actions[index]
+                'force_actions': None
+                if force_actions is None else force_actions[index]
             })
         return data
 
@@ -757,7 +767,8 @@ class AMRParser:
         return annotations[0], decoding_data[0]
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
-                        gold_amrs=None, force_actions=None, beam=1, jamr=False, no_isi=False):
+                        gold_amrs=None, force_actions=None, beam=1, jamr=False,
+                        no_isi=False):
         """parse a list of sentences.
 
         Args:
