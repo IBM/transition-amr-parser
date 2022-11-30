@@ -22,7 +22,8 @@ def argument_parser():
     parser.add_argument(
         "--roberta-cache-path",
         help="Path to the roberta large model",
-        type=str
+        type=str,
+        default=None
     )
     parser.add_argument(
         "--port",
@@ -85,6 +86,19 @@ def argument_parser():
         default=1
 	
     )  
+    parser.add_argument(
+        "--jamr",
+        help="Add JAMR graph representation on meta-data",
+        action='store_true',
+        default=False
+    )
+    parser.add_argument(
+        "--no-isi",
+        help="Store ISI alignments in ::alignments field rather than node "
+             "names. This helps with Smatch not supporting ISI",
+        action='store_true',
+        default=False
+    )
     args = parser.parse_args()
 
     # Sanity checks
@@ -95,12 +109,13 @@ def argument_parser():
 
 class Parser():
     def __init__(self, args):
-        self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model,beam=args.beam)
+        self.parser = AMRParser.from_checkpoint(checkpoint=args.in_model,roberta_cache_path=args.roberta_cache_path,beam=args.beam)
         self.batch_size = args.batch_size
         self.roberta_batch_size = args.roberta_batch_size
-        self.window_size = args.window_size
-        self.window_overlap = args.window_overlap
+
         self.beam = args.beam
+        self.args = args
+        
 
     def process(self, request, context):
         sentences = request.sentences
@@ -109,7 +124,12 @@ class Parser():
         for sentence in sentences:
             batch.append(sentence.tokens)
         if doc_mode:
-            amrs = get_sliding_output(batch,window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)
+            
+            amrs = get_sliding_output(args=self.args,
+                tok_sentences=batch,
+                parser=self.parser,
+                gold_amrs=None,
+                force_actions=None)
         else:
             amrs = self.parser.parse_sentences(batch, batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size)[0]
         return amr2_pb2.AMRBatchResponse(amr_parse=amrs)
@@ -119,10 +139,15 @@ class Parser():
         return amr
     def debug_process_doc(self, tokens,force_actions=None):
         
-        force_actions = eval(force_actions.strip())+[[]]
+        force_actions = eval(force_actions.strip()) + [[]]
         
         assert len(tokens)==len(force_actions)-1
-        amr = get_sliding_output([tokens],window_size=self.window_size,window_overlap=self.window_overlap,parser=self.parser,gold_amrs=None,batch_size=self.batch_size, roberta_batch_size=self.roberta_batch_size,force_actions=[force_actions],beam=self.beam)
+
+        amr = get_sliding_output(args=self.args,
+                tok_sentences=[tokens],
+                parser=self.parser,
+                gold_amrs=None,
+                force_actions=[force_actions])
         return amr
 
 def serve(args):
