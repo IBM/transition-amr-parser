@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from transition_amr_parser.io import read_blocks
 import re
-
+import warnings
 arc_regex = re.compile(r'>[RL]A\((.*),(.*)\)')
 
 
@@ -29,7 +29,11 @@ def get_windows(tokens, window_size=300, window_overlap=200, sentence_ends=None)
     windows = []
     this_window = (0,0)
     start = 0
+    loop_count = 0
     while this_window[-1] < (len(tokens)-1):
+        loop_count+=1
+        if loop_count>len(tokens):
+            raise Exception('Number of loops exceeded number of tokens, might lead to infinite loop')
         #find last sentence end within window size from start
         end = start
         for send in sentence_ends:
@@ -40,6 +44,9 @@ def get_windows(tokens, window_size=300, window_overlap=200, sentence_ends=None)
             
 
         this_window = (start,end)
+        if len(windows)>0 and windows[-1]==this_window:
+            warnings.warn('This window is same as last window')
+
         windows.append(this_window)
         #find first start sentence within overlap in this_window
         for send in sentence_ends:
@@ -142,7 +149,7 @@ def main(args):
                     sentence_ends.append(len(actions_per_token))
                 actions_per_token.append(this_token_actions)
                 this_token_actions = []
-        if len(sentence_ends) == 0:
+        if (len(actions_per_token)-1) not in sentence_ends:
             sentence_ends.append(len(actions_per_token)-1)
 
         new_sentence_ends = adjust_sentence_ends(sentence_ends, args.window_size)
