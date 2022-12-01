@@ -133,7 +133,7 @@ else
     echo -e "\nDev data"
     if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
         echo -e "\n Doc Mode ,Making docamr dev data"
-        if [ $SLIDING == 1];then
+        if [[ $SLIDING == 1 ]];then
             DEV_DOC_ORACLE_ARGS=""
         else
             echo "Truncating dev data since sliding mode is not turned on"
@@ -156,7 +156,7 @@ else
 
     elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
         dev_force_args="--out-fdec-actions ${ORACLE_FOLDER}/dev.force_actions"
-        if [ $SLIDING == 1];then
+        if [[ $SLIDING == 1 ]];then
             DEV_DOC_ORACLE_ARGS=""
         else
             echo "Truncating dev data since sliding mode is not turned on"
@@ -207,7 +207,7 @@ else
 
     if [ $MODE = "doc" ] || [ $MODE = "doc+sen+ft" ];then
         echo -e "\n Doc Mode,Making docamr test data"
-        if [ $SLIDING == 1];then
+        if [[ $SLIDING == 1 ]];then
             TEST_DOC_ORACLE_ARGS=""
         else
             echo "Truncating test data since sliding mode is not turned on"
@@ -231,7 +231,7 @@ else
     
     
     if [ $MODE = "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
-        if [ $SLIDING == 1];then
+        if [[ $SLIDING == 1 ]];then
             TEST_DOC_ORACLE_ARGS=""
         else
             echo "Truncating test data since sliding mode is not turned on"
