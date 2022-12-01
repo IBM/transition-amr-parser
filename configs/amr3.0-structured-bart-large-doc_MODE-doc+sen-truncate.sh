@@ -65,8 +65,7 @@ AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
 AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
 AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 DOC_ORACLE_ARGS="--truncate"
-SLIDING_ARGS="--window-size 200 --window-overlap 100"
-SLIDING=1
+SLIDING=""
 ##############################################################################
 # ORACLE
 ##############################################################################
@@ -202,8 +201,7 @@ dyo_run_freq=1
 # Use this to load a pre-trained model
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
 FAIRSEQ_TRAIN_FINETUNE_ARGS=""
-FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
-FAIRSEQ_TEST_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
+
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
 

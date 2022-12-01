@@ -10,7 +10,7 @@ set -o pipefail
 set -o nounset
 
 # this will be name of the model folder
-config_name=both_doc+sen_trainsliding_ws400x100
+config_name=amr3.0-structured-bart-large-doc_MODE-doc+sen-truncate-sliding-ws200x100
 
 ##############################################################################
 # DATA
@@ -54,11 +54,8 @@ WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
 # WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
 ## DOC AMR ARGS
-
-TRAIN_DOC="both"
-CONLL_DATA=DATA/conll_docamr_no-merge-pairwise-edges.out
-
 MODE="doc+sen"
+TRAIN_DOC="gold"
 TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
 DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
 TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
@@ -67,12 +64,9 @@ NORM="no-merge"
 AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
 AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
 AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
-DOC_ORACLE_ARGS=""
-SLIDING_ARGS="--window-size 400 --window-overlap 100 --train-sliding"
-TRAIN_SLIDING=1
-DEV_CHOICE="doc"
+DOC_ORACLE_ARGS="--truncate"
+SLIDING_ARGS="--window-size 200 --window-overlap 100"
 SLIDING=1
-
 ##############################################################################
 # ORACLE
 ##############################################################################
@@ -83,7 +77,7 @@ ALIGNMENT_FLAGS=""
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
 # oracle action sequences
-ORACLE_TAG=o10_act-states_doc_MODE-${MODE}_both_trainsliding_ws400x100
+ORACLE_TAG=o10_act-states_doc_MODE-${MODE}_v0.2_truncate-sliding-ws200x100
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -104,7 +98,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=${align_tag}_bart.large_doc_MODE-${MODE}_both_trainsliding_ws400x100
+embedding_tag=${align_tag}_bart.large_doc_MODE-${MODE}_v0.2_truncate-sliding-ws200x100
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -179,14 +173,14 @@ tgt_input_src_combine="add"
 # SEEDS="43 44"
 SEEDS="42"
 MAX_EPOCH=120
-EVAL_INIT_EPOCH=70
+EVAL_INIT_EPOCH=71
 time_max_between_epochs=30
 
 # TODO: New
 use_fp16=1
 lr=0.0001
 max_tokens=2048
-update_freq=4
+update_freq=1
 warmup=4000
 dropout=0.2
 
@@ -346,7 +340,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 # Smatch evaluation with wiki
 
 # Old scorer
-LINKER_CACHE_PATH=""
+LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 #DATA/EL/legacy_linker_amr3.0/
 
 # BLINK
@@ -360,5 +354,5 @@ LINKER_CACHE_PATH=""
 BATCH_SIZE=128
 BEAM_SIZE=10
 # Smatch evaluation with wiki
-EVAL_METRIC=smatch
+EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt

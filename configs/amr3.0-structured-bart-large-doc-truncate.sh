@@ -29,14 +29,6 @@ AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt
 AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt 
 AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
-## DOC AMR ARGS
-MODE="doc"
-TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
-DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
-TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
-FOF_PATH=/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/
-NORM="no-merge"
-DOC_ORACLE_ARGS="--truncate"
 
 ##############################################################################
 # AMR ALIGNMENT
@@ -60,6 +52,18 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 # TODO: Omit these global vars and use ALIGNED_FOLDER
 # WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
 # WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
+
+## DOC AMR ARGS
+
+MODE="doc"
+TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
+DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
+TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
+FOF_PATH=DATA/AMR3.0/amr_annotation_3.0/
+NORM="no-merge"
+DOC_ORACLE_ARGS="--truncate"
+SLIDING=""
+
 
 ##############################################################################
 # ORACLE
@@ -196,8 +200,7 @@ dyo_run_freq=1
 # Use this to load a pre-trained model
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
 FAIRSEQ_TRAIN_FINETUNE_ARGS=""
-FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
-FAIRSEQ_TEST_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
+
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
 

@@ -35,10 +35,14 @@ TRAIN_DOC="gold"
 TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
 DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
 TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
-FOF_PATH=/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/
+FOF_PATH=DATA/AMR3.0/amr_annotation_3.0/
 NORM="no-merge"
 DOC_ORACLE_ARGS="--truncate"
 SLIDING_ARGS="--window-size 300 --window-overlap 200"
+SLIDING=1
+
+PRETRAINED_FOLDER="DATA/AMR3.0/models/pretrained_doc+sen_conll_right/"
+PRETRAINED_MODEL="${PRETRAINED_FOLDER}/checkpoint_wiki.smatch_top5-avg.pt"
 ##############################################################################
 # AMR ALIGNMENT
 ##############################################################################
@@ -119,7 +123,7 @@ DATA_FOLDER=DATA/$TASK_TAG/features/$features_tag/
 # Use this to feed modified source and target dicts so that embeddings match in
 # fine-tuning
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
-FAIRSEQ_PREPROCESS_FINETUNE_ARGS="--srcdict DATA/AMR3.0/models/pretrained_doc+sen_conll_right/dict.en.txt --tgtdict DATA/AMR3.0/models/pretrained_doc+sen_conll_right/dict.actions_nopos.txt"
+FAIRSEQ_PREPROCESS_FINETUNE_ARGS="--srcdict ${PRETRAINED_FOLDER}/dict.en.txt --tgtdict ${PRETRAINED_FOLDER}/dict.actions_nopos.txt"
 # SRC_DICT=DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/dict.en.txt
 # TGT_DICT=DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/dict.actions_nopos.txt
 # PRETRAINED_FOLDER=DATA/AMR3.0/features/cofill_isi_o10_act-states_doc_MODE-doc+sen_v0.2_truncate_cofill_isi_bart.large_doc_MODE-doc+sen_v0.2_truncate/
@@ -198,8 +202,8 @@ dyo_run_freq=1
 # FINE-TUNE ARGUMENTS
 # Use this to load a pre-trained model
 # TODO: see below, better return to all arguments given below. Simplified this and other like --fp16
-FAIRSEQ_TRAIN_FINETUNE_ARGS="--restore-file DATA/AMR3.0/models/pretrained_doc+sen_conll_right/checkpoint_wiki.smatch_top5-avg.pt"
-FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
+FAIRSEQ_TRAIN_FINETUNE_ARGS="--restore-file ${PRETRAINED_MODEL}"
+#FAIRSEQ_SKIP_ARGS="--skip-invalid-size-inputs-valid-test"
 FAIRSEQ_TEST_SKIP_ARGS=""
 # AUTO NAMING <-- Avoidable?
 ##### set the experiment dir name based on model configurations
