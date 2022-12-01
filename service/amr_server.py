@@ -143,7 +143,7 @@ class Parser():
         
         assert len(tokens)==len(force_actions)-1
 
-        amr = get_sliding_output(args=self.args,
+        amr, machine = get_sliding_output(args=self.args,
                 tok_sentences=[tokens],
                 parser=self.parser,
                 gold_amrs=None,
