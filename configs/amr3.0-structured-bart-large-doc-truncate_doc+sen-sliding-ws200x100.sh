@@ -10,7 +10,7 @@ set -o pipefail
 set -o nounset
 
 # this will be name of the model folder
-config_name=doc_train_truncate_dev_sliding
+config_name=amr3.0-structured-bart-large-doc_MODE-doc+sen-truncate
 
 ##############################################################################
 # DATA
@@ -29,14 +29,6 @@ AMR_TRAIN_FILE_WIKI=DATA/$TASK_TAG/corpora/train.txt
 AMR_DEV_FILE_WIKI=DATA/$TASK_TAG/corpora/dev.txt 
 AMR_TEST_FILE_WIKI=DATA/$TASK_TAG/corpora/test.txt
 
-## DOC AMR ARGS
-MODE="doc"
-TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
-DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
-TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
-FOF_PATH=/dccstor/ykt-parse/SHARED/CORPORA/AMR/amr_annotation_3.0/
-NORM="no-merge"
-DOC_ORACLE_ARGS="--truncate"
 
 ##############################################################################
 # AMR ALIGNMENT
@@ -58,9 +50,23 @@ AMR_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
 # wiki prediction files to recompose final AMR
 # TODO: External cache, avoid external paths
 # TODO: Omit these global vars and use ALIGNED_FOLDER
-# WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
+WIKI_DEV="$ALIGNED_FOLDER/dev.wiki"
 # WIKI_TEST="$ALIGNED_FOLDER/test.wiki"
 
+## DOC AMR ARGS
+MODE="doc+sen"
+TRAIN_DOC="gold"
+TRAIN_COREF=DATA/AMR3.0/coref/train_coref.fof
+DEV_COREF=DATA/AMR3.0/coref/dev1_coref.fof
+TEST_COREF=DATA/AMR3.0/coref/test_coref.fof
+FOF_PATH=DATA/AMR3.0/amr_annotation_3.0/
+NORM="no-merge"
+AMR_SENT_TRAIN_FILE=$ALIGNED_FOLDER/train_id-added_docdev-removed.txt
+AMR_SENT_DEV_FILE=$ALIGNED_FOLDER/dev_id-added.txt 
+AMR_SENT_TEST_FILE=$ALIGNED_FOLDER/test_id-added.txt
+DOC_ORACLE_ARGS="--truncate"
+SLIDING_ARGS="--window-size 200 --window-overlap 100"
+SLIDING=1
 ##############################################################################
 # ORACLE
 ##############################################################################
@@ -71,7 +77,7 @@ ALIGNMENT_FLAGS=""
 IMPORTANCE_WEIGTHED_SAMPLING_FLAG=""
 
 # oracle action sequences
-ORACLE_TAG=o10_${MODE}_truncate_sliding
+ORACLE_TAG=o10_act-states_doc_MODE-${MODE}_v0.2_truncate
 
 # All data in this step under 
 ORACLE_FOLDER=DATA/$TASK_TAG/oracles/${align_tag}_$ORACLE_TAG/
@@ -92,7 +98,7 @@ USE_COPY=1
 # PRETRAINED EMBEDDINGS
 ##############################################################################
 
-embedding_tag=${align_tag}_bart.large_${MODE}_truncate_sliding
+embedding_tag=${align_tag}_bart.large_doc_MODE-${MODE}_v0.2_truncate
 
 # All data in this step under 
 # FIXME: alig/oracle may alter text, we have to watch out for this
@@ -335,7 +341,7 @@ MODEL_FOLDER=DATA/$TASK_TAG/models/${config_name}/
 # Smatch evaluation with wiki
 
 # Old scorer
-LINKER_CACHE_PATH=""
+LINKER_CACHE_PATH=DATA/EL/legacy_linker_amr3.0/
 #DATA/EL/legacy_linker_amr3.0/
 
 # BLINK
@@ -349,5 +355,5 @@ LINKER_CACHE_PATH=""
 BATCH_SIZE=128
 BEAM_SIZE=10
 # Smatch evaluation with wiki
-EVAL_METRIC=smatch
+EVAL_METRIC=wiki.smatch
 DECODING_CHECKPOINT=checkpoint_${EVAL_METRIC}_top5-avg.pt
