@@ -139,7 +139,7 @@ if [[ (! -f $DATA_FOLDER/.done) || (! -f $EMB_FOLDER/.done) ]]; then
 
     # Run preprocessing
     jbsub_tag="fe-${jbsub_basename}-$$"
-    jbsub -cores "1+1" -mem 100g -q x86_6h -require v100 \
+    jbsub -cores "1+1" -mem 200g -q x86_6h -require v100 \
           -name "$jbsub_tag" \
           $prepro_depends \
           -out $ORACLE_FOLDER/${jbsub_tag}-%J.stdout \
