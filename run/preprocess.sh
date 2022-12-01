@@ -74,7 +74,7 @@ else
     
     if [[ "$MODE" =~ .*"doc".* ]];then
         if [[ $SLIDING == 1 ]]; then
-            if [[ $TRAIN_SLIDING == 1 ]]; then
+            if [[ $TRAIN_SLIDING == 1 ]] && [[ ! -f $ORACLE_FOLDER/train_unsplit.actions ]]; then
                 echo "train sliding windows"
                 python transition_amr_parser/make_sliding_splits.py \
                 --oracle-dir $ORACLE_FOLDER \
