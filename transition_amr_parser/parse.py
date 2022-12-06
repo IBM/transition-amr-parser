@@ -199,7 +199,7 @@ def argument_parsing():
 
     # sanity checks
     assert (
-        bool(args.in_tok_sentences) or bool(args.in_amr)
+        bool(args.in_tokenized_sentences) or bool(args.in_amr)
     ) or bool(args.service), \
         "Must either specify --in-tokenized-sentences or set --service"
 
@@ -1051,7 +1051,7 @@ def prepare_data(args, parser):
                 ]
         else:
             tok_sentences = read_tokenized_sentences(
-                args.in_tok_sentences
+                args.in_tokenized_sentences
             )
 
     # check for empty sentences
