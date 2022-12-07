@@ -1081,9 +1081,9 @@ def prepare_data(args, parser):
     return tok_sentences, force_actions, gold_amrs
 
 
-def save_data(args, annotations, machines):
+def save_data(args, annotations, machines, num_sent):
 
-    num_sent = len(machines)
+    assert num_sent == len(machines)
 
     if args.out_amr:
         save_multiple_files(args, num_sent, args.out_amr, annotations)
