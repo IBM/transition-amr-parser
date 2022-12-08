@@ -1081,9 +1081,9 @@ def prepare_data(args, parser):
     return tok_sentences, force_actions, gold_amrs
 
 
-def save_data(args, annotations, machines, num_sent):
+def save_data(args, annotations, machines):
 
-    assert num_sent == len(machines)
+    num_sent = len(machines)
 
     if args.out_amr:
         save_multiple_files(args, num_sent, args.out_amr, annotations)
@@ -1182,7 +1182,7 @@ def main():
         print(f'{sents_per_second:.2f} sentences / second')
 
         # save data resulting from parsing
-        save_data(args, annotations, machines, num_sent)
+        save_data(args, annotations, machines)
 
 
 if __name__ == '__main__':
