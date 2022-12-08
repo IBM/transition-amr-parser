@@ -983,7 +983,7 @@ def run_service(args, parser):
 
             result = get_sliding_output(
                 args,
-                [tokens],
+                tokens,
                 parser,
                 gold_amrs,
                 force_actions
