@@ -1196,7 +1196,7 @@ class AMRStateMachine():
                 #for keeping each sentence's nodes separate
                 self.sentence_nodes[node_id]= self.nodes[node_id]
 
-                if self.force_actions and self.in_free_zone:
+                if self.force_actions:
                     self.free_nodes.append(node_id)
             else:
                 if (self.force_actions and len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1
@@ -1221,7 +1221,7 @@ class AMRStateMachine():
                 #for keeping each sentence's nodes separate
                 self.sentence_nodes[node_id] = self.nodes[node_id]
 
-                if self.force_actions and self.in_free_zone:
+                if self.force_actions:
                     self.free_nodes.append(node_id)
             else:
                 if (self.force_actions and len(self.force_actions[self.tok_cursor][self.action_cursor:]) > 1

@@ -983,7 +983,7 @@ def run_service(args, parser):
 
             result = get_sliding_output(
                 args,
-                [tokens],
+                tokens,
                 parser,
                 gold_amrs,
                 force_actions
@@ -1182,7 +1182,7 @@ def main():
         print(f'{sents_per_second:.2f} sentences / second')
 
         # save data resulting from parsing
-        save_data(args, annotations, machines, num_sent)
+        save_data(args, annotations, machines)
 
 
 if __name__ == '__main__':
