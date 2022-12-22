@@ -905,10 +905,10 @@ class AMRStateMachine():
                     valid_base_actions.append('SHIFT')
 
             if (
-                (not self.force_actions
+                not self.force_actions
                 or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
                 or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['CLOSE_SENTENCE'])
-                and len(self.sentence_nodes)>0
+                and len(self.sentence_nodes) > 0
             ):  
                 valid_base_actions.append('CLOSE_SENTENCE')
                 
@@ -1530,7 +1530,7 @@ class StatsForVocab:
         self.left_arcs = Counter()
         self.right_arcs = Counter()
         self.control = Counter()
-        #adding close senttence to vocab
+        # adding close senttence to vocab
         self.control.update(['CLOSE_SENTENCE'])
 
         # node stack stats (candidate pool for the pointer)
