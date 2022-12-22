@@ -195,9 +195,9 @@ def sample_alignments(gold_amr, alignment_probs, temperature=1.0):
 
 
 def make_eos_force_actions(tokens, sentence_ends):
-        
+
     force_actions = []
-        
+
     for (i,_) in enumerate(tokens):
         if i in sentence_ends:
             force_actions.append(['xANY','CLOSE_SENTENCE'])
@@ -303,18 +303,18 @@ class AMROracle():
         self.node_reverse_map = {}
         self.predicted_edges = []
         self.expected_history = []
-        
+
     def get_eos_force_actions(self):
 
         force_actions = None
-        
+
         #if self.gold_amr.__class__.__name__ == 'AMR_doc':
         if hasattr(self.gold_amr,'sentence_ends') and len(self.gold_amr.sentence_ends) > 0:
             force_actions = make_eos_force_actions(self.gold_amr.tokens, self.gold_amr.sentence_ends)
 
         return force_actions
-        
-        
+
+
     def get_arc_action(self, machine):
 
         # Loop over edges not yet created
@@ -418,7 +418,7 @@ class AMROracle():
                 # machine.action_history = machine.action_history[:i+1]
                 # machine.actions_tokcursor = machine.actions_tokcursor[:i+1]
                 # machine.tokens = machine.tokens[:machine.actions_tokcursor[i]+1]
-                
+
                 #one less than self.truncate_threshold to account for final action CLOSE
                 popped_toks = []
                 last_tok = 0
@@ -446,7 +446,7 @@ class AMROracle():
         ):
             self.expected_history.append('ROOT')
             return 'ROOT'
-        
+
         # REDUCE in stack after are LA/RA that completes all edges for an node
         if self.machine_config.reduce_nodes == 'all':
             arc_reduce_no_top = self.get_reduce_action(machine, top=False)
@@ -498,7 +498,7 @@ class AMROracle():
                 self.expected_history.append(target_node)
                 return target_node
 
-        
+
         # Move monotonic attention
         if machine.tok_cursor < len(machine.tokens):
             #NEW_ACTION
@@ -546,7 +546,7 @@ class AMRStateMachine():
         self.debug = debug
 
         self.ignore_coref = ignore_coref
-        
+
         # base actions allowed
         self.base_action_vocabulary = [
             'SHIFT',   # Move cursor
@@ -570,7 +570,7 @@ class AMRStateMachine():
 
         self.wild_any = 'xANY'
         self.wild_arc = 'xARC'
-        
+
         if not self.config.use_copy:
             self.base_action_vocabulary.remove('COPY')
 
@@ -628,14 +628,14 @@ class AMRStateMachine():
 
         self.num_actions_on_this_pos = 0
         self.num_arcs_on_this_node = 0
-        
+
         if self.force_actions:
             if len(self.force_actions[0]) and self.force_actions[0][0] != self.wild_any:
                 self.in_free_zone = False
             if self.force_actions[-1][-2:] == ['CLOSE_SENTENCE','SHIFT']:
                 #this should not even have happened
                 self.force_actions[-1] = self.force_actions[-1][:-1]
-        
+
         # AMR as we construct it
         # NOTE: We will use position of node generating action in action
         # history as node_id
@@ -673,7 +673,7 @@ class AMRStateMachine():
         self.sentence_nodes = {}
         self.sentence_edges = []
         self.root = None
-    
+
     def connect_sentences(self,root_id):
         for idx,n in enumerate(self.sentence_roots):
             self.edges.append((root_id, ':snt'+str(idx+1), n))
@@ -840,7 +840,7 @@ class AMRStateMachine():
 
         if self.is_truncated:
             return ['CLOSE']
-        
+
         # debug
         if self.debug:
             os.system('clear')
@@ -871,9 +871,9 @@ class AMRStateMachine():
         #         self.in_free_zone = False
         #     else:
         #         return ['SHIFT']
-                        
-        
-        if not self.in_free_zone:            
+
+
+        if not self.in_free_zone:
             # force decode (we know partial actions sequence)
             # and current force action is not 'xANY'
             ret_actions = []
@@ -890,10 +890,10 @@ class AMRStateMachine():
             else:
                 ret_actions = [self.force_actions[self.tok_cursor][self.action_cursor]]
             return ret_actions
-                        
-        
+
+
         if self.tok_cursor < len(self.tokens):
-            
+
             if (
 	            not self.force_actions
                     or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
@@ -905,17 +905,18 @@ class AMRStateMachine():
                     valid_base_actions.append('SHIFT')
 
             if (
-                not self.force_actions
-                or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
-                or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['CLOSE_SENTENCE'])
-                and len(self.sentence_nodes) > 0
-            ):  
+                (
+                    not self.force_actions
+                    or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
+                    or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['CLOSE_SENTENCE']
+                ) and len(self.sentence_nodes) > 0
+            ):
                 valid_base_actions.append('CLOSE_SENTENCE')
-                
+
             if self.force_actions and 'CLOSE_SENTENCE' in self.force_actions[self.tok_cursor] and 'SHIFT' in valid_base_actions:
                 import ipdb; ipdb.set_trace
                 print("bad bad")
-                
+
             valid_base_actions.extend(gen_node_actions)
 
         if (
@@ -940,7 +941,7 @@ class AMRStateMachine():
                 valid_base_actions.append('ROOT')
 
 
-        
+
         if self.tok_cursor == len(self.tokens):
             # assert valid_base_actions==['CLOSE_SENTENCE']
             # assert self.action_history[-1] == 'SHIFT'
@@ -972,7 +973,7 @@ class AMRStateMachine():
         return actions_nodemask
 
     def update(self, action, gold=False):
-        
+
         assert not self.is_closed
 
         # FIXME: Align mode can not allow '<unk>' node names but we need a
@@ -1000,7 +1001,7 @@ class AMRStateMachine():
                 #if new action is inserted
                 #future nodes will shift
                 self.increment_future_pointers()
-                
+
         if action == 'CLOSE':
 
             if self.gold_amr:
@@ -1018,7 +1019,7 @@ class AMRStateMachine():
                 #self.alignments[node_id].append(self.tok_cursor)
                 self.root = node_id
                 self.connect_sentences(root_id = node_id)
-            
+
             self.is_closed = True
 
         elif re.match(r'ROOT', action):
@@ -1035,8 +1036,8 @@ class AMRStateMachine():
 
         #NEW_ACTION FIXME
         elif action in ['CLOSE_SENTENCE']:
-            
-            # Move source pointer 
+
+            # Move source pointer
             self.tok_cursor += 1
             self.action_cursor = 0
             self.num_actions_on_this_pos = 0
@@ -1044,7 +1045,7 @@ class AMRStateMachine():
             self.in_free_zone = True
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True,connect_tops=(not gold))
-                
+
             #append only new edges to self.edges
             for e in self.sentence_edges:
                 if e not in self.edges:
@@ -1062,7 +1063,7 @@ class AMRStateMachine():
                     self.nodes[node_id] = 'document'
                     #self.node_stack.append(node_id)
                     #self.alignments[node_id].append(self.tok_cursor)
-                
+
                     self.root = node_id
                     self.connect_sentences(root_id = node_id)
             '''
@@ -1155,7 +1156,7 @@ class AMRStateMachine():
                 is_coref_edge = True
 
             if not is_coref_edge or not self.ignore_coref:
-                    
+
                 if self.config.absolute_stack_pos:
                     src = int(index)
                 else:
@@ -1243,12 +1244,12 @@ class AMRStateMachine():
             len(self.force_actions[self.tok_cursor][self.action_cursor:]) != 0 and
 	    self.force_actions[self.tok_cursor][self.action_cursor] != self.wild_any ):
             self.in_free_zone = False
-                
+
         # Action for each time-step
         self.action_history.append(action)
 
     def increment_future_pointers(self):
-        
+
         for idx in range(self.action_cursor, len(self.force_actions[self.tok_cursor])):
             action = self.force_actions[self.tok_cursor][idx]
             if la_regex.match(action):
@@ -1261,7 +1262,7 @@ class AMRStateMachine():
                 index = int(index)
                 if index >= len(self.action_history):
                     self.force_actions[self.tok_cursor][idx] = ">RA("+str(index+1)+","+label+")"
-                    
+
         for tidx in range(self.tok_cursor+1,len(self.tokens)):
             for idx in range(len(self.force_actions[tidx])):
                 action = self.force_actions[tidx][idx]
@@ -1275,7 +1276,7 @@ class AMRStateMachine():
                     index = int(index)
                     if index >= len(self.action_history):
                         self.force_actions[tidx][idx] = ">RA("+str(index+1)+","+label+")"
-                
+
     def get_amr(self, node_map=None):
 
         # ensure AMR is valid
@@ -1471,7 +1472,7 @@ class Stats():
             print(yellow_font(
                 f'{self.num_trunc}/{num_processed} truncated inputs'
             ))
-            
+
         # Other stats
         return
 
@@ -1619,7 +1620,7 @@ def pack_amrs(amrs):
             amr = amrs[key]
             if packed_amr:
                 potential_src_length = len(packed_amr.tokens) + len(amr.tokens) + 1
-                tgt_length = len(packed_amr.nodes) + len(packed_amr.edges) + len(packed_amr.roots) + len(amr.nodes) + len(amr.edges) + 1 
+                tgt_length = len(packed_amr.nodes) + len(packed_amr.edges) + len(packed_amr.roots) + len(amr.nodes) + len(amr.edges) + 1
                 if potential_src_length > 800 or tgt_length > 1000 :
                     packed_amrs.append(packed_amr)
                     packed_amr = deepcopy(amr)
@@ -1628,7 +1629,7 @@ def pack_amrs(amrs):
             else:
                 packed_amr = deepcopy(amr)
         random.shuffle(keys)
-        
+
     return packed_amrs
 def oracle(args):
 
@@ -1677,7 +1678,7 @@ def oracle(args):
 
         # read into AMR class (this looses epigraph data and attribute info)
         amr = AMR.from_penman(penman_str)
-        
+
         # spawn new machine for this sentence
         machine.reset(amr.tokens)
 
@@ -1690,8 +1691,8 @@ def oracle(args):
             oracle.reset(amr)
 
 
-        all_force_actions.append(oracle.get_eos_force_actions())            
-            
+        all_force_actions.append(oracle.get_eos_force_actions())
+
         # proceed left to right throught the sentence generating nodes
         while not machine.is_closed:
 
@@ -1704,7 +1705,7 @@ def oracle(args):
                 and 'NODE' not in machine.get_valid_actions()
             ):
                 raise Exception(f'Invalid action {action}')
-             
+
             #FIXME? Check if this is useful
             # if it is node generation, keep track of original id in gold amr
             # if isinstance(action, tuple):
@@ -1715,11 +1716,11 @@ def oracle(args):
             #     node_var = "None"
             #     if gold_node_id in oracle.gold_amr.nvars:
             #         node_var = oracle.gold_amr.nvars[gold_node_id]
-    
+
             # update machine,
             machine.update(action, gold=True)
             # machine.node_action_vars.append(node_var)
-            
+
             # update machine stats
             stats.update_machine_stats(machine)
 
@@ -1751,12 +1752,12 @@ def oracle(args):
             stats.tokens,
             '\t'
         )
-        
+
     if args.out_fdec_actions:
         fout = open(args.out_fdec_actions,'w')
         for force_actions in all_force_actions:
             fout.write(str(force_actions)+"\n")
-            
+
     # save action vocabulary stats
     # debug
 
@@ -1766,7 +1767,7 @@ def oracle(args):
         print(f'Action vocabulary stats written in {args.out_stats_vocab}.*')
 
 def play_all_actions(sentences, action_sequences, machine_config, ignore_coref=False):
-    
+
     # This will store the annotations to write
     annotations = []
 
@@ -1793,7 +1794,7 @@ def play_all_actions(sentences, action_sequences, machine_config, ignore_coref=F
         output_machines.append(machine)
 
     return annotations, output_machines
-    
+
 def play(args):
 
     sentences = read_tokenized_sentences(args.in_tokens, '\t')
