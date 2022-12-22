@@ -905,10 +905,11 @@ class AMRStateMachine():
                     valid_base_actions.append('SHIFT')
 
             if (
-                not self.force_actions
+                (not self.force_actions
                 or len(self.force_actions[self.tok_cursor][self.action_cursor:]) <= 1
-                or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['CLOSE_SENTENCE']
-            ):
+                or self.force_actions[self.tok_cursor][self.action_cursor+1:] == ['CLOSE_SENTENCE'])
+                and len(self.sentence_nodes)>0
+            ):  
                 valid_base_actions.append('CLOSE_SENTENCE')
                 
             if self.force_actions and 'CLOSE_SENTENCE' in self.force_actions[self.tok_cursor] and 'SHIFT' in valid_base_actions:
@@ -1043,12 +1044,6 @@ class AMRStateMachine():
             self.in_free_zone = True
             # save current sentence nodes and root
             self.root, self.sentence_edges = force_rooted_connected_graph(self.sentence_nodes, self.sentence_edges, self.root,prune=True,connect_tops=(not gold))
-            if self.root is None:
-                node_id = len(self.action_history)
-                self.nodes[node_id] = 'amr_empty'
-                self.root = node_id
-                self.node_stack.append(node_id)                                                                                        
-                self.alignments[node_id].append(self.tok_cursor-1)
                 
             #append only new edges to self.edges
             for e in self.sentence_edges:
@@ -1535,6 +1530,8 @@ class StatsForVocab:
         self.left_arcs = Counter()
         self.right_arcs = Counter()
         self.control = Counter()
+        #adding close senttence to vocab
+        self.control.update(['CLOSE_SENTENCE'])
 
         # node stack stats (candidate pool for the pointer)
         self.node_stack_corpus = []
