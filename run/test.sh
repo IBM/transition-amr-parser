@@ -55,9 +55,7 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
-    if [ ! -z ${ORACLE_SKIP_ARGS+x} ];then
-
-        if [[ $ORACLE_SKIP_ARGS =~ "--avoid-indices" ]]; then
+    if [[ ! -z ${ORACLE_SKIP_ARGS+x} && $ORACLE_SKIP_ARGS =~ "--avoid-indices" ]]; then
                 echo "removing indices from reference amr"
                 
                 param_str="\"|${ORACLE_SKIP_ARGS//[$'\t\r\n']}|\""
@@ -75,12 +73,13 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
                     --in-file $ORACLE_FOLDER/${data_split_name}.en \
                     --arg-str "$param_str" \
                     --out-file $ORACLE_EN
-        else
-            ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
+       
+    else
+        ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 
-        fi
-    
     fi
+    
+    
 
 elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
     echo "mode doc+sen"
