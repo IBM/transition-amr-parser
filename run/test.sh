@@ -313,18 +313,13 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "$reference_amr"
     echo "${results_prefix}.amr"
 
-    if [ $MODE == "doc" ] || [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
-        if [ $DEV_CHOICE == "doc" ]; then
+    if [[ $MODE == "doc" || ( $MODE == "doc+sen" && $DEV_CHOICE == "doc" ) || $MODE == "doc+sen+pkd" ]];then
+            
             doc-smatch -r 1 --significant 4 --coref-subscore \
                 -f $reference_amr \
                 ${results_prefix}.amr.no_isi \
                 | tee ${results_prefix%"_docAMR"}.smatch
-        else
-            smatch.py -r 10 --significant 4 \
-                -f $reference_amr \
-                ${results_prefix}.amr.no_isi \
-                | tee ${results_prefix}.smatch
-        fi
+            
     else
         smatch.py -r 10 --significant 4 \
             -f $reference_amr \
