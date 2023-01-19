@@ -104,6 +104,12 @@ def argument_parsing():
         help='number of samples, if unset there is no sampling'
     )
     parser.add_argument(
+        '--temperature',
+        type=float,
+        help='temperature for sampling',
+        default=1.0
+    )
+    parser.add_argument(
         '--sampling-topp',
         default=-1,
         type=float,
@@ -523,7 +529,7 @@ class AMRParser:
     def from_checkpoint(cls, checkpoint, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
                         inspector=None, beam=1, nbest=1, num_samples=None,
-                        sampling_topp=-1):
+                        sampling_topp=-1, temperature=1.0):
         '''
         Initialize model from checkpoint
         '''
@@ -556,6 +562,7 @@ class AMRParser:
         args.beam = beam
         args.nbest = nbest
         args.sampling_topp = sampling_topp
+        args.temperature = temperature
         if num_samples is not None:
             args.sampling = True
 
