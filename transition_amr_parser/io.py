@@ -150,7 +150,8 @@ def read_neural_alignments_from_memmap(path, corpus):
     offsets = np.zeros(len(corpus), dtype=np.int)
     offsets[1:] = np.cumsum(sizes[:-1])
 
-    np_align_dist = np.memmap(path, dtype=np.float32, shape=(total_size, 1), mode='r')
+    np_align_dist = np.memmap(path, dtype=np.float32,
+                              shape=(total_size, 1), mode='r')
     align_dist = np.zeros((total_size, 1), dtype=np.float32)
     align_dist[:] = np_align_dist[:]
 
@@ -160,7 +161,8 @@ def read_neural_alignments_from_memmap(path, corpus):
         size = sizes[idx]
         assert size == len(amr.tokens) * len(amr.nodes)
 
-        p_node_and_token = align_dist[offset:offset+size].reshape(len(amr.nodes), len(amr.tokens))
+        p_node_and_token = align_dist[offset:offset +
+                                      size].reshape(len(amr.nodes), len(amr.tokens))
         example_id = idx
         node_short_id = None
         text_tokens = None
@@ -327,6 +329,26 @@ def read_blocks(file_path, return_tqdm=True):
         return tqdm(blocks, leave=False)
     else:
         return blocks
+
+
+def read_penman_metadata(penman_text):
+    '''
+    Read metadata from penman into dictionary
+    '''
+    metadata = {}
+    for line in penman_text.split('\n'):
+        if not line.lstrip().startswith('#'):
+            continue
+        for field in line.split('::'):
+            if field.strip() != '#':
+                items = field.strip().split()
+                if len(items) == 2:
+                    metadata[items[0]] = items[1]
+                elif len(items) == 1:
+                    metadata[items[0]] = True
+                else:
+                    raise Exception(f'{penman_text}')
+    return metadata
 
 
 def read_penmans(amr_files):

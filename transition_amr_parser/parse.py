@@ -889,6 +889,7 @@ def save_multiple_files(args, num_sentences, out_path, string_list):
         # one single output per input
         with open(out_path, 'w') as fid:
             fid.write('\n'.join(string_list))
+            fid.write('\n')
         print(out_path)
 
     elif args.num_samples is not None:
@@ -900,6 +901,7 @@ def save_multiple_files(args, num_sentences, out_path, string_list):
                     string_list[j + i * args.num_samples]
                     for i in range(num_sentences)
                 ]))
+                fid.write('\n')
             print(f'{out_path}.{j}')
     else:
 
@@ -907,6 +909,7 @@ def save_multiple_files(args, num_sentences, out_path, string_list):
         for j in range(args.nbest):
             with open(f'{out_path}.{j}', 'w') as fid:
                 fid.write('\n'.join([x[j] for x in string_list]))
+                fid.write('\n')
             print(f'{out_path}.{j}')
 
 

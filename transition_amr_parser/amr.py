@@ -532,44 +532,50 @@ def find_roots(edges, root):
         num_children[s] += 1
         nodes.add(s)
         nodes.add(t)
-        
+
     heads = [n for n in nodes if num_parents[n] == 0]
 
     if len(nodes) == 1:
         heads = [n for n in nodes]
-    
+
     # if we have edges and no head, there is a cycle. Cut at the node with
     # highest number of children
-    #FIXME changed from highest number of children to returning all candidates with least parents and using num of descendants to judge
+    # FIXME changed from highest number of children to returning all candidates with least parents and using num of descendants to judge
     least_num_parent = 1
-    while len(heads)==0 and edges:
+    while len(heads) == 0 and edges:
         if root is None:
-                # heads = [num_children.most_common(1)[0][0]]
-                heads = [k for k, c in num_parents.items() if c ==least_num_parent]
+            # heads = [num_children.most_common(1)[0][0]]
+            heads = [k for k, c in num_parents.items() if c ==
+                     least_num_parent]
         else:
             heads = [root]
         least_num_parent += 1
     return heads
 
-def check_if_coref_edge(head, edges,rel):
+
+def check_if_coref_edge(head, edges, rel):
     for e in edges:
-        if head==e[0] and e[1]==rel:
-            return (e[2],e[1],e[0])
+        if head == e[0] and e[1] == rel:
+            return (e[2], e[1], e[0])
     return None
+
 
 def intersection_lst(lst1, lst2):
     return list(set(lst1) & set(lst2))
 
-def force_rooted_connected_graph(nodes, edges, root , prune=False, connect_tops=True):
 
-    #prune edges with nodes that are not present in the sentence nodes in case of doc-amr
+def force_rooted_connected_graph(nodes, edges, root, prune=False, 
+                                 connect_tops=True):
+
+    # prune edges with nodes that are not present in the sentence nodes in case
+    # of doc-amr
     if prune:
-        new_edges =[]
-        for (s,l,t) in edges:
+        new_edges = []
+        for (s, l, t) in edges:
             if (s not in nodes) or (t not in nodes):
                 continue
             else:
-                new_edges.append((s,l,t))
+                new_edges.append((s, l, t))
         edges = new_edges
     # locate all heads of the entire graph (there should be only one)
     heads = find_roots(edges, root)
@@ -578,12 +584,12 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False, connect_tops=
     head_descendants = dict()
     total_visited = set()
     loose_nodes = set(nodes)
-    last_num_loose=9999
+    last_num_loose = 9999
     while loose_nodes:
         num_loose = len(loose_nodes)
         if num_loose == last_num_loose:
             heads.extend(loose_nodes)
-            import ipdb; ipdb.set_trace()
+            raise Exception()
         last_num_loose = num_loose
         for head in heads:
             stacks, offending_stacks = trasverse(edges, head)
@@ -599,12 +605,13 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False, connect_tops=
                 if e[0] in loose_nodes and e[2] in loose_nodes:
                     loose_edges.append(e)
             if loose_edges:
-                hds = find_roots(loose_edges,None)
+                hds = find_roots(loose_edges, None)
                 max_des = 0
-                head=None
+                head = None
                 for h in hds:
                     stacks, offending_stacks = trasverse(loose_edges, h)
-                    descendants = set([s[-1][-1] for s in stacks if s[-1][-1] != head])
+                    descendants = set([s[-1][-1]
+                                      for s in stacks if s[-1][-1] != head])
                     if stacks and stacks[0]:
                         descendants |= set(stacks[0][0])
                     head_descendants[h] = descendants
@@ -615,10 +622,9 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False, connect_tops=
             else:
                 heads.extend(loose_nodes)
                 break
-        
 
     # find root strategy: multi-sentence or head with more descendants
-    #FIXME wrong root in the case of cyclic graphs
+    # FIXME wrong root in the case of cyclic graphs
     if root is None:
         if 'multi-sentence' in nodes.values():
             index = list(nodes.values()).index('multi-sentence')
@@ -631,23 +637,25 @@ def force_rooted_connected_graph(nodes, edges, root , prune=False, connect_tops=
             def key(x): return len(x[1])
             root = sorted(head_descendants.items(), key=key)[-1][0]
 
-    #FIXME added fix in case of multiple heads, and they connect at the bottom (children) then no new edge is added
-    if len(heads)>1 and len(head_descendants)>0 and not connect_tops:
+    # FIXME added fix in case of multiple heads, and they connect at the bottom
+    # (children) then no new edge is added
+    if len(heads) > 1 and len(head_descendants) > 0 and not connect_tops:
         intersecting_heads = []
-        for i,head in enumerate(heads):
+        for i, head in enumerate(heads):
             for j, head2 in enumerate(heads):
-                if i!=j:
+                if i != j:
                     if head in head_descendants and head2 in head_descendants:
-                        intsec = intersection_lst(head_descendants[head],head_descendants[head2])
-                        if len(intsec)>0 and intsec!=[None]:
-                            intersecting_heads.extend([head,head2])
+                        intsec = intersection_lst(
+                            head_descendants[head], head_descendants[head2])
+                        if len(intsec) > 0 and intsec != [None]:
+                            intersecting_heads.extend([head, head2])
                             break
                     else:
                         continue
-                        
+
         heads = [i for i in heads if i not in intersecting_heads]
     # connect graph: add rel edges from detached subgraphs to the root
-    for n in heads:# + sorted(loose_nodes):
+    for n in heads:  # + sorted(loose_nodes):
         if n != root:
             edges.append((root, AMR.default_rel, n))
 
@@ -683,11 +691,11 @@ class AMR():
     # relation used for detached subgraph
     default_rel = ':rel'
     # these need to be scaped in node names
-    reserved_amr_chars = [':', '/', '(', ')', '~','#']
+    reserved_amr_chars = [':', '/', '(', ')', '~', '#']
     # TODO: also - + in isolation
 
     def __init__(self, tokens, nodes, edges, root, penman=None,
-                 alignments=None, sentence=None, id=None,sentence_ends=None):
+                 alignments=None, sentence=None, id=None, sentence_ends=None):
 
         # make graph uneditable
         self.sentence = str(sentence) if sentence is not None else None
@@ -703,7 +711,7 @@ class AMR():
         self.root = root
         self.roots = []
         if self.nodes[self.root] == 'document':
-            for (s,rel,t) in self.edges:
+            for (s, rel, t) in self.edges:
                 if s == self.root and rel.startswith(':snt'):
                     self.roots.append(t)
 
@@ -783,9 +791,8 @@ class AMR():
             sentence = None
 
         if 'sentence_ends' in graph.metadata:
-                    sentence_ends = graph.metadata['sentence_ends'].split()
-                    sentence_ends = [int(x) for x in sentence_ends]
-
+            sentence_ends = graph.metadata['sentence_ends'].split()
+            sentence_ends = [int(x) for x in sentence_ends]
 
         # wipe out JAMR notation from metadata since it can become inconsistent
         # also remove unsupported "alignments" field
@@ -819,7 +826,8 @@ class AMR():
         nodes = {nid: normalize(nname) for nid, nname in nodes.items()}
 
         return cls(tokens, nodes, edges, graph.top, penman=graph,
-                   alignments=alignments, sentence=sentence, id=graph_id,sentence_ends=sentence_ends)
+                   alignments=alignments, sentence=sentence, id=graph_id, 
+                   sentence_ends=sentence_ends)
 
     @classmethod
     def from_metadata(cls, jamr_text):
@@ -839,10 +847,11 @@ class AMR():
         """
         Returns graph information in the meta-data
         """
-        snt_ends = self.sentence_ends if hasattr(self,'sentence_ends') else None
+        snt_ends = self.sentence_ends if hasattr(
+            self, 'sentence_ends') else None
         return get_jamr_string(
             self.tokens, self.nodes, self.edges, self.root, self.alignments,
-            penman=penman,sentence_ends=snt_ends
+            penman=penman, sentence_ends=snt_ends
         )
 
     def __str__(self):
@@ -919,7 +928,10 @@ class AMR():
                 tokens_str = ' '.join(self.tokens)
                 metadata_str += f'# ::tok {tokens_str}\n'
             if hasattr(self, 'sentence_ends'):
-                if self.sentence_ends is not None and len(self.sentence_ends)>0:
+                if (
+                    self.sentence_ends is not None 
+                    and len(self.sentence_ends) > 0
+                ):
                     ends_str = [str(x) for x in self.sentence_ends]
                     ends_str = ' '.join(ends_str)
                     metadata_str += f'# ::sentence_ends {ends_str}\n'
