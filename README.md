@@ -47,7 +47,7 @@ Note that all bash scripts always source `set_environment.sh`, so you do not nee
 To install clone and pip install 
 
 ```bash
-git clone git@github.ibm.com:mnlp/transition-amr-parser.git
+git clone git@github.com:IBM/transition-amr-parser.git
 cd transition-amr-parser
 git checkout <branch>     # for e.g. action-pointer, ignore for current version
 . set_environment.sh      # see above
