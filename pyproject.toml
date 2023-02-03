@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "transition_neural_parser"
-version = "0.0.15"
+version = "0.0.20"
 authors = [
   { name="GX", email="GX.Xu@ibm.com" },
 ]
