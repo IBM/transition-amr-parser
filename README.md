@@ -1,11 +1,47 @@
-Transition-based AMR Parser
+Transition-based Neural Parser
 ============================
+
 
 Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. For trained checkpoints see [here](#trained-checkpoints).
 
 - (✨New✨) [Smatch significance testing](scripts/README.md#paired-boostrap-significance-test-for-Smatch): Adds to the regular [Smatch](https://github.com/snowblink14/smatch) tool a significance test with almost no computation overhead. Can test multiple systems for pair-wise significance.
 
 - (✨New✨) [Maximum Bayes Smatch Ensemble Distillation checkpoints](#trained-checkpoints): Includes the three seeds for the ensemble. These are SoTA for AMR parsing. 
+
+
+## Pip Installation Instructions
+1. After your pip install the package, you still need to install an additional dependency, torch-scatter.
+If you are using Linux server; otherwise, please visit torch-scatter's official repo to find matching versions. 
+
+```
+pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+```
+
+2. Download a pretrained AMR parser to your local disk:
+The currently supported MODEL-NAMEs are [AMR3-structbart-L]
+You should be able to find a model checkpoint by navigating inside the unzipped data folder. 
+```
+python 
+from transition_amr_parser.download import model_download
+model_download("file-path-to-save-model", "MODEL-NAME>")
+[Exit python]
+
+unzip <file-path-to-save-model>
+```
+
+3. Run inference using a pretrained AMR parser:
+```
+from transition_amr_parser.parse import AMRParser
+parser = AMRParser.from_checkpoint(checkpoint_path)
+tokens, positions = parser.tokenize('The girl travels and visits places')
+# use parse_sentences() for a batch of sentences
+annotations, machines = parser.parse_sentence(tokens)
+# Print Penman 
+print(annotations)
+```
+
+
+
 
 ### Structured-BART 
 
