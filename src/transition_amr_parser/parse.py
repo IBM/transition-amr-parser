@@ -7,6 +7,8 @@ import copy
 import signal
 import argparse
 from datetime import timedelta
+import urllib.request
+import zipfile
 
 from ipdb import set_trace
 import progressbar
@@ -41,9 +43,6 @@ from transition_amr_parser.merge_sliding_splits import (
     check_pointers
 )
 from transition_amr_parser.amr_machine import play_all_actions
-
-import urllib.request
-import zipfile
 
 def argument_parsing():
 
@@ -529,7 +528,7 @@ class AMRParser:
         return cls.from_checkpoint(checkpoint, **kwargs)
 
     @classmethod
-    def from_model_name(cls, model_name, dict_dir=None,
+    def from_pretrained(cls, model_name, dict_dir=None,
                         roberta_cache_path=None, fp16=False,
                         inspector=None, beam=1, nbest=1, num_samples=None,
                         sampling_topp=-1, temperature=1.0):
@@ -540,7 +539,7 @@ class AMRParser:
                 'AMR3.0':'https://s3.us-east.cloud-object-storage.appdomain.cloud/cloud-object-storage-xc-cos-standard-htg/amr3.0-structured-bart-large-neur-al-sampling5.zip'
             }
         Args:
-            modelname (_type_): _description_
+            modelname (str): a model name within our pretrained model library. 
             dict_dir (_type_, optional): _description_. Defaults to None.
             roberta_cache_path (_type_, optional): _description_. Defaults to None.
             fp16 (bool, optional): _description_. Defaults to False.
@@ -558,30 +557,53 @@ class AMRParser:
         Returns:
             _type_: _description_
         """
-
+        
         MODEL_NAMES = {
-                'AMR3.0':['https://s3.us-east.cloud-object-storage.appdomain.cloud/cloud-object-storage-xc-cos-standard-htg/amr3.0-structured-bart-large-neur-al-sampling5.zip', 'AMR3.0']
-            }
+            'AMR3-structbart-L-smpl': 'amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip',
+            'AMR3-structbart-L': 'amr3.0-structured-bart-large-neur-al-seed42.zip',
+            'AMR2-structbart-L': 'amr2.0-structured-bart-large-neur-al-seed42.zip',
+            'AMR2-joint-ontowiki-seed42': 'amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip',
+            'AMR2-joint-ontowiki-seed43': 'amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip',
+            'AMR2-joint-ontowiki-seed44': 'amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip',
+            'AMR3-joint-ontowiki-seed42': 'amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip',
+            'AMR3-joint-ontowiki-seed43': 'amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip',
+            'AMR3-joint-ontowiki-seed44': 'amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip',
+        }
 
         if model_name not in MODEL_NAMES:
-            raise ValueError('The model_name provided in not in our library')
+            raise ValueError('The model_name provided in not in our library; if you provide a path, \
+                             use from_chackpoint() method instead')
 
-        # get the model path
-        model_url = MODEL_NAMES[model_name][0]
-        model_name_full = model_url.split('/')[-1].split('.zip')[0]
+        # get model class and model names
+        zip_file = MODEL_NAMES[model_name]
+        if "ontowiki2" in zip_file:
+            model_class = zip_file.split("-structured-bart")[0]
+        elif "amr2.0" in zip_file:
+            model_class = "AMR2.0"
+        else:
+            model_class = "AMR3.0"
 
-        # Define the cache path
-        cache_path = torch.hub._get_torch_home() + '/' + model_name_full
+        model_name = zip_file.split("-seed")[0]
+        seed = zip_file.split("-seed")[1][:2]
+
+        # get cache storage dir, in which we save the downloaded models
+        cache_dir = torch.hub._get_torch_home() + '/'
+        cache_save_zip = cache_dir + zip_file
 
         # get checkpoint path
-        AMR_version = MODEL_NAMES[model_name][1]
-        checkpoint_path = os.path.join(cache_path, 'DATA', AMR_version, 'models',
-                                       model_name_full, 'seed42') + '/checkpoint_wiki.smatch_top5-avg.pt' 
+        model_dir_path = os.path.join(cache_dir, "DATA", model_class, "models", model_name, "seed"+str(seed))
+        checkpoint_path = model_dir_path + "/checkpoint_wiki.smatch_top5-avg.pt"
+
+        # get model url to download from
+        model_url = "https://github.com/transition-amr-parsing/parser-model-hub/raw/main/models/" + zip_file
 
         if not os.path.isfile(checkpoint_path):
+            print('Downloading model from library, and save to cache')
             # download and save to cache dir 
+            
             global pbar
             pbar = None
+
             def show_progress(block_num, block_size, total_size):
                 global pbar
                 if pbar is None:
@@ -594,10 +616,17 @@ class AMRParser:
                 else:
                     pbar.finish()
                     pbar = None
-            print('Downloading model from library, and save to cache')
-            urllib.request.urlretrieve(model_url, cache_path + '.zip', show_progress)
-            with zipfile.ZipFile(cache_path + '.zip', 'r') as zip_ref:
+            if not os.path.isfile(cache_save_zip):
+                urllib.request.urlretrieve(model_url, cache_save_zip, show_progress)
+            else:
+                print("a model zip file is already downloaded")
+
+            if os.path.getsize(cache_save_zip)<1000000:
+                raise Exception("our model download limit is reached; please try downloading  again next week.")
+            
+            with zipfile.ZipFile(cache_dir + zip_file, 'r') as zip_ref:
                 zip_ref.extractall(torch.hub._get_torch_home())
+            print("downloaded model unzipped")
             assert os.path.isfile(checkpoint_path), 'checkpoint still not available after downloads;'
         else:
             print('model is already in cache')
