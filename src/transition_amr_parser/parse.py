@@ -9,6 +9,7 @@ import argparse
 from datetime import timedelta
 
 from ipdb import set_trace
+import progressbar
 from tqdm import tqdm
 import torch
 from fairseq import checkpoint_utils, utils
@@ -41,6 +42,8 @@ from transition_amr_parser.merge_sliding_splits import (
 )
 from transition_amr_parser.amr_machine import play_all_actions
 
+import urllib.request
+import zipfile
 
 def argument_parsing():
 
@@ -524,6 +527,84 @@ class AMRParser:
             checkpoint = f'{model_folder}seed{seed}/{dec_checkpoint}'
             assert os.path.isfile(checkpoint), f"{checkpoint} missing"
         return cls.from_checkpoint(checkpoint, **kwargs)
+
+    @classmethod
+    def from_model_name(cls, model_name, dict_dir=None,
+                        roberta_cache_path=None, fp16=False,
+                        inspector=None, beam=1, nbest=1, num_samples=None,
+                        sampling_topp=-1, temperature=1.0):
+        """ Load model checkpoints from available model names; 
+        Will check if the model is downloaded to cache, if not, download from cloud storage; 
+        Below is a list of available modelnames to trun
+            {
+                'AMR3.0':'https://s3.us-east.cloud-object-storage.appdomain.cloud/cloud-object-storage-xc-cos-standard-htg/amr3.0-structured-bart-large-neur-al-sampling5.zip'
+            }
+        Args:
+            modelname (_type_): _description_
+            dict_dir (_type_, optional): _description_. Defaults to None.
+            roberta_cache_path (_type_, optional): _description_. Defaults to None.
+            fp16 (bool, optional): _description_. Defaults to False.
+            inspector (_type_, optional): _description_. Defaults to None.
+            beam (int, optional): _description_. Defaults to 1.
+            nbest (int, optional): _description_. Defaults to 1.
+            num_samples (_type_, optional): _description_. Defaults to None.
+            sampling_topp (int, optional): _description_. Defaults to -1.
+            temperature (float, optional): _description_. Defaults to 1.0.
+
+        Raises:
+            ValueError: The given model name doesn't match any model in library.
+            Exception: _description_
+
+        Returns:
+            _type_: _description_
+        """
+
+        MODEL_NAMES = {
+                'AMR3.0':['https://s3.us-east.cloud-object-storage.appdomain.cloud/cloud-object-storage-xc-cos-standard-htg/amr3.0-structured-bart-large-neur-al-sampling5.zip', 'AMR3.0']
+            }
+
+        if model_name not in MODEL_NAMES:
+            raise ValueError('The model_name provided in not in our library')
+
+        # get the model path
+        model_url = MODEL_NAMES[model_name][0]
+        model_name_full = model_url.split('/')[-1].split('.zip')[0]
+
+        # Define the cache path
+        cache_path = torch.hub._get_torch_home() + '/' + model_name_full
+
+        # get checkpoint path
+        AMR_version = MODEL_NAMES[model_name][1]
+        checkpoint_path = os.path.join(cache_path, 'DATA', AMR_version, 'models',
+                                       model_name_full, 'seed42') + '/checkpoint_wiki.smatch_top5-avg.pt' 
+
+        if not os.path.isfile(checkpoint_path):
+            # download and save to cache dir 
+            global pbar
+            pbar = None
+            def show_progress(block_num, block_size, total_size):
+                global pbar
+                if pbar is None:
+                    pbar = progressbar.ProgressBar(maxval=total_size)
+                    pbar.start()
+
+                downloaded = block_num * block_size
+                if downloaded < total_size:
+                    pbar.update(downloaded)
+                else:
+                    pbar.finish()
+                    pbar = None
+            print('Downloading model from library, and save to cache')
+            urllib.request.urlretrieve(model_url, cache_path + '.zip', show_progress)
+            with zipfile.ZipFile(cache_path + '.zip', 'r') as zip_ref:
+                zip_ref.extractall(torch.hub._get_torch_home())
+            assert os.path.isfile(checkpoint_path), 'checkpoint still not available after downloads;'
+        else:
+            print('model is already in cache')
+        return cls.from_checkpoint(checkpoint_path, dict_dir,
+                                   roberta_cache_path, fp16, inspector,
+                                   beam, nbest, num_samples, sampling_topp,
+                                   temperature)
 
     @classmethod
     def from_checkpoint(cls, checkpoint, dict_dir=None,

@@ -27,10 +27,9 @@ def model_download(fpath, model_name='AMR3-structbart-L'):
         raise ValueError('the model_name entered in invalid')
 
 
-    ACCESS_KEY = 'be9eca08ebfa4f88bf9c0b0099e88c2e'
-    SECRET_KEY = '16a3ecbb6c8a1039de9de2cf6f8d5a7352c6d4cf7d38eb1c'
-    URL='https://s3.us-east.cloud-object-storage.appdomain.cloud'
-
+    ACCESS_KEY = None
+    SECRET_KEY = None
+    URL = None
 
     s3 = boto3.client('s3', endpoint_url=URL ,aws_access_key_id=ACCESS_KEY , aws_secret_access_key=SECRET_KEY)
     s3.download_file('mnlp-models-amr','amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip',fpath)

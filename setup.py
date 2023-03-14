@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.5.2'
+VERSION = '0.5.12.3'
 
 install_requires = [
     "torch==1.13.1",
@@ -22,6 +22,7 @@ install_requires = [
     'pyinstrument>=4.4.0',
     # for aws download
     'boto3>=1.26.1',
+    'progressbar',
 ]
 
 if __name__ == '__main__':
@@ -43,7 +44,7 @@ if __name__ == '__main__':
         py_modules=['fairseq_ext', 'transition_amr_parser'],
         install_requires=install_requires,
         classifiers=[
-            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.8",
             "License :: OSI Approved :: Apache Software License",
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
             "Natural Language :: English",
