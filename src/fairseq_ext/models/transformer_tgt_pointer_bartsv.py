@@ -1559,14 +1559,3 @@ def bart_base_architecture(args):
     args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 12)
     bart_large_architecture(args)
     transformer_pointer(args)    # for explicit showing, but actually redundant
-
-@register_model_architecture("transformer_tgt_pointer_bart", "transformer_tgt_pointer_apt2_mini")
-def bart_apt2_mini_architecture(args):
-    args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 48)
-    args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 4 * 48)
-    args.encoder_layers = getattr(args, "encoder_layers", 2)
-    args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 2)
-    args.decoder_layers = getattr(args, "decoder_layers", 2)
-    args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 2)
-    bart_large_architecture(args)
-    transformer_pointer(args)    # for explicit showing, but actually redundant
