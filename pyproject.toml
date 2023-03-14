@@ -4,18 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "transition_neural_parser"
-version = "0.5.2"
+version = "0.5.12.3"
 authors = [
   { name="GX", email="GX.Xu@ibm.com" },
 ]
-description = "A small example package"
+description = "The package for transition based nueral AMR parser"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = "~=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
 ]
+
+[tool.poetry.platforms]
+os = "linux"
 
 [project.urls]
 "Homepage" = "https://github.ibm.com/mnlp/transition-amr-parser/tree/transition-neural-parser"

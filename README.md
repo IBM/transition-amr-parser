@@ -16,23 +16,12 @@ If you are using Linux server; otherwise, please visit torch-scatter's official 
 ```
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
-
-2. Download a pretrained AMR parser to your local disk:
-The currently supported MODEL-NAMEs are [AMR3-structbart-L]
-You should be able to find a model checkpoint by navigating inside the unzipped data folder. 
-```
-python 
-from transition_amr_parser.download import model_download
-model_download("file-path-to-save-model", "MODEL-NAME>")
-[Exit python]
-
-unzip <file-path-to-save-model>
-```
-
-3. Run inference using a pretrained AMR parser:
+s
+2. Download and run inference using a pretrained AMR parser:
 ```
 from transition_amr_parser.parse import AMRParser
-parser = AMRParser.from_checkpoint(checkpoint_path)
+# download and save to cache a model named AMR3.0
+parser = AMRParser.from_pretrained('AMR3-structbart-L ')
 tokens, positions = parser.tokenize('The girl travels and visits places')
 # use parse_sentences() for a batch of sentences
 annotations, machines = parser.parse_sentence(tokens)
@@ -40,7 +29,26 @@ annotations, machines = parser.parse_sentence(tokens)
 print(annotations)
 ```
 
+## Available Pretrained Models
+The models once run from_pretrained method will be downloaded to the pytorch cache folder as follows:
+```
+cache_dir = torch.hub._get_torch_home()
+```
 
+| pretrained model name                       | corresponding file name| 
+|:----------------------------------------|:-----------:|
+| AMR3-structbart-L-smpl                | amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip      | 
+| AMR3-structbart-L                     | amr3.0-structured-bart-large-neur-al-seed42.zip      | 
+| AMR2-structbart-L                     | amr2.0-structured-bart-large-neur-al-seed42.zip      |
+| AMR2-joint-ontowiki-seed42            | amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip       | 
+| AMR2-joint-ontowiki-seed43            | amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
+| AMR2-joint-ontowiki-seed44            | amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
+| AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | 
+| AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
+| AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
+
+
+## Additional Methods
 
 
 ### Structured-BART 
