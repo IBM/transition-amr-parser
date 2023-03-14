@@ -2,12 +2,7 @@ Transition-based Neural Parser
 ============================
 
 
-Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. See below for the different versions and corresponding papers. For trained checkpoints see [here](#trained-checkpoints).
-
-- (✨New✨) [Smatch significance testing](scripts/README.md#paired-boostrap-significance-test-for-Smatch): Adds to the regular [Smatch](https://github.com/snowblink14/smatch) tool a significance test with almost no computation overhead. Can test multiple systems for pair-wise significance.
-
-- (✨New✨) [Maximum Bayes Smatch Ensemble Distillation checkpoints](#trained-checkpoints): Includes the three seeds for the ensemble. These are SoTA for AMR parsing. 
-
+Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. 
 
 ## Pip Installation Instructions
 1. After your pip install the package, you still need to install an additional dependency, torch-scatter.
@@ -19,10 +14,11 @@ conda activate amr-parser
 pip install transition-neural-parser
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
-s
+
 2. Download and run inference using a pretrained AMR parser:
 ```
 from transition_amr_parser.parse import AMRParser
+
 # download and save to cache a model named AMR3.0
 parser = AMRParser.from_pretrained('AMR3-structbart-L')
 tokens, positions = parser.tokenize('The girl travels and visits places')
@@ -43,10 +39,12 @@ amr.plot()
 ```
 
 ## Available Pretrained Models
-The models once run from_pretrained method will be downloaded to the pytorch cache folder as follows:
+The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
 ```
 cache_dir = torch.hub._get_torch_home()
 ```
+
+This table shows you available pretrained model names to download;
 
 | pretrained model name                       | corresponding file name| 
 |:----------------------------------------|:-----------:|
