@@ -14,6 +14,9 @@ Neural transition-based parser for Abstract Meaning Representation (AMR) produci
 If you are using Linux server; otherwise, please visit torch-scatter's official repo to find matching versions. 
 
 ```
+conda create -n amr-parser python=3.8
+conda activate amr-parser
+pip install transition-neural-parser
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
 s
@@ -21,12 +24,22 @@ s
 ```
 from transition_amr_parser.parse import AMRParser
 # download and save to cache a model named AMR3.0
-parser = AMRParser.from_pretrained('AMR3-structbart-L ')
+parser = AMRParser.from_pretrained('AMR3-structbart-L')
 tokens, positions = parser.tokenize('The girl travels and visits places')
+
 # use parse_sentences() for a batch of sentences
 annotations, machines = parser.parse_sentence(tokens)
+
 # Print Penman 
 print(annotations)
+
+# print into Penman w/o JAMR, ISI
+amr = machines.get_amr()
+print(amr.to_penman(jamr=False, isi=True))
+
+# graph plot (needs matplotlib)
+amr.plot()
+
 ```
 
 ## Available Pretrained Models
@@ -47,8 +60,11 @@ cache_dir = torch.hub._get_torch_home()
 | AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
 | AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
 
+## Future Releases
+The current release only supports a model inference using python script; 
+We will add training and evaluation script in future versions; interested users may refer to this repo for training and evaluation: [here](https://github.com/IBM/transition-amr-parser)
 
-## Additional Methods
+Additionally, Linux and py3.8 are required environment now; future releases will also support MacOS and higher versions of python. 
 
 
 ### Structured-BART 
@@ -67,125 +83,6 @@ The code also contains an implementation of the AMR aligner from [(Naseem et al 
 
 Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
-## IBM Internal Features
-
-IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing web-services, CCC installers/trainers, trained models, etc. 
-
-## Installation
-
-The code needs Pytorch `1.10` and fairseq `0.10.2`. We tested it with Python `3.6-3.7`. We use a `set_environment.sh` script inside of which we activate conda/pyenv and virtual environments, it can contain for example 
-
-```bash
-# inside set_environment.sh
-[ ! -d venv ] && virtualenv venv
-. venv/bin/activate
-```
-OR you can leave this empty and handle environment activation yourself i.e.
-
-```bash
-touch set_environment.sh
-```
-
-Note that all bash scripts always source `set_environment.sh`, so you do not need to source it yourself.
-
-To install clone and pip install 
-
-```bash
-git clone git@github.ibm.com:mnlp/transition-amr-parser.git
-cd transition-amr-parser
-git checkout <branch>     # for e.g. action-pointer, ignore for current version
-. set_environment.sh      # see above
-pip install --editable .   
-```
-
-it installs correctly both on OSX and Linux (RHEL). For linux it may be
-easier to pre-install with conda targeting your architecture, for example
-
-    conda install -y pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=11.3 -c pytorch -c conda-forge
-
-To test if install worked
-```bash
-bash tests/correctly_installed.sh
-```
-To do a mini-test with 25 annotated sentences that we provide. This should take 10 minutes. It wont learn anything but at least will run all stages.
-```bash
-bash tests/minimal_test.sh
-```
-
-## Training a model
-
-You first need to pre-process and align the data. For AMR2.0 do
-
-```bash
-. set_environment.sh
-python scripts/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
-```
-
-You will also need to unzip the precomputed BLINK cache. See issues in this repository to get the cache file (or the link above for IBM-ers).
-
-```
-unzip /path/to/linkcache.zip
-```
-
-To launch train/test use (this will also run the aligner)
-
-```
-bash run/run_experiment.sh configs/amr2.0-structured-bart-large.sh
-```
-
-Training will store and evaluate all checkpoints by default (see config's
-`EVAL_INIT_EPOCH`) and select the one with best dev Smatch. This needs a lot of
-space but you can launch a parallel job that will perform evaluation and delete
-Checkpoints not in the top `5` 
-
-```
-bash run/run_model_eval.sh configs/amr2.0-structured-bart-large.sh
-```
-
-you can check training status with
-
-```
-python run/status.py -c configs/amr2.0-structured-bart-large.sh
-```
-
-use `--results` to check for scores once models are finished.
-
-We include code to launch parallel jobs in the LSF job schedules. This can be
-adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
-
-## Decode with Pre-trained model
-
-To use from the command line with a trained model do
-
-```bash
-amr-parse -c $in_checkpoint -i $input_file -o file.amr
-```
-
-It will parse each line of `$input_file` separately. It assumes tokenization,
-use `--tokenize` otherwise. Once a model is unzipped, `-m <config>` can be used
-instead of `-c`. The `file.amr` will contain the PENMAN notation with ISI
-alignment annotations (`<node name>~<token position>`). Note that Smatch does
-not support ISI and gives worse results. Use `--no-isi` to store alignments in
-`::alignments` meta data. Also use `--jamr` to add JAMR annotations in
-meta-data.
-
-To use from other Python code with a trained model do
-
-```python
-from transition_amr_parser.parse import AMRParser
-parser = AMRParser.from_checkpoint(checkpoint_path)
-tokens, positions = parser.tokenize('The girl travels and visits places')
-# use parse_sentences() for a batch of sentences
-annotations, machines = parser.parse_sentence(tokens)
-# Print Penman 
-print(annotations)
-# transition_amr_parser.amr:AMR from transition_amr_parser.amr_machine:AMRStateMAchine
-amr = machines.get_amr()
-# print into Penman w/o JAMR, ISI
-print(amr.to_penman(jamr=False, isi=True))
-# graph plot (needs matplotlib)
-amr.plot()
-```
 
 ## Trained checkpoints
 
