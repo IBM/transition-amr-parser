@@ -1,8 +1,10 @@
 import numpy as np
+import os
 import argparse
 import re
 import subprocess
-from collections import defaultdict
+from collections import defaultdict, Counter
+from ipdb import set_trace
 from transition_amr_parser.io import read_blocks, read_penmans
 from transition_amr_parser.amr import (
     get_is_atribute, smatch_triples_from_penman
@@ -14,66 +16,60 @@ import smatch
 import penman
 
 
-def cltable(rows):
-    # sanity checks
-    assert isinstance(rows, list)
-    assert all(isinstance(row, list) for row in rows)
-    assert len(set(len(row) for row in rows)) == 1
-    # formatting
-    num_cols = len(rows[0])
-    widths = [max(len(r[n]) for r in rows) for n in range(num_cols)]
-    separator = '  '
-    # get table string
-    string = ''
+def red(text):
+    return "\033[%dm%s\033[0m" % (91, text)
+
+
+def table_str(rows, sep='  ', force_str=False):
+
+    if force_str:
+        rows = [[str(cell) for cell in row] for row in rows]
+
+    table_str = ''
+    # TODO: remove bash color codes
+    bash_special = re.compile(r'\\x1b\[\d+m|\\x1b\[0m')
+    num_rows = len(rows)
+    num_cols = max(len(r) for r in rows)
+
+    # right pad all rows to same length
+    for i in range(num_rows):
+        if len(rows[i]) < num_cols:
+            rows[i] += ['' for _ in range(num_cols - len(rows[i]))]
+
+    # get columns for each width
+    widths = []
+    for n in range(num_cols):
+        widths.append(max([len(bash_special.sub('', r[n])) for r in rows]))
+
     for row in rows:
-        for n in range(num_cols):
-            if n > 0:
-                string += separator
-            string += f'{row[n]:<{widths[n]}}'
-        string += '\n'
-    return string
+        for n, cell in enumerate(row):
+            table_str += f'{sep * int(n > 0)}{cell:<{widths[n]}}'
+        table_str += '\n'
+    return table_str
 
 
-def bootstrap_paired_is_greater_test(scorer, counts1, counts2, restarts=10000):
+def run_bootstrap_paired_test(scorer, counts1, counts2, restarts=1000):
     '''
+    counts are a lists of lists of counts. Outer list is examples, inner
+    example counts
 
-    Implements paired boostrap significance test after
-
-    @Book{Nor89,
-        author = {E. W. Noreen},
-        title =  {Computer-Intensive Methods for Testing Hypotheses},
-        publisher = {John Wiley Sons},
-        year = {1989},
-    }
-
-    SCORER e.g. F1 scores given the sum of statistics for each example in the
-    test set. For example F1 as used in smatch takes arg_number=3:
-    (num_hits, num_predicted, num_gold)
-
-    Normal score computation would be
-
-        SCORE1 = SCORER(*list(COUNTS1.sum(0)))
-        SCORE2 = SCORER(*list(COUNTS2.sum(0)))
-
-    COUNTS1, COUNTS2 are numpy arrays of shape (arg_number, example_number)
-    corresponding to the statistics for each example of each system
-
-    It tests the hypothesis SCORE1 > SCORE2
-
-    The test randomly swaps examples between both sets of counts and sees if
-    this changes the previous bigger than relation (e.g. SCORE1 > SCORE2)
+    scorer takes the sum of counts (as many items as inner list len())
     '''
 
     assert len(counts1) == len(counts2)
 
-    # ensure theyr are arrays
     counts1 = np.array(counts1)
     counts2 = np.array(counts2)
     num_examples = counts1.shape[0]
 
-    # reference score, the second one is assumed to be the smaller and the
-    # baseline to beat
-    reference_score = scorer(*list(counts2.sum(0)))[2]
+    # reference score
+    score1 = scorer(*list(counts1.sum(0)))[2]
+    score2 = scorer(*list(counts2.sum(0)))[2]
+
+    if score1 < score2:
+        reference_score = score1
+    else:
+        reference_score = score2
 
     # scores for random swaps
     better = 0
@@ -109,7 +105,8 @@ def original_triples(penman, index, prefix):
     damr = amr.AMR.parse_AMR_line(fpenman)
     # stop if reading failed
     if damr is None:
-        raise Exception('Smatch AMR reader failed')
+        set_trace(context=30)
+        print()
 
     # original ids
     ids = [x[1] for x in damr.get_triples()[0]]
@@ -148,6 +145,475 @@ def get_triples(amr):
     return attributes, relations
 
 
+def align_instances(instance1, instance2, best_mapping):
+
+    # make decoded items indexable by node position
+    i_map = {int(t[1][1:]): t for t in instance2}
+
+    # store an aligned set of triples
+    triple_pairs = []
+    matched_instances = []
+    for (dtype, nid, nname) in instance1:
+
+        # there can only be one decoded instance assigned to one gold
+        # instance
+        idx = best_mapping[int(nid[1:])]
+
+        if idx == -1:
+            # deletion error
+            triple_pairs.append((dtype, (nid, nname), None, 0))
+            continue
+
+        (dtype2, nid_b, nname_b) = i_map[idx]
+
+        if nname_b == nname:
+
+            # correct match
+            triple_pairs.append(
+                (dtype, (nid, nname), (nid_b, nname_b), 1)
+            )
+
+        else:
+
+            # incorrect match
+            triple_pairs.append(
+                (dtype, (nid, nname), (nid_b, nname_b), 0)
+            )
+
+        # substitution or correct
+        matched_instances.append((dtype2, nid_b, nname_b))
+
+    # insertions
+    missing = sorted(set(instance2) - set(matched_instances))
+    for (dtype2, nid_b, nname_b) in missing:
+        # insertion error
+        triple_pairs.append((dtype, None, (nid_b, nname_b), 0))
+
+    return triple_pairs
+
+
+def align_attributes(attributes1, attributes2, best_mapping, fix1=True, fix2=True):
+
+    # each node can have more than one attribute
+    a_map = defaultdict(list)
+    for t in attributes2:
+        a_map[int(t[1][1:])].append(t)
+    a_map = dict(a_map)
+
+    # store an aligned set of triples
+    triple_pairs = []
+    remaining_attributes = list(attributes2)
+    if fix1:
+        repetitions = Counter(attributes2)
+    else:
+        repetitions = {a: 1 for a in attributes2}
+    for (edge, nid, leaf) in attributes1:
+
+        # instance
+        idx = best_mapping[int(nid[1:])]
+
+        if idx == -1 or idx not in a_map:
+            # deletion error
+            triple_pairs.append(
+                ('attribute', (edge, nid, leaf), None, 0)
+            )
+
+        else:
+
+            # there can only be one decoded instance assigned to one gold
+            # instance
+            triples = a_map[best_mapping[int(nid[1:])]]
+
+            # more than one decoded triple assigned to this gold triple
+            if len(triples) > 1:
+                cmap = {
+                    (aa, bb): i
+                    for i, (aa, cc, bb) in enumerate(triples)
+                    if (aa, cc, bb) in remaining_attributes
+                }
+                if (edge, leaf) in cmap:
+                    index = cmap[(edge, leaf)]
+                    triple_pairs.append(
+                        (
+                            'attribute',
+                            (edge, nid, leaf),
+                            triples[index],
+                            repetitions[triples[index]]
+                        )
+                    )
+                    if triples[index] not in remaining_attributes:
+                        raise Exception()
+                    remaining_attributes.remove(triples[index])
+                else:
+                    triple_pairs.append(
+                        ('attribute', (edge, nid, leaf), None, 0)
+                    )
+
+            elif (
+                (edge, leaf) == (triples[0][0], triples[0][2])
+                # FIXME: tmp patch
+                # and triples[0] in remaining_attributes
+            ):
+                if triples[0] in remaining_attributes:
+                    triple_pairs.append(
+                        (
+                            'attribute',
+                            (edge, nid, leaf),
+                            triples[0],
+                            repetitions[triples[0]]
+                        )
+                    )
+                    remaining_attributes.remove(triples[0])
+                elif fix2:
+                    # TODO: This also double counts. Need to put a none since
+                    # its duplicate
+                    triple_pairs.append(
+                        (
+                            'attribute',
+                            (edge, nid, leaf),
+                            None,
+                            repetitions[triples[0]]
+                        )
+                    )
+                else:
+                    raise Exception()
+
+            elif triples[0] not in remaining_attributes:
+                # TODO: this is an odd case, should it happen?
+                triple_pairs.append(
+                    ('attribute', (edge, nid, leaf), None, 0)
+                )
+
+            else:
+                triple_pairs.append(
+                    ('attribute', (edge, nid, leaf), triples[0], 0)
+                )
+                if triples[0] not in remaining_attributes:
+                    raise Exception()
+                remaining_attributes.remove(triples[0])
+
+    # insertions
+    for (edge, nid, leaf) in sorted(remaining_attributes):
+        triple_pairs.append(
+            ('attribute', None, (edge, nid, leaf), 0)
+        )
+
+    return triple_pairs
+
+
+def align_relations(relation1, relation2, best_mapping, fix1=True, fix2=True):
+
+    # each node pair can have more than one relation
+    r_map = defaultdict(list)
+    for t in relation2:
+        r_map[(int(t[1][1:]), int(t[2][1:]))].append(t)
+    r_map = dict(r_map)
+
+    # store an aligned set of triples
+    triple_pairs = []
+    remaining_edges = list(relation2)
+    # TODO: Why is this needed to reproduce results?. Also this makes Smatch
+    # not symmetric
+    if fix1:
+        repetitions = Counter(relation2)
+    else:
+        repetitions = {r: 1 for r in relation2}
+    for (edge, nid, nid2) in relation1:
+        idx1 = best_mapping[int(nid[1:])]
+        idx2 = best_mapping[int(nid2[1:])]
+        key = (idx1, idx2)
+        if key not in r_map:
+            # deletions
+            triple_pairs.append(
+                ('relation', (edge, nid, nid2), None, 0)
+            )
+
+        else:
+
+            # matches
+            if len(r_map[key]) > 1:
+                cmap = {
+                    aa: i for i, (aa, bb, cc) in enumerate(r_map[key])
+                    if (aa, bb, cc) in remaining_edges
+                }
+                if edge in cmap:
+                    index = cmap[edge]
+                    triple_pairs.append(
+                        (
+                            'relation',
+                            (edge, nid, nid2),
+                            r_map[key][index],
+                            repetitions[r_map[key][index]]
+                        )
+                    )
+                    if r_map[key][index] not in remaining_edges:
+                        raise Exception()
+                    remaining_edges.remove(r_map[key][index])
+                else:
+                    triple_pairs.append(
+                        ('relation', (edge, nid, nid2), None, 0)
+                    )
+
+            elif edge == r_map[key][0][0]:
+
+                if r_map[key][0] in remaining_edges:
+                    triple_pairs.append(
+                        (
+                            'relation',
+                            (edge, nid, nid2),
+                            r_map[key][0],
+                            repetitions[r_map[key][0]]
+                        )
+                    )
+                    remaining_edges.remove(r_map[key][0])
+                elif fix2:
+                    # TODO: This also double counts. Need to put a none since
+                    # its duplicate
+                    triple_pairs.append(
+                        (
+                            'relation',
+                            (edge, nid, nid2),
+                            None,
+                            repetitions[r_map[key][0]]
+                        )
+                    )
+                else:
+                    raise Exception()
+
+            elif r_map[key][0] not in remaining_edges:
+                # TODO: this is an odd case, should it happen?
+                triple_pairs.append(
+                    ('relation', (edge, nid, nid2), None, 0)
+                )
+
+            else:
+                triple_pairs.append(
+                    ('relation', (edge, nid, nid2), r_map[key][0], 0)
+                )
+                if r_map[key][0] not in remaining_edges:
+                    raise Exception()
+                remaining_edges.remove(r_map[key][0])
+
+    # insertions
+    for (edge, nid, nid2) in sorted(remaining_edges):
+        triple_pairs.append(
+            ('relation', None, (edge, nid, nid2), 0)
+        )
+
+    return triple_pairs
+
+
+def triples_to_table(triples, colors=False):
+    rows = []
+    for (dtype, gold, dec, score) in triples:
+        if dtype == 'instance':
+            if gold is None:
+                gold = ''
+            else:
+                gold = '/'.join(gold)
+            if dec is None:
+                dec = ''
+            else:
+                dec = '/'.join(dec)
+            if score > 0 or not colors:
+                rows.append((dtype, gold, dec, str(score)))
+            else:
+                rows.append((dtype, gold, dec, red(score)))
+
+        elif dtype == 'attribute':
+            if gold is None:
+                gold = ''
+            else:
+                (s, l, t) = gold
+                gold = ' '.join([s, f':{l}', t])
+            if dec is None:
+                dec = ''
+            else:
+                (s, l, t) = dec
+                dec = ' '.join([s, f':{l}', t])
+            if score > 0 or not colors:
+                rows.append((dtype, gold, dec, str(score)))
+            else:
+                rows.append((dtype, gold, dec, red(score)))
+
+        elif dtype == 'relation':
+            if gold is None:
+                gold = ''
+            else:
+                (s, l, t) = gold
+                gold = ' '.join([s, f':{l}', t])
+            if dec is None:
+                dec = ''
+            else:
+                (s, l, t) = dec
+                dec = ' '.join([s, f':{l}', t])
+            if score > 0 or not colors:
+                rows.append((dtype, gold, dec, str(score)))
+            else:
+                rows.append((dtype, gold, dec, red(score)))
+
+        else:
+            raise Exception()
+
+    return rows
+
+
+def sanity_check_aligned_triples(items_a, items_b, paired, best_match_num):
+    '''
+    Format triples into a table-like formal that can be printed or saved
+    '''
+
+    # unpack each variable
+    instance1, attributes1, relation1, ids_a = items_a
+    instance2, attributes2, relation2, ids_b = items_b
+    ins_pairs, att_pairs, rel_pairs = paired
+
+    # original number of triples of each is kept
+    if ins_pairs:
+        _, gold_ins, dec_ins, _ = zip(*ins_pairs)
+    else:
+        gold_ins = []
+        dec_ins = []
+    if att_pairs:
+        _, gold_att, dec_att, _ = zip(*att_pairs)
+    else:
+        gold_att = []
+        dec_att = []
+    if rel_pairs:
+        _, gold_rel, dec_rel, _ = zip(*rel_pairs)
+    else:
+        gold_rel = []
+        dec_rel = []
+
+    def clean(y):
+        if y == []:
+            return y
+        elif [x for x in y if x is not None] == []:
+            return []
+        elif len([x for x in y if x is not None][0]) == 2:
+            return sorted([('instance', x[0], x[1]) for x in y if x is not None])
+        else:
+            return sorted([x for x in y if x is not None])
+
+    gold_ins = clean(gold_ins)
+    gold_att = clean(gold_att)
+    gold_rel = clean(gold_rel)
+    dec_ins = clean(dec_ins)
+    dec_att = clean(dec_att)
+    dec_rel = clean(dec_rel)
+
+    assert gold_ins == sorted(instance1)
+    assert dec_ins == sorted(instance2)
+    assert gold_att == sorted(attributes1)
+    assert dec_att == sorted(attributes2)
+    assert gold_rel == sorted(relation1)
+    assert dec_rel == sorted(relation2)
+
+    # number of hits match
+    ins_hits = sum([x[-1] for x in ins_pairs])
+    att_hits = sum([x[-1] for x in att_pairs])
+    rel_hits = sum([x[-1] for x in rel_pairs])
+    assert best_match_num == (ins_hits + att_hits + rel_hits)
+
+    rows = triples_to_table(ins_pairs + att_pairs + rel_pairs)
+    print(table_str(rows))
+
+
+def remap_ids(inst_pairs, att_pairs, rel_pairs, ids_a, ids_b):
+
+    # use the original ids
+    # instances
+    inst_pairs2 = []
+    for (t, gold, dec, c) in inst_pairs:
+        if gold is None:
+            di, dn = dec
+            dec = (ids_b[int(di[1:])], dn)
+            gold = None
+
+        elif dec is None:
+            gi, gn = gold
+            dec = None
+            gold = (ids_a[int(gi[1:])], gn)
+
+        else:
+            gi, gn = gold
+            di, dn = dec
+            gold = (ids_a[int(gi[1:])], gn)
+            dec = (ids_b[int(di[1:])], dn)
+        inst_pairs2.append((t, gold, dec, c))
+    inst_pairs = inst_pairs2
+
+    # attributes
+    att_pairs2 = []
+    for (t, gold, dec, c) in att_pairs:
+        if gold is None:
+            ds, di, dt = dec
+            dec = (ids_b[int(di[1:])], ds, dt)
+            gold = None
+
+        elif dec is None:
+            gs, gi, gt = gold
+            dec = None
+            gold = (ids_a[int(gi[1:])], gs, gt)
+        else:
+            gs, gi, gt = gold
+            ds, di, dt = dec
+            dec = (ids_b[int(di[1:])], ds, dt)
+            gold = (ids_a[int(gi[1:])], gs, gt)
+        att_pairs2.append((t, gold, dec, c))
+    att_pairs = att_pairs2
+
+    # relations
+    rel_pairs2 = []
+    for (t, gold, dec, c) in rel_pairs:
+        if gold is None:
+            de, ds, dt = dec
+            gold = None
+            dec = (ids_b[int(di[1:])], de, ids_b[int(dt[1:])])
+
+        elif dec is None:
+            ge, gs, gt = gold
+            gold = (ids_a[int(gs[1:])], ge, ids_a[int(gt[1:])])
+            dec = None
+
+        else:
+            ge, gs, gt = gold
+            de, ds, dt = dec
+            gold = (ids_a[int(gs[1:])], ge, ids_a[int(gt[1:])])
+            dec = (ids_b[int(ds[1:])], de, ids_b[int(dt[1:])])
+        rel_pairs2.append((t, gold, dec, c))
+    rel_pairs = rel_pairs2
+
+    return inst_pairs, att_pairs, rel_pairs
+
+
+def get_aligned_triples(items_a, items_b, best_mapping, best_match_num):
+
+    # for (snt_idx, triple_type, gold_triple, dec_triple, correct) in aligned_triples:
+    #    if not correct:
+
+    # unpack each variables
+    instance1, attributes1, relation1, ids_a = items_a
+    instance2, attributes2, relation2, ids_b = items_b
+
+    # create lists of aligned gold and decoded triples
+    inst_pairs = align_instances(instance1, instance2, best_mapping)
+    att_pairs = align_attributes(attributes1, attributes2, best_mapping)
+    rel_pairs = align_relations(relation1, relation2, best_mapping)
+
+    # check numbers match smatchs
+    paired = inst_pairs, att_pairs, rel_pairs
+
+    # sanity_check_aligned_triples(items_a, items_b, paired, best_match_num)
+
+    inst_pairs, att_pairs, rel_pairs = \
+        remap_ids(inst_pairs, att_pairs, rel_pairs, ids_a, ids_b)
+
+    triple_pairs = inst_pairs + att_pairs + rel_pairs
+
+    return triple_pairs
+
+
 class Stats():
 
     def __init__(self, amr_labels, bootstrap_test, bootstrap_test_restarts,
@@ -164,21 +630,32 @@ class Stats():
     def update(self, sent_idx, amr_idx, best_mapping, best_match_num, items_a,
                items_b):
 
+        # if sent_idx == 23:
+        #    from ipdb import set_trace; set_trace(context=30)
+
+        # extract aligned mapping
+        triple_pairs = get_aligned_triples(
+            items_a, items_b, best_mapping, best_match_num
+        )
+
         instance1, attributes1, relation1, ids_a = items_a
         instance2, attributes2, relation2, ids_b = items_b
+
+        # use smatch code to compute partial scores
+        gold_triple_num = len(instance1) + len(attributes1) + len(relation1)
+        test_triple_num = len(instance2) + len(attributes2) + len(relation2)
 
         # compute alignments using the original ids
         sorted_ids_b = [ids_b[i] if i != -1 else i for i in best_mapping]
         best_id_map = dict(zip(ids_a, sorted_ids_b))
 
-        # use smatch code to compute partial scores
-        test_triple_num = len(instance1) + len(attributes1) + len(relation1)
-        gold_triple_num = len(instance2) + len(attributes2) + len(relation2)
-
         # data structure with statistics
         amr_statistics = dict(
-            best_id_map=best_id_map, best_match_num=best_match_num,
-            test_triple_num=test_triple_num, gold_triple_num=gold_triple_num
+            best_id_map=best_id_map,
+            best_match_num=best_match_num,
+            test_triple_num=test_triple_num,
+            gold_triple_num=gold_triple_num,
+            triple_pairs=triple_pairs
         )
 
         if len(self.statistics) - 1 == sent_idx:
@@ -199,86 +676,74 @@ class Stats():
                 f'({best_match_num}, {test_triple_num}, {gold_triple_num})'
             ))
 
-    def plot_bootstrap_test_score_differences(self, hypotheses):
-
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 10))
-        num_cols = min(4, len(hypotheses))
-        num_rows = np.ceil(len(hypotheses) / num_cols)
-        index = 0
-        nbins = 100
-        for hypothesis in hypotheses:
-            i, j = hypothesis['indices']
-            plt.subplot(int(num_rows), int(num_cols), index + 1)
-            plt.hist(hypothesis['score_differences'], bins=nbins)
-            plt.plot([0, 0], [0, 50], 'r--')
-            if hypothesis['is_greater']:
-                rel = '>'
-            else:
-                rel = '<'
-            if self.amr_labels:
-                title = f'{self.amr_labels[i]} {rel} {self.amr_labels[j]}'
-            else:
-                title = f'{i} {rel} {j}'
-            plt.title(title)
-            index += 1
-        print(f'wrote {self.out_boostrap_png}')
-        plt.savefig(self.out_boostrap_png)
-
     def bootstrap_test_all_pairs(self):
 
         num_amrs = len(self.statistics[0])
 
-        # run test for every pair ignoring the reverse pair
-        hypotheses = []
+        # get all AMR pairings and run a test for each
+        pairs = []
         for i in range(num_amrs):
-            for j in range(i+1, num_amrs):
+            for j in range(num_amrs):
+                if j > i:
+                    pairs.append((i, j))
 
-                # gather statistics for each AMR
-                stats1 = np.array([(
+        # run over every pair
+        p_value = {}
+        delta = {}
+        for i, j in pairs:
+            p_value[(i, j)], delta[(i, j)] = run_bootstrap_paired_test(
+                # F-measure
+                compute_f,
+                # counts
+                [(
                     amrs[i]['best_match_num'],
                     amrs[i]['test_triple_num'],
                     amrs[i]['gold_triple_num']
-                ) for amrs in self.statistics])
-                stats2 = np.array([(
+                ) for amrs in self.statistics],
+                [(
                     amrs[j]['best_match_num'],
                     amrs[j]['test_triple_num'],
                     amrs[j]['gold_triple_num']
-                ) for amrs in self.statistics])
-
-                # compute initial scores
-                score1 = compute_f(*stats1.sum(0))
-                score2 = compute_f(*stats2.sum(0))
-
-                # hypotheses first is greater than second
-                if score1 > score2:
-                    p_value, delta = bootstrap_paired_is_greater_test(
-                        compute_f, stats1, stats2,
-                        restarts=self.bootstrap_test_restarts
-                    )
-                    hypotheses.append({
-                        'indices': (i, j),
-                        'is_greater': True,
-                        'p_value': p_value,
-                        'score_differences': delta
-                    })
-
-                else:
-                    p_value, delta = bootstrap_paired_is_greater_test(
-                        compute_f, stats2, stats1,
-                        restarts=self.bootstrap_test_restarts
-                    )
-                    hypotheses.append({
-                        'indices': (i, j),
-                        'is_greater': False,
-                        'p_value': p_value,
-                        'score_differences': delta
-                    })
+                ) for amrs in self.statistics],
+                # number of restarts
+                restarts=self.bootstrap_test_restarts
+            )
 
         if self.out_boostrap_png:
-            self.plot_bootstrap_test_score_differences(hypotheses)
 
-        return hypotheses
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(10, 10))
+            num_cols = min(4, len(delta.keys()))
+            num_rows = np.ceil(len(delta.keys()) / num_cols)
+            index = 0
+            nbins = 100
+            for (i, j) in delta.keys():
+                plt.subplot(int(num_rows), int(num_cols), index + 1)
+                plt.hist(delta[(i, j)], bins=nbins)
+                plt.plot([0, 0], [0, 50], 'r--')
+                if self.amr_labels:
+                    plt.title(f'({self.amr_labels[i]}, {self.amr_labels[j]})')
+                else:
+                    plt.title(f'({i}, {j})')
+                index += 1
+            print(f'wrote {self.out_boostrap_png}')
+            plt.savefig(self.out_boostrap_png)
+
+        return p_value
+
+    def compute_corpus_scores_from_aligned_triples(self):
+        # sanity check to compare with the function below
+
+        num_amrs = len(self.statistics[0])
+        counts = [[0, 0, 0] for _ in range(num_amrs)]
+        for amrs in self.statistics:
+            for amr_idx, stats in amrs.items():
+                _, gold, dec, score = zip(*stats['triple_pairs'])
+                counts[amr_idx][0] += sum(score)
+                counts[amr_idx][1] += sum([x is not None for x in dec])
+                counts[amr_idx][2] += sum([x is not None for x in gold])
+
+        return counts, [compute_f(*amr_counts) for amr_counts in counts]
 
     def compute_corpus_scores(self):
 
@@ -301,6 +766,7 @@ class Stats():
 
         # compute aggregate stats and corpus-level normalization
         counts, corpus_scores = self.compute_corpus_scores()
+        # counts2, corpus_scores2 = self.compute_corpus_scores_from_aligned_triples()
 
         num_amrs = len(self.statistics[0])
         if self.amr_labels:
@@ -310,7 +776,7 @@ class Stats():
 
         # score strings
         rows = [
-            ['model', '#hits', '#gold', '#tries',  'P',   'R',  'Smatch']
+            ['model', '#hits', '#tries', '#gold',  'P',   'R',  'Smatch']
         ]
         for i in range(num_amrs):
             p, r, smatch = corpus_scores[i]
@@ -318,36 +784,51 @@ class Stats():
                 f'{labels[i]}', f'{counts[i][0]}', f'{counts[i][1]}',
                 f'{counts[i][2]}', f'{p:.3f}', f'{r:.3f}', f'{smatch:.3f}'
             ])
+        # widths
+        widths = [max(len(r[n]) for r in rows) for n in range(len(rows[0]))]
         # padded display
-        string = cltable(rows)
+        string = ''
+        for i, row in enumerate(rows):
+            padded_row = []
+            for n, col in enumerate(row):
+                if n == 0:
+                    padded_row.append(f'{col:<{widths[n]}}')
+                else:
+                    padded_row.append(f'{col:^{widths[n]}}')
+            string += ' '.join(padded_row) + '\n'
 
         if self.bootstrap_test:
-            hypotheses = self.bootstrap_test_all_pairs()
-            rows = []
-            for hypothesis in hypotheses:
-                i, j = hypothesis['indices']
-                pv = hypothesis['p_value']
-                if hypothesis['is_greater']:
-                    rel = '>'
-                else:
-                    rel = '<'
-                if hypothesis['p_value'] < 0.05:
-                    sig = 'significant'
-                else:
-                    sig = 'not significant'
+            p_value = self.bootstrap_test_all_pairs()
+            string += '\nboostrap paired randomized test\n'
+            for (i, j), p in p_value.items():
                 if self.amr_labels:
                     label_i = self.amr_labels[i]
                     label_j = self.amr_labels[j]
-                    rows.append(
-                        [f'{label_i} {rel} {label_j}', f'{pv:.3f}', sig]
-                    )
+                    string += f'({label_i}, {label_j}) {p:.3f}\n'
                 else:
-                    rows.append([f'{i} {rel} {j}', f'{pv:.3f}', sig])
-
-            string += '\nboostrap paired randomized test\n'
-            string += cltable(rows)
+                    string += f'({i}, {j}) {p:.3f}\n'
 
         return string
+
+    def save_aligned_triples(self, in_amrs, amr_labels,
+                             out_aligned_triples_dir):
+
+        header = ['sentence_index', 'type', 'gold_triple', 'dec_triple', 'score']
+        for amr_index, amr_file  in enumerate(in_amrs):
+            if amr_labels:
+                label = amr_labels[amr_index]
+            else:
+                label = amr_index
+            os.makedirs(out_aligned_triples_dir, exist_ok=True)
+            path = f'{out_aligned_triples_dir}/{label}.tsv'
+            with open(path, 'w') as fid:
+                fid.write('\t'.join(header) + '\n')
+                for snt_idx, amrs in enumerate(self.statistics):
+                    rows = triples_to_table(amrs[amr_index]['triple_pairs'])
+                    for row in rows:
+                        row2 = list(row)
+                        row2.insert(0, str(snt_idx))
+                        fid.write('\t'.join(row2) + '\n')
 
 
 def main(args):
@@ -370,6 +851,8 @@ def main(args):
 
     # loop over each reference sentence and one or more decoded AMRs
     for sent_index, dec_penmans in enumerate(corpus_penmans):
+
+        # if sent_index > 30: break
 
         # reference
         gold_penman = gold_penmans[sent_index]
@@ -424,6 +907,12 @@ def main(args):
 
     print(stats)
 
+    # write triples
+    if args.out_aligned_triples_dir:
+        stats.save_aligned_triples(
+            args.in_amrs, args.amr_labels, args.out_aligned_triples_dir
+        )
+
 
 def argument_parser():
 
@@ -474,6 +963,11 @@ def argument_parser():
     parser.add_argument(
         "--out-boostrap-png",
         help="Plots for the boostrap test.",
+        type=str
+    )
+    parser.add_argument(
+        "--out-aligned-triples-dir",
+        help="Stores gold-decoded aligned triples. One per file in --in-amrs",
         type=str
     )
     # flags
