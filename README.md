@@ -4,7 +4,7 @@ Transition-based Neural Parser
 
 Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. 
 
-## Pip Installation Instructions
+### Pip Installation Instructions
 1. After your pip install the package, you still need to install an additional dependency, torch-scatter.
 If you are using Linux server; otherwise, please visit torch-scatter's official repo to find matching versions. 
 
@@ -38,7 +38,7 @@ amr.plot()
 
 ```
 
-## Available Pretrained Models
+### Available Pretrained Models
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
 ```
 cache_dir = torch.hub._get_torch_home()
@@ -58,12 +58,14 @@ This table shows you available pretrained model names to download;
 | AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
 | AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
 
-## Future Releases
-The current release only supports a model inference using python script; 
+### Future Releases
+The current release only supports model inference using python script; 
 We will add training and evaluation script in future versions; interested users may refer to this repo for training and evaluation: [here](https://github.com/IBM/transition-amr-parser)
 
-Additionally, Linux and py3.8 are required environment now; future releases will also support MacOS and higher versions of python. 
+Additionally, Linux operating system and Python 3.8 are required environment now; future releases will also support MacOS and higher versions of python. 
 
+Current and past releases:
+v1.0.0 correspond to v0.5.2 in [here](https://github.com/IBM/transition-amr-parser).
 
 ### Structured-BART 
 
