@@ -1,42 +1,67 @@
 Transition-based Neural Parser
 ============================
 
+transition-neural-parser is a powerful and easy-to-use Python package that provides a state-of-the-art neural transition-based parser for Abstract Meaning Representation (AMR). AMR is a semantic formalism used to represent the meaning of natural language sentences in a structured and machine-readable format. The package is designed to enable users to perform AMR parsing with high accuracy and generate reliable token-to-node alignments, which are crucial for various natural language understanding and generation tasks.
 
-Neural transition-based parser for Abstract Meaning Representation (AMR) producing state-of-the-art AMR parsing and reliable token to node alignments. 
 
 ### Pip Installation Instructions
-1. After your pip install the package, you still need to install an additional dependency, torch-scatter.
-If you are using Linux server; otherwise, please visit torch-scatter's official repo to find matching versions. 
+Step 1: Create and activate a new conda environment
+To ensure compatibility and prevent potential conflicts, create a new conda environment with Python 3.8:
 
 ```
 conda create -n amr-parser python=3.8
+```
+
+Activate the newly created environment:
+
+```
 conda activate amr-parser
+```
+
+Step 2: Install the package and dependencies
+Install the transition-neural-parser package using pip:
+
+```
 pip install transition-neural-parser
+```
+
+Next, install the torch-scatter dependency. For Linux servers, use the following command:
+
+```
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
 
-2. Download and run inference using a pretrained AMR parser:
+
+For other operating systems, please visit the official torch-scatter repository to find the appropriate installation instructions.
+
+Step 3: Download a pretrained AMR parser and run inference
+Here is an example of how to download and use a pretrained AMR parser:
+
 ```
 from transition_amr_parser.parse import AMRParser
 
-# download and save to cache a model named AMR3.0
+# Download and save a model named AMR3.0 to cache
 parser = AMRParser.from_pretrained('AMR3-structbart-L')
 tokens, positions = parser.tokenize('The girl travels and visits places')
 
-# use parse_sentences() for a batch of sentences
+# Use parse_sentence() for single sentences or parse_sentences() for a batch
 annotations, machines = parser.parse_sentence(tokens)
 
-# Print Penman 
+# Print Penman notation
 print(annotations)
 
-# print into Penman w/o JAMR, ISI
+# Print Penman notation without JAMR, with ISI
 amr = machines.get_amr()
 print(amr.to_penman(jamr=False, isi=True))
 
-# graph plot (needs matplotlib)
+# Plot the graph (requires matplotlib)
 amr.plot()
 
 ```
+
+This example demonstrates how to tokenize a sentence, parse it using the pretrained AMR parser, and print the resulting AMR graph in Penman notation. If you have matplotlib installed, you can also visualize the graph.
+
+
 
 ### Available Pretrained Models
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
@@ -58,14 +83,20 @@ This table shows you available pretrained model names to download;
 | AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
 | AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
 
-### Future Releases
-The current release only supports model inference using python script; 
-We will add training and evaluation script in future versions; interested users may refer to this repo for training and evaluation: [here](https://github.com/IBM/transition-amr-parser)
+### Upcoming Features
 
-Additionally, Linux operating system and Python 3.8 are required environment now; future releases will also support MacOS and higher versions of python. 
+The current release primarily supports model inference using Python scripts. In future versions, we plan to expand the capabilities of this package by:
 
-Current and past releases:
-v1.0.0 correspond to v0.5.2 in [here](https://github.com/IBM/transition-amr-parser).
+- Adding training and evaluation scripts for a more comprehensive user experience. Interested users can refer to the [IBM/transition-amr-parser](https://github.com/IBM/transition-amr-parser) repository for training and evaluation in the meantime.
+- Broadening platform support to include MacOS and higher versions of Python, in addition to the current support for the Linux operating system and Python 3.8.
+
+
+
+
+### Release History
+
+- **v1.0.0**: This release corresponds to v0.5.2 in the [IBM/transition-amr-parser](https://github.com/IBM/transition-amr-parser) repository.
+
 
 ### Structured-BART 
 
