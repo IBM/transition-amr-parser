@@ -1,10 +1,12 @@
 Transition-based Neural Parser
 ============================
 
+
+## transition-neural-parser
 **transition-neural-parser** is a powerful and easy-to-use Python package that provides a state-of-the-art neural transition-based parser for Abstract Meaning Representation (AMR). AMR is a semantic formalism used to represent the meaning of natural language sentences in a structured and machine-readable format. The package is designed to enable users to perform AMR parsing with high accuracy and generate reliable token-to-node alignments, which are crucial for various natural language understanding and generation tasks.
 
 
-### Pip Installation Instructions
+## Pip Installation Instructions
 Step 1: Create and activate a new conda environment
 To ensure compatibility and prevent potential conflicts, create a new conda environment with Python 3.8:
 
@@ -63,7 +65,7 @@ This example demonstrates how to tokenize a sentence, parse it using the pretrai
 
 
 
-### Available Pretrained Models
+## Available Pretrained Models
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
 ```
 cache_dir = torch.hub._get_torch_home()
@@ -83,7 +85,7 @@ This table shows you available pretrained model names to download;
 | AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
 | AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
 
-### Upcoming Features
+## Upcoming Features
 
 The current release primarily supports model inference using Python scripts. In future versions, we plan to expand the capabilities of this package by:
 
@@ -93,11 +95,13 @@ The current release primarily supports model inference using Python scripts. In 
 
 
 
-### Release History
+## Release History
 
 - **v1.0.0**: This release corresponds to v0.5.2 in the [IBM/transition-amr-parser](https://github.com/IBM/transition-amr-parser) repository.
 
 
+
+## Research and Evaluation Results
 ### Structured-BART 
 
 Current version (`0.5.2`). Structured-BART [(Zhou et al 2021b)](https://aclanthology.org/2021.emnlp-main.507/) encodes the parser state using specialized cross and self-attention heads and leverages BART's language model to replace the use of subgraph actions and lemmatizer, thus enabling a much simpler oracle with 100% coverage. It yields `84.2` Smatch (`84.7` with silver data and `84.9` with ensemble). Version `0.5.2` introduces the ibm-neural-aligner [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) yielding a base AMR3.0 performance of `82.7` (`83.1` with latent alignment training). Structured-BART is also used for [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) which yields a new single model SoTA of `85.7` for AMR2.0 and `84.1` for AMR3.0 by introducing Smatch-based ensemble distillation.
@@ -115,17 +119,9 @@ The code also contains an implementation of the AMR aligner from [(Naseem et al 
 Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
 
-## Trained checkpoints
+## Evaluating Trained checkpoints
 
-We offer some trained checkpoints on demand. These can be download from AWS by using
-
-    pip install awscli
-    aws --endpoint-url=$URL s3 cp s3://mnlp-models-amr/<config>(-seed<N>).zip .
-    unzip <config>(-seed<N>).zip
-
-you will need access keys and URL. We provide these on an individual basis (sends us an email). For updates on available models see [here](https://twitter.com/RamonAstudill12). After unzipping, parsers should also be available by name from any folder as `AMRParser.load('<config>')`
-
-Current available parsers are
+We offer some trained checkpoints on demand, and their evalution score measured in Smatch is below:
 
 |  paper                                                          |  config(.zip)                                         | beam    | Smatch  |
 |:---------------------------------------------------------------:|:------------------------------------------------------:|:-------:|:-------:|
