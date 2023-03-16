@@ -1,7 +1,7 @@
 Transition-based Neural Parser
 ============================
 
-transition-neural-parser is a powerful and easy-to-use Python package that provides a state-of-the-art neural transition-based parser for Abstract Meaning Representation (AMR). AMR is a semantic formalism used to represent the meaning of natural language sentences in a structured and machine-readable format. The package is designed to enable users to perform AMR parsing with high accuracy and generate reliable token-to-node alignments, which are crucial for various natural language understanding and generation tasks.
+**transition-neural-parser** is a powerful and easy-to-use Python package that provides a state-of-the-art neural transition-based parser for Abstract Meaning Representation (AMR). AMR is a semantic formalism used to represent the meaning of natural language sentences in a structured and machine-readable format. The package is designed to enable users to perform AMR parsing with high accuracy and generate reliable token-to-node alignments, which are crucial for various natural language understanding and generation tasks.
 
 
 ### Pip Installation Instructions
