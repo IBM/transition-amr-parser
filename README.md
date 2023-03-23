@@ -20,21 +20,14 @@ Activate the newly created environment:
 conda activate amr-parser
 ```
 
-Step 2: Install the package and dependencies
+Step 2: Install the package
 Install the transition-neural-parser package using pip:
 
 ```
 pip install transition-neural-parser
 ```
 
-Next, install the torch-scatter dependency. For Linux servers, use the following command:
-
-```
-pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
-```
-
-
-For other operating systems, please visit the official torch-scatter repository to find the appropriate installation instructions.
+Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
 Step 3: Download a pretrained AMR parser and run inference
 Here is an example of how to download and use a pretrained AMR parser:
