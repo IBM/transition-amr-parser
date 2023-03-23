@@ -685,13 +685,13 @@ class AMRParser:
             raise ValueError
 
         model_folder = os.path.dirname(checkpoint.split(':')[0])
-        config_data_path = None
-        for dfile in os.listdir(model_folder):
-            if dfile.startswith('config.sh'):
-                config_data_path = os.path.join(model_folder, dfile)
-                break
-        assert config_data_path is not None, \
-            'data configuration file not found'
+        # config_data_path = None
+        # for dfile in os.listdir(model_folder):
+        #     if dfile.startswith('config.sh'):
+        #         config_data_path = os.path.join(model_folder, dfile)
+        #         break
+        # assert config_data_path is not None, \
+        #     'data configuration file not found'
 
         print("pretrained_embed: ", pretrained_embed)
         embeddings = SentenceEncodingBART(name=pretrained_embed)
