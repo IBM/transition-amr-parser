@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.5.12.3'
+VERSION = '0.5.2.1'
 
 install_requires = [
     "torch==1.13.1",
@@ -23,6 +23,7 @@ install_requires = [
     # for aws download
     'boto3>=1.26.1',
     'progressbar',
+    'torch-scatter @ https://data.pyg.org/whl/torch-1.13.0%2Bcu117/torch_scatter-2.1.0%2Bpt113cu117-cp38-cp38-linux_x86_64.whl',
 ]
 
 if __name__ == '__main__':
@@ -50,3 +51,4 @@ if __name__ == '__main__':
             "Natural Language :: English",
         ],
     )
+
