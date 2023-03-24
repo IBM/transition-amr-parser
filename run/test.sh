@@ -164,7 +164,7 @@ mkdir -p $RESULTS_FOLDER
 # --quiet
 
 reg_generate () {
-    python fairseq_ext/generate.py \
+    python src/fairseq_ext/generate.py \
                 $DATA_FOLDER  \
                 --emb-dir $EMB_FOLDER \
                 --user-dir ./fairseq_ext \
@@ -197,7 +197,7 @@ if [ ! -f "${results_prefix}.actions" ];then
             done
             gen_subsets=${data_split}_0
             for i in $(seq 1 $((num-1)) ); do gen_subsets=${gen_subsets}","${data_split}_$i ; done;
-            python fairseq_ext/generate_sliding.py \
+            python src/fairseq_ext/generate_sliding.py \
                 $DATA_FOLDER  \
                 --emb-dir $EMB_FOLDER \
                 --user-dir ./fairseq_ext \
@@ -218,7 +218,7 @@ if [ ! -f "${results_prefix}.actions" ];then
         
             echo "merging all splits"
             cp $DATA_FOLDER/${data_split}.windows $RESULTS_FOLDER/${data_split}.windows
-            python transition_amr_parser/merge_sliding_splits.py \
+            python src/transition_amr_parser/merge_sliding_splits.py \
             --input-dir $RESULTS_FOLDER \
             --data-split ${data_split}
 
@@ -234,7 +234,7 @@ fi
 
 if [ ! -f "${results_prefix}.amr" ];then
     ##### Create the AMR from the model obtained actions
-    python transition_amr_parser/amr_machine.py \
+    python src/transition_amr_parser/amr_machine.py \
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --in-tokens $ORACLE_EN \
         --in-actions ${results_prefix}.actions \

@@ -85,7 +85,7 @@ if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_best3.pt ]]; then
 fi
 
 if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_top3-avg.pt ]]; then
-    python fairseq_ext/average_checkpoints.py \
+    python src/fairseq_ext/average_checkpoints.py \
         --input \
             $checkpoints_folder/checkpoint_${EVAL_METRIC}_best1.pt \
             $checkpoints_folder/checkpoint_${EVAL_METRIC}_best2.pt \
@@ -102,7 +102,7 @@ fi
 
 
 if [[ ! -f $checkpoints_folder/checkpoint_${EVAL_METRIC}_top5-avg.pt ]]; then
-    python fairseq_ext/average_checkpoints.py \
+    python src/fairseq_ext/average_checkpoints.py \
         --input \
             $checkpoints_folder/checkpoint_${EVAL_METRIC}_best1.pt \
             $checkpoints_folder/checkpoint_${EVAL_METRIC}_best2.pt \

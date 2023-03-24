@@ -72,6 +72,7 @@ logger = logging.getLogger("fairseq_cli.train")
 
 def main(args):
 
+    # otherwise we run into problems with support for Half
     if not torch.cuda.is_available():
         args.fp16 = False
 

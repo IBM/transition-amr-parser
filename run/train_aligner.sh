@@ -49,24 +49,24 @@ else
         ${AMR_TEST_FILE_WIKI}.no_wiki
 
     # tokenize
-    python ibm_neural_aligner/tokenize_amr.py \
+    python src/ibm_neural_aligner/tokenize_amr.py \
         --in-amr ${AMR_TRAIN_FILE_WIKI}.no_wiki \
         --out-amr $ALIGNED_FOLDER/train.unaligned.txt
-    python ibm_neural_aligner/tokenize_amr.py \
+    python src/ibm_neural_aligner/tokenize_amr.py \
         --in-amr ${AMR_DEV_FILE_WIKI}.no_wiki \
         --out-amr $ALIGNED_FOLDER/dev.unaligned.txt
-    python ibm_neural_aligner/tokenize_amr.py \
+    python src/ibm_neural_aligner/tokenize_amr.py \
         --in-amr ${AMR_TEST_FILE_WIKI}.no_wiki \
         --out-amr $ALIGNED_FOLDER/test.unaligned.txt
 
     # dummy align
-    python ibm_neural_aligner/dummy_align.py \
+    python src/ibm_neural_aligner/dummy_align.py \
         --in-amr $ALIGNED_FOLDER/train.unaligned.txt \
         --out-amr $ALIGNED_FOLDER/train.dummy_align.txt
-    python ibm_neural_aligner/dummy_align.py \
+    python src/ibm_neural_aligner/dummy_align.py \
         --in-amr $ALIGNED_FOLDER/dev.unaligned.txt \
         --out-amr $ALIGNED_FOLDER/dev.dummy_align.txt
-    python ibm_neural_aligner/dummy_align.py \
+    python src/ibm_neural_aligner/dummy_align.py \
         --in-amr $ALIGNED_FOLDER/test.unaligned.txt \
         --out-amr $ALIGNED_FOLDER/test.dummy_align.txt
 
@@ -85,7 +85,7 @@ if [ -f $ALIGNED_FOLDER/.done.cache_data ]; then
 else
 
     # Generate text and AMR vocabulary.
-    python ibm_neural_aligner/vocab.py \
+    python src/ibm_neural_aligner/vocab.py \
         --in-amrs \
             $ALIGNED_FOLDER/train.unaligned.txt \
             $ALIGNED_FOLDER/dev.unaligned.txt \
@@ -94,10 +94,10 @@ else
         --out-amr $ALIGN_VOCAB_AMR
 
     # Pre-compute embeddings for text and AMR.
-    python ibm_neural_aligner/pretrained_embeddings.py --cuda \
+    python src/ibm_neural_aligner/pretrained_embeddings.py --cuda \
         --cache-dir $ALIGNED_FOLDER \
         --vocab $ALIGNED_FOLDER/vocab.text.txt
-    python ibm_neural_aligner/pretrained_embeddings.py --cuda \
+    python src/ibm_neural_aligner/pretrained_embeddings.py --cuda \
         --cache-dir $ALIGNED_FOLDER \
         --vocab $ALIGNED_FOLDER/vocab.amr.txt
 
@@ -112,7 +112,7 @@ if [ -f $ALIGNED_FOLDER/.done.train ]; then
 
 else
 
-    python ibm_neural_aligner/main.py \
+    python src/ibm_neural_aligner/main.py \
         --cuda \
         --cache-dir $ALIGNED_FOLDER \
         --vocab-text $ALIGNED_FOLDER/vocab.text.txt \
@@ -141,7 +141,7 @@ if [ -f $ALIGNED_FOLDER/.done ]; then
 else
 
    # Get alignment probabilities.
-   python ibm_neural_aligner/main.py --cuda \
+   python src/ibm_neural_aligner/main.py --cuda \
        --cache-dir $ALIGNED_FOLDER \
        --load $ALIGNED_FOLDER/log/model.latest.pt \
        --load-flags $ALIGNED_FOLDER/log/flags.json \
@@ -154,7 +154,7 @@ else
        --single-input $ALIGNED_FOLDER/train.dummy_align.txt \
        --single-output $ALIGNED_FOLDER/alignment.trn.align_dist.npy
 
-    python ibm_neural_aligner/align_utils.py write_argmax \
+    python src/ibm_neural_aligner/align_utils.py write_argmax \
        --in-amr $ALIGNED_FOLDER/train.dummy_align.txt \
        --in-amr-align-dist $ALIGNED_FOLDER/alignment.trn.align_dist.npy \
        --out-amr-aligned $ALIGNED_FOLDER/train.txt

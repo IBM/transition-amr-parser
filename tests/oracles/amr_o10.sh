@@ -9,7 +9,7 @@ oracle_folder=DATA/unit_test_$(basename $(dirname $gold_amr))/
 mkdir -p $oracle_folder 
  
 # get actions from oracle
-python transition_amr_parser/amr_machine.py \
+python src/transition_amr_parser/amr_machine.py \
     --in-aligned-amr $gold_amr \
     --out-machine-config $oracle_folder/machine_config.json \
     --out-actions $oracle_folder/train.actions \
@@ -20,7 +20,7 @@ python transition_amr_parser/amr_machine.py \
     # --reduce-nodes all
 
 # play actions on state machine
-python transition_amr_parser/amr_machine.py \
+python src/transition_amr_parser/amr_machine.py \
     --in-machine-config $oracle_folder/machine_config.json \
     --in-tokens $oracle_folder/train.tokens \
     --in-actions $oracle_folder/train.actions \

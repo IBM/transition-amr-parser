@@ -17,7 +17,7 @@ python scripts/doc-amr/get_doc_amr_from_sen.py \
             --out-amr $oracle_folder/train_${NORM}.docamr
 
 # get actions from oracle
-python transition_amr_parser/amr_machine.py \
+python src/transition_amr_parser/amr_machine.py \
     --in-aligned-amr $oracle_folder/train_${NORM}.docamr \
     --out-machine-config $oracle_folder/machine_config.json \
     --out-actions $oracle_folder/train.actions \
@@ -27,7 +27,7 @@ python transition_amr_parser/amr_machine.py \
     # --reduce-nodes all
 
 # play actions on state machine
-python transition_amr_parser/amr_machine.py \
+python src/transition_amr_parser/amr_machine.py \
     --in-machine-config $oracle_folder/machine_config.json \
     --in-tokens $oracle_folder/train.tokens \
     --in-actions $oracle_folder/train.actions \

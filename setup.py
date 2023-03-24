@@ -34,7 +34,7 @@ if __name__ == '__main__':
         package_dir={"": "src"},
         # packages=['fairseq_ext', 'transition_amr_parser'],
         # packages=['neural_parser'],
-        packages=find_packages("src", exclude=('cenv_*', 'configs', 'tests', 'DATA','dist','docker','ibm_neural_aligner','run','scripts','service','*egg-info')),
+        packages=find_packages("src", exclude=('cenv_*', 'configs', 'tests', 'DATA','dist','docker','run','scripts','service','*egg-info')),
         package_data={'': ['*.txt', '*.md', '*.opt', '*.cu', '*.cpp']},
         entry_points={
             'console_scripts': [
@@ -42,7 +42,7 @@ if __name__ == '__main__':
                 'amr-machine = transition_amr_parser.amr_machine:main',
             ]
         },
-        py_modules=['fairseq_ext', 'transition_amr_parser'],
+        py_modules=['fairseq_ext', 'transition_amr_parser',"ibm_neural_aligner"],
         install_requires=install_requires,
         classifiers=[
             "Programming Language :: Python :: 3.8",

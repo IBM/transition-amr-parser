@@ -76,7 +76,7 @@ else
         if [[ $SLIDING == 1 ]]; then
             if [[ $TRAIN_SLIDING == 1 ]] && [[ ! -f $ORACLE_FOLDER/train_unsplit.actions ]]; then
                 echo "train sliding windows"
-                python transition_amr_parser/make_sliding_splits.py \
+                python src/transition_amr_parser/make_sliding_splits.py \
                 --oracle-dir $ORACLE_FOLDER \
                 --data-split train \
                 $SLIDING_ARGS
@@ -87,12 +87,12 @@ else
                 rename 'train_0' 'train' $ORACLE_FOLDER/train_0.*
                 
             fi
-            python transition_amr_parser/make_sliding_splits.py \
+            python src/transition_amr_parser/make_sliding_splits.py \
             --oracle-dir $ORACLE_FOLDER \
             --data-split dev \
             $SLIDING_ARGS
 
-            python transition_amr_parser/make_sliding_splits.py \
+            python src/transition_amr_parser/make_sliding_splits.py \
             --oracle-dir $ORACLE_FOLDER \
             --data-split test \
             $SLIDING_ARGS
@@ -108,7 +108,7 @@ else
 
     if [[ $TASK == "amr_action_pointer" ]]; then
 
-        python fairseq_ext/preprocess.py \
+        python src/fairseq_ext/preprocess.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \
             --task $TASK \
@@ -127,7 +127,7 @@ else
 
     elif [[ $TASK == "amr_action_pointer_graphmp" ]]; then
 
-        python fairseq_ext/preprocess_graphmp.py \
+        python src/fairseq_ext/preprocess_graphmp.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \
             --task $TASK \
@@ -149,7 +149,7 @@ else
         # get_valid_canonical_actions to deal with a single exmple in training
         # set with self-loop
     
-        python fairseq_ext/preprocess_graphmp.py \
+        python src/fairseq_ext/preprocess_graphmp.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \
             --task $TASK \
@@ -166,7 +166,7 @@ else
 
     elif [[ $TASK == "amr_action_pointer_bart" ]]; then
         
-        python fairseq_ext/preprocess_bart.py \
+        python src/fairseq_ext/preprocess_bart.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \
             --task $TASK \
@@ -207,7 +207,7 @@ else
 
     elif [[ $TASK == "amr_action_pointer_bartsv" ]]; then
 
-        python fairseq_ext/preprocess_bartsv.py \
+        python src/fairseq_ext/preprocess_bartsv.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \
             --task $TASK \
@@ -225,7 +225,7 @@ else
 
     elif [[ $TASK == "amr_action_pointer_bart_dyo" ]]; then
 
-        python fairseq_ext/preprocess_bart.py \
+        python src/fairseq_ext/preprocess_bart.py \
             $FAIRSEQ_PREPROCESS_FINETUNE_ARGS \
             --user-dir ./fairseq_ext \
             --task $TASK \

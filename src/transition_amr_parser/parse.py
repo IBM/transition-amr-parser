@@ -1164,7 +1164,7 @@ def prepare_data(args, parser):
         if args.tokenize:
             # TODO: have tokenized as default
             # jamr-like tokenization
-            with open(args.in_tok_sentences) as fid:
+            with open(args.in_tokenized_sentences) as fid:
                 tok_sentences = [
                     protected_tokenizer(sentence.rstrip())[0]
                     for sentence in fid.readlines()

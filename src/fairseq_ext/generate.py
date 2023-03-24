@@ -92,6 +92,11 @@ def main(args):
     assert args.replace_unk is None or args.raw_text, \
         '--replace-unk requires a raw text dataset (--raw-text)'
 
+
+    # otherwise we run into problems with support for Half
+    if not torch.cuda.is_available():
+        args.fp16 = False
+
     import_user_module(args)
 
     if args.max_tokens is None and args.max_sentences is None:

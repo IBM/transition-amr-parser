@@ -65,7 +65,7 @@ else
             # kernprof -l fairseq_ext/train.py \
             # python -m ipdb fairseq_ext/train.py \
             # python fairseq_ext/train.py \
-            python fairseq_ext/train.py \
+            python src/fairseq_ext/train.py \
                 $DATA_FOLDER \
                 --emb-dir $EMB_FOLDER \
                 $FAIRSEQ_TRAIN_FINETUNE_ARGS \
@@ -142,7 +142,7 @@ else
             # apt-bart with shared and mixed src and tgt vocabulary
 	    
             # python -m ipdb fairseq_ext/train.py \
-            python fairseq_ext/train.py \
+            python src/fairseq_ext/train.py \
                 $DATA_FOLDER \
                 --emb-dir $EMB_FOLDER \
                 --user-dir fairseq_ext \
@@ -216,7 +216,7 @@ else
 
         # with graph structure
 
-        python fairseq_ext/train.py \
+        python src/fairseq_ext/train.py \
             $DATA_FOLDER \
             --emb-dir $EMB_FOLDER \
             $FAIRSEQ_TRAIN_FINETUNE_ARGS \

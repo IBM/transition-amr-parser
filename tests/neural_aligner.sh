@@ -25,7 +25,7 @@ bash run/train_aligner.sh $config
 
 # Align data.
 mkdir -p $ALIGNED_FOLDER/version_20210709c_exp_0_seed_0_write_amr2
-python -u ibm_neural_aligner/main.py \
+python -u src/ibm_neural_aligner/main.py \
     --no-jamr \
     --cuda --allow-cpu \
     --vocab-text $ALIGN_VOCAB_TEXT \

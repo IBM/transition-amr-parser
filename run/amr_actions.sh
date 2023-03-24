@@ -75,7 +75,7 @@ else
 	    if [ $TRAIN_DOC == "both" ];then
 		echo -e "\n Adding conll data"
 		cp $CONLL_DATA $ORACLE_FOLDER/
-		python transition_amr_parser/add_sentence_amrs_to_file.py \
+		python src/transition_amr_parser/add_sentence_amrs_to_file.py \
                        --in-amr $ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out \
                        --out-amr $TRAIN_IN_AMR
 	    
@@ -83,14 +83,14 @@ else
 
         if [ $MODE == "doc+sen" ];then
             echo -e "\n Doc+sen mode Adding sentence data"
-            python transition_amr_parser/add_sentence_amrs_to_file.py \
+            python src/transition_amr_parser/add_sentence_amrs_to_file.py \
                 --in-amr $AMR_SENT_TRAIN_FILE \
                 --out-amr $TRAIN_IN_AMR 
         fi
 
         if [ $MODE = "doc+sen+pkd" ]; then
             echo -e "\n Doc+sen mode Adding sentence data"
-            python transition_amr_parser/add_sentence_amrs_to_file.py \
+            python src/transition_amr_parser/add_sentence_amrs_to_file.py \
                 --in-amr $AMR_SENT_TRAIN_FILE \
                 --out-amr $TRAIN_IN_AMR 
             python scripts/doc-amr/pack_amrs.py \
@@ -107,7 +107,7 @@ else
         cp $TRAIN_IN_AMR $ORACLE_FOLDER/ref_train.amr
     fi
 
-    python transition_amr_parser/amr_machine.py \
+    python src/transition_amr_parser/amr_machine.py \
         --in-aligned-amr $TRAIN_IN_AMR \
         --out-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/train.actions \
@@ -195,7 +195,7 @@ else
 
     
 
-    python transition_amr_parser/amr_machine.py \
+    python src/transition_amr_parser/amr_machine.py \
         --in-aligned-amr $DEV_IN_AMR \
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/dev.actions \
@@ -269,7 +269,7 @@ else
         cp $TEST_IN_AMR $ORACLE_FOLDER/ref_test.amr
     fi
 
-    python transition_amr_parser/amr_machine.py \
+    python src/transition_amr_parser/amr_machine.py \
         --in-aligned-amr $TEST_IN_AMR \
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
         --out-actions $ORACLE_FOLDER/test.actions \
