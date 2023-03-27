@@ -3,21 +3,24 @@ Transition-based Neural Parser
 
 
 ## transition-neural-parser
-**transition-neural-parser** is a powerful and easy-to-use Python package that provides a state-of-the-art neural transition-based parser for Abstract Meaning Representation (AMR). AMR is a semantic formalism used to represent the meaning of natural language sentences in a structured and machine-readable format. The package is designed to enable users to perform AMR parsing with high accuracy and generate reliable token-to-node alignments, which are crucial for various natural language understanding and generation tasks.
+**transition-neural-parser** is a powerful and easy-to-use Python package that provides a state-of-the-art neural transition-based parser for Abstract Meaning Representation (AMR). 
+
+AMR is a semantic formalism used to represent the meaning of natural language sentences in a structured and machine-readable format. The package is designed to enable users to perform AMR parsing with high accuracy and generate reliable token-to-node alignments, which are crucial for various natural language understanding and generation tasks.
 
 
 ## Pip Installation Instructions
-Step 1: Create and activate a new conda environment
+Step 1: Create and activate a new conda environment;
+
 To ensure compatibility and prevent potential conflicts, create a new conda environment with Python 3.8:
 
 ```
-conda create -n amr-parser python=3.8
+conda create -y -p ./cenv_x86 python=3.8
 ```
 
 Activate the newly created environment:
 
 ```
-conda activate amr-parser
+conda activate ./cenv_x86
 ```
 
 Step 2: Install the package
@@ -36,7 +39,9 @@ pip install -e .
 
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
-Step 3: Download a pretrained AMR parser and run inference
+## Decode with pretrained model
+**Python Option:** Download a pretrained AMR parser and run inference;
+
 Here is an example of how to download and use a pretrained AMR parser:
 
 ```
@@ -64,6 +69,19 @@ amr.plot()
 This example demonstrates how to tokenize a sentence, parse it using the pretrained AMR parser, and print the resulting AMR graph in Penman notation. If you have matplotlib installed, you can also visualize the graph.
 
 
+**Command Line Option:** Use the command line to run a pretrained model to parse a file:
+
+```bash
+amr-parse -c $in_checkpoint -i $input_file -o file.amr
+```
+
+It will parse each line of `$input_file` separately. It assumes tokenization,
+use `--tokenize` otherwise. Once a model is unzipped, `-m <config>` can be used
+instead of `-c`. The `file.amr` will contain the PENMAN notation with ISI
+alignment annotations (`<node name>~<token position>`). Note that Smatch does
+not support ISI and gives worse results. Use `--no-isi` to store alignments in
+`::alignments` meta data. Also use `--jamr` to add JAMR annotations in
+meta-data.
 
 ## Available Pretrained Models
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
@@ -85,20 +103,55 @@ This table shows you available pretrained model names to download;
 | AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
 | AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
 
+
+## Training a model
+
+You first need to pre-process and align the data. For AMR2.0 do
+
+```bash
+conda activate ./cenv_x86 # activate parser environment
+python scripts/merge_files.py /path/to/LDC2017T10/data/amrs/split/ DATA/AMR2.0/corpora/
+```
+
+You will also need to unzip the precomputed BLINK cache. See issues in this repository to get the cache file (or the link above for IBM-ers).
+
+```
+unzip /path/to/linkcache.zip
+```
+
+To launch train/test use (this will also run the aligner)
+
+```
+bash run/run_experiment.sh configs/amr2.0-structured-bart-large.sh
+```
+
+Training will store and evaluate all checkpoints by default (see config's
+`EVAL_INIT_EPOCH`) and select the one with best dev Smatch. This needs a lot of
+space but you can launch a parallel job that will perform evaluation and delete
+Checkpoints not in the top `5` 
+
+```
+bash run/run_model_eval.sh configs/amr2.0-structured-bart-large.sh
+```
+
+you can check training status with
+
+```
+python run/status.py -c configs/amr2.0-structured-bart-large.sh
+```
+
+use `--results` to check for scores once models are finished.
+
+We include code to launch parallel jobs in the LSF job schedules. This can be
+adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
+
+
 ## Upcoming Features
 
 The current release primarily supports model inference using Python scripts. In future versions, we plan to expand the capabilities of this package by:
 
-- Adding training and evaluation scripts for a more comprehensive user experience. Interested users can refer to the [IBM/transition-amr-parser](https://github.com/IBM/transition-amr-parser) repository for training and evaluation in the meantime.
-- Broadening platform support to include MacOS and higher versions of Python, in addition to the current support for the Linux operating system and Python 3.8.
-
-
-
-
-## Release History
-
-- **v1.0.0**: This release corresponds to v0.5.2 in the [IBM/transition-amr-parser](https://github.com/IBM/transition-amr-parser) repository.
-
+- Adding python training and evaluation scripts for a more comprehensive user experience. Interested users can refer to the [IBM/transition-amr-parser](https://github.com/IBM/transition-amr-parser) repository for training and evaluation in the meantime.
+- Broadening platform support to include M1 MacOS and higher versions of Python, in addition to the current support for the Linux operating system and Python 3.8.
 
 
 ## Research and Evaluation Results
@@ -118,6 +171,10 @@ The code also contains an implementation of the AMR aligner from [(Naseem et al 
 
 Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
+
+## IBM Internal Features
+
+IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing web-services, CCC installers/trainers, trained models, etc. 
 
 ## Evaluating Trained checkpoints
 
