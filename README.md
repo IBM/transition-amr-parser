@@ -27,6 +27,13 @@ Install the transition-neural-parser package using pip:
 pip install transition-neural-parser
 ```
 
+Alternatively, you can install locally; 
+Go to the root directory of the project and then run the following:
+
+```
+pip install -e .
+```
+
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
 Step 3: Download a pretrained AMR parser and run inference
