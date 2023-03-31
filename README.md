@@ -63,7 +63,6 @@ else
     conda activate ./cenv_x86
 fi
 ```
-touch set_environment.sh
 Note that all bash scripts always source set_environment.sh, so you do not need to source it yourself anymore. 
 
 ## Decode with pretrained model
