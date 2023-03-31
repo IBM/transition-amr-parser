@@ -40,6 +40,30 @@ pip install -e .
 
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
+Step 3: Set a environment file for training
+We use a set_environment.sh script inside of which we activate conda environment; it is used for model training.
+
+First create the file at top-level directory of the project.
+```
+touch set_environment.sh
+```
+
+An example would be following, where the only line to change is where to source the conda.sh file. 
+```
+# inside set_environment.sh
+if [ ! -d cenv_x86 ];then
+    echo "Environment cenv_x86 not found"
+    exit 1
+else
+    printf "\033[94mconda activate ./cenv_x86\033[0m\n"
+    # replace the below line with the path your local conda location. 
+    source /dccstor/gxamr/anaconda3/etc/profile.d/conda.sh.  # Please change this line
+    conda activate ./cenv_x86
+fi
+```
+touch set_environment.sh
+Note that all bash scripts always source set_environment.sh, so you do not need to source it yourself anymore. 
+
 ## Decode with pretrained model
 **Python Option:** Download a pretrained AMR parser and run inference;
 
