@@ -9,7 +9,7 @@ AMR is a semantic formalism used to represent the meaning of natural language se
 
 
 ## Pip Installation Instructions
-Step 1: Create and activate a new conda environment;
+**Step 1: Create and activate a new conda environment;**
 
 To ensure compatibility and prevent potential conflicts, create a new conda environment with Python 3.8:
 
@@ -23,7 +23,7 @@ Activate the newly created environment:
 conda activate ./cenv_x86
 ```
 
-Step 2: Install the package
+**Step 2: Install the package**
 Install the transition-neural-parser package using pip:
 
 ```
@@ -40,7 +40,7 @@ pip install -e .
 
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
-Step 3: Set a environment file for training
+**Step 3: (Optional)Set a environment file (only for bash script training and evaluation)**
 We use a set_environment.sh script inside of which we activate conda environment; it is used for model training.
 
 First create the file at top-level directory of the project.
