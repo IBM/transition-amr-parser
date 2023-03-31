@@ -28,6 +28,7 @@ Install the transition-neural-parser package using pip:
 
 ```
 pip install transition-neural-parser
+pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
 
 Alternatively, you can install locally; 
