@@ -39,6 +39,19 @@ pip install -e .
 
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
+Step 3: Install docAMR repo
+
+To be able to run docamr , the docAMR repo must be cloned and installed.
+
+```
+git clone https://github.com/IBM/docAMR.git
+cd docAMR
+pip install .
+cd ..
+
+```
+
+
 ## Decode with pretrained model
 **Python Option:** Download a pretrained AMR parser and run inference;
 
