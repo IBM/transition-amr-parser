@@ -43,6 +43,7 @@ from transition_amr_parser.merge_sliding_splits import (
     check_pointers
 )
 from transition_amr_parser.amr_machine import play_all_actions
+from transition_amr_parser.clbar import yellow_font
 
 def argument_parsing():
 
@@ -825,6 +826,8 @@ class AMRParser:
                 # args.nbest is default 1, i.e. saving only the top predictions
                 if 'bartsv' in self.model_args.arch:
                     # shared vocabulary BART
+                    if bool(self.args.in_actions):
+                        print(yellow_font('WARNING: Given force actions will npot be used since model is joint vocab model and force actions have nott been implemented '))
                     actions_nopos, actions_pos, actions = \
                         post_process_action_pointer_prediction_bartsv(
                             hypo, self.tgt_dict
