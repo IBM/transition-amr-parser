@@ -77,7 +77,7 @@ else
 		echo -e "\n Adding conll data"
 		cp $CONLL_DATA $ORACLE_FOLDER/
         conllf_basename="$(basename $CONLL_DATA)"
-		python transition_amr_parser/add_sentence_amrs_to_file.py \
+		python src/transition_amr_parser/add_sentence_amrs_to_file.py \
                        --in-amr $ORACLE_FOLDER/${conllf_basename} \
                        --out-amr $TRAIN_IN_AMR
 	    
