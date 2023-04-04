@@ -45,6 +45,7 @@ from transition_amr_parser.merge_sliding_splits import (
 from transition_amr_parser.amr_machine import play_all_actions
 from transition_amr_parser.clbar import yellow_font
 
+
 def argument_parsing():
 
     # Argument hanlding
@@ -558,7 +559,7 @@ class AMRParser:
         Returns:
             _type_: _description_
         """
-        
+
         MODEL_NAMES = {
             'AMR3-structbart-L-smpl': 'amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip',
             'AMR3-structbart-L': 'amr3.0-structured-bart-large-neur-al-seed42.zip',
@@ -592,7 +593,8 @@ class AMRParser:
         cache_save_zip = cache_dir + zip_file
 
         # get checkpoint path
-        model_dir_path = os.path.join(cache_dir, "DATA", model_class, "models", model_name, "seed"+str(seed))
+        model_dir_path = os.path.join(
+            cache_dir, "DATA", model_class, "models", model_name, "seed"+str(seed))
         checkpoint_path = model_dir_path + "/checkpoint_wiki.smatch_top5-avg.pt"
 
         # get model url to download from
@@ -600,8 +602,8 @@ class AMRParser:
 
         if not os.path.isfile(checkpoint_path):
             print('Downloading model from library, and save to cache')
-            # download and save to cache dir 
-            
+            # download and save to cache dir
+
             global pbar
             pbar = None
 
@@ -618,17 +620,20 @@ class AMRParser:
                     pbar.finish()
                     pbar = None
             if not os.path.isfile(cache_save_zip):
-                urllib.request.urlretrieve(model_url, cache_save_zip, show_progress)
+                urllib.request.urlretrieve(
+                    model_url, cache_save_zip, show_progress)
             else:
                 print("a model zip file is already downloaded")
 
-            if os.path.getsize(cache_save_zip)<1000000:
-                raise Exception("our model download limit is reached; please try downloading  again next week.")
-            
+            if os.path.getsize(cache_save_zip) < 1000000:
+                raise Exception(
+                    "our model download limit is reached; please try downloading  again next week.")
+
             with zipfile.ZipFile(cache_dir + zip_file, 'r') as zip_ref:
                 zip_ref.extractall(torch.hub._get_torch_home())
             print("downloaded model unzipped")
-            assert os.path.isfile(checkpoint_path), 'checkpoint still not available after downloads;'
+            assert os.path.isfile(
+                checkpoint_path), 'checkpoint still not available after downloads;'
         else:
             print('model is already in cache')
         return cls.from_checkpoint(checkpoint_path, dict_dir,
@@ -827,7 +832,8 @@ class AMRParser:
                 if 'bartsv' in self.model_args.arch:
                     # shared vocabulary BART
                     if bool(self.args.in_actions):
-                        print(yellow_font('WARNING: Given force actions will npot be used since model is joint vocab model and force actions have nott been implemented '))
+                        print(yellow_font(
+                            'WARNING: Given force actions will npot be used since model is joint vocab model and force actions have nott been implemented '))
                     actions_nopos, actions_pos, actions = \
                         post_process_action_pointer_prediction_bartsv(
                             hypo, self.tgt_dict
