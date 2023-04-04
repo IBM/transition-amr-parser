@@ -13,7 +13,7 @@ def argument_parsing():
     parser.add_argument(
         '--in-file',
         type=str,
-        help='Input doc file containing sentence per line'
+        help='Input doc text file containing sentence per line and new line at the end of every doc'
     )
     args = parser.parse_args()
 
@@ -22,30 +22,43 @@ def argument_parsing():
 
 def get_force_actions(in_file, sen_ends=None):
 
-    dataset_small = open(in_file, 'r').read()
+    sents = []
+    docs = []
+    for line in open(in_file, 'r').readlines():
+        if line == '\n':
+            docs.append(sents)
+            sents = []
+        else:
+            sents.append(line.strip('\n'))
+
     dataset_utf = open(in_file+'.refined', 'w')
     force_action_file = open(in_file+'.force_actions', 'w')
     if sen_ends is None:
         sen_ends = []
     tokens = []
 
-    enc = dataset_small.rstrip().encode("ascii", "ignore")
+    for docsen in docs:
 
-    newsen = enc.decode()
-    dataset_utf.write(newsen)
-    dataset_utf.close()
-    docsen = newsen.splitlines()
-    offset = 0
-    for sen in docsen:
-        tok = sen.split()
-        tokens.extend(tok)
-        sen_ends.append(offset+len(tok)-1)
-        offset += len(tok)
+        offset = 0
+        newsens = []
+        for sen in docsen:
+            enc = sen.rstrip().encode("ascii", "ignore")
 
-    force_actions = make_eos_force_actions(tokens, sen_ends)
-    force_action_file.write(str(force_actions)+'\n')
+            newsen = enc.decode()
+
+            newsens.append(newsen)
+
+            tok = newsen.split()
+            tokens.extend(tok)
+            sen_ends.append(offset+len(tok)-1)
+            offset += len(tok)
+
+        force_actions = make_eos_force_actions(tokens, sen_ends)
+        force_action_file.write(str(force_actions)+'\n')
+        dataset_utf.write(' '.join(newsens)+'\n')
+        
 
 
 if __name__ == '__main__':
     args = argument_parsing()
-    get_force_actions(args.in_file)
+    get_force_actions('DATA/ce2002/L0C04AT6C.rsd.txt.test.txt')
