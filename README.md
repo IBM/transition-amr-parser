@@ -42,9 +42,10 @@ pip install -e .
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
 
-Step 3: Install docAMR repo
+**Step 3: Install docAMR repo**
 
 To be able to run docamr , the docAMR repo must be cloned and installed.
+
 Link to NAACL 2022 paper DOCAMR: Multi-Sentence AMR Representation and Evaluation
 https://aclanthology.org/2022.naacl-main.256.pdf
 
@@ -130,10 +131,10 @@ meta-data.
 
 To parse a document , a 'force_actions' file that forces the sentences ends in the document is necessary.
 
-To get the force actions file in the same directory as your input file , given a document text file where each line is a sentence in the document, do
+To get the force actions file in the same directory as input file , given a document text file where each line is a sentence in the document, do
 
 ```bash
-python scripts/get_sen_ends_force_actions.py --in-file $input_file
+python scripts/get_sen_ends_force_actions.py --in-file $doc_input_file
 ```
 
 To get the docAMR do,
@@ -143,6 +144,7 @@ To get the docAMR do,
 amr-parse -c $in_checkpoint -i $input_file -o file.docamr --in-actions $force_actions --sliding
 ```
 
+where $input_file contains one doc per line and $force_actions is a file containing the list of force_actions for each doc per line.
 
 ## Available Pretrained Models
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
