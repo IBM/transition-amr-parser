@@ -42,6 +42,8 @@ Note: The torch-scatter package is automatically set-up for most users using our
 Step 3: Install docAMR repo
 
 To be able to run docamr , the docAMR repo must be cloned and installed.
+Link to NAACL 2022 paper DOCAMR: Multi-Sentence AMR Representation and Evaluation
+https://aclanthology.org/2022.naacl-main.256.pdf
 
 ```
 git clone https://github.com/IBM/docAMR.git
@@ -95,6 +97,24 @@ alignment annotations (`<node name>~<token position>`). Note that Smatch does
 not support ISI and gives worse results. Use `--no-isi` to store alignments in
 `::alignments` meta data. Also use `--jamr` to add JAMR annotations in
 meta-data.
+
+*DocAMR*
+
+To parse a document , a 'force_actions' file that forces the sentences ends in the document is necessary.
+
+To get the force actions file in the same directory as your input file , given a document text file where each line is a sentence in the document, do
+
+```bash
+python scripts/get_sen_ends_force_actions.py --in-file $input_file
+```
+
+To get the docAMR do,
+
+
+```bash
+amr-parse -c $in_checkpoint -i $input_file -o file.docamr --in-actions $force_actions --sliding
+```
+
 
 ## Available Pretrained Models
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
