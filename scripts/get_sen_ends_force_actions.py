@@ -61,4 +61,4 @@ def get_force_actions(in_file, sen_ends=None):
 
 if __name__ == '__main__':
     args = argument_parsing()
-    get_force_actions('DATA/ce2002/L0C04AT6C.rsd.txt.test.txt')
+    get_force_actions(args.in_file)
