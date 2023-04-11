@@ -256,6 +256,10 @@ if [[ $apply_tgt_input_src == 1 ]]; then
 else
     tis_tag=""
 fi
+# Load WatBART for initialization
+# initialize_with_watbart="/dccstor/phalanx/masayasu/projects/data/trained_model/bart_hap-filtered/fs/checkpoint_best.pt" # use this if using watbart on ccc
+initialize_with_watbart="0" # for not using watbart
+
 
 # initialize with bart
 if [[ $initialize_with_bart == 0 ]]; then
