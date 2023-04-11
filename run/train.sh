@@ -79,6 +79,7 @@ else
                 --share-decoder-input-output-embed $share_decoder_embed \
                 --tgt-factored-emb-out $tgt_factored_emb_out \
                 \
+                --initialize-with-watbart $initialize_with_watbart \
                 --initialize-with-bart $initialize_with_bart \
                 --initialize-with-bart-enc $initialize_with_bart_enc \
                 --initialize-with-bart-dec $initialize_with_bart_dec \
@@ -157,6 +158,7 @@ else
                 --share-all-embeddings ${share_all_embeddings:-1} \
                 --tgt-factored-emb-out $tgt_factored_emb_out \
                 \
+                --initialize-with-watbart $initialize_with_watbart \
                 --initialize-with-bart $initialize_with_bart \
                 --initialize-with-bart-enc $initialize_with_bart_enc \
                 --initialize-with-bart-dec $initialize_with_bart_dec \
