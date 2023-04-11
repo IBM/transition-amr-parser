@@ -129,23 +129,16 @@ meta-data.
 
 *DocAMR*
 
-To parse a document , a 'force_actions' file that forces the sentences ends in the document is necessary.
-
-To get the force actions file in the same directory as input file , given a document text file where each line is a sentence in the document and there is a newline after every doc (even at the end), do
-
-```bash
-python scripts/get_sen_ends_force_actions.py --in-file $doc_input_file
-```
-
-This will output both .force_actions and .refined (unicode removed and one doc per line) files in the same directory
-To get the docAMR do,
+To parse a document , 
+the input file ($doc_input_file) is a text file where each line is a sentence in the document and there is a newline ('\n') separating every doc (even at the end) 
 
 
 ```bash
-amr-parse -c $in_checkpoint -i $doc_input_file.refined -o file.docamr --in-actions $doc_input_file.force_actions --sliding
+amr-parse -c $in_checkpoint --in-doc $doc_input_file -o file.docamr --sliding
 ```
 
-where $input_file contains one doc per line and $force_actions is a file containing the list of force_actions for each doc per line.
+This will output a ".force_actions" file to the same directory as input , containing the actions needed to force sentence ends in the document as well as the output docamr "file.docamr"
+
 
 ## Available Pretrained Models
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
