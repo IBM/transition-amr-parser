@@ -186,6 +186,9 @@ def parse_args_and_arch(
         args.fp16 = True
     if getattr(args, "memory_efficient_bf16", False):
         args.bf16 = True
+    if hasattr(args, "initialize_with_watbart") and args.initialize_with_watbart=="0":
+        args.initialize_with_watbart = None
+        
     args.tpu = getattr(args, "tpu", False)
     args.bf16 = getattr(args, "bf16", False)
     if args.bf16:
@@ -445,6 +448,8 @@ def add_model_args(parser):
     group.add_argument('--arch', '-a', metavar='ARCH',
                        choices=ARCH_MODEL_REGISTRY.keys(),
                        help='model architecture')
+    group.add_argument('--initialize-with-watbart', default="0",
+                       help='the path to WatBART with which we initilize the BART weight; default is 0: not using watbart')
     # fmt: on
     return group
 
