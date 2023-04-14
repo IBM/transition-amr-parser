@@ -217,7 +217,7 @@ def argument_parsing():
     assert (
         bool(args.in_tokenized_sentences) or bool(args.in_amr)
     ) or bool(args.service) or bool(args.in_doc), \
-        "Must either specify --in-tokenized-sentences or set --service"
+        "Must either specify --in-tokenized-sentences or --in-doc or set --service"
 
     if not (bool(args.model_name) ^ bool(args.in_checkpoint)):
         raise Exception("Use either --model-name or --in-checkpoint")
@@ -303,9 +303,7 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
         roberta.cuda()
     return roberta
 
-
-def get_force_actions(in_file, sen_ends=None):
-
+def read_doc_text(in_file):
     sents = []
     docs = []
     for line in open(in_file, 'r').readlines():
@@ -316,33 +314,35 @@ def get_force_actions(in_file, sen_ends=None):
             sents.append(line.strip('\n'))
     if len(sents) > 0:
         docs.append(sents)
-    dataset_utf = []
-    force_actions_set = []
-    if sen_ends is None:
-        sen_ends = []
-    tokens = []
 
-    for docsen in docs:
+    return docs
+
+def get_force_actions(docs, sen_ends=None):
+
+    force_actions_set = []
+    return_docs = []
+    
+    
+    for idx, docsen in enumerate(docs):
 
         offset = 0
-        newsens = []
-        for sen in docsen:
-            enc = sen.rstrip().encode("ascii", "ignore")
+        if sen_ends is None:
+            ends = []
+            doc_toks = []
+            for sen in docsen:
+                
+                ends.append(offset+len(sen)-1)
+                offset += len(sen)
+                doc_toks.extend(sen)
 
-            newsen = enc.decode()
-
-            newsens.append(newsen)
-
-            tok = newsen.split()
-            tokens.extend(tok)
-            sen_ends.append(offset+len(tok)-1)
-            offset += len(tok)
-
-        force_actions = make_eos_force_actions(tokens, sen_ends)
+            force_actions = make_eos_force_actions(doc_toks, ends)
+        else:
+            force_actions = make_eos_force_actions(doc_toks, sen_ends[idx])
         force_actions_set.append(force_actions)
-        dataset_utf.append(' '.join(newsens))
+        return_docs.append(doc_toks)
+        
 
-    return dataset_utf, force_actions_set
+    return force_actions_set, return_docs
 
 
 def get_sliding_windows(tok_sentences, window_size, window_overlap,
@@ -354,7 +354,6 @@ def get_sliding_windows(tok_sentences, window_size, window_overlap,
     max_num_windows = 1
 
     for (i, sentence) in enumerate(tok_sentences):
-        print(i)
         # if sentence end markers are availble, windows should respect that
         sentence_ends = []
         if force_actions:
@@ -396,8 +395,10 @@ def get_sliding_windows(tok_sentences, window_size, window_overlap,
     )
 
 
-def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
-                       force_actions=None):
+def get_sliding_output(tok_sentences, parser, gold_amrs=None,
+                       force_actions=None, window_size=300, window_overlap=200,
+                       batch_size=128, roberta_batch_size=128,
+                       beam=1, jamr=False, no_isi=False):
 
     (
         windowed_tok_sentences,
@@ -407,8 +408,8 @@ def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
         max_num_windows
     ) = get_sliding_windows(
         tok_sentences=tok_sentences,
-        window_size=args.window_size,
-        window_overlap=args.window_overlap,
+        window_size=window_size,
+        window_overlap=window_overlap,
         force_actions=force_actions
     )
 
@@ -428,13 +429,13 @@ def get_sliding_output(args, tok_sentences, parser, gold_amrs=None,
         print(f'Parsing {num_window_sent} sentences in {widx} window')
         window_result = parser.parse_sentences(
             window_sentences,
-            batch_size=args.batch_size,
-            roberta_batch_size=args.roberta_batch_size,
+            batch_size=batch_size,
+            roberta_batch_size=roberta_batch_size,
             gold_amrs=gold_amrs,
             force_actions=window_actions,
-            beam=args.beam,
-            jamr=args.jamr,
-            no_isi=args.no_isi
+            beam=beam,
+            jamr=jamr,
+            no_isi=no_isi
         )
         # get actions out of window_results
         # save actions in windowed_output_actions[sidx][widx]
@@ -620,6 +621,7 @@ class AMRParser:
             'AMR3-joint-ontowiki-seed42': 'amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip',
             'AMR3-joint-ontowiki-seed43': 'amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip',
             'AMR3-joint-ontowiki-seed44': 'amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip',
+            'doc-sen-conll-amr-seed42': 'both_doc+sen_trainsliding_ws400x100-seed42.zip'
         }
 
         if model_name not in MODEL_NAMES:
@@ -635,6 +637,11 @@ class AMRParser:
         else:
             model_class = "AMR3.0"
 
+        if "doc" in model_name:
+            eval_metric = "smatch"
+        else:
+            eval_metric = "wiki.smatch"
+
         model_name = zip_file.split("-seed")[0]
         seed = zip_file.split("-seed")[1][:2]
 
@@ -645,7 +652,7 @@ class AMRParser:
         # get checkpoint path
         model_dir_path = os.path.join(
             cache_dir, "DATA", model_class, "models", model_name, "seed"+str(seed))
-        checkpoint_path = model_dir_path + "/checkpoint_wiki.smatch_top5-avg.pt"
+        checkpoint_path = model_dir_path + "/checkpoint_"+eval_metric+"_top5-avg.pt"
 
         # get model url to download from
         model_url = "https://github.com/transition-amr-parsing/parser-model-hub/raw/main/models/" + zip_file
@@ -1007,6 +1014,16 @@ class AMRParser:
 
         return annotations, machines
 
+    def parse_docs(self, tok_sentences, **kwargs):
+        
+        init_force_actions, doc_sen = get_force_actions(tok_sentences)
+
+            
+        force_actions = [fac+[[]] for fac in init_force_actions]
+
+        annotations, decoding_data = get_sliding_output(tok_sentences=doc_sen,parser=self,force_actions=force_actions,**kwargs)
+
+        return annotations,decoding_data
 
 def simple_inspector(machine):
     '''
@@ -1161,11 +1178,17 @@ def run_service(args, parser):
             gold_amrs = None
 
             result = get_sliding_output(
-                args,
                 tokens,
                 parser,
                 gold_amrs,
-                force_actions
+                force_actions,
+                args.window_size,
+                args.window_overlap,
+                args.batch_size,
+                args.roberta_batch_size,
+                args.beam,
+                args.jamr,
+                args.no_isi
             )
 
         else:
@@ -1221,40 +1244,45 @@ def prepare_data(args, parser):
 
         # normal mode
         gold_amrs = None
+
         if args.in_doc:
-            doc_sentences, init_force_actions = get_force_actions(args.in_doc)
-            force_action_file = open(args.in_doc+'.force_actions', 'w')
-            force_actions = []
-            for fac in init_force_actions:
-                force_action_file.write(str(fac)+'\n')
-                force_actions.append(fac+[[]])
+            tok_sentences = []
+            docs = read_doc_text(args.in_doc)
+            for docsen in docs:
+                tok_sen = []
+                for sen in docsen:
 
-            force_action_file.close()
-            tok_sentences = [doc_sen.split() for doc_sen in doc_sentences]
+                    enc = sen.rstrip().encode("ascii", "ignore")
 
-        elif args.tokenize:
-            # TODO: have tokenized as default
-            # jamr-like tokenization
-            with open(args.in_tokenized_sentences) as fid:
-                tok_sentences = [
-                    protected_tokenizer(sentence.rstrip())[0]
-                    for sentence in fid.readlines()
-                ]
+                    newsen = enc.decode()
+
+                    if args.tokenize:
+                        tok_sen.append(protected_tokenizer(newsen.rstrip())[0])
+                    else:
+                        tok_sen.append(newsen.split())
+                tok_sentences.append(tok_sen)
+
+
+
+
         else:
-            tok_sentences = read_tokenized_sentences(
-                args.in_tokenized_sentences
-            )
+            if args.tokenize:
+                # TODO: have tokenized as default
+                # jamr-like tokenization
+                with open(args.in_tokenized_sentences) as fid:
+                    tok_sentences = [
+                        protected_tokenizer(sentence.rstrip())[0]
+                        for sentence in fid.readlines()
+                    ]
+            else:
+                tok_sentences = read_tokenized_sentences(
+                    args.in_tokenized_sentences
+                )
 
     # check for empty sentences
     assert all(s != [''] for s in tok_sentences), "Empty sentences!"
 
-    # read constrained decoding forced actions if provided
-    if args.in_actions:
-        with open(args.in_actions) as fact:
-            force_actions = [eval(line.strip()) + [[]] for line in fact]
-    assert len(tok_sentences) == len(
-        force_actions), "Number of force actions doesn't match the number of sentences"
-    print(tok_sentences)
+    
     # sampling needs copy of sentences N times
     if args.num_samples is not None:
         tok_sentences = [
@@ -1262,14 +1290,9 @@ def prepare_data(args, parser):
             for tsent in tok_sentences
             for _ in range(args.num_samples)
         ]
-        if args.in_actions:
-            force_actions = [
-                a
-                for a in force_actions
-                for _ in range(args.num_samples)
-            ]
+        
 
-    return tok_sentences, force_actions, gold_amrs
+    return tok_sentences, gold_amrs
 
 
 def save_data(args, annotations, machines):
@@ -1329,7 +1352,23 @@ def main():
     else:
 
         # offline parsing given files
-        tok_sentences, force_actions, gold_amrs = prepare_data(args, parser)
+        tok_sentences, gold_amrs = prepare_data(args, parser)
+        force_actions = None
+
+        # read constrained decoding forced actions if provided
+        if args.in_actions:
+            with open(args.in_actions) as fact:
+                force_actions = [eval(line.strip()) + [[]] for line in fact]
+            assert len(tok_sentences) == len(
+            force_actions), "Number of force actions doesn't match the number of sentences"
+        
+            # sampling needs copy of force actions N times
+            if args.num_samples is not None:
+                force_actions = [
+                    a
+                    for a in force_actions
+                    for _ in range(args.num_samples)
+                ]
 
         # TODO: max batch sizes could be computed from max sentence length
 
@@ -1337,16 +1376,17 @@ def main():
         print(f'Parsing {num_sent} sentences')
         start = time.time()
 
-        if args.sliding:
-
-            # doc-AMR sliding window parsing
-            annotations, machines = get_sliding_output(
-                args,
-                tok_sentences,
-                parser,
-                gold_amrs,
-                force_actions
-            )
+        if args.in_doc:
+            annotations, machines = parser.parse_docs(tok_sentences, 
+                gold_amrs=gold_amrs,
+                window_size=args.window_size,
+                window_overlap=args.window_overlap,
+                batch_size=args.batch_size,
+                roberta_batch_size=args.roberta_batch_size,
+                beam=args.beam,
+                jamr=args.jamr,
+                no_isi=args.no_isi)
+    
 
         else:
 
