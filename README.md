@@ -110,8 +110,40 @@ amr.plot()
 
 ```
 
-This example demonstrates how to tokenize a sentence, parse it using the pretrained AMR parser, and print the resulting AMR graph in Penman notation. If you have matplotlib installed, you can also visualize the graph.
+This example demonstrates how to tokenize a document (list of sentences), parse it using the pretrained DocAMR parser, and print the resulting DocAMR graph in Penman notation. If you have matplotlib installed, you can also visualize the graph.
+The resulting graph represents coreference using *:same-as* edges. To change the representation and merge the coreferent nodes as in the paper, please refer to [the DocAMR repo](https://github.com/IBM/docAMR.git)
 
+*DocAMR*
+
+```
+from transition_amr_parser.parse import AMRParser
+
+# Download and save the docamr model to cache
+parser = AMRParser.from_pretrained('doc-sen-conll-amr-seed42')
+
+# Sentences in the doc
+doc = ["Hailey likes to travel." ,"She is going to London tomorrow.", "She will walk to Big Ben when she goes to London."]
+
+# tokenize sentences if not already tokenized
+tok_sentences = []
+for sen in doc:
+    tokens, positions = parser.tokenize(sen)
+    tok_sentences.append(tokens)
+
+# parse docs takes a list of docs as input
+annotations, machines = parser.parse_docs([tok_sentences])
+
+# Print Penman notation
+print(annotations[0])
+
+# Print Penman notation without JAMR, with ISI
+amr = machines[0].get_amr()
+print(amr.to_penman(jamr=False, isi=True))
+
+# Plot the graph (requires matplotlib)
+amr.plot()
+
+```
 
 **Command Line Option:** Use the command line to run a pretrained model to parse a file:
 
@@ -159,6 +191,8 @@ This table shows you available pretrained model names to download;
 | AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | 
 | AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
 | AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
+| doc-sen-conll-amr-seed42              |
+both_doc+sen_trainsliding_ws400x100-seed42.zip                |
 
 
 ## Training a model
