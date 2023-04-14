@@ -42,12 +42,11 @@ pip install -e .
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
 
-**Step 3: Install docAMR repo**
+**Step 3: Install docAMR for document level parsing**
 
-To be able to run docamr , the docAMR repo must be cloned and installed.
+For document-level AMR training and testing , the docAMR repo must be cloned and installed.
 
-Link to NAACL 2022 paper DOCAMR: Multi-Sentence AMR Representation and Evaluation
-https://aclanthology.org/2022.naacl-main.256.pdf
+[Link](https://aclanthology.org/2022.naacl-main.256.pdf) to NAACL 2022 paper DOCAMR: Multi-Sentence AMR Representation and Evaluation
 
 ```
 git clone https://github.com/IBM/docAMR.git
@@ -172,7 +171,7 @@ amr-parse -c $in_checkpoint --in-doc $doc_input_file -o file.docamr --sliding
 This will output a ".force_actions" file to the same directory as input , containing the actions needed to force sentence ends in the document as well as the output docamr "file.docamr"
 
 
-## Available Pretrained Models
+## Available Pretrained Model Checkpoints
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
 ```
 cache_dir = torch.hub._get_torch_home()
@@ -180,19 +179,19 @@ cache_dir = torch.hub._get_torch_home()
 
 This table shows you available pretrained model names to download;
 
-| pretrained model name                       | corresponding file name| 
-|:----------------------------------------|:-----------:|
-| AMR3-structbart-L-smpl                | amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip      | 
-| AMR3-structbart-L                     | amr3.0-structured-bart-large-neur-al-seed42.zip      | 
-| AMR2-structbart-L                     | amr2.0-structured-bart-large-neur-al-seed42.zip      |
-| AMR2-joint-ontowiki-seed42            | amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip       | 
-| AMR2-joint-ontowiki-seed43            | amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
-| AMR2-joint-ontowiki-seed44            | amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
-| AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | 
-| AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
-| AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
+| pretrained model name                       | corresponding file name| paper  |beam10-Smatch  |
+|:----------------------------------------|:-----------:|:-----------:|:-----------:|
+| AMR3-structbart-L-smpl                | amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip      | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR  | 82.9(beam1)  |
+| AMR3-structbart-L                     | amr3.0-structured-bart-large-neur-al-seed42.zip      | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    |82.6  |
+| AMR2-structbart-L                     | amr2.0-structured-bart-large-neur-al-seed42.zip      |[(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    |84.0  |
+| AMR2-joint-ontowiki-seed42            | amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip       | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
+| AMR2-joint-ontowiki-seed43            | amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
+| AMR2-joint-ontowiki-seed44            | amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
+| AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
+| AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
+| AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
 | doc-sen-conll-amr-seed42              |
-both_doc+sen_trainsliding_ws400x100-seed42.zip                |
+both_doc+sen_trainsliding_ws400x100-seed42.zip                |||
 
 
 ## Training a model
@@ -235,6 +234,14 @@ use `--results` to check for scores once models are finished.
 
 We include code to launch parallel jobs in the LSF job schedules. This can be
 adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
+
+
+## Initialize with WatBART
+WatBART is an IBM internal BART architecture model. Our repo supports training AMR parsers with WatBART by simply passing a configuration argument. 
+
+For example, in the AMR2.0 joint-vocabulary training configs/amr2.0-structured-bart-large-joint-voc.sh file, uncomment #L132 to set **initialize_with_watbart** to a checkpoint path on ccc cluster. 
+
+The final training result using WatBART is comparable to the Facebook BART model. 
 
 
 ## Upcoming Features
