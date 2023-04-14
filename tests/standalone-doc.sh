@@ -27,7 +27,7 @@ checkpoint=${MODEL_FOLDER}seed${seed}/$DECODING_CHECKPOINT
 
 force_actions=$ORACLE_FOLDER/${sset}.force_actions
 # where to put results
-FOLDER=${MODEL_FOLDER}seed${seed}/beam${BEAM_SIZE}_aftermerge/
+FOLDER=${MODEL_FOLDER}seed${seed}/beam${BEAM_SIZE}/
 results_prefix=$FOLDER/${sset}_$DECODING_CHECKPOINT
 
 # needs data and model
