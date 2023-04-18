@@ -41,7 +41,23 @@ pip install -e .
 
 Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
 
-**(Optional) Step 3: Set a environment file (only for bash script training and evaluation)**
+
+**Step 3: Install docAMR for document level parsing**
+
+For document-level AMR training and testing , the docAMR repo must be cloned and installed.
+
+[Link](https://aclanthology.org/2022.naacl-main.256.pdf) to NAACL 2022 paper DOCAMR: Multi-Sentence AMR Representation and Evaluation
+
+```
+git clone https://github.com/IBM/docAMR.git
+cd docAMR
+pip install .
+cd ..
+
+```
+
+
+**(Optional) Step 4: Set a environment file (only for bash script training and evaluation)**
 
 We use a set_environment.sh script inside of which we activate conda environment; it is used for model training.
 
@@ -64,6 +80,7 @@ else
 fi
 ```
 Note that all bash scripts always source set_environment.sh, so you do not need to source it yourself anymore. 
+
 
 ## Decode with pretrained model
 **Python Option:** Download a pretrained AMR parser and run inference;
@@ -92,8 +109,40 @@ amr.plot()
 
 ```
 
-This example demonstrates how to tokenize a sentence, parse it using the pretrained AMR parser, and print the resulting AMR graph in Penman notation. If you have matplotlib installed, you can also visualize the graph.
+This example demonstrates how to tokenize a document (list of sentences), parse it using the pretrained DocAMR parser, and print the resulting DocAMR graph in Penman notation. If you have matplotlib installed, you can also visualize the graph.
+The resulting graph represents coreference using *:same-as* edges. To change the representation and merge the coreferent nodes as in the paper, please refer to [the DocAMR repo](https://github.com/IBM/docAMR.git)
 
+*DocAMR*
+
+```
+from transition_amr_parser.parse import AMRParser
+
+# Download and save the docamr model to cache
+parser = AMRParser.from_pretrained('doc-sen-conll-amr-seed42')
+
+# Sentences in the doc
+doc = ["Hailey likes to travel." ,"She is going to London tomorrow.", "She will walk to Big Ben when she goes to London."]
+
+# tokenize sentences if not already tokenized
+tok_sentences = []
+for sen in doc:
+    tokens, positions = parser.tokenize(sen)
+    tok_sentences.append(tokens)
+
+# parse docs takes a list of docs as input
+annotations, machines = parser.parse_docs([tok_sentences])
+
+# Print Penman notation
+print(annotations[0])
+
+# Print Penman notation without JAMR, with ISI
+amr = machines[0].get_amr()
+print(amr.to_penman(jamr=False, isi=True))
+
+# Plot the graph (requires matplotlib)
+amr.plot()
+
+```
 
 **Command Line Option:** Use the command line to run a pretrained model to parse a file:
 
@@ -109,7 +158,20 @@ not support ISI and gives worse results. Use `--no-isi` to store alignments in
 `::alignments` meta data. Also use `--jamr` to add JAMR annotations in
 meta-data.
 
-## Available Pretrained Models
+*DocAMR*
+
+To parse a document , 
+the input file ($doc_input_file) is a text file where each line is a sentence in the document and there is a newline ('\n') separating every doc (even at the end) 
+
+
+```bash
+amr-parse -c $in_checkpoint --in-doc $doc_input_file -o file.docamr --sliding
+```
+
+This will output a ".force_actions" file to the same directory as input , containing the actions needed to force sentence ends in the document as well as the output docamr "file.docamr"
+
+
+## Available Pretrained Model Checkpoints
 The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
 ```
 cache_dir = torch.hub._get_torch_home()
@@ -117,17 +179,19 @@ cache_dir = torch.hub._get_torch_home()
 
 This table shows you available pretrained model names to download;
 
-| pretrained model name                       | corresponding file name| 
-|:----------------------------------------|:-----------:|
-| AMR3-structbart-L-smpl                | amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip      | 
-| AMR3-structbart-L                     | amr3.0-structured-bart-large-neur-al-seed42.zip      | 
-| AMR2-structbart-L                     | amr2.0-structured-bart-large-neur-al-seed42.zip      |
-| AMR2-joint-ontowiki-seed42            | amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip       | 
-| AMR2-joint-ontowiki-seed43            | amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
-| AMR2-joint-ontowiki-seed44            | amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
-| AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | 
-| AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | 
-| AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | 
+| pretrained model name                       | corresponding file name| paper  |beam10-Smatch  |
+|:----------------------------------------|:-----------:|:-----------:|:-----------:|
+| AMR3-structbart-L-smpl                | amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip      | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR  | 82.9(beam1)  |
+| AMR3-structbart-L                     | amr3.0-structured-bart-large-neur-al-seed42.zip      | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    |82.6  |
+| AMR2-structbart-L                     | amr2.0-structured-bart-large-neur-al-seed42.zip      |[(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    |84.0  |
+| AMR2-joint-ontowiki-seed42            | amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip       | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
+| AMR2-joint-ontowiki-seed43            | amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
+| AMR2-joint-ontowiki-seed44            | amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
+| AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
+| AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
+| AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
+| doc-sen-conll-amr-seed42              |
+both_doc+sen_trainsliding_ws400x100-seed42.zip                |||
 
 
 ## Training a model
@@ -170,6 +234,14 @@ use `--results` to check for scores once models are finished.
 
 We include code to launch parallel jobs in the LSF job schedules. This can be
 adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
+
+
+## Initialize with WatBART
+WatBART is an IBM internal BART architecture model. Our repo supports training AMR parsers with WatBART by simply passing a configuration argument. 
+
+For example, in the AMR2.0 joint-vocabulary training configs/amr2.0-structured-bart-large-joint-voc.sh file, uncomment #L132 to set **initialize_with_watbart** to a checkpoint path on ccc cluster. 
+
+The final training result using WatBART is comparable to the Facebook BART model. 
 
 
 ## Upcoming Features

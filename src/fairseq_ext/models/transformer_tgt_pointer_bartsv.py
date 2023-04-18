@@ -292,6 +292,13 @@ class TransformerTgtPointerBARTSVModel(FairseqEncoderDecoderModel):
         if 'bart_large' in args.arch or 'bartsv_large' in args.arch:
             print('-' * 10 + ' task bart rewind: loading pretrained bart.large model ' + '-' * 10)
             bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+            if args.initialize_with_watbart is not None:
+                try:
+                    bart_local = torch.load(args.initialize_with_watbart)
+                    bart.model.load_state_dict(bart_local['model'])
+                except Exception:
+                    raise ValueError("the specified path at initialize_with_watbart \
+                        is incorrect; please double-check config file.")
             task.bart = bart
             task.bart_dict = bart.task.target_dictionary    # src dictionary is the same
         # ================================================================================================

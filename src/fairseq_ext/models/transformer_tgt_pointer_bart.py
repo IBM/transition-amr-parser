@@ -299,6 +299,13 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
         if 'bart_large' in args.arch:
             print('-' * 10 + ' task bart rewind: loading pretrained bart.large model ' + '-' * 10)
             bart = torch.hub.load('pytorch/fairseq', 'bart.large')
+            if args.initialize_with_watbart is not None:
+                try:
+                    bart_local = torch.load(args.initialize_with_watbart)
+                    bart.model.load_state_dict(bart_local['model'])
+                except Exception:
+                    raise ValueError("the specified path at initialize_with_watbart \
+                        is incorrect; please double-check config file.")
             task.bart = bart
             task.bart_dict = bart.task.target_dictionary    # src dictionary is the same
 
@@ -337,7 +344,7 @@ class TransformerTgtPointerBARTModel(FairseqEncoderDecoderModel):
                 raise ValueError(
                     "--share-all-embeddings not compatible with --decoder-embed-path"
                 )
-            encoder_embed_tokens = cls.build_embedding(
+            encoder_embed_tokens = cls.build_embedding( 
                 args, src_dict, args.encoder_embed_dim, args.encoder_embed_path
             )
             decoder_embed_tokens = encoder_embed_tokens

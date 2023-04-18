@@ -55,9 +55,7 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
         echo "$2 is invalid; must be dev or test"
         exit 1
     fi
-    if [ ! -z ${ORACLE_SKIP_ARGS+x} ];then
-
-        if [[ $ORACLE_SKIP_ARGS =~ "--avoid-indices" ]]; then
+    if [[ ! -z ${ORACLE_SKIP_ARGS+x} && $ORACLE_SKIP_ARGS =~ "--avoid-indices" ]]; then
                 echo "removing indices from reference amr"
                 
                 param_str="\"|${ORACLE_SKIP_ARGS//[$'\t\r\n']}|\""
@@ -75,12 +73,13 @@ if [ $MODE == "doc" ] || [ $MODE == "doc+sen+ft" ];then
                     --in-file $ORACLE_FOLDER/${data_split_name}.en \
                     --arg-str "$param_str" \
                     --out-file $ORACLE_EN
-        else
-            ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
+       
+    else
+        ORACLE_EN=$ORACLE_FOLDER/${data_split_name}.en
 
-        fi
-    
     fi
+    
+    
 
 elif [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
     echo "mode doc+sen"
@@ -313,18 +312,13 @@ if [[ "$EVAL_METRIC" == "smatch" ]]; then
     echo "$reference_amr"
     echo "${results_prefix}.amr"
 
-    if [ $MODE == "doc" ] || [ $MODE == "doc+sen" ] || [ $MODE == "doc+sen+pkd" ];then
-        if [ $DEV_CHOICE == "doc" ]; then
+    if [[ $MODE == "doc" || ( $MODE == "doc+sen" && $DEV_CHOICE == "doc" ) || $MODE == "doc+sen+pkd" ]];then
+            
             doc-smatch -r 1 --significant 4 --coref-subscore \
                 -f $reference_amr \
                 ${results_prefix}.amr.no_isi \
                 | tee ${results_prefix%"_docAMR"}.smatch
-        else
-            smatch.py -r 10 --significant 4 \
-                -f $reference_amr \
-                ${results_prefix}.amr.no_isi \
-                | tee ${results_prefix}.smatch
-        fi
+            
     else
         smatch.py -r 10 --significant 4 \
             -f $reference_amr \

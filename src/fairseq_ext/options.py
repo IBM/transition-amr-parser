@@ -139,6 +139,8 @@ def parse_args_and_arch(parser, input_args=None, parse_known=False, suppress_def
         args.max_tokens_valid = args.max_tokens
     if getattr(args, 'memory_efficient_fp16', False):
         args.fp16 = True
+    if hasattr(args, "initialize_with_watbart") and args.initialize_with_watbart=="0":
+        args.initialize_with_watbart = None
 
     # Apply architecture configuration.
     if hasattr(args, 'arch'):
@@ -196,6 +198,8 @@ def get_parser(desc, default_task='translation'):
                         help='path to quantization config file')
     parser.add_argument('--bf16', default=False, action='store_true',
                         help='use bfloat16; implies --tpu')
+    parser.add_argument('--initialize-with-watbart', default="0",
+                       help='the path to WatBART with which we initilize the BART weight; default is 0: not using watbart')
 
     from fairseq.registry import REGISTRIES
     for registry_name, REGISTRY in REGISTRIES.items():
@@ -563,6 +567,7 @@ def add_interactive_args(parser):
 
 def add_model_args(parser):
     group = parser.add_argument_group('Model configuration')
+
     # fmt: off
 
     # Model definitions can be found under fairseq/models/

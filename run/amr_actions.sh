@@ -45,7 +45,8 @@ else
         train_force_args="--out-fdec-actions ${ORACLE_FOLDER}/train.force_actions"
         if [ $TRAIN_DOC == "conll" ];then
             cp $CONLL_DATA $ORACLE_FOLDER/
-            TRAIN_IN_AMR=$ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out
+            conllf_basename="$(basename $CONLL_DATA)"
+            TRAIN_IN_AMR=$ORACLE_FOLDER/${conllf_basename}
             if [ $TRAIN_DOC == "conll+gold" ];then
                 echo "making docamrs"
                 python scripts/doc-amr/get_doc_amr_from_sen.py \
@@ -75,8 +76,9 @@ else
 	    if [ $TRAIN_DOC == "both" ];then
 		echo -e "\n Adding conll data"
 		cp $CONLL_DATA $ORACLE_FOLDER/
+        conllf_basename="$(basename $CONLL_DATA)"
 		python src/transition_amr_parser/add_sentence_amrs_to_file.py \
-                       --in-amr $ORACLE_FOLDER/conll_docamr_no-merge-pairwise-edges.out \
+                       --in-amr $ORACLE_FOLDER/${conllf_basename} \
                        --out-amr $TRAIN_IN_AMR
 	    
         fi
