@@ -888,9 +888,8 @@ class AMRParser:
                 # args.nbest is default 1, i.e. saving only the top predictions
                 if 'bartsv' in self.model_args.arch:
                     # shared vocabulary BART
-                    if bool(self.args.in_actions):
-                        print(yellow_font(
-                            'WARNING: Given force actions will not be used since model is joint vocab model and force actions have nott been implemented '))
+                    print(yellow_font(
+                        'WARNING: If force actions have been provided, they will not be used since this model is a joint vocab model and does not support force actions yet . '))
                     actions_nopos, actions_pos, actions = \
                         post_process_action_pointer_prediction_bartsv(
                             hypo, self.tgt_dict
