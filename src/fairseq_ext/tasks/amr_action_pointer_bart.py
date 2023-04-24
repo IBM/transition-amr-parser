@@ -278,7 +278,7 @@ class AMRActionPointerBARTParsingTask(FairseqTask):
             elif 'bart_large' in args.arch:
                 print('-' * 10 + 'loading pretrained bart.large model ' + '-' * 10)
                 bart = torch.hub.load('pytorch/fairseq', 'bart.large')
-                if args.initialize_with_watbart is not None:
+                if 'initialize_with_watbart' in args.__dict__.keys() and args.initialize_with_watbart is not None:
                     try:
                         bart_local = torch.load(args.initialize_with_watbart)
                         bart.model.load_state_dict(bart_local['model'])

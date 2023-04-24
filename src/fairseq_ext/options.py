@@ -581,5 +581,7 @@ def add_model_args(parser):
     group.add_argument('--arch', '-a', default='fconv', metavar='ARCH', required=True,
                        choices=ARCH_MODEL_REGISTRY.keys(),
                        help='Model Architecture')
+    group.add_argument('--initialize-with-watbart', default="0",
+                       help='the path to WatBART with which we initilize the BART weight; default is 0: not using watbart')
     # fmt: on
     return group
