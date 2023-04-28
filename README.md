@@ -10,7 +10,7 @@ notation](https://penman.readthedocs.io/en/latest/notation.html).
 Some of the main features
 
 - [Smatch](https://github.com/snowblink14/smatch) wrapper providing [significance testing](scripts/README.md#paired-boostrap-significance-test-for-Smatch) for Smatch and [MBSE](scripts/README.md#maximum-bayesian-smatch-ensemble-mbse) ensembling.
-- `Structured-BART` [(Zhou et al 2021b)](https://aclanthology.org/2021.emnlp-main.507/) with trained checkpoints for document-level AMR [(Naseem et al 2022)](https://aclanthology.org/2022.naacl-main.256), MBSE [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) and latent alignments training [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464)
+- `Structured-BART` [(Zhou et al 2021b)](https://aclanthology.org/2021.emnlp-main.507/) with [trained checkpoints](#available-pretrained-model-checkpoints) for document-level AMR [(Naseem et al 2022)](https://aclanthology.org/2022.naacl-main.256), MBSE [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) and latent alignments training [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464)
 - Action-Pointer Transformer (`APT`) [(Zhou et al 2021)](https://www.aclweb.org/anthology/2021.naacl-main.443), checkout `action-pointer` branch 
 - `Stack-Transformer` [(Fernandez Astudillo et al 2020)](https://www.aclweb.org/anthology/2020.findings-emnlp.89), checkout `stack-Transformer` branch
 
