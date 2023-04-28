@@ -1,52 +1,48 @@
 Transition-based Neural Parser
 ============================
 
+State-of-the-Art Abstract Meaning Representation (AMR) parsing, [see papers with code](https://paperswithcode.com/task/amr-parsing). Models both distribution over graphs and aligments with a transition-based approach. Parser supports any other graph formalism as long as it is expressed in [Penman notation](https://penman.readthedocs.io/en/latest/notation.html).
 
-## transition-neural-parser
-**transition-neural-parser** is a powerful and easy-to-use Python package that provides a state-of-the-art neural transition-based parser for Abstract Meaning Representation (AMR). 
+For document-level AMR training and testing , the docAMR repo must be cloned and installed.
 
-AMR is a semantic formalism used to represent the meaning of natural language sentences in a structured and machine-readable format. The package is designed to enable users to perform AMR parsing with high accuracy and generate reliable token-to-node alignments, which are crucial for various natural language understanding and generation tasks.
+[Link](https://aclanthology.org/2022.naacl-main.256) to NAACL 2022 paper DOCAMR: Multi-Sentence AMR Representation and Evaluation
 
+## Install Instructions
 
-## Pip Installation Instructions
-**Step 1: Create and activate a new conda environment;**
-
-To ensure compatibility and prevent potential conflicts, create a new conda environment with Python 3.8:
+Create and activate a virtual environment, for example conda with python 3.8 (we also tested 3.9)
 
 ```
 conda create -y -p ./cenv_x86 python=3.8
-```
-
-Activate the newly created environment:
-
-```
 conda activate ./cenv_x86
 ```
 
-**Step 2: Install the package**
+or alternatively use `virtualenv`. Note that all scripts source a
+`set_environment.sh` script that you can use to activate your virtual
+environment as above and set environment variables. If not used, just create 
+an empty version
 
-Install the transition-neural-parser package using pip:
+```
+touch set_environment.sh
+```
+
+Then install the parser package using pip. You will need to install
+`torch-scatter` by separate since it custom built for CUDA. Here we specify the
+call for `torch 1.13.1` and `cuda 11.7`. See [torch-scatter
+repository](https://pypi.org/project/torch-scatter/) to find the appropriate
+installation instructions.
 
 ```
 pip install transition-neural-parser
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
 
-Alternatively, you can install locally; 
-Go to the root directory of the project and then run the following:
+If you plan to edit the code, use instead
 
 ```
-pip install -e .
+pip install transition-neural-parser --editable
 ```
 
-Note: The torch-scatter package is automatically set-up for most users using our default torch-1.13.1 and cu117 environment. However, in case you are choosing to use different environment set-up, or using non-linux servers, please visit the official [torch-scatter repository](https://pypi.org/project/torch-scatter/) to find the appropriate installation instructions.
-
-
-**Step 3: Install docAMR for document level parsing**
-
-For document-level AMR training and testing , the docAMR repo must be cloned and installed.
-
-[Link](https://aclanthology.org/2022.naacl-main.256.pdf) to NAACL 2022 paper DOCAMR: Multi-Sentence AMR Representation and Evaluation
+If you want to train a document-level AMR parser you will also need 
 
 ```
 git clone https://github.com/IBM/docAMR.git
@@ -56,38 +52,11 @@ cd ..
 
 ```
 
-
-**(Optional) Step 4: Set a environment file (only for bash script training and evaluation)**
-
-We use a set_environment.sh script inside of which we activate conda environment; it is used for model training.
-
-First create the file at top-level directory of the project.
-```
-touch set_environment.sh
-```
-
-An example would be following, where the only line to change is where to source the conda.sh file. 
-```
-# inside set_environment.sh
-if [ ! -d cenv_x86 ];then
-    echo "Environment cenv_x86 not found"
-    exit 1
-else
-    printf "\033[94mconda activate ./cenv_x86\033[0m\n"
-    # replace the below line with the path your local conda location. 
-    source /dccstor/gxamr/anaconda3/etc/profile.d/conda.sh.  # Please change this line
-    conda activate ./cenv_x86
-fi
-```
-Note that all bash scripts always source set_environment.sh, so you do not need to source it yourself anymore. 
-
-
-## Decode with pretrained model
-**Python Option:** Download a pretrained AMR parser and run inference;
+## Parse with a pretrained model
 
 Here is an example of how to download and use a pretrained AMR parser:
 
-```
+```python
 from transition_amr_parser.parse import AMRParser
 
 # Download and save a model named AMR3.0 to cache
@@ -109,12 +78,28 @@ amr.plot()
 
 ```
 
-This example demonstrates how to tokenize a document (list of sentences), parse it using the pretrained DocAMR parser, and print the resulting DocAMR graph in Penman notation. If you have matplotlib installed, you can also visualize the graph.
-The resulting graph represents coreference using *:same-as* edges. To change the representation and merge the coreferent nodes as in the paper, please refer to [the DocAMR repo](https://github.com/IBM/docAMR.git)
+Note that Smatch does not support ISI and gives worse results. 
 
-*DocAMR*
+You can also use the command line to run a pretrained model to parse a file:
 
+```bash
+amr-parse -c $in_checkpoint -i $input_file -o file.amr
 ```
+
+Download models can invoked with`-m <config>` can be used as well.
+
+Note that Smatch does not support ISI and gives worse results. Use `--no-isi`
+to store alignments in `::alignments` meta data. Also use `--jamr` to add JAMR
+annotations in meta-data. Use `--no-isi` to store alignments in `::alignments`
+meta data. Also use `--jamr` to add JAMR annotations in meta-data.
+
+## Document-level Parsing
+
+This represents co-reference using *:same-as* edges. To change
+the representation and merge the co-referent nodes as in the paper, please refer
+to [the DocAMR repo](https://github.com/IBM/docAMR.git)
+
+```python
 from transition_amr_parser.parse import AMRParser
 
 # Download and save the docamr model to cache
@@ -144,54 +129,42 @@ amr.plot()
 
 ```
 
-**Command Line Option:** Use the command line to run a pretrained model to parse a file:
-
-```bash
-amr-parse -c $in_checkpoint -i $input_file -o file.amr
-```
-
-It will parse each line of `$input_file` separately. It assumes tokenization,
-use `--tokenize` otherwise. Once a model is unzipped, `-m <config>` can be used
-instead of `-c`. The `file.amr` will contain the PENMAN notation with ISI
-alignment annotations (`<node name>~<token position>`). Note that Smatch does
-not support ISI and gives worse results. Use `--no-isi` to store alignments in
-`::alignments` meta data. Also use `--jamr` to add JAMR annotations in
-meta-data.
-
-*DocAMR*
-
-To parse a document , 
-the input file ($doc_input_file) is a text file where each line is a sentence in the document and there is a newline ('\n') separating every doc (even at the end) 
+To parse a document from the command line the input file `$doc_input_file` is a
+text file where each line is a sentence in the document and there is a newline
+('\n') separating every doc (even at the end) 
 
 
 ```bash
 amr-parse -c $in_checkpoint --in-doc $doc_input_file -o file.docamr --sliding
 ```
 
-This will output a ".force_actions" file to the same directory as input , containing the actions needed to force sentence ends in the document as well as the output docamr "file.docamr"
+This will output a `.force_actions` file to the same directory as input ,
+containing the actions needed to force sentence ends in the document as well as
+the output docamr "file.docamr"
 
 
 ## Available Pretrained Model Checkpoints
-The models downloaded using from_pretrained() method will be stored to the pytorch cache folder as follows:
-```
+
+The models downloaded using `from_pretrained()` will be stored to the pytorch
+cache folder under:
+```python
 cache_dir = torch.hub._get_torch_home()
 ```
 
 This table shows you available pretrained model names to download;
 
-| pretrained model name                       | corresponding file name| paper  |beam10-Smatch  |
-|:----------------------------------------|:-----------:|:-----------:|:-----------:|
-| AMR3-structbart-L-smpl                | amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip      | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR  | 82.9(beam1)  |
-| AMR3-structbart-L                     | amr3.0-structured-bart-large-neur-al-seed42.zip      | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    |82.6  |
-| AMR2-structbart-L                     | amr2.0-structured-bart-large-neur-al-seed42.zip      |[(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    |84.0  |
-| AMR2-joint-ontowiki-seed42            | amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip       | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
-| AMR2-joint-ontowiki-seed43            | amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
-| AMR2-joint-ontowiki-seed44            | amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9  | 
-| AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
-| AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
-| AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
-| doc-sen-conll-amr-seed42              |both_doc+sen_trainsliding_ws400x100-seed42.zip                |||
-
+| pretrained model name      | corresponding file name                                   | paper                                                           | beam10-Smatch |
+|:--------------------------:|:---------------------------------------------------------:|:---------------------------------------------------------------:|:-------------:|
+| AMR3-structbart-L-smpl     | amr3.0-structured-bart-large-neur-al-sampling5-seed42.zip | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) PR     | 82.9 (beam1)  |
+| AMR3-structbart-L          | amr3.0-structured-bart-large-neur-al-seed42.zip           | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | 82.6          |
+| AMR2-structbart-L          | amr2.0-structured-bart-large-neur-al-seed42.zip           | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | 84.0          |
+| AMR2-joint-ontowiki-seed42 | amr2joint_ontowiki2_g2g-structured-bart-large-seed42.zip  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9          |
+| AMR2-joint-ontowiki-seed43 | amr2joint_ontowiki2_g2g-structured-bart-large-seed43.zip  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9          |
+| AMR2-joint-ontowiki-seed44 | amr2joint_ontowiki2_g2g-structured-bart-large-seed44.zip  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 85.9          |
+| AMR3-joint-ontowiki-seed42 | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4          |
+| AMR3-joint-ontowiki-seed43 | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4          |
+| AMR3-joint-ontowiki-seed44 | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4          |
+| doc-sen-conll-amr-seed42   | both_doc+sen_trainsliding_ws400x100-seed42.zip            |                                                                 |               |
 
 ## Training a model
 
@@ -236,20 +209,12 @@ adapted for other schedulers e.g. Slurm, see [here](run/lsf/README.md)
 
 
 ## Initialize with WatBART
-WatBART is an IBM internal BART architecture model. Our repo supports training AMR parsers with WatBART by simply passing a configuration argument. 
 
-For example, in the AMR2.0 joint-vocabulary training configs/amr2.0-structured-bart-large-joint-voc.sh file, uncomment #L132 to set **initialize_with_watbart** to a checkpoint path on ccc cluster. 
+To load WatBART instead of BART just uncomment and provide the path on
 
-The final training result using WatBART is comparable to the Facebook BART model. 
-
-
-## Upcoming Features
-
-The current release primarily supports model inference using Python scripts. In future versions, we plan to expand the capabilities of this package by:
-
-- Adding python training and evaluation scripts for a more comprehensive user experience. Interested users can refer to the [IBM/transition-amr-parser](https://github.com/IBM/transition-amr-parser) repository for training and evaluation in the meantime.
-- Broadening platform support to include M1 MacOS and higher versions of Python, in addition to the current support for the Linux operating system and Python 3.8.
-
+```
+initialize_with_watbart=/path/to/checkpoint_best.pt
+```
 
 ## Research and Evaluation Results
 ### Structured-BART 
@@ -268,7 +233,6 @@ The code also contains an implementation of the AMR aligner from [(Naseem et al 
 
 Aside from listed [contributors](https://github.com/IBM/transition-amr-parser/graphs/contributors), the initial commit was developed by Miguel Ballesteros and Austin Blodgett while at IBM.
 
-
 ## IBM Internal Features
 
 IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wiki) for available parsing web-services, CCC installers/trainers, trained models, etc. 
@@ -277,7 +241,7 @@ IBM-ers please look [here](https://github.ibm.com/mnlp/transition-amr-parser/wik
 
 We offer some trained checkpoints on demand, and their evalution score measured in Smatch is below:
 
-|  paper                                                          |  config(.zip)                                         | beam    | Smatch  |
+|  paper                                                          |  config(.zip)                                          | beam    | Smatch  |
 |:---------------------------------------------------------------:|:------------------------------------------------------:|:-------:|:-------:|
 | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr2.0-structured-bart-large-neur-al-seed42            |   10    |   84.0  |
 | [(Drozdov et al 2022)](https://arxiv.org/abs/2205.01464) MAP    | amr3.0-structured-bart-large-neur-al-seed42            |   10    |   82.6  |
@@ -285,8 +249,15 @@ We offer some trained checkpoints on demand, and their evalution score measured 
 | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | amr2joint_ontowiki2_g2g-structured-bart-large          |   10    |   85.9  |  
 | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | amr3joint_ontowiki2_g2g-structured-bart-large          |   10    |   84.4  |  
 
-we also provide the trained `ibm-neural-aligner` under names `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`. For the ensemble we provide the three seeds. Following fairseq conventions, to run the ensemble just give the three checkpoint paths joined by `:` to the normal checkpoint argument `-c`. Note that the checkpoints were trained with the `v0.5.1` tokenizer, this reduces performance by `0.1` on `v0.5.2` tokenized data.
+we also provide the trained `ibm-neural-aligner` under names
+`AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`. For the
+ensemble we provide the three seeds. Following fairseq conventions, to run the
+ensemble just give the three checkpoint paths joined by `:` to the normal
+checkpoint argument `-c`. Note that the checkpoints were trained with the
+`v0.5.1` tokenizer, this reduces performance by `0.1` on `v0.5.2` tokenized
+data.
 
-Note that we allways report average of three seeds in papers while these are individual models. A fast way to test models standalone is
+Note that we allways report average of three seeds in papers while these are
+individual models. A fast way to test models standalone is
 
     bash tests/standalone.sh configs/<config>.sh
