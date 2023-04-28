@@ -64,7 +64,7 @@ cd ..
 
 ## Parse with a pretrained model
 
-Here is an example of how to download and use a pretrained AMR parser:
+Here is an example of how to download and use a pretrained AMR parser in Python
 
 ```python
 from transition_amr_parser.parse import AMRParser
@@ -88,7 +88,8 @@ amr.plot()
 
 ```
 
-Note that Smatch does not support ISI and gives worse results. 
+Note that Smatch does not support ISI-type alignments and gives worse results.
+Set `isi=False` to remove them. 
 
 You can also use the command line to run a pretrained model to parse a file:
 
@@ -96,7 +97,7 @@ You can also use the command line to run a pretrained model to parse a file:
 amr-parse -c $in_checkpoint -i $input_file -o file.amr
 ```
 
-Download models can invoked with`-m <config>` can be used as well.
+Download models can invoked with `-m <config>` can be used as well.
 
 Note that Smatch does not support ISI and gives worse results. Use `--no-isi`
 to store alignments in `::alignments` meta data. Also use `--jamr` to add JAMR
@@ -105,7 +106,7 @@ meta data. Also use `--jamr` to add JAMR annotations in meta-data.
 
 ## Document-level Parsing
 
-This represents co-reference using *:same-as* edges. To change
+This represents co-reference using `:same-as` edges. To change
 the representation and merge the co-referent nodes as in the paper, please refer
 to [the DocAMR repo](https://github.com/IBM/docAMR.git)
 
