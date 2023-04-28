@@ -30,11 +30,12 @@ environment as above and set environment variables. If not used, just create
 an empty version
 
 ```
+# or e.g. put inside conda activate ./cenv_x86
 touch set_environment.sh
 ```
 
 Then install the parser package using pip. You will need to install
-`torch-scatter` by separate since it custom built for CUDA. Here we specify the
+`torch-scatter` by separate since it is custom built for CUDA. Here we specify the
 call for `torch 1.13.1` and `cuda 11.7`. See [torch-scatter
 repository](https://pypi.org/project/torch-scatter/) to find the appropriate
 installation instructions.
@@ -44,10 +45,12 @@ pip install transition-neural-parser
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
 
-If you plan to edit the code, use instead
+If you plan to edit the code, clone and install instead
 
 ```
-pip install transition-neural-parser --editable
+# clone this repo (see link above), then
+cd transition-neural-parser
+pip install --editable .
 ```
 
 If you want to train a document-level AMR parser you will also need 
@@ -57,7 +60,6 @@ git clone https://github.com/IBM/docAMR.git
 cd docAMR
 pip install .
 cd ..
-
 ```
 
 ## Parse with a pretrained model
