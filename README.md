@@ -188,7 +188,7 @@ This table shows you available pretrained model names to download;
 | AMR3-joint-ontowiki-seed42            | amr3joint_ontowiki2_g2g-structured-bart-large-seed42.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
 | AMR3-joint-ontowiki-seed43            | amr3joint_ontowiki2_g2g-structured-bart-large-seed43.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
 | AMR3-joint-ontowiki-seed44            | amr3joint_ontowiki2_g2g-structured-bart-large-seed44.zip      | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4  | 
-| doc-sen-conll-amr-seed42              |both_doc+sen_trainsliding_ws400x100-seed42.zip                |82.3.1<sup>1</sup>/71.8 <sup>2</sup>||
+| doc-sen-conll-amr-seed42              |both_doc+sen_trainsliding_ws400x100-seed42.zip                |82.3<sup>1</sup>/71.8 <sup>2</sup>||
 
 <sup>1 Smatch on AMR3.0 sentences</sup>
 
