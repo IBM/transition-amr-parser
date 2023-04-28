@@ -146,12 +146,9 @@ text file where each line is a sentence in the document and there is a newline
 
 
 ```bash
-amr-parse -c $in_checkpoint --in-doc $doc_input_file -o file.docamr --sliding
+amr-parse -c $in_checkpoint --in-doc $doc_input_file -o file.docamr
 ```
 
-This will output a `.force_actions` file to the same directory as input ,
-containing the actions needed to force sentence ends in the document as well as
-the output docamr `file.docamr`
 
 ## Available Pretrained Model Checkpoints
 
@@ -174,7 +171,11 @@ This table shows you available pretrained model names to download;
 | AMR3-joint-ontowiki-seed42 | amr3joint_ontowiki2_g2g-structured-bart-large-seed42  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4          |
 | AMR3-joint-ontowiki-seed43 | amr3joint_ontowiki2_g2g-structured-bart-large-seed43  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4          |
 | AMR3-joint-ontowiki-seed44 | amr3joint_ontowiki2_g2g-structured-bart-large-seed44  | [(Lee et al 2022)](https://arxiv.org/abs/2112.07790) (ensemble) | 84.4          |
-| doc-sen-conll-amr-seed42   | both_doc+sen_trainsliding_ws400x100-seed42            |                                                                 |               |
+| doc-sen-conll-amr-seed42   | both_doc+sen_trainsliding_ws400x100-seed42            |                                                                 | 82.3<sup>1</sup>/71.8 <sup>2</sup>|              |
+
+<sup>1 Smatch on AMR3.0 sentences</sup>
+
+<sup>2 Smatch on AMR3.0 Multi-Sentence dataset </sup>
 
 we also provide the trained `ibm-neural-aligner` under names
 `AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`. For the
@@ -188,6 +189,7 @@ Note that we allways report average of three seeds in papers while these are
 individual models. A fast way to test models standalone is
 
     bash tests/standalone.sh configs/<config>.sh
+
 
 ## Training a model
 
