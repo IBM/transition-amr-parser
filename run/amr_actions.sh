@@ -193,10 +193,6 @@ else
         cp $DEV_IN_AMR $ORACLE_FOLDER/ref_dev.amr
     fi
 
-
-
-    
-
     python src/transition_amr_parser/amr_machine.py \
         --in-aligned-amr $DEV_IN_AMR \
         --in-machine-config $ORACLE_FOLDER/machine_config.json \
