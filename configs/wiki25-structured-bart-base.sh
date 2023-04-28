@@ -250,7 +250,7 @@ else
     tis_tag=""
 fi
 # Load WatBART for initialization
-# initialize_with_watbart="/dccstor/phalanx/masayasu/projects/data/trained_model/bart_hap-filtered/fs/checkpoint_best.pt" # use this if using watbart on ccc
+# initialize_with_watbart="/path/to/checkpoint_best.pt" # use this if using watbart on ccc
 initialize_with_watbart="0" # for not using watbart
 
 
