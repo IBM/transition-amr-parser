@@ -104,7 +104,6 @@ else
 
     elif [ $MODE == "sen" ];then
         train_force_args=""
-        echo -e "\n Sen Mode , Using train data" 
         TRAIN_IN_AMR=$AMR_TRAIN_FILE
         cp $TRAIN_IN_AMR $ORACLE_FOLDER/ref_train.amr
     fi
@@ -183,10 +182,7 @@ else
             DEV_IN_AMR=$AMR_SENT_DEV_FILE
         fi
 
-
-
     elif [ $MODE == "sen" ];then
-        echo -e "\n Sen Mode, Using dev data" 
         DEV_DOC_ORACLE_ARGS=""
         dev_force_args=""
         DEV_IN_AMR=$AMR_DEV_FILE
@@ -260,7 +256,6 @@ else
     
     
     if [ $MODE = "sen" ];then
-        echo -e "\n Sen Mode, Using test data" 
         TEST_DOC_ORACLE_ARGS=""
         test_force_args=""
         TEST_IN_AMR=$AMR_TEST_FILE

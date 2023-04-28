@@ -1,10 +1,11 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.5.2.1'
+VERSION = '0.5.3'
 
 install_requires = [
     "torch==1.13.1",
     'numpy<=1.23.5',
+    'ipython==8.12',
     'tqdm>=4.55.0',
     'fairseq==0.10.2',
     'packaging>=20.8',
@@ -17,13 +18,12 @@ install_requires = [
     # needs tools to be importable > 1.0.4
     'smatch>=1.0.3.2',
     # for debugging
-    'ipdb>=0.13.0',
+    'ipdb',
     'line_profiler>=4.0.2',
     'pyinstrument>=4.4.0',
     # for aws download
     'boto3>=1.26.1',
     'progressbar',
-    'torch-scatter @ https://data.pyg.org/whl/torch-1.13.0%2Bcu117/torch_scatter-2.1.0%2Bpt113cu117-cp38-cp38-linux_x86_64.whl',
 ]
 
 if __name__ == '__main__':

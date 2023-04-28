@@ -17,7 +17,7 @@ Some of the main features
 
 ## Install Instructions
 
-create and activate a virtual environment, for example conda with python 3.8 (we also tested 3.7, 3.9)
+create and activate a virtual environment, for example conda with python 3.8 (we also tested 3.9)
 
 ```
 conda create -y -p ./cenv_x86 python=3.8

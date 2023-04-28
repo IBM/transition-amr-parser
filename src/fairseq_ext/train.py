@@ -101,7 +101,7 @@ def main(args):
     potential_sub_split =  glob(args.data+"/valid_?.*.en")
     if len(potential_sub_split):
         valid_sub_splits = [sub_split.split("/")[-1].split(".")[0] for sub_split in potential_sub_split]
-        
+
     for valid_sub_split in valid_sub_splits:
         task.load_dataset(valid_sub_split, combine=False, epoch=1)
 
@@ -250,7 +250,7 @@ def main(args):
                     model.decoder.embed_tokens.weight.copy_(composite_embed.embedding_weight)
                     model.decoder.output_projection.weight.copy_(composite_embed.embedding_weight)
 
-    elif 'apt2_mini' in args.arch: 
+    elif 'apt2_mini' in args.arch:
         if args.initialize_with_bart:
             logger.info('-' * 10 + ' initializing model parameters with pretrained BART model ' + '-' * 10)
 

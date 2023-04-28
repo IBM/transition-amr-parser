@@ -24,8 +24,8 @@ class AlignmentDecoder(object):
 
             # variables
 
-            indexa = torch.arange(len_a)
-            indext = torch.arange(len_t)
+            indexa = torch.arange(len_a).to(device)
+            indext = torch.arange(len_t).to(device)
 
             # select
 
