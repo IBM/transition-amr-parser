@@ -303,6 +303,7 @@ def load_roberta(name=None, roberta_cache_path=None, roberta_use_gpu=False):
         roberta.cuda()
     return roberta
 
+
 def read_doc_text(in_file):
     sents = []
     docs = []
@@ -317,12 +318,12 @@ def read_doc_text(in_file):
 
     return docs
 
+
 def get_force_actions(docs, sen_ends=None):
 
     force_actions_set = []
     return_docs = []
-    
-    
+
     for idx, docsen in enumerate(docs):
 
         offset = 0
@@ -330,7 +331,7 @@ def get_force_actions(docs, sen_ends=None):
             ends = []
             doc_toks = []
             for sen in docsen:
-                
+
                 ends.append(offset+len(sen)-1)
                 offset += len(sen)
                 doc_toks.extend(sen)
@@ -340,7 +341,6 @@ def get_force_actions(docs, sen_ends=None):
             force_actions = make_eos_force_actions(doc_toks, sen_ends[idx])
         force_actions_set.append(force_actions)
         return_docs.append(doc_toks)
-        
 
     return force_actions_set, return_docs
 
@@ -888,8 +888,7 @@ class AMRParser:
                 # args.nbest is default 1, i.e. saving only the top predictions
                 if 'bartsv' in self.model_args.arch:
                     # shared vocabulary BART
-                    print(yellow_font(
-                        'WARNING: If force actions have been provided, they will not be used since this model is a joint vocab model and does not support force actions yet . '))
+
                     actions_nopos, actions_pos, actions = \
                         post_process_action_pointer_prediction_bartsv(
                             hypo, self.tgt_dict
@@ -951,6 +950,11 @@ class AMRParser:
             roberta_batch_size (int, optional): RoBerta batch size. Defaults to
             10.
         """
+        # check if model is bartsv and force_actions are given
+        if 'bartsv' in self.model_args.arch and force_actions is not None:
+            raise Exception(
+                "The given model is a joint vocabulary model (bartsv) and does not support force actions. Please provide a different model or remove force actions")
+
         # max batch_size
         if len(batch) < batch_size:
             batch_size = len(batch)
@@ -1014,15 +1018,16 @@ class AMRParser:
         return annotations, machines
 
     def parse_docs(self, tok_sentences, **kwargs):
-        
+
         init_force_actions, doc_sen = get_force_actions(tok_sentences)
 
-            
         force_actions = [fac+[[]] for fac in init_force_actions]
 
-        annotations, decoding_data = get_sliding_output(tok_sentences=doc_sen,parser=self,force_actions=force_actions,**kwargs)
+        annotations, decoding_data = get_sliding_output(
+            tok_sentences=doc_sen, parser=self, force_actions=force_actions, **kwargs)
 
-        return annotations,decoding_data
+        return annotations, decoding_data
+
 
 def simple_inspector(machine):
     '''
@@ -1261,9 +1266,6 @@ def prepare_data(args, parser):
                         tok_sen.append(newsen.split())
                 tok_sentences.append(tok_sen)
 
-
-
-
         else:
             if args.tokenize:
                 # TODO: have tokenized as default
@@ -1281,7 +1283,6 @@ def prepare_data(args, parser):
     # check for empty sentences
     assert all(s != [''] for s in tok_sentences), "Empty sentences!"
 
-    
     # sampling needs copy of sentences N times
     if args.num_samples is not None:
         tok_sentences = [
@@ -1289,7 +1290,6 @@ def prepare_data(args, parser):
             for tsent in tok_sentences
             for _ in range(args.num_samples)
         ]
-        
 
     return tok_sentences, gold_amrs
 
@@ -1359,8 +1359,8 @@ def main():
             with open(args.in_actions) as fact:
                 force_actions = [eval(line.strip()) + [[]] for line in fact]
             assert len(tok_sentences) == len(
-            force_actions), "Number of force actions doesn't match the number of sentences"
-        
+                force_actions), "Number of force actions doesn't match the number of sentences"
+
             # sampling needs copy of force actions N times
             if args.num_samples is not None:
                 force_actions = [
@@ -1376,16 +1376,15 @@ def main():
         start = time.time()
 
         if args.in_doc:
-            annotations, machines = parser.parse_docs(tok_sentences, 
-                gold_amrs=gold_amrs,
-                window_size=args.window_size,
-                window_overlap=args.window_overlap,
-                batch_size=args.batch_size,
-                roberta_batch_size=args.roberta_batch_size,
-                beam=args.beam,
-                jamr=args.jamr,
-                no_isi=args.no_isi)
-    
+            annotations, machines = parser.parse_docs(tok_sentences,
+                                                      gold_amrs=gold_amrs,
+                                                      window_size=args.window_size,
+                                                      window_overlap=args.window_overlap,
+                                                      batch_size=args.batch_size,
+                                                      roberta_batch_size=args.roberta_batch_size,
+                                                      beam=args.beam,
+                                                      jamr=args.jamr,
+                                                      no_isi=args.no_isi)
 
         else:
 
