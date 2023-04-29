@@ -17,17 +17,17 @@ Some of the main features
 
 ## Install Instructions
 
-create and activate a virtual environment, for example conda with python 3.8 (we also tested 3.9)
+create and activate a virtual environment with python 3.8, for example
 
 ```
 conda create -y -p ./cenv_x86 python=3.8
 conda activate ./cenv_x86
 ```
 
-or alternatively use `virtualenv`. Note that all scripts source a
-`set_environment.sh` script that you can use to activate your virtual
-environment as above and set environment variables. If not used, just create 
-an empty version
+or alternatively use `virtualenv` and `pyenv` for python versions. Note that
+all scripts source a `set_environment.sh` script that you can use to activate
+your virtual environment as above and set environment variables. If not used,
+just create an empty version
 
 ```
 # or e.g. put inside conda activate ./cenv_x86
