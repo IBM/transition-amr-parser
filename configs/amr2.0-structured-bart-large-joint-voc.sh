@@ -129,7 +129,7 @@ share_all_embeddings=1    # share encoder and decoder input embeddings
 arch=transformer_tgt_pointer_bartsv_large
 
 # Load WatBART for initialization
-# initialize_with_watbart="/dccstor/phalanx/masayasu/projects/data/trained_model/bart_hap-filtered/fs/checkpoint_best.pt" # use this if using watbart on ccc
+# initialize_with_watbart="/path/to/checkpoint_best.pt" # use this if using watbart on ccc
 initialize_with_watbart="0" # for not using watbart
 
 initialize_with_bart=1
