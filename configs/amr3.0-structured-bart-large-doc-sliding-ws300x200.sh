@@ -138,7 +138,7 @@ tgt_vocab_masks=1
 share_decoder_embed=0
 
 arch=transformer_tgt_pointer_bart_large
-
+initialize_with_watbart="0"
 initialize_with_bart=1
 initialize_with_bart_enc=1
 initialize_with_bart_dec=1
