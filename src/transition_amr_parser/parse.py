@@ -47,6 +47,15 @@ from transition_amr_parser.clbar import yellow_font
 from transition_amr_parser.amr_machine import make_eos_force_actions
 
 
+UNICODE_WHITESPACE = [
+    u'\t', u'\n', u'\x0b', u'\x0c', u'\r', u'\x1c', u'\x1d', u'\x1e', u'\x1f',
+    u'\x85', u'\xa0', u'\u1680', u'\u2000', u'\u2001', u'\u2002', u'\u2003',
+    u'\u2004', u'\u2005', u'\u2006', u'\u2007', u'\u2008', u'\u2009',
+    u'\u200a', u'\u2028', u'\u2029', u'\u202f', u'\u205f', u'\u3000'
+]
+UNI_WHITESPACE_RE = re.compile('|'.join(UNICODE_WHITESPACE))
+
+
 def argument_parsing():
 
     # Argument hanlding
@@ -941,7 +950,7 @@ class AMRParser:
 
     def parse_sentences(self, batch, batch_size=128, roberta_batch_size=128,
                         gold_amrs=None, force_actions=None, beam=1, jamr=False,
-                        no_isi=False):
+                        no_isi=False, unicode_normalize=True):
         """parse a list of sentences.
 
         Args:
@@ -963,7 +972,11 @@ class AMRParser:
         sentences = []
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
-            sentences.append(" ".join(tokens))
+            sentence = " ".join(tokens)
+            if unicode_normalize:
+                sentence = UNI_WHITESPACE_RE.sub(' ', sentence)
+                sentence = re.sub('  +', ' ', sentence)
+            sentences.append(sentence)
 
         data = self.convert_sentences_to_data(
             sentences,
