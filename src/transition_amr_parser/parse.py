@@ -1,6 +1,7 @@
 # Standalone AMR parser from an existing trained APT model
 
 import os
+import re
 import time
 import math
 import copy
@@ -594,14 +595,14 @@ class AMRParser:
                         roberta_cache_path=None, fp16=False,
                         inspector=None, beam=1, nbest=1, num_samples=None,
                         sampling_topp=-1, temperature=1.0):
-        """ Load model checkpoints from available model names; 
-        Will check if the model is downloaded to cache, if not, download from cloud storage; 
+        """ Load model checkpoints from available model names;
+        Will check if the model is downloaded to cache, if not, download from cloud storage;
         Below is a list of available modelnames to trun
             {
                 'AMR3.0':'https://s3.us-east.cloud-object-storage.appdomain.cloud/cloud-object-storage-xc-cos-standard-htg/amr3.0-structured-bart-large-neur-al-sampling5.zip'
             }
         Args:
-            modelname (str): a model name within our pretrained model library. 
+            modelname (str): a model name within our pretrained model library.
             dict_dir (_type_, optional): _description_. Defaults to None.
             roberta_cache_path (_type_, optional): _description_. Defaults to None.
             fp16 (bool, optional): _description_. Defaults to False.
@@ -972,7 +973,7 @@ class AMRParser:
         sentences = []
         # The model expects <ROOT> token at the end of the input sentence
         for tokens in batch:
-            sentence = " ".join(tokens)
+            sentence = " ".join(tokens).strip()
             if unicode_normalize:
                 sentence = UNI_WHITESPACE_RE.sub(' ', sentence)
                 sentence = re.sub('  +', ' ', sentence)
