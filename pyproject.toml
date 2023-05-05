@@ -4,9 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "transition_neural_parser"
-version = '0.5.2.1'
+version = '0.5.3'
 authors = [
+  { name="Ramon", email="ramon.astudillo@ibm.com" },
+  { name="Young-Suk", email="ysuklee@us.ibm.com" },
+  { name="Tahira", email="tnaseem@us.ibm.com" },
+  { name="Sadhana", email="sadhana.kumaravel1@ibm.com" },
   { name="GX", email="GX.Xu@ibm.com" },
+  { name="Hans", email="raduf@us.ibm.com" },
+  { name="Salim", email="roukos@us.ibm.com" },
 ]
 description = "The package for transition based nueral AMR parser"
 readme = "README.md"
@@ -21,5 +27,5 @@ classifiers = [
 os = "linux"
 
 [project.urls]
-"Homepage" = "https://github.ibm.com/mnlp/transition-amr-parser/tree/transition-neural-parser"
-"Bug Tracker" = "https://github.ibm.com/mnlp/transition-amr-parser/issues"
+homepage = "https://github.ibm.com/mnlp/transition-amr-parser/tree/master"
+tracker = "https://github.ibm.com/mnlp/transition-amr-parser/issues"
