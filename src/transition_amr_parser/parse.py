@@ -140,8 +140,10 @@ def argument_parsing():
     parser.add_argument(
         '-m', '--model-name',
         type=str,
-        help='name of model config (instead of checkpoint) and optionally'
-             'seed separated by : e.g. amr2.0-structured-bart-large:42'
+        help="pretrained checkpoint name; will first check if it is already in \
+            cache, if not will automatically download and save to cache.; \
+            eg: AMR2-structbart-L \
+            for complete list of available checkpoint names, see README"
     )
     parser.add_argument(
         '-o', '--out-amr',
@@ -246,13 +248,23 @@ def argument_parsing():
 
     return args
 
-
+############### HELPER FUNCTIONS ##########################
 def ordered_exit(signum, frame):
     print("\nStopped by user\n")
     exit(0)
 
 
 def load_models_and_task(args, use_cuda, task=None):
+    """Fairseq load from task method
+
+    Args:
+        args (args): args from argparser
+        use_cuda (bool): _description_
+        task (FaiseqTask, optional): _description_. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
     # if `task` is not provided, it will be from the saved model args
     models, model_args, task = checkpoint_utils.load_model_ensemble_and_task(
         args.path.split(':'),
@@ -279,7 +291,14 @@ def load_models_and_task(args, use_cuda, task=None):
 
 
 def load_args_from_config(config_path):
-    """Load args from bash configuration scripts"""
+    """Load args from bash configuration scripts
+
+    Args:
+        config_path (str): the path to a training configuration file
+
+    Returns:
+        dict: dictionary containing config info
+    """
     # TODO there might be better ways; e.g. source the bash script in python
     # and use $BERT_LAYERS directly
     config_dict = {}
@@ -494,6 +513,7 @@ def get_sliding_output(tok_sentences, parser, gold_amrs=None,
         all_tokens, all_actions, parser.machine_config)
     return annotations, machines
 
+############### END HELPER FUNCTIONS ##########################
 
 class AMRParser:
     def __init__(
@@ -708,9 +728,26 @@ class AMRParser:
                         roberta_cache_path=None, fp16=False,
                         inspector=None, beam=1, nbest=1, num_samples=None,
                         sampling_topp=-1, temperature=1.0):
-        '''
-        Initialize model from checkpoint
-        '''
+        """ Load a checkpoint from model path
+
+        Args:
+            checkpoint (str): path to the model checkpoint
+            dict_dir (_type_, optional): _description_. Defaults to None.
+            roberta_cache_path (_type_, optional): _description_. Defaults to None.
+            fp16 (bool, optional): _description_. Defaults to False.
+            inspector (_type_, optional): _description_. Defaults to None.
+            beam (int, optional): _description_. Defaults to 1.
+            nbest (int, optional): _description_. Defaults to 1.
+            num_samples (_type_, optional): _description_. Defaults to None.
+            sampling_topp (int, optional): _description_. Defaults to -1.
+            temperature (float, optional): _description_. Defaults to 1.0.
+
+        Raises:
+            ValueError: _description_
+
+        Returns:
+            _type_: _description_
+        """
         # load default args: some are dummy
         parser = options.get_interactive_generation_parser()
         # model path set here
@@ -1109,19 +1146,21 @@ def save_multiple_files(args, num_sentences, out_path, string_list):
 
 
 def load_parser(args, inspector):
+    """ A meta load to check for loading from model name, or loading 
+    from checkpoint path
+
+    Args:
+        args (_type_): arguments from arg parser
+        inspector (_type_): function to call after each step
+
+    Returns:
+        AMRParser: AMRParser class object
+
+    """
 
     if args.model_name:
-        # load from name and optionally seed
-        items = args.model_name.split(':')
-        model_name = items[0]
-        if len(items) > 1:
-            seed = items[1]
-        else:
-            seed = None
-        # load from model/config name
-        return AMRParser.load(
-            model_name,
-            seed=seed,
+        return AMRParser.from_pretrained(
+            args.model_name,
             roberta_cache_path=args.roberta_cache_path,
             inspector=inspector,
             # selected fairseq decoder arguments
@@ -1132,6 +1171,7 @@ def load_parser(args, inspector):
             # this is not, but implies --sampling
             num_samples=args.num_samples
         )
+
     else:
         # load from checkpoint and files in its folder
         return AMRParser.from_checkpoint(
