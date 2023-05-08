@@ -26,6 +26,7 @@ install_requires = [
     'progressbar',
 ]
 
+# platform dependent fairseq version
 if sys.platform == 'darwin':
     install_requires.append("fairseq==0.10.0")
     # torch-scatter can be directly installed on macos;
