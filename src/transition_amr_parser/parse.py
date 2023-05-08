@@ -682,6 +682,8 @@ class AMRParser:
 
         # get cache storage dir, in which we save the downloaded models
         cache_dir = torch.hub._get_torch_home() + '/'
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
         cache_save_zip = cache_dir + zip_file
 
         # get checkpoint path
