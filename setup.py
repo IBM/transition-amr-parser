@@ -1,13 +1,13 @@
 from setuptools import setup, find_packages
+import sys
 
-VERSION = '0.5.3'
+VERSION = '0.5.4'
 
 install_requires = [
     "torch==1.13.1",
     'numpy<=1.23.5',
     'ipython<=8.12', # python 3.8 vs ipython 8.13 incompatibility
     'tqdm>=4.55.0',
-    'fairseq==0.10.2', # seems to not work on python 3.9 for some platforms
     'packaging>=20.8',
     'requests>=2.25.1',
     # for data (ELMO embeddings)
@@ -25,6 +25,14 @@ install_requires = [
     'boto3>=1.26.1',
     'progressbar',
 ]
+
+if sys.platform == 'darwin':
+    install_requires.append("fairseq==0.10.0")
+    # torch-scatter can be directly installed on macos;
+    # it needs to be separately install with url on linux
+    install_requires.append("torch-scatter")
+else:
+    install_requires.append("fairseq==0.10.2")
 
 if __name__ == '__main__':
     setup(
