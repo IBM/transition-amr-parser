@@ -34,11 +34,14 @@ just create an empty version
 touch set_environment.sh
 ```
 
-Then install the parser package using pip. You will need to install
-`torch-scatter` by separate since it is custom built for CUDA. Here we specify the
+Then install the parser package using pip. You will need to manually install
+`torch-scatter` since it is custom built for CUDA. Here we specify the
 call for `torch 1.13.1` and `cuda 11.7`. See [torch-scatter
 repository](https://pypi.org/project/torch-scatter/) to find the appropriate
-installation instructions.
+installation instructions. 
+
+**For MacOS users** 
+(No need to manually install torch-scatter; however, model training is not fully supported here.)
 
 ```
 pip install transition-neural-parser
@@ -51,6 +54,7 @@ If you plan to edit the code, clone and install instead
 # clone this repo (see link above), then
 cd transition-neural-parser
 pip install --editable .
+pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 ```
 
 If you want to train a document-level AMR parser you will also need 
