@@ -4,7 +4,7 @@ Transition-based Neural Parser
 State-of-the-Art Abstract Meaning Representation (AMR) parsing, see [papers
 with code](https://paperswithcode.com/task/amr-parsing). Models both
 distribution over graphs and aligments with a transition-based approach. Parser
-supports any other graph formalism as long as it is expressed in [Penman
+supports generic text-to-graph as long as it is expressed in [Penman
 notation](https://penman.readthedocs.io/en/latest/notation.html).
 
 Some of the main features
@@ -29,7 +29,7 @@ all scripts source a `set_environment.sh` script that you can use to activate
 your virtual environment as above and set environment variables. If not used,
 just create an empty version
 
-```
+```bash
 # or e.g. put inside conda activate ./cenv_x86
 touch set_environment.sh
 ```
@@ -44,7 +44,7 @@ installation instructions.
 
 (Please install the cpu version of torch-scatter; and model training is not fully supported here.)
 
-```
+```bash
 pip install transition-neural-parser
 # for linux users
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
@@ -54,7 +54,7 @@ pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 
 If you plan to edit the code, clone and install instead
 
-```
+```bash
 # clone this repo (see link above), then
 cd transition-neural-parser
 pip install --editable .
@@ -63,7 +63,7 @@ pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 
 If you want to train a document-level AMR parser you will also need 
 
-```
+```bash
 git clone https://github.com/IBM/docAMR.git
 cd docAMR
 pip install .
@@ -185,8 +185,7 @@ This table shows you available pretrained model names to download;
 
 <sup>2 Smatch on AMR3.0 Multi-Sentence dataset </sup>
 
-we also provide the trained `ibm-neural-aligner` under names
-`AMR2.0_ibm_neural_aligner.zip` and `AMR3.0_ibm_neural_aligner.zip`. For the
+contact authors to obtain the trained `ibm-neural-aligner`. For the
 ensemble we provide the three seeds. Following fairseq conventions, to run the
 ensemble just give the three checkpoint paths joined by `:` to the normal
 checkpoint argument `-c`. Note that the checkpoints were trained with the
@@ -197,7 +196,6 @@ Note that we allways report average of three seeds in papers while these are
 individual models. A fast way to test models standalone is
 
     bash tests/standalone.sh configs/<config>.sh
-
 
 ## Training a model
 
