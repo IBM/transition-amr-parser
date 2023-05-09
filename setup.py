@@ -28,9 +28,6 @@ install_requires = [
 
 if sys.platform == 'darwin':
     install_requires.append("fairseq==0.10.0")
-    # torch-scatter can be directly installed on macos;
-    # it needs to be separately install with url on linux
-    install_requires.append("torch-scatter")
 else:
     install_requires.append("fairseq==0.10.2")
 
