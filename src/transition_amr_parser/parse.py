@@ -682,6 +682,7 @@ class AMRParser:
 
         # get cache storage dir, in which we save the downloaded models
         cache_dir = torch.hub._get_torch_home() + '/'
+        os.makedirs(cache_dir, exist_ok=True)
         cache_save_zip = cache_dir + zip_file
 
         # get checkpoint path
@@ -719,15 +720,17 @@ class AMRParser:
 
             if os.path.getsize(cache_save_zip) < 1000000:
                 raise Exception(
-                    "our model download limit is reached; please try downloading  again next week.")
+                    "our model download limit is reached; please try "
+                    "downloading  again next week."
+                )
 
             with zipfile.ZipFile(cache_dir + zip_file, 'r') as zip_ref:
                 zip_ref.extractall(torch.hub._get_torch_home())
-            print("downloaded model unzipped")
-            assert os.path.isfile(
-                checkpoint_path), 'checkpoint still not available after downloads;'
+            print(f"downloaded model unzipped to {checkpoint_path}")
+            assert os.path.isfile(checkpoint_path), \
+                'checkpoint still not available after downloads'
         else:
-            print('model is already in cache')
+            print(f'load from cache {checkpoint_path}')
         return cls.from_checkpoint(checkpoint_path, dict_dir,
                                    roberta_cache_path, fp16, inspector,
                                    beam, nbest, num_samples, sampling_topp,

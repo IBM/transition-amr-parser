@@ -1,13 +1,13 @@
 from setuptools import setup, find_packages
+import sys
 
-VERSION = '0.5.3'
+VERSION = '0.5.4'
 
 install_requires = [
     "torch==1.13.1",
     'numpy<=1.23.5',
     'ipython<=8.12', # python 3.8 vs ipython 8.13 incompatibility
     'tqdm>=4.55.0',
-    'fairseq==0.10.2', # seems to not work on python 3.9 for some platforms
     'packaging>=20.8',
     'requests>=2.25.1',
     # for data (ELMO embeddings)
@@ -15,8 +15,8 @@ install_requires = [
     'python-dateutil>=2.8.1',
     # for scoringy
     'penman>=1.1.0',
-    # needs tools to be importable > 1.0.4
-    'smatch>=1.0.3.2',
+    # needs tools to be importable > 1.0.4. As of now, no official release
+    'smatch',
     # for debugging
     'ipdb',
     'line_profiler>=4.0.2',
@@ -25,6 +25,12 @@ install_requires = [
     'boto3>=1.26.1',
     'progressbar',
 ]
+
+# platform dependent fairseq version
+if sys.platform == 'darwin':
+    install_requires.append("fairseq==0.10.0")
+else:
+    install_requires.append("fairseq==0.10.2")
 
 if __name__ == '__main__':
     setup(
