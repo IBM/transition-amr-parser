@@ -41,11 +41,15 @@ repository](https://pypi.org/project/torch-scatter/) to find the appropriate
 installation instructions. 
 
 **For MacOS users** 
-(No need to manually install torch-scatter; however, model training is not fully supported here.)
+
+(Please install the cpu version of torch-scatter; and model training is not fully supported here.)
 
 ```
 pip install transition-neural-parser
+# for linux users
 pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+# for cpu installation for MacOS
+# pip install torch-scatter
 ```
 
 If you plan to edit the code, clone and install instead
