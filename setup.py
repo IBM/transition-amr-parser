@@ -15,8 +15,8 @@ install_requires = [
     'python-dateutil>=2.8.1',
     # for scoringy
     'penman>=1.1.0',
-    # needs tools to be importable > 1.0.4
-    'smatch>=1.0.3.2',
+    # needs tools to be importable > 1.0.4. As of now, no official release
+    'smatch',
     # for debugging
     'ipdb',
     'line_profiler>=4.0.2',
@@ -26,6 +26,7 @@ install_requires = [
     'progressbar',
 ]
 
+# platform dependent fairseq version
 if sys.platform == 'darwin':
     install_requires.append("fairseq==0.10.0")
 else:
