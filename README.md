@@ -47,7 +47,7 @@ installation instructions.
 ```bash
 pip install transition-neural-parser
 # for linux users
-pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+pip install --no-index torch-scatter -f https://pytorch-geometric.com/whl/torch-1.13.1+cu117.html
 # for cpu installation for MacOS
 # pip install torch-scatter
 ```
@@ -58,7 +58,7 @@ If you plan to edit the code, clone and install instead
 # clone this repo (see link above), then
 cd transition-neural-parser
 pip install --editable .
-pip install torch-scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+pip install --no-index torch-scatter -f https://pytorch-geometric.com/whl/torch-1.13.1+cu117.html
 ```
 
 If you want to train a document-level AMR parser you will also need 
