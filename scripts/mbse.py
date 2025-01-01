@@ -142,10 +142,10 @@ def get_triples(graph):
         # sanity check
         assert nname is not None
         triples['attributes'][nid].append((role, normalize(nname)))
-
-    triples['attributes'] = dict(triples['attributes'])
+    
     # include root
-    triples['attributes'][graph.top] = [('top', 'TOP')]
+    triples['attributes'][graph.top].append(('top', 'TOP'))
+    triples['attributes'] = dict(triples['attributes'])
 
     # edges
     for src, role, trg in graph.edges():
