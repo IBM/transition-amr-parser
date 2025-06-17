@@ -4,7 +4,7 @@ import sys
 VERSION = '0.5.4'
 
 install_requires = [
-    "torch==1.13.1",
+    "torch==2.7.1",
     'numpy<=1.23.5',
     'ipython<=8.12', # python 3.8 vs ipython 8.13 incompatibility
     'tqdm>=4.55.0',
