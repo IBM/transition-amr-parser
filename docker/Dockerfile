@@ -84,7 +84,7 @@ RUN python3 -m grpc_tools.protoc -I./service/  --python_out=./service/ --grpc_py
 RUN rm -rf *.zip
 RUN chmod -R 777 /amr_parser
 
-FROM golang:1.17 AS grpcurl_build
+FROM golang:1.23 AS grpcurl_build
 RUN go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 
 FROM rhel-base as amr-final
