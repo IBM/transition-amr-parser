@@ -4,12 +4,12 @@ import sys
 VERSION = '0.5.4'
 
 install_requires = [
-    "torch==2.6.0",
-    'numpy<=1.23.5',
-    'ipython<=8.12', # python 3.8 vs ipython 8.13 incompatibility
-    'tqdm>=4.55.0',
+    "torch==2.13.0",
+    'numpy==1.23.5',
+    'ipython==8.12', # python 3.8 vs ipython 8.13 incompatibility
+    'tqdm>=4.66.3',
     'packaging>=20.8',
-    'requests>=2.25.1',
+    'requests>=2.33.0',
     # for data (ELMO embeddings)
     'h5py>=3.0.0',
     'python-dateutil>=2.8.1',
