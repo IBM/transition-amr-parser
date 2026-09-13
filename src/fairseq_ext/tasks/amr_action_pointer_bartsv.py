@@ -286,7 +286,7 @@ class AMRActionPointerBARTSVParsingTask(FairseqTask):
                 bart = torch.hub.load('pytorch/fairseq', 'bart.large')
                 if 'initialize_with_watbart' in args.__dict__.keys() and args.initialize_with_watbart is not None:
                     try:
-                        bart_local = torch.load(args.initialize_with_watbart)
+                        bart_local = torch.load(args.initialize_with_watbart, weights_only=False)
                         bart.model.load_state_dict(bart_local['model'])
                     except Exception:
                         raise ValueError("the specified path at initialize_with_watbart \

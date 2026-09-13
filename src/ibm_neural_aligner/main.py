@@ -1170,9 +1170,9 @@ class Encoder(nn.Module):
 
 def load_checkpoint(path, net, opt, cuda=False):
     try:
-        toload = torch.load(path)
+        toload = torch.load(path, weights_only=False)
     except:
-        toload = torch.load(path, map_location=torch.device('cpu'))
+        toload = torch.load(path, map_location=torch.device('cpu'), weights_only=False)
 
     state_dict = net.state_dict()
 

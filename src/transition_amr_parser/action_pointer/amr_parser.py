@@ -63,7 +63,7 @@ class AMRParser():
             attend_inputs=config["attend_inputs"]
         )
 
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, weights_only=False))
         model.eval()
         return model
 

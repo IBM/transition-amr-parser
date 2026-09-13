@@ -34,6 +34,7 @@ def average_checkpoints(inputs):
                 map_location=(
                     lambda s, _: torch.serialization.default_restore_location(s, "cpu")
                 ),
+                weights_only=False,
             )
         # Copies over the settings from the first checkpoint
         if new_state is None:
